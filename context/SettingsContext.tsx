@@ -23,11 +23,12 @@ interface SettingsContextType {
     setLockScreenEnabled: (enabled: boolean) => Promise<void>;
     gatewayAutoDepositEnabled: boolean;
     setGatewayAutoDepositEnabled: (enabled: boolean) => Promise<void>;
+    hideMicrotransactions: boolean;
+    setHideMicrotransactions: (enabled: boolean) => Promise<void>;
+    hideUnusualActivity: boolean;
+    setHideUnusualActivity: (enabled: boolean) => Promise<void>;
     settingsLoaded: boolean;
 }
-
-export const GATEWAY_AUTO_DEPOSIT_STORAGE_KEY = 'settings_gateway_auto_deposit';
-export const GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY = 'settings_gateway_auto_deposit_backend_synced';
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
@@ -41,11 +42,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [theme, setThemeState] = useState<Theme>('system');
     const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
     const [liveTrackingEnabled, setLiveTrackingEnabledState] = useState<boolean>(true);
-    const [lockScreenEnabled, setLockScreenEnabledState] = useState<boolean>(true);
+    const [lockScreenEnabled, setLockScreenEnabledState] = useState<boolean>(false);
     // Gateway auto-deposit is opt-in. When OFF, the app leaves USDC on each
     // chain at the EOA so users can manage liquidity manually. Existing
     // Gateway balances stay regardless — only future deposits are gated.
     const [gatewayAutoDepositEnabled, setGatewayAutoDepositEnabledState] = useState<boolean>(false);
+    const [hideMicrotransactions, setHideMicrotransactionsState] = useState<boolean>(false);
+    const [hideUnusualActivity, setHideUnusualActivityState] = useState<boolean>(false);
     const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
 
     // Listen for system theme changes
@@ -68,15 +71,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const storedTheme = await AsyncStorage.getItem('settings_theme');
             const storedHaptics = await AsyncStorage.getItem('settings_haptics');
             const storedLiveTracking = await AsyncStorage.getItem('settings_live_tracking');
-            const storedLockScreen = await AsyncStorage.getItem('settings_lock_screen');
-            const storedAutoDeposit = await AsyncStorage.getItem(GATEWAY_AUTO_DEPOSIT_STORAGE_KEY);
+            const storedHideMicrotransactions = await AsyncStorage.getItem('wallet_hide_microtransactions');
+            const storedHideUnusualActivity = await AsyncStorage.getItem('wallet_hide_unusual_activity');
 
             if (storedCurrency) setCurrencyState(storedCurrency as Currency);
             if (storedTheme) setThemeState(storedTheme as Theme);
             if (storedHaptics !== null) setHapticsEnabledState(storedHaptics === 'true');
             if (storedLiveTracking !== null) setLiveTrackingEnabledState(storedLiveTracking === 'true');
-            if (storedLockScreen !== null) setLockScreenEnabledState(storedLockScreen === 'true');
-            if (storedAutoDeposit !== null) setGatewayAutoDepositEnabledState(storedAutoDeposit === 'true');
+            if (storedHideMicrotransactions !== null) setHideMicrotransactionsState(storedHideMicrotransactions === 'true');
+            if (storedHideUnusualActivity !== null) setHideUnusualActivityState(storedHideUnusualActivity === 'true');
+            await AsyncStorage.removeItem('settings_lock_screen');
         } catch (error) {
             console.error('Failed to load settings:', error);
         } finally {
@@ -128,8 +132,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const setLockScreenEnabled = async (enabled: boolean) => {
         try {
-            setLockScreenEnabledState(enabled);
-            await AsyncStorage.setItem('settings_lock_screen', enabled ? 'true' : 'false');
+            void enabled;
+            setLockScreenEnabledState(false);
+            await AsyncStorage.removeItem('settings_lock_screen');
         } catch (error) {
             console.error('Failed to save lock screen setting:', error);
         }
@@ -138,9 +143,26 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const setGatewayAutoDepositEnabled = useCallback(async (enabled: boolean) => {
         try {
             setGatewayAutoDepositEnabledState(enabled);
-            await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_STORAGE_KEY, enabled ? 'true' : 'false');
         } catch (error) {
             console.error('Failed to save gateway auto-deposit setting:', error);
+        }
+    }, []);
+
+    const setHideMicrotransactions = useCallback(async (enabled: boolean) => {
+        try {
+            setHideMicrotransactionsState(enabled);
+            await AsyncStorage.setItem('wallet_hide_microtransactions', enabled ? 'true' : 'false');
+        } catch (error) {
+            console.error('Failed to save wallet microtransaction filter:', error);
+        }
+    }, []);
+
+    const setHideUnusualActivity = useCallback(async (enabled: boolean) => {
+        try {
+            setHideUnusualActivityState(enabled);
+            await AsyncStorage.setItem('wallet_hide_unusual_activity', enabled ? 'true' : 'false');
+        } catch (error) {
+            console.error('Failed to save wallet unusual activity filter:', error);
         }
     }, []);
 
@@ -180,6 +202,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setLockScreenEnabled,
             gatewayAutoDepositEnabled,
             setGatewayAutoDepositEnabled,
+            hideMicrotransactions,
+            setHideMicrotransactions,
+            hideUnusualActivity,
+            setHideUnusualActivity,
             settingsLoaded,
         }}>
             {children}

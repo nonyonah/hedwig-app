@@ -361,9 +361,10 @@ export const SchedulerService = {
                     const outstandingUsd = (brief.metrics.unpaidAmountUsd || 0) + (brief.metrics.overdueAmountUsd || 0);
                     const actionHighlights = compactList([
                         ...((brief.events || []).slice(0, 2).map((event: any) => event.body ? `${event.title}: ${event.body}` : event.title)),
+                        ...(brief.clientHighlights || []),
+                        ...(brief.projectAlerts || []),
                         ...(brief.highlights || []),
                         brief.financialTrend?.description,
-                        ...(brief.projectAlerts || []),
                     ], 3);
                     let emailSent = false;
 
@@ -462,6 +463,7 @@ export const SchedulerService = {
                     const message = summary.aiInsight || `${formatUsdBrief(summary.revenueUsd)} collected this week${topClient ? `, led by ${topClient.name}` : ''}.`;
                     const weeklyHighlights = compactList([
                         topClient ? `Top client: ${topClient.name} (${formatUsdBrief(topClient.amountUsd)})` : null,
+                        ...(summary.projectHighlights || []),
                         summary.revenueChangePct !== 0
                             ? `Revenue ${summary.revenueChangePct > 0 ? 'up' : 'down'} ${Math.abs(summary.revenueChangePct)}% vs last week`
                             : 'Revenue was flat against last week',

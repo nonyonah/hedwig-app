@@ -6,14 +6,13 @@ import { useThemeColors, Colors } from '../../../theme/colors';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { AnimatedListItem } from '../../../components/AnimatedListItem';
-import { useNavigation } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
-import { openRootDrawer } from '../../../utils/openRootDrawer';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import UniversalCreationBox from '../../../components/UniversalCreationBox';
+import HeaderActionButtons from '../../../components/ui/HeaderActionButtons';
 
 const Plus = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Add01Icon} {...props} />;
 const Inbox = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).InboxIcon} {...props} />;
@@ -46,7 +45,6 @@ const getGreeting = () => {
 export default function HomeDashboard() {
     const themeColors = useThemeColors();
     const router = useRouter();
-    const navigation = useNavigation();
     const { user, getAccessToken, isReady } = useAuth();
 
     // User Data
@@ -462,7 +460,7 @@ export default function HomeDashboard() {
         <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => openRootDrawer(navigation as any)}>
+                    <View>
                         {profileIcon?.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
                         ) : (
@@ -477,16 +475,12 @@ export default function HomeDashboard() {
                                 </Text>
                             </LinearGradient>
                         )}
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>
+                    </View>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>
                         {getGreeting()}{userName.firstName ? `, ${userName.firstName}` : ''}
                     </Text>
                 </View>
-                <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}>
-                        <Inbox size={24} color={themeColors.textPrimary} strokeWidth={2.2} />
-                    </TouchableOpacity>
-                </View>
+                <HeaderActionButtons style={styles.headerActions} />
             </View>
 
             <ScrollView
@@ -509,7 +503,7 @@ export default function HomeDashboard() {
                     counts.inProgress.projects + counts.inProgress.milestones + counts.inProgress.recurringInvoices +
                     counts.dueSoon.invoices + counts.dueSoon.projects + counts.dueSoon.links + counts.dueSoon.milestones) === 0 && !isLoadingData ? (
                     <View style={styles.emptyStateContainer}>
-                        <Inbox size={64} color={themeColors.textSecondary} strokeWidth={1} />
+                        <Inbox size={64} color={themeColors.textSecondary} strokeWidth={1.15} />
                         <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>
                             All clear
                         </Text>
@@ -554,11 +548,10 @@ export default function HomeDashboard() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    headerTitle: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: Platform.OS === 'android' ? 20 : 22 },
-    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    iconButton: { padding: 4 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 },
+    headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 12, overflow: 'hidden' },
+    headerActions: { flexShrink: 0 },
+    headerTitle: { flex: 1, minWidth: 0, flexShrink: 1, fontFamily: 'GoogleSansFlex_700Bold', fontSize: Platform.OS === 'android' ? 18 : 22 },
     avatar: { width: 40, height: 40, borderRadius: 20 },
     scrollView: { flex: 1, paddingHorizontal: 20 },
     mainHeading: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: Platform.OS === 'android' ? 20 : 22, marginBottom: 16, marginTop: 12 },

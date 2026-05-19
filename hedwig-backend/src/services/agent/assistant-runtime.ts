@@ -44,18 +44,24 @@ function fallbackDailyBriefNarrative(snapshot: DailyBriefSnapshot): DailyBriefNa
   if (overdue > 0) {
     return {
       summary: `${overdue} overdue invoice${overdue === 1 ? '' : 's'} should lead today; the overdue balance is $${snapshot.metrics.overdueAmountUsd.toFixed(2)}.`,
-      highlights: deadlines > 0
-        ? [`Check ${deadlines} upcoming deadline${deadlines === 1 ? '' : 's'} after payment follow-up.`]
-        : ['Send or approve the next reminder before starting new work.'],
+      highlights: [
+        ...(snapshot.clientHighlights ?? []).slice(0, 1),
+        ...(deadlines > 0
+          ? [`Check ${deadlines} upcoming deadline${deadlines === 1 ? '' : 's'} after payment follow-up.`]
+          : ['Send or approve the next reminder before starting new work.']),
+      ].slice(0, 2),
     };
   }
 
   if (unpaid > 0) {
     return {
       summary: `${unpaid} unpaid invoice${unpaid === 1 ? '' : 's'} remain open for $${snapshot.metrics.unpaidAmountUsd.toFixed(2)}, but nothing is overdue yet.`,
-      highlights: deadlines > 0
-        ? [`Plan around ${deadlines} deadline${deadlines === 1 ? '' : 's'} coming up in the next 14 days.`]
-        : [],
+      highlights: [
+        ...(snapshot.clientHighlights ?? []).slice(0, 1),
+        ...(deadlines > 0
+          ? [`Plan around ${deadlines} deadline${deadlines === 1 ? '' : 's'} coming up in the next 14 days.`]
+          : []),
+      ].slice(0, 2),
     };
   }
 
@@ -137,6 +143,7 @@ export async function generateDailyBrief(userId: string) {
         'Return concise JSON only.',
         'Summary must be 1-2 sentences.',
         'Highlights must contain at most 2 short actionable tips.',
+        'When client or project context exists, include at least one concrete client or project nudge. Use only names from the workspace snapshot.',
         'No markdown. No emojis.',
       ].join(' '),
       userMessage: 'Prepare today’s assistant brief using the current workspace state.',
@@ -169,6 +176,7 @@ export async function generateDailyBrief(userId: string) {
     financialTrend: snapshot.financialTrend,
     taxHint: snapshot.taxHint,
     projectAlerts: snapshot.projectAlerts,
+    clientHighlights: snapshot.clientHighlights,
   };
 }
 
@@ -304,6 +312,7 @@ export async function generateWeeklySummary(userId: string) {
         'When relevant, use the user’s connected external tools (Gmail, Calendar, Drive, Docs) for additional context. Read-only.',
         'Return concise JSON only.',
         'Insight must be one sentence, specific, and mention a real number.',
+        'If top clients or active projects exist, mention one of them by name using only names from the weekly snapshot.',
         'No markdown. No emojis.',
       ].join(' '),
       userMessage: 'Prepare this week’s assistant summary using the current workspace state.',
@@ -333,6 +342,7 @@ export async function generateWeeklySummary(userId: string) {
     overdueCount: snapshot.overdueCount,
     overdueAmountUsd: snapshot.overdueAmountUsd,
     topClients: snapshot.topClients,
+    projectHighlights: snapshot.projectHighlights,
     aiInsight: narrative.insight,
   };
 }

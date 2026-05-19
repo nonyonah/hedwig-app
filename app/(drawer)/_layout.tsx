@@ -1,15 +1,13 @@
 import { Drawer } from 'expo-router/drawer';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useThemeColors } from '../../theme/colors';
-import { useEffect, useRef } from 'react';
-import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
-import { TUTORIAL_STEPS } from '../../constants/tutorialSteps';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { openUserbackFeedback } from '../../services/userbackNative';
+import CoreFeaturesIntroModal from '../../components/CoreFeaturesIntroModal';
 
 const resolveHugeIcon = (...names: string[]) => {
     const iconSet = HugeiconsCore as Record<string, any>;
@@ -116,53 +114,23 @@ function CustomDrawerContent(props: any) {
     );
 }
 
-// Maps tutorial screenId → the route to navigate to when that step becomes active
-const SCREEN_ROUTES: Record<string, string> = {
-    home: '/(tabs)',
-    invoices: '/(tabs)/invoices',
-    links: '/(tabs)/links',
-    wallet: '/(tabs)/wallet',
-    insights: '/insights',
-    transactions: '/transactions',
-    withdrawals: '/offramp-history',
-    projects: '/projects',
-    clients: '/clients',
-    settings: '/settings',
-};
-
 function GlobalTutorial() {
     const router = useRouter();
-    const pathname = usePathname();
     const { isDemo } = useAuth();
-    const { isVisible, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
-    const prevIndexRef = useRef(activeStepIndex);
-
-    // Auto-navigate when the step's screenId changes
-    useEffect(() => {
-        if (!isVisible || !activeStep) return;
-        const prevStep_ = TUTORIAL_STEPS[prevIndexRef.current];
-        if (prevStep_?.screenId !== activeStep.screenId) {
-            const route = SCREEN_ROUTES[activeStep.screenId];
-            if (route && route !== pathname) {
-                router.replace(route as any);
-            }
-        }
-        prevIndexRef.current = activeStepIndex;
-    }, [activeStepIndex, isVisible, activeStep, pathname, router]);
+    const { isVisible, activeStep, activeStepIndex, nextStep, goToStep, skipTutorial } = useTutorial();
 
     if (isDemo || !isVisible || !activeStep) return null;
-    if (pathname === '/settings') return null;
 
     return (
-        <TutorialCard
-            step={activeStepIndex + 1}
-            totalSteps={totalSteps}
-            title={activeStep.title}
-            body={activeStep.body}
-            anchorPosition={activeStep.anchorPosition}
-            onNext={nextStep}
-            onBack={prevStep}
-            onSkip={skipTutorial}
+        <CoreFeaturesIntroModal
+            visible={isVisible}
+            activeStep={activeStepIndex}
+            onStepChange={goToStep}
+            onDismiss={skipTutorial}
+            onStart={() => {
+                skipTutorial();
+                router.push('/invoice/create' as any);
+            }}
         />
     );
 }
@@ -177,7 +145,7 @@ export default function DrawerLayout() {
                 drawerContent={(props) => <CustomDrawerContent {...props} />}
                 screenOptions={{
                     headerShown: false,
-                    swipeEnabled: true,
+                    swipeEnabled: false,
                     swipeEdgeWidth: Platform.OS === 'android' ? 40 : undefined,
                     drawerStyle: {
                         backgroundColor: themeColors.background,
@@ -190,6 +158,13 @@ export default function DrawerLayout() {
                     options={{
                         drawerLabel: 'Home',
                         title: 'Home',
+                    }}
+                />
+                <Drawer.Screen
+                    name="search"
+                    options={{
+                        drawerItemStyle: { display: 'none' },
+                        title: 'Search',
                     }}
                 />
             </Drawer>

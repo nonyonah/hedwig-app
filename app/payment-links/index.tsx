@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { TrueSheet } from '@hedwig/true-sheet';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 let Menu: any = null;
 let ExpoButton: any = null;
@@ -36,8 +38,8 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
-import { openRootDrawer } from '../../utils/openRootDrawer';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import HeaderActionButtons from '../../components/ui/HeaderActionButtons';
 import {
     List as ListIcon,
     CheckCircle as CheckCircleIcon,
@@ -59,6 +61,10 @@ const UserCircle = (props: any) => <CircleUserIcon {...props} />;
 const Trash = (props: any) => <TrashIcon {...props} />;
 const DotsThree = (props: any) => <MoreHorizontalIcon {...props} />;
 const Bell = (props: any) => <BellIcon {...props} />;
+
+const EmptyPaymentLinkIcon = (props: any) => (
+    <HugeiconsIcon icon={(HugeiconsCore as any).Link01Icon || (HugeiconsCore as any).LinkIcon} {...props} />
+);
 
 
 // Icons for tokens, networks, and status
@@ -91,7 +97,6 @@ const PROFILE_COLOR_OPTIONS = [
 ] as const;
 
 export default function PaymentLinksScreen() {
-    const navigation = useNavigation();
     const router = useRouter();
     const params = useLocalSearchParams();
 
@@ -837,7 +842,7 @@ export default function PaymentLinksScreen() {
                     <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                         <View style={styles.headerTop}>
                             <View style={styles.headerLeft}>
-                                <TouchableOpacity onPress={() => openRootDrawer(navigation as any)}>
+                                <View>
                                     {profileIcon.imageUri ? (
                                         <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
                                     ) : (
@@ -852,9 +857,10 @@ export default function PaymentLinksScreen() {
                                             </Text>
                                         </LinearGradient>
                                     )}
-                                </TouchableOpacity>
-                                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
+                                </View>
+                                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>Payment Links</Text>
                             </View>
+                            <HeaderActionButtons />
                         </View>
 
                         {/* Filter Chips inside Header */}
@@ -909,11 +915,11 @@ export default function PaymentLinksScreen() {
                                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                             }
                             ListEmptyComponent={
-                                < View style={styles.emptyState}>
-                                    <ShareNetwork size={64} color={themeColors.textSecondary} />
+                                <View style={styles.emptyState}>
+                                    <EmptyPaymentLinkIcon size={64} color={themeColors.textSecondary} strokeWidth={1.15} />
                                     <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Payment Links</Text>
                                     <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                        Create a payment link to accept crypto payments
+                                        Tap the + button to create a payment link for a client.
                                     </Text>
                                 </View>
                             }
@@ -971,6 +977,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+        flex: 1,
+        minWidth: 0,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_700Bold',

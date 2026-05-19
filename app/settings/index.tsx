@@ -8,7 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
-import { GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, useSettings, Theme } from '../../context/SettingsContext';
+import { useSettings, Theme } from '../../context/SettingsContext';
 import { useAuth } from '../../hooks/useAuth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
@@ -97,8 +97,6 @@ export default function SettingsScreen() {
         setHapticsEnabled,
         liveTrackingEnabled,
         setLiveTrackingEnabled,
-        lockScreenEnabled,
-        setLockScreenEnabled,
         gatewayAutoDepositEnabled,
         setGatewayAutoDepositEnabled,
     } = useSettings();
@@ -148,10 +146,13 @@ export default function SettingsScreen() {
     useEffect(() => {
         fetchUserData();
         fetchConversations();
-        loadBiometricsState();
         void checkConnection();
         void loadClientRemindersPreference();
     }, []);
+
+    useEffect(() => {
+        void loadBiometricsState();
+    }, [user?.id]);
 
     // Refetch profile data when screen comes into focus
     useFocusEffect(
@@ -164,7 +165,11 @@ export default function SettingsScreen() {
 
     const loadBiometricsState = async () => {
         try {
-            const enabled = await AsyncStorage.getItem('biometricsEnabled');
+            if (!user?.id) {
+                setBiometricsEnabled(false);
+                return;
+            }
+            const enabled = await AsyncStorage.getItem(`biometricsEnabled:${user.id}`);
             setBiometricsEnabled(enabled === 'true');
         } catch (error) {
             console.error('Failed to load biometrics state:', error);
@@ -327,12 +332,12 @@ export default function SettingsScreen() {
 
             if (result.success) {
                 setBiometricsEnabled(true);
-                await AsyncStorage.setItem('biometricsEnabled', 'true');
+                if (user?.id) await AsyncStorage.setItem(`biometricsEnabled:${user.id}`, 'true');
             }
         } else {
             // Disabling biometrics
             setBiometricsEnabled(false);
-            await AsyncStorage.setItem('biometricsEnabled', 'false');
+            if (user?.id) await AsyncStorage.setItem(`biometricsEnabled:${user.id}`, 'false');
         }
     };
 
@@ -382,7 +387,6 @@ export default function SettingsScreen() {
                 body: JSON.stringify({ gatewayAutoDepositEnabled: value }),
             });
             if (!res.ok) throw new Error('Could not save Aggregated USDC setting.');
-            await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, 'true');
         } catch {
             await setGatewayAutoDepositEnabled(!value);
             Alert.alert('Setting not saved', 'Could not update Aggregated USDC. Please try again.');
@@ -704,7 +708,7 @@ export default function SettingsScreen() {
                             router.replace('/(drawer)/(tabs)');
                         }}
                     >
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Show app tutorial</Text>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Show app intro</Text>
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
 
@@ -742,19 +746,6 @@ export default function SettingsScreen() {
                             ios_backgroundColor={themeColors.border}
                             value={biometricsEnabled}
                             onValueChange={toggleBiometrics}
-                        />
-                    </View>
-
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-                    <View style={styles.settingRow}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Lock Screen</Text>
-                        <Switch
-                            trackColor={{ false: themeColors.border, true: Colors.success }}
-                            thumbColor={"#FFFFFF"}
-                            ios_backgroundColor={themeColors.border}
-                            value={lockScreenEnabled}
-                            onValueChange={(value) => { void setLockScreenEnabled(value); }}
                         />
                     </View>
 

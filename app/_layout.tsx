@@ -9,21 +9,20 @@ import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
 import {
     useFonts,
+    GoogleSansFlex_300Light,
     GoogleSansFlex_400Regular,
     GoogleSansFlex_500Medium,
     GoogleSansFlex_600SemiBold,
+    GoogleSansFlex_700Bold,
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
-import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState, Text, TextInput } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState, Text, TextInput, StatusBar as RNStatusBar } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LockScreen } from '../components/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import {
-    GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY,
-    GATEWAY_AUTO_DEPOSIT_STORAGE_KEY,
     SettingsProvider,
     useSettings,
 } from '../context/SettingsContext';
@@ -45,7 +44,6 @@ const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
 
 declare global {
     var __hedwigApiFetchPatched: boolean | undefined;
-    var __hedwigIOSFontAliasPatched: boolean | undefined;
 }
 
 const installApiFetchRewrite = () => {
@@ -92,38 +90,8 @@ const installApiFetchRewrite = () => {
 
 installApiFetchRewrite();
 
-const installIOSSystemFontAliases = () => {
-    if (Platform.OS !== 'ios' || globalThis.__hedwigIOSFontAliasPatched) {
-        return;
-    }
-
-    const setStyleAttributePreprocessor = (StyleSheet as any).setStyleAttributePreprocessor;
-    if (typeof setStyleAttributePreprocessor !== 'function') {
-        return;
-    }
-
-    setStyleAttributePreprocessor('fontFamily', (fontFamily: any) => {
-        if (typeof fontFamily !== 'string') {
-            return fontFamily;
-        }
-
-        if (
-            fontFamily.startsWith('GoogleSansFlex_') ||
-            fontFamily.startsWith('GoogleSans_')
-        ) {
-            return 'System';
-        }
-
-        return fontFamily;
-    });
-
-    globalThis.__hedwigIOSFontAliasPatched = true;
-};
-
-installIOSSystemFontAliases();
-
 const applyGlobalTypographyDefaults = () => {
-    const defaultFontFamily = Platform.OS === 'android' ? 'GoogleSansFlex_400Regular' : 'System';
+    const defaultFontFamily = 'GoogleSansFlex_400Regular';
     const textDefaults = (Text as any).defaultProps || {};
     (Text as any).defaultProps = {
         ...textDefaults,
@@ -196,6 +164,7 @@ function ThemedStack() {
             />
 
             <Stack.Screen name="notifications/index" />
+            <Stack.Screen name="search/index" />
             <Stack.Screen name="insights/index" />
             <Stack.Screen
                 name="offramp-history/bank-selection"
@@ -241,6 +210,7 @@ function WebLayout() {
                 }}
             />
             <Stack.Screen name="notifications/index" />
+            <Stack.Screen name="search/index" />
             <Stack.Screen name="insights/index" />
         </Stack>
     );
@@ -334,26 +304,6 @@ function GatewayPreferenceSync() {
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.success || typeof data.data?.gatewayAutoDepositEnabled !== 'boolean') return;
 
-        const localValue = await AsyncStorage.getItem(GATEWAY_AUTO_DEPOSIT_STORAGE_KEY);
-        const hasSyncedBackend = await AsyncStorage.getItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY);
-        const localEnabled = localValue === 'true';
-
-        // One-time repair for users who enabled Aggregated USDC before this
-        // preference was backed by the server. After repair, backend wins.
-        if (!hasSyncedBackend && localValue !== null && localEnabled && !data.data.gatewayAutoDepositEnabled) {
-            const patch = await fetch(`${apiUrl}/api/users/preferences`, {
-                method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gatewayAutoDepositEnabled: localEnabled }),
-            });
-            if (patch.ok) {
-                await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, 'true');
-                await setGatewayAutoDepositEnabled(localEnabled);
-                return;
-            }
-        }
-
-        await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, 'true');
         await setGatewayAutoDepositEnabled(data.data.gatewayAutoDepositEnabled);
     }, [getAccessToken, isReady, setGatewayAutoDepositEnabled, user]);
 
@@ -519,15 +469,22 @@ function ThemeAwareStatusBar() {
     // collapses the SafeAreaView top inset on the next screen mount (the bug
     // reproduced when popping back from the onramp order page). The status
     // bar background is left to follow the system / app config defaults.
-    React.useEffect(() => {
+    React.useLayoutEffect(() => {
         // Pass `animated: false` — on iOS the animated style swap briefly
         // forces the status bar into a transitional state which collapses
         // SafeAreaView top insets on the next screen mount.
         setStatusBarStyle(isDark ? 'light' : 'dark', false);
+        RNStatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', false);
+        const frame = requestAnimationFrame(() => {
+            setStatusBarStyle(isDark ? 'light' : 'dark', false);
+            RNStatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', false);
+        });
+        return () => cancelAnimationFrame(frame);
     }, [isDark]);
 
     return (
         <StatusBar
+            key={isDark ? 'status-bar-dark' : 'status-bar-light'}
             style={isDark ? 'light' : 'dark'}
             backgroundColor={Platform.OS === 'android' ? (colors.background as any) : undefined}
         />
@@ -536,13 +493,15 @@ function ThemeAwareStatusBar() {
 
 function StartupGate({ children, isApiWarmed }: { children: React.ReactNode; isApiWarmed: boolean }) {
     if (isApiWarmed) {
-        return <>{children}</>;
+        return <View style={styles.startupShell}>{children}</View>;
     }
 
     return (
-        <View style={styles.startupOverlay}>
-            <Image source={require('../assets/splash-icon-transparent.png')} style={styles.startupLogo} resizeMode="contain" tintColor="#FFFFFF" />
-            <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" style={styles.startupSpinner} />
+        <View style={styles.startupShell}>
+            <View style={styles.startupOverlay}>
+                <Image source={require('../assets/splash-icon-transparent.png')} style={styles.startupLogo} resizeMode="contain" tintColor="#FFFFFF" />
+                <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" style={styles.startupSpinner} />
+            </View>
         </View>
     );
 }
@@ -576,24 +535,17 @@ function RootLayout() {
         }
     }, [ref]);
 
-    const [fontsLoaded] = useFonts(
-        Platform.OS === 'android'
-            ? {
-                GoogleSansFlex_400Regular,
-                GoogleSansFlex_500Medium,
-                GoogleSansFlex_600SemiBold,
-                Merriweather_300Light,
-                Merriweather_400Regular,
-                Merriweather_700Bold,
-                Merriweather_900Black,
-            }
-            : {
-                Merriweather_300Light,
-                Merriweather_400Regular,
-                Merriweather_700Bold,
-                Merriweather_900Black,
-            }
-    );
+    const [fontsLoaded] = useFonts({
+        GoogleSansFlex_300Light,
+        GoogleSansFlex_400Regular,
+        GoogleSansFlex_500Medium,
+        GoogleSansFlex_600SemiBold,
+        GoogleSansFlex_700Bold,
+        Merriweather_300Light,
+        Merriweather_400Regular,
+        Merriweather_700Bold,
+        Merriweather_900Black,
+    });
     const [isApiWarmed, setIsApiWarmed] = React.useState(false);
 
     useEffect(() => {
@@ -640,7 +592,7 @@ function RootLayout() {
     const isWeb = Platform.OS === 'web';
 
     return (
-        <SafeAreaProvider>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
             <SettingsProvider>
                 <TutorialProvider>
                     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -661,6 +613,9 @@ function RootLayout() {
 export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
+    startupShell: {
+        flex: 1,
+    },
     startupOverlay: {
         flex: 1,
         backgroundColor: '#2563EB',

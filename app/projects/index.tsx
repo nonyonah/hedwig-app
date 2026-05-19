@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, ScrollView, Alert, LayoutAnimation, UIManager, Image } from 'react-native';
 import { TrueSheet } from '@hedwig/true-sheet';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import { BlurView } from 'expo-blur'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -67,6 +69,10 @@ const Check = (props: any) => <CheckIcon {...props} />;
 const FileText = (props: any) => <FileTextIcon {...props} />;
 const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
 const Plus = (props: any) => <PlusIcon {...props} />;
+
+const EmptyProjectIcon = (props: any) => (
+    <HugeiconsIcon icon={(HugeiconsCore as any).Folder01Icon || (HugeiconsCore as any).FolderOpenIcon || (HugeiconsCore as any).BriefcaseIcon} {...props} />
+);
 
 
 // Enable LayoutAnimation on Android
@@ -554,16 +560,11 @@ export default function ProjectsScreen() {
                 {/* Project List */}
                 {filteredProjects.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Briefcase size={64} color={themeColors.textSecondary} strokeWidth={3} />
+                        <EmptyProjectIcon size={64} color={themeColors.textSecondary} strokeWidth={1.15} />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Projects Yet</Text>
                         <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
-                            Projects help you track milestones and invoices for client work.
+                            Tap the + button to create a project and track client work.
                         </Text>
-                        <View style={[styles.examplesContainer, { backgroundColor: themeColors.surface }]}>
-                            <Text style={[styles.exampleLabel, { color: themeColors.textSecondary }]}>Try saying:</Text>
-                            <Text style={styles.exampleText}>"Create a project for [client] called [name]"</Text>
-                            <Text style={styles.exampleText}>"Start a new project for Acme Corp"</Text>
-                        </View>
                     </View>
                 ) : (
                     <FlatList
@@ -1101,25 +1102,6 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         textAlign: 'center',
         marginTop: 8,
-    },
-    examplesContainer: {
-        marginTop: 24,
-        backgroundColor: Colors.surface,
-        borderRadius: 12,
-        padding: 16,
-        alignItems: 'center',
-    },
-    exampleLabel: {
-        ...Typography.bodyBold,
-        color: Colors.textSecondary,
-        marginBottom: 8,
-    },
-    exampleText: {
-        ...Typography.body,
-        color: Colors.primary,
-        fontStyle: 'italic',
-        marginVertical: 4,
-        textAlign: 'center',
     },
     modalOverlay: {
         flex: 1,

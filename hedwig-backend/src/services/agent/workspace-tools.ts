@@ -32,6 +32,7 @@ export interface DailyBriefSnapshot {
     description: string;
   };
   taxHint: string | null;
+  clientHighlights: string[];
   projectAlerts: string[];
   contextSummary: string;
 }
@@ -48,6 +49,7 @@ export interface WeeklySummarySnapshot {
   overdueCount: number;
   overdueAmountUsd: number;
   topClients: Array<{ name: string; amountUsd: number }>;
+  projectHighlights: string[];
   contextSummary: string;
 }
 
@@ -141,6 +143,29 @@ function getContentString(content: Record<string, unknown> | null | undefined, k
   return null;
 }
 
+function getDocumentClientName(doc: { content?: Record<string, unknown> | null }): string {
+  return getContentString(doc.content, ['client_name', 'clientName', 'client', 'customer_name', 'customerName'])
+    || 'a client';
+}
+
+function summarizeClientAmounts(
+  docs: Array<{ amount?: unknown; content?: Record<string, unknown> | null }>,
+  label: string,
+  limit = 2
+): string[] {
+  const totals: Record<string, number> = {};
+  for (const doc of docs) {
+    const clientName = getDocumentClientName(doc);
+    totals[clientName] = (totals[clientName] ?? 0) + toNumber(doc.amount);
+  }
+
+  return Object.entries(totals)
+    .filter(([clientName]) => clientName !== 'a client')
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([clientName, amountUsd]) => `${clientName}: ${formatUsd(amountUsd)} ${label}`);
+}
+
 function daysBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
@@ -227,6 +252,10 @@ export async function buildDailyBriefSnapshot(userId: string): Promise<DailyBrie
   }
 
   const projectAlerts = stalledProjects.map((project) => `"${project.name}" has had no recent updates`);
+  const clientHighlights = [
+    ...summarizeClientAmounts(overdueDocs, 'overdue'),
+    ...summarizeClientAmounts(unpaidDocs, 'still unpaid'),
+  ].slice(0, 2);
   const events: AssistantEventPayload[] = [];
 
   if (overdueDocs.length > 0) {
@@ -312,6 +341,7 @@ export async function buildDailyBriefSnapshot(userId: string): Promise<DailyBrie
     expenseBreakdown,
     financialTrend,
     taxHint: null,
+    clientHighlights,
     projectAlerts,
     contextSummary,
   };
@@ -323,7 +353,7 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
   const weekStart = new Date(now.getTime() - 7 * 86_400_000);
   const prevWeekStart = new Date(now.getTime() - 14 * 86_400_000);
 
-  const [paidRes, prevPaidRes, newRes, invoiceQueueRes] = await Promise.all([
+  const [paidRes, prevPaidRes, newRes, invoiceQueueRes, projectsRes] = await Promise.all([
     supabase.from('documents').select('id, amount, content').eq('user_id', userId)
       .eq('type', 'INVOICE').eq('status', 'PAID').gte('updated_at', weekStart.toISOString()),
     supabase.from('documents').select('amount').eq('user_id', userId)
@@ -333,12 +363,18 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
       .eq('type', 'INVOICE').gte('created_at', weekStart.toISOString()),
     supabase.from('documents').select('id, amount, content, status').eq('user_id', userId)
       .eq('type', 'INVOICE').in('status', ['SENT', 'VIEWED']),
+    supabase.from('projects').select('id, name, status, deadline, updated_at')
+      .eq('user_id', userId)
+      .in('status', ['ACTIVE', 'ONGOING', 'IN_PROGRESS', 'ON_HOLD'])
+      .order('updated_at', { ascending: false })
+      .limit(5),
   ]);
 
   const paidDocs = paidRes.data ?? [];
   const prevPaidDocs = prevPaidRes.data ?? [];
   const newDocs = newRes.data ?? [];
   const overdueDocs = (invoiceQueueRes.data ?? []).filter((doc) => isOverdueInvoice(doc, nowIso));
+  const projects = projectsRes.data ?? [];
 
   const revenueUsd = paidDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
   const previousWeekRevenueUsd = prevPaidDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
@@ -363,11 +399,19 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
     .slice(0, 3)
     .map(([name, amountUsd]) => ({ name, amountUsd }));
 
+  const projectHighlights = projects.slice(0, 2).map((project) => {
+    const deadline = typeof project.deadline === 'string' && project.deadline
+      ? `, due ${new Date(project.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      : '';
+    return `${project.name || 'Project'} is ${String(project.status || 'active').toLowerCase().replace(/_/g, ' ')}${deadline}`;
+  });
+
   const contextSummary = [
     `Revenue this week: ${formatUsd(revenueUsd)} (${revenueChangePct >= 0 ? '+' : ''}${revenueChangePct}% vs last week)`,
     `${newDocs.length} new invoice${newDocs.length !== 1 ? 's' : ''} created`,
     overdueDocs.length > 0 ? `${overdueDocs.length} overdue invoices totalling ${formatUsd(overdueAmountUsd)}` : 'No overdue invoices',
     topClients[0] ? `Top client: ${topClients[0].name} (${formatUsd(topClients[0].amountUsd)})` : null,
+    projectHighlights[0] ? `Project focus: ${projectHighlights[0]}` : null,
   ].filter(Boolean).join('. ');
 
   const formatRange = (value: Date) => value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -384,6 +428,7 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
     overdueCount: overdueDocs.length,
     overdueAmountUsd,
     topClients,
+    projectHighlights,
     contextSummary,
   };
 }

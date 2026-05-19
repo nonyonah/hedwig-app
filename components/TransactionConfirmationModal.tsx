@@ -17,7 +17,7 @@ import { useWallet } from '../hooks/useWallet';
 import { useGatewayBalance, formatGatewayUsdc, GatewayPerDomainBalance } from '../hooks/useGatewayBalance';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
 import { TransactionSuccessActions } from './TransactionSuccessActions';
-import { getChainAddParams, getEvmUsdcChain, getNativeFeeSymbol, SOLANA_CLUSTER, SOLANA_USDC_MINT } from '../lib/usdcFeeNetworks';
+import { getEvmUsdcChain, SOLANA_CLUSTER, SOLANA_USDC_MINT } from '../lib/usdcFeeNetworks';
 import {
     GATEWAY_DOMAINS,
     GATEWAY_EVM_CHAINS,
@@ -104,6 +104,24 @@ const formatFeeAmount = (amount: bigint, decimals: number, symbol: string): stri
     return `~${value.toFixed(digits)} ${symbol}`;
 };
 
+const trimTrailingZeros = (value: string): string =>
+    value.includes('.') ? value.replace(/\.?0+$/, '') : value;
+
+const formatDisplayAmount = (amount: string, token: string): string => {
+    const normalized = amount.replace(/,/g, '').trim();
+    const numeric = Number(normalized);
+    if (!Number.isFinite(numeric)) return `${amount} ${token}`;
+
+    const symbol = token.toUpperCase();
+    const decimals =
+        ['USDC', 'USDT', 'USD'].includes(symbol) ? 2 :
+        numeric >= 1 ? 6 :
+        numeric >= 0.000001 ? 8 :
+        10;
+
+    return `${trimTrailingZeros(numeric.toFixed(decimals))} ${token}`;
+};
+
 const ERC20_TRANSFER_GAS_FALLBACK = 120000n;
 
 const normaliseToGatewayChainKey = (network: string): GatewayChainKey | null => {
@@ -130,6 +148,14 @@ const parseUsdcAmount = (amount: string): bigint => {
     const [intPart, fracPart = ''] = trimmed.split('.');
     const padded = (fracPart + '000000').slice(0, 6);
     return BigInt(intPart) * 1_000_000n + BigInt(padded);
+};
+
+const parseTokenAmountToSubunits = (amount: string, decimals: number): bigint => {
+    const trimmed = amount.trim();
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return 0n;
+    const [intPart, fracPart = ''] = trimmed.split('.');
+    const padded = (fracPart + '0'.repeat(decimals)).slice(0, decimals);
+    return BigInt(intPart) * (10n ** BigInt(decimals)) + BigInt(padded || '0');
 };
 
 interface FeeBreakdown {
@@ -316,7 +342,9 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             return;
         }
 
-        const chainConfig = getEvmUsdcChain(network);
+        const evmKey = normaliseToGatewayChainKey(network);
+        if (!evmKey || evmKey === 'solana') return;
+        const chainConfig = GATEWAY_EVM_CHAINS[evmKey as GatewayEvmChainKey];
         if (!chainConfig) return;
 
         try {
@@ -332,26 +360,35 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             const fromAddress = accounts[0];
             if (!fromAddress) return;
 
-            const tokenAddress = tokenSymbol === 'USDC' ? chainConfig.usdcAddress : null;
-            if (!tokenAddress) return;
+            const isNativeToken = tokenSymbol === chainConfig.nativeSymbol;
+            const tokenAddress = tokenSymbol === 'USDC' ? chainConfig.usdc : null;
+            if (!isNativeToken && !tokenAddress) return;
 
-            const txData = buildErc20TransferData(data.recipient, data.amount);
-            const estimatePayload: Record<string, string> = {
-                from: fromAddress,
-                to: tokenAddress,
-                data: txData,
-            };
+            const estimatePayload: Record<string, string> = isNativeToken
+                ? {
+                    from: fromAddress,
+                    to: data.recipient,
+                    value: `0x${parseTokenAmountToSubunits(data.amount, chainConfig.nativeDecimals).toString(16)}`,
+                }
+                : {
+                    from: fromAddress,
+                    to: tokenAddress as string,
+                    data: buildErc20TransferData(data.recipient, data.amount),
+                    value: '0x0',
+                };
 
             const [feeData, gasEstimate] = await Promise.all([
                 rpcProvider.getFeeData(),
-                estimateErc20GasWithFallback(rpcProvider, chainConfig, estimatePayload),
+                isNativeToken
+                    ? rpcProvider.estimateGas(estimatePayload)
+                    : estimateErc20GasWithFallback(rpcProvider, null, estimatePayload),
             ]);
             const gasPrice = feeData.gasPrice || 1000000000n;
             const gasCost = gasEstimate * gasPrice;
-            setEstimatedGas(formatFeeAmount(gasCost, 18, getNativeFeeSymbol(chainConfig)));
+            setEstimatedGas(formatFeeAmount(gasCost, chainConfig.nativeDecimals, chainConfig.nativeSymbol));
         } catch (error: any) {
             console.log('Gas estimation error:', error.message);
-            setGasError(`Estimate unavailable (paid in ${getNativeFeeSymbol(chainConfig)})`);
+            setGasError(`Estimate unavailable (paid in ${chainConfig.nativeSymbol})`);
         }
     }, [data, modalState, evmWallets]);
 
@@ -740,8 +777,6 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             throw new Error(`Unsupported destination chain: ${data.network}`);
         })();
 
-        const value = BigInt(Math.floor(parseFloat(data.amount) * 1_000_000));
-
         // Per-chain USDC + native tokens skip Gateway and go straight on-chain
         // via the embedded EOA. Only the unified-USDC row routes through the
         // Gateway burn-intent + Forwarder flow.
@@ -753,6 +788,13 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                 // Solana-specific handler upstream — guard here as defense.
                 throw new Error('Solana sends must use the Solana flow.');
             }
+            const sourceConfig = GATEWAY_EVM_CHAINS[destChainKey as GatewayEvmChainKey];
+            if (!sourceConfig) {
+                throw new Error(`Unsupported chain: ${data.network}`);
+            }
+            const value = tokenSymbol === 'USDC'
+                ? parseUsdcAmount(data.amount)
+                : parseTokenAmountToSubunits(data.amount, sourceConfig.nativeDecimals);
             return await sendDirectErc20OnSource({
                 destChainKey,
                 tokenSymbol,
@@ -764,6 +806,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             throw new Error(`Gateway transfers only support USDC, got ${tokenSymbol}`);
         }
 
+        const value = parseUsdcAmount(data.amount);
         let sourceChainKey = pickSourceChain(value);
         let freshPerDomain: GatewayPerDomainBalance[] | undefined;
         if (!sourceChainKey) {
@@ -1079,6 +1122,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
     const network = normalizeNetwork(data.network);
     const evmDisplayChain = getEvmUsdcChain(network);
     const chain = evmDisplayChain ? { ...CHAINS[evmDisplayChain.key], name: evmDisplayChain.name } : (CHAINS[network] || CHAINS['solana']);
+    const displayAmount = formatDisplayAmount(data.amount, data.token);
     const modalDetents = (modalState === 'failed'
         ? [Platform.OS === 'ios' ? 0.66 : 0.76]
         : ['auto']) as any;
@@ -1115,7 +1159,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                             style={styles.successLottie}
                         />
                         <Text style={[styles.successAmount, { color: themeColors.textPrimary }]}>
-                            {data.amount} {data.token}
+                            {displayAmount}
                         </Text>
                         <Text style={[styles.successSubtitle, { color: themeColors.textSecondary }]}>
                             sent successfully
@@ -1199,7 +1243,14 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                         {/* Amount */}
                         <View style={styles.amountContainer}>
                             <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>You're sending</Text>
-                            <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{data.amount} {data.token}</Text>
+                            <Text
+                                style={[styles.amount, { color: themeColors.textPrimary }]}
+                                numberOfLines={2}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.72}
+                            >
+                                {displayAmount}
+                            </Text>
                         </View>
 
                         {/* Details */}
@@ -1335,6 +1386,7 @@ const styles = StyleSheet.create({
     },
     amountContainer: {
         alignItems: 'center',
+        width: '100%',
         marginBottom: 32,
     },
     amountLabel: {
@@ -1347,6 +1399,9 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 36,
         color: Colors.textPrimary,
+        width: '100%',
+        textAlign: 'center',
+        alignSelf: 'center',
     },
     detailsContainer: {
         backgroundColor: '#F9FAFB',
@@ -1433,7 +1488,8 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 28,
         marginTop: 4,
-        letterSpacing: -0.5,
+        width: '100%',
+        textAlign: 'center',
     },
     successSubtitle: {
         fontFamily: 'GoogleSansFlex_400Regular',

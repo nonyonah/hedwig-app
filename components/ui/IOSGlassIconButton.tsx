@@ -34,6 +34,7 @@ type IOSGlassIconButtonProps = {
     icon: React.ReactNode;
     /** SF Symbol name used for the iOS SwiftUI glass button */
     systemImage?: string;
+    label?: string;
     disabled?: boolean;
     containerStyle?: StyleProp<ViewStyle>;
     circleStyle?: StyleProp<ViewStyle>;
@@ -54,6 +55,7 @@ export default function IOSGlassIconButton({
     onPress,
     icon,
     systemImage,
+    label,
     disabled,
     containerStyle,
     circleStyle,
@@ -95,7 +97,7 @@ export default function IOSGlassIconButton({
                         onPress={onPress}
                         disabled={disabled}
                         systemImage={symbol}
-                        label={symbol.includes('xmark') ? 'Close' : symbol.includes('plus') ? 'Add' : 'Back'}
+                        label={label || (symbol.includes('xmark') ? 'Close' : symbol.includes('plus') ? 'Add' : 'Back')}
                         modifiers={modifiers}
                     />
                 </SwiftUIHost>
@@ -108,6 +110,8 @@ export default function IOSGlassIconButton({
         <TouchableOpacity
             onPress={onPress}
             disabled={disabled}
+            accessibilityLabel={label}
+            accessibilityRole="button"
             style={[styles.androidBtn, containerStyle, circleStyle, { width: size, height: size }]}
             activeOpacity={0.7}
         >

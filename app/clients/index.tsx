@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { TrueSheet } from '@hedwig/true-sheet';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,6 +47,10 @@ const CurrencyDollar = (props: any) => <DollarSignIcon {...props} />;
 const Clock = (props: any) => <ClockIcon {...props} />;
 const Buildings = (props: any) => <Building2Icon {...props} />;
 const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
+
+const EmptyClientsIcon = (props: any) => (
+    <HugeiconsIcon icon={(HugeiconsCore as any).UserGroupIcon || (HugeiconsCore as any).UserGroup03Icon || (HugeiconsCore as any).UsersIcon} {...props} />
+);
 
 
 interface Client {
@@ -476,15 +482,11 @@ export default function ClientsScreen() {
                 {/* Client List */}
                 {clients.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Users size={64} color={themeColors.textSecondary} strokeWidth={1} />
+                        <EmptyClientsIcon size={64} color={themeColors.textSecondary} strokeWidth={1.15} />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Clients Yet</Text>
                         <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
-                            Add your first client to start tracking earnings and creating invoices
+                            Tap the + button to add your first client.
                         </Text>
-                        <TouchableOpacity style={styles.addClientButton} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
-                            <Plus size={20} color="#FFF" />
-                            <Text style={styles.addClientButtonText}>Add Client</Text>
-                        </TouchableOpacity>
                     </View>
                 ) : (
                     <FlatList
@@ -911,20 +913,6 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         textAlign: 'center',
         marginTop: 8,
-    },
-    addClientButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.primary,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 24,
-        marginTop: 24,
-        gap: 8,
-    },
-    addClientButtonText: {
-        ...Typography.bodyBold,
-        color: '#FFF',
     },
     modalOverlay: {
         flex: 1,

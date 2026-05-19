@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Host, Menu, Button as SwiftButton, RNHostView } from '@expo/ui/swift-ui';
 import { DropdownMenu, DropdownMenuItem } from '@expo/ui/jetpack-compose';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -56,6 +57,8 @@ export default function CreatePaymentLinkScreen() {
     // ── Form ──
     const [amount,      setAmountRaw]  = useState(params.amount      || '');
     const [description, setDescription] = useState(params.description || '');
+    const [dueDate,     setDueDate]    = useState<Date | null>(null);
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const [reminders,   setReminders]  = useState(true);
     const [notes,       setNotes]      = useState('');
 
@@ -97,6 +100,10 @@ export default function CreatePaymentLinkScreen() {
             Alert.alert('Missing fields', 'Please enter an amount.');
             return;
         }
+        if (!dueDate) {
+            Alert.alert('Missing fields', 'Please select a due date.');
+            return;
+        }
         setIsLoading(true);
         try {
             const token  = await getAccessToken();
@@ -113,6 +120,7 @@ export default function CreatePaymentLinkScreen() {
                     clientId: selectedClient?.id,
                     clientName: (selectedClient?.name || clientName.trim()) || undefined,
                     recipientEmail: (selectedClient?.email || recipientEmail.trim()) || undefined,
+                    dueDate: dueDate.toISOString().split('T')[0],
                     remindersEnabled: reminders,
                     notes: notes.trim() || undefined,
                 }),
@@ -272,7 +280,35 @@ export default function CreatePaymentLinkScreen() {
                         />
                     </View>
 
-                    {/* ─── 4. Payment reminders ─── */}
+                    {/* ─── 4. Date ─── */}
+                    <Text style={[s.sectionLabel, { color: themeColors.textSecondary }]}>Due date</Text>
+                    <TouchableOpacity
+                        style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}
+                        onPress={() => setShowDatePicker(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[s.pickerLabel, { color: dueDate ? themeColors.textPrimary : themeColors.textSecondary }]}>
+                            {dueDate
+                                ? dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                                : 'Select date'}
+                        </Text>
+                        <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                    </TouchableOpacity>
+
+                    {showDatePicker && Platform.OS !== 'ios' && (
+                        <DateTimePicker
+                            value={dueDate ?? new Date()}
+                            mode="date"
+                            display="default"
+                            minimumDate={new Date()}
+                            onChange={(_, selected) => {
+                                setShowDatePicker(false);
+                                if (selected) setDueDate(selected);
+                            }}
+                        />
+                    )}
+
+                    {/* ─── 5. Payment reminders ─── */}
                     <View style={[s.toggleRow, { backgroundColor: themeColors.surface }]}>
                         <View style={s.flex}>
                             <Text style={[s.toggleLabel, { color: themeColors.textPrimary }]}>Payment reminders</Text>
@@ -286,7 +322,7 @@ export default function CreatePaymentLinkScreen() {
                         />
                     </View>
 
-                    {/* ─── 5. Notes ─── */}
+                    {/* ─── 6. Notes ─── */}
                     <Text style={[s.sectionLabel, { color: themeColors.textSecondary }]}>Notes</Text>
                     <View style={[s.card, { backgroundColor: themeColors.surface }]}>
                         <TextInput
@@ -311,6 +347,25 @@ export default function CreatePaymentLinkScreen() {
                     {isLoading && <ActivityIndicator style={{ marginTop: 12 }} color={themeColors.primary} />}
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {Platform.OS === 'ios' && showDatePicker && (
+                <View style={[s.datePickerContainer, { backgroundColor: themeColors.surface }]}>
+                    <View style={[s.datePickerHeader, { borderBottomColor: themeColors.border }]}>
+                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                            <Text style={[s.datePickerButton, { color: themeColors.primary }]}>Done</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <DateTimePicker
+                        value={dueDate ?? new Date()}
+                        mode="date"
+                        display="spinner"
+                        minimumDate={new Date()}
+                        onChange={(_, selected) => {
+                            if (selected) setDueDate(selected);
+                        }}
+                    />
+                </View>
+            )}
 
         </SafeAreaView>
     );
@@ -358,6 +413,22 @@ const s = StyleSheet.create({
     toggleSub:   { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 12, marginTop: 2 },
 
     notesInput: { minHeight: 80, paddingVertical: 14 },
+    datePickerContainer: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        overflow: 'hidden',
+    },
+    datePickerHeader: {
+        alignItems: 'flex-end',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+    },
+    datePickerButton: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
     cta:        { marginTop: 8, borderRadius: 100 },
 
 });

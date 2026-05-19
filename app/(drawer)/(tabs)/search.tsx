@@ -14,6 +14,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
+import Animated, {
+    Easing,
+    FadeInDown,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from 'react-native-reanimated';
 import { useThemeColors } from '../../../theme/colors';
 import { useSettings } from '../../../context/SettingsContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -60,6 +68,24 @@ export default function SearchScreen() {
     const [results, setResults] = useState<SearchItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [isClosing, setIsClosing] = useState(false);
+    const closeProgress = useSharedValue(0);
+
+    const closeAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: 1 - closeProgress.value,
+        transform: [
+            { translateY: -10 * closeProgress.value },
+            { scale: 1 - (0.02 * closeProgress.value) },
+        ],
+    }));
+
+    const finishClose = useCallback(() => {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(drawer)/(tabs)' as any);
+    }, [router]);
 
     const emitTabBarScrollOffset = useCallback((offsetY: number) => {
         if (Platform.OS !== 'android') return;
@@ -293,15 +319,31 @@ export default function SearchScreen() {
         router.push('/clients' as any);
     }, [router]);
 
-    const clearSearch = useCallback(() => {
-        setQuery('');
+    const closeSearch = useCallback(() => {
+        if (isClosing) return;
+        setIsClosing(true);
         Keyboard.dismiss();
-    }, []);
+        closeProgress.value = withTiming(
+            1,
+            {
+                duration: 180,
+                easing: Easing.out(Easing.cubic),
+            },
+            (finished) => {
+                if (finished) {
+                    runOnJS(finishClose)();
+                }
+            }
+        );
+    }, [closeProgress, finishClose, isClosing]);
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-                <View style={styles.content} onTouchStart={Keyboard.dismiss}>
+                <Animated.View
+                    entering={FadeInDown.duration(180).easing(Easing.out(Easing.cubic))}
+                    style={[styles.content, closeAnimatedStyle]}
+                >
                     <View style={styles.searchRow}>
                         <View style={[styles.searchBarWrapper, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}>
                             <Search size={16} color={themeColors.textSecondary} />
@@ -317,7 +359,7 @@ export default function SearchScreen() {
                             />
                         </View>
                         <IOSGlassIconButton
-                            onPress={clearSearch}
+                            onPress={closeSearch}
                             icon={<X size={15} color={themeColors.textPrimary} />}
                             systemImage="xmark"
                             useGlass
@@ -397,7 +439,7 @@ export default function SearchScreen() {
                             </Text>
                         )}
                     </ScrollView>
-                </View>
+                </Animated.View>
             </TouchableWithoutFeedback>
         </SafeAreaView>
     );
@@ -425,9 +467,15 @@ const styles = StyleSheet.create({
     },
     nativeInput: {
         flex: 1,
-        height: 40,
+        height: 44,
         fontSize: 16,
+        lineHeight: 20,
         fontFamily: 'GoogleSansFlex_400Regular',
+        includeFontPadding: false,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingVertical: 0,
+        textAlignVertical: 'center',
     },
     cancelButton: {
         width: 40,

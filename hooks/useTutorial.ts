@@ -48,6 +48,8 @@ export function useTutorial() {
         nextStep: ctx?.nextStep ?? (() => {}),
         /** Navigate to the previous step */
         prevStep: ctx?.prevStep ?? (() => {}),
+        /** Jump to a specific intro step */
+        goToStep: ctx?.goToStep ?? (() => {}),
         /** Skip the entire tutorial */
         skipTutorial: ctx?.skipTutorial ?? (() => {}),
         /** Start tutorial from step 1 */

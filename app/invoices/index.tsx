@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated, Share, useWindowDimensions, DeviceEventEmitter } from 'react-native';
 import { TrueSheet } from '@hedwig/true-sheet';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 let Menu: any = null;
 let ExpoButton: any = null;
@@ -37,8 +39,8 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 import { joinApiUrl } from '../../utils/apiBaseUrl';
-import { openRootDrawer } from '../../utils/openRootDrawer';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import HeaderActionButtons from '../../components/ui/HeaderActionButtons';
 import {
     List as ListIcon,
     Receipt as ReceiptIcon,
@@ -66,6 +68,10 @@ const Wallet = (props: any) => <WalletIcon {...props} />;
 const Trash = (props: any) => <TrashIcon {...props} />;
 const Bell = (props: any) => <BellIcon {...props} />;
 const DotsThree = (props: any) => <MoreHorizontalIcon {...props} />;
+
+const EmptyInvoiceIcon = (props: any) => (
+    <HugeiconsIcon icon={(HugeiconsCore as any).Invoice01Icon || (HugeiconsCore as any).ReceiptIcon || (HugeiconsCore as any).File02Icon} {...props} />
+);
 
 
 // Icons for tokens and chains
@@ -122,7 +128,6 @@ const FREQ_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function InvoicesScreen() {
-    const navigation = useNavigation();
     // Track screen view
     useAnalyticsScreen('Invoices');
 
@@ -773,7 +778,7 @@ export default function InvoicesScreen() {
                     <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                         <View style={styles.headerTop}>
                             <View style={styles.headerLeft}>
-                                <TouchableOpacity onPress={() => openRootDrawer(navigation as any)}>
+                                <View>
                                     {profileIcon.imageUri ? (
                                         <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
                                     ) : (
@@ -788,9 +793,10 @@ export default function InvoicesScreen() {
                                             </Text>
                                         </LinearGradient>
                                     )}
-                                </TouchableOpacity>
-                                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Invoices</Text>
+                                </View>
+                                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>Invoices</Text>
                             </View>
+                            <HeaderActionButtons />
                         </View>
 
                         {/* Filter Chips inside Header */}
@@ -947,10 +953,10 @@ export default function InvoicesScreen() {
                             }
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
-                                    <Receipt size={64} color={themeColors.textSecondary} />
+                                    <EmptyInvoiceIcon size={64} color={themeColors.textSecondary} strokeWidth={1.15} />
                                     <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Invoices Yet</Text>
                                     <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                        Create your first invoice to get paid
+                                        Tap the + button to create your first invoice.
                                     </Text>
                                 </View>
                             }
@@ -1384,6 +1390,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+        flex: 1,
+        minWidth: 0,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_700Bold',

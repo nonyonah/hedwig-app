@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.hedwig.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "UIViewControllerBasedStatusBarAppearance": false,
         "NSCameraUsageDescription": "Allow Hedwig to access your camera for identity verification",
         "NSMicrophoneUsageDescription": "Allow Hedwig to access your microphone for verification",
         "NSPhotoLibraryUsageDescription": "Allow Hedwig to access your photos for document upload",
@@ -28,9 +29,9 @@
       "versionCode": 46,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "monochromeImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/adaptive-icon-foreground.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.hedwig.app",
       "predictiveBackGestureEnabled": true,

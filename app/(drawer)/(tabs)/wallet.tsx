@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, Alert, Share, ToastAndroid, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, Alert, Share, ToastAndroid, ActivityIndicator, DeviceEventEmitter, Switch } from 'react-native';
 let Menu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
@@ -38,16 +38,17 @@ import {
     ArrowDownLeft as ArrowDownLeftIcon,
 } from '../../../components/ui/AppIcon';
 import QRCode from 'react-native-qrcode-svg';
-import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { formatCurrency } from '../../../utils/currencyUtils';
-import { openRootDrawer } from '../../../utils/openRootDrawer';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
 import IOSGlassIconButton from '../../../components/ui/IOSGlassIconButton';
+import HeaderActionButtons from '../../../components/ui/HeaderActionButtons';
+import { SelectorSheet } from '../../../components/SelectorSheet';
 import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetailSheet';
 import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
@@ -124,7 +125,7 @@ interface Transaction {
     token: string;
     date: string;
     hash: string;
-    network: 'base' | 'solana';
+    network: 'base' | 'solana' | 'optimism' | 'arbitrum' | 'polygon' | 'celo';
     status: 'completed' | 'pending' | 'failed';
     from: string;
     to: string;
@@ -156,6 +157,35 @@ type ActivityItem =
     | { kind: 'onramp';     data: OnrampOrder  }
     | { kind: 'coinbase';   data: CoinbasePayActivitySession };
 
+type ActivityFilter = 'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'failed';
+type NetworkFilter = 'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo';
+
+const NETWORK_FILTER_OPTIONS: Array<{ id: NetworkFilter; label: string; sublabel: string; icon?: any }> = [
+    { id: 'all', label: 'All networks', sublabel: 'Show balances across every supported network' },
+    { id: 'base', label: 'Base', sublabel: 'Base balances', icon: CHAIN_ICON_MAP.base },
+    { id: 'arbitrum', label: 'Arbitrum', sublabel: 'Arbitrum balances', icon: CHAIN_ICON_MAP.arbitrum },
+    { id: 'polygon', label: 'Polygon', sublabel: 'Polygon balances', icon: CHAIN_ICON_MAP.polygon },
+    { id: 'optimism', label: 'Optimism', sublabel: 'Optimism balances', icon: CHAIN_ICON_MAP.optimism },
+    { id: 'solana', label: 'Solana', sublabel: 'Solana balances', icon: CHAIN_ICON_MAP.solana },
+];
+
+const getNetworkFilterLabel = (filter: NetworkFilter): string =>
+    NETWORK_FILTER_OPTIONS.find(option => option.id === filter)?.label || 'All networks';
+
+const ACTIVITY_FILTER_OPTIONS: Array<{ id: ActivityFilter; label: string; sublabel: string }> = [
+    { id: 'all', label: 'All', sublabel: 'Show every wallet activity item' },
+    { id: 'in', label: 'Received', sublabel: 'Incoming transfers and bought USDC' },
+    { id: 'out', label: 'Sent', sublabel: 'Outgoing wallet transfers' },
+    { id: 'withdrawals', label: 'Withdrawals', sublabel: 'Bank cash-out activity' },
+    { id: 'onramps', label: 'Buy USDC', sublabel: 'Fiat deposits and USDC purchases' },
+    { id: 'failed', label: 'Failed', sublabel: 'Failed or cancelled activity' },
+];
+
+const getActivityFilterLabel = (filter: ActivityFilter): string =>
+    ACTIVITY_FILTER_OPTIONS.find(option => option.id === filter)?.label || 'All';
+
+const WALLET_ACTIVITY_RENDER_LIMIT = 60;
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const toNumber = (value: unknown): number => {
     if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -163,6 +193,130 @@ const toNumber = (value: unknown): number => {
     const normalized = value.replace(/,/g, '').trim();
     const parsed = parseFloat(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const MAINSTREAM_ACTIVITY_TOKENS = new Set([
+    'USDC',
+    'USDC.E',
+    'ETH',
+    'WETH',
+    'SOL',
+    'POL',
+    'MATIC',
+    'CELO',
+    'USD',
+    'USDT',
+]);
+
+const SUSPICIOUS_TOKEN_PATTERNS = [
+    'http',
+    'www',
+    '.com',
+    '.net',
+    '.org',
+    '.io',
+    '.app',
+    '.site',
+    '.top',
+    '.link',
+    '.click',
+    '.xyz',
+    '://',
+    'claim',
+    'airdrop',
+    'reward',
+    'bonus',
+    'visit',
+    'voucher',
+    'coupon',
+    'prize',
+    'winner',
+    'free',
+    'swap',
+    'scam',
+    'phish',
+    'verify',
+    'connect',
+    'official',
+];
+
+const KNOWN_SPAM_ZERO_ADDRESSES = new Set([
+    '0x0000000000000000000000000000000000000000',
+    '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+]);
+
+const pickFirstNumber = (...values: unknown[]): number | null => {
+    for (const value of values) {
+        if (value === null || value === undefined || value === '') continue;
+        const parsed = toNumber(value);
+        if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+    }
+    return null;
+};
+
+const stringContainsSuspiciousPattern = (...values: unknown[]): boolean =>
+    values.some(value => {
+        const lower = String(value || '').trim().toLowerCase();
+        if (!lower) return false;
+        return SUSPICIOUS_TOKEN_PATTERNS.some(pattern => lower.includes(pattern));
+    });
+
+const isMainstreamActivityToken = (token: unknown): boolean => {
+    const normalized = String(token || '').trim().toUpperCase();
+    if (!normalized) return false;
+    const lower = normalized.toLowerCase();
+    if (SUSPICIOUS_TOKEN_PATTERNS.some(pattern => lower.includes(pattern))) return false;
+    return MAINSTREAM_ACTIVITY_TOKENS.has(normalized);
+};
+
+const getActivityUsdValue = (item: ActivityItem): number | null => {
+    if (item.kind === 'tx') {
+        const tx = item.data as any;
+        const explicitUsd = pickFirstNumber(
+            tx.amountUsd,
+            tx.amount_usd,
+            tx.usdAmount,
+            tx.usd_amount,
+            tx.valueUsd,
+            tx.value_usd,
+            tx.displayValueUsd,
+            tx.display_value_usd,
+            tx.display_values?.usd,
+            tx.metadata?.valueUsd,
+            tx.metadata?.usd
+        );
+        if (explicitUsd !== null) return explicitUsd;
+
+        const token = item.data.token?.toUpperCase?.() || '';
+        const amount = toNumber(item.data.amount);
+        if (['USDC', 'USDT', 'USD'].includes(token)) return amount;
+        if (['ETH', 'WETH', 'SOL', 'POL', 'MATIC', 'CELO'].includes(token)) {
+            return amount < 0.10 ? amount : null;
+        }
+        return amount;
+    }
+    if (item.kind === 'withdrawal') return toNumber(item.data.fiatAmount);
+    if (item.kind === 'onramp') return toNumber(item.data.cryptoAmount);
+    if (item.kind === 'coinbase') {
+        if (typeof item.data.fiatAmount === 'number') return item.data.fiatAmount;
+        return String(item.data.token || '').toUpperCase() === 'USDC' ? toNumber(item.data.cryptoAmount) : toNumber(item.data.cryptoAmount);
+    }
+    return null;
+};
+
+const isUnusualInboundActivity = (item: ActivityItem): boolean => {
+    if (item.kind !== 'tx' || item.data.type !== 'IN') return false;
+    const tx = item.data as any;
+    const token = String(tx.token || '').trim();
+    const contractAddress = String(tx.contractAddress || tx.contract_address || tx.rawContract?.address || '').toLowerCase();
+    const description = String(tx.description || '').trim();
+    const from = String(tx.from || '').toLowerCase();
+
+    if (stringContainsSuspiciousPattern(token, description, tx.tokenName, tx.asset, tx.symbol)) return true;
+    if (KNOWN_SPAM_ZERO_ADDRESSES.has(contractAddress) || KNOWN_SPAM_ZERO_ADDRESSES.has(from)) return true;
+    if (!isMainstreamActivityToken(token)) return true;
+
+    return false;
 };
 
 const getTokenBalance = (entry: any, decimals: number): number => {
@@ -294,7 +448,6 @@ export default function WalletScreen() {
     const { currentTheme } = useSettings();
     const isDark = currentTheme === 'dark';
     const router = useRouter();
-    const navigation = useNavigation();
     const { user, getAccessToken } = useAuth();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
@@ -317,6 +470,7 @@ export default function WalletScreen() {
     const receiveChooserSheetRef  = useRef<TrueSheet>(null);
     const receiveSheetRef         = useRef<TrueSheet>(null);
     const sendSheetRef            = useRef<TrueSheet>(null);
+    const activitySettingsSheetRef = useRef<TrueSheet>(null);
     const autoSettlementSheetRef  = useRef<TrueSheet>(null);
     const bridgeKycInfoSheetRef   = useRef<TrueSheet>(null);
     const tokenDetailSheetRef     = useRef<TrueSheet>(null);
@@ -331,7 +485,8 @@ export default function WalletScreen() {
     const [selectedChain, setSelectedChain] = useState<'base' | 'solana'>('base');
 
     // Network Filter & Dropdown
-    const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo'>('all');
+    const [networkFilter, setNetworkFilter] = useState<NetworkFilter>('all');
+    const [networkFilterSheetOpen, setNetworkFilterSheetOpen] = useState(false);
     const [usdStatus,    setUsdStatus]    = useState<UsdAccountStatus | null>(null);
     const [usdDetails,   setUsdDetails]   = useState<UsdAccountDetails | null>(null);
     const [usdTransfers, setUsdTransfers] = useState<UsdTransfer[]>([]);
@@ -350,7 +505,8 @@ export default function WalletScreen() {
     const [onrampOrders,    setOnrampOrders]    = useState<OnrampOrder[]>([]);
     const [coinbaseSessions, setCoinbaseSessions] = useState<CoinbasePayActivitySession[]>([]);
     const [activityLoading, setActivityLoading] = useState(false);
-    const [activityFilter,  setActivityFilter]  = useState<'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'failed'>('all');
+    const [activityFilter,  setActivityFilter]  = useState<ActivityFilter>('all');
+    const [activityFilterSheetOpen, setActivityFilterSheetOpen] = useState(false);
     const [selectedTx,       setSelectedTx]      = useState<Transaction | null>(null);
     const [selectedOrder,    setSelectedOrder]   = useState<OfframpOrder | null>(null);
     const [selectedOnrampOrder, setSelectedOnrampOrder] = useState<OnrampOrder | null>(null);
@@ -366,7 +522,7 @@ export default function WalletScreen() {
 
     const dismissAllSheets = useCallback((except?: React.RefObject<TrueSheet | null>) => {
         const refs = [
-            receiveChooserSheetRef, receiveSheetRef, sendSheetRef, autoSettlementSheetRef,
+            receiveChooserSheetRef, receiveSheetRef, sendSheetRef, activitySettingsSheetRef, autoSettlementSheetRef,
             bridgeKycInfoSheetRef, tokenDetailSheetRef,
             txDetailSheetRef, withdrawalDetailSheetRef, onrampDetailSheetRef,
         ];
@@ -676,10 +832,12 @@ export default function WalletScreen() {
     // Unified USDC + native gas rows are always visible. Anything else
     // (legacy per-chain entries, custom tokens) hides at zero to keep the
     // list tight.
-    const networkFiltered = allTokens.filter(t => networkFilter === 'all' || t.chain === networkFilter);
-    const filteredTokens = networkFiltered.filter(t =>
-        (t as any).unified || (t as any).native || t.balance > 0
-    );
+    const filteredTokens = useMemo(() => {
+        const networkFiltered = allTokens.filter(t => networkFilter === 'all' || t.chain === networkFilter);
+        return networkFiltered.filter(t =>
+            (t as any).unified || (t as any).native || t.balance > 0
+        );
+    }, [allTokens, networkFilter]);
 
     // Total balance = (unified USDC + EOA USDC across all chains) + every
     // native gas token's USD value + USD account credits. The full USDC sum
@@ -694,9 +852,7 @@ export default function WalletScreen() {
 
     // ── Activity derived values ──
     const allActivity: ActivityItem[] = useMemo(() => {
-        const txItems = transactions
-            .filter(tx => tx.token.toUpperCase() === 'USDC')
-            .map(tx => ({ kind: 'tx' as const, data: tx }));
+        const txItems = transactions.map(tx => ({ kind: 'tx' as const, data: tx }));
         const wdItems = offrampOrders.map(o => ({ kind: 'withdrawal' as const, data: o }));
         const onrampItems = onrampOrders.map(o => ({ kind: 'onramp' as const, data: o }));
         const coinbaseItems = coinbaseSessions.map(o => ({ kind: 'coinbase' as const, data: o }));
@@ -708,6 +864,15 @@ export default function WalletScreen() {
     }, [transactions, offrampOrders, onrampOrders, coinbaseSessions]);
 
     const filteredActivity = useMemo(() => allActivity.filter(item => {
+        if (settings?.hideMicrotransactions) {
+            const usdValue = getActivityUsdValue(item);
+            if (usdValue !== null && usdValue < 0.10) return false;
+        }
+
+        if (settings?.hideUnusualActivity && isUnusualInboundActivity(item)) {
+            return false;
+        }
+
         if (activityFilter === 'all')         return true;
         if (activityFilter === 'in')          return (item.kind === 'tx' && item.data.type === 'IN') || item.kind === 'onramp' || (item.kind === 'coinbase' && item.data.direction === 'buy');
         if (activityFilter === 'out')         return item.kind === 'tx' && item.data.type === 'OUT';
@@ -720,13 +885,20 @@ export default function WalletScreen() {
             (item.kind === 'coinbase' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED'))
         );
         return true;
-    }), [allActivity, activityFilter]);
+    }), [allActivity, activityFilter, settings?.hideMicrotransactions, settings?.hideUnusualActivity]);
+
+    const visibleActivity = useMemo(
+        () => filteredActivity.slice(0, WALLET_ACTIVITY_RENDER_LIMIT),
+        [filteredActivity]
+    );
 
     const groupedActivity = useMemo(() =>
-        groupByDate(filteredActivity, item =>
+        groupByDate(visibleActivity, item =>
             item.kind === 'tx' ? new Date(item.data.date) : new Date(item.data.createdAt)
         ),
-    [filteredActivity]);
+    [visibleActivity]);
+
+    const inactiveTabColor = isDark ? 'rgba(255,255,255,0.42)' : 'rgba(15,23,42,0.42)';
 
     // ── Action handlers ──
     const copySelectedAddress = async () => {
@@ -1039,7 +1211,7 @@ export default function WalletScreen() {
             <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* ── Header ── */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => openRootDrawer(navigation as any)}>
+                    <View>
                         {profileIcon?.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileImage} />
                         ) : (
@@ -1053,11 +1225,18 @@ export default function WalletScreen() {
                                 </Text>
                             </LinearGradient>
                         )}
-                    </TouchableOpacity>
+                    </View>
                     <View style={styles.headerTitleRow} />
-                    <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
-                        <Gear size={22} color={themeColors.textPrimary} />
-                    </TouchableOpacity>
+                    <View style={styles.headerActions}>
+                        <HeaderActionButtons />
+                        <IOSGlassIconButton
+                            label="Activity settings"
+                            onPress={() => presentSheet(activitySettingsSheetRef)}
+                            systemImage="gearshape.fill"
+                            circleStyle={styles.settingsButton}
+                            icon={<Gear size={22} color={themeColors.textPrimary} />}
+                        />
+                    </View>
                 </View>
 
                 <ScrollView
@@ -1151,18 +1330,26 @@ export default function WalletScreen() {
                         {/* Header row — tab labels left, filter dropdown right */}
                         <View style={styles.tokenHeader}>
                             <View style={styles.tabLabels}>
-                                <TouchableOpacity onPress={() => setActiveTab('coins')} activeOpacity={0.7}>
+                                <TouchableOpacity
+                                    onPress={() => setActiveTab('coins')}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                >
                                     <Text
                                         numberOfLines={1}
-                                        style={[styles.tabTitle, { color: activeTab === 'coins' ? themeColors.textPrimary : themeColors.textSecondary }]}
+                                        style={[styles.tabTitle, { color: activeTab === 'coins' ? themeColors.textPrimary : inactiveTabColor }]}
                                     >
                                         Assets
                                     </Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setActiveTab('activity')} activeOpacity={0.7}>
+                                <TouchableOpacity
+                                    onPress={() => setActiveTab('activity')}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                >
                                     <Text
                                         numberOfLines={1}
-                                        style={[styles.tabTitle, { color: activeTab === 'activity' ? themeColors.textPrimary : themeColors.textSecondary }]}
+                                        style={[styles.tabTitle, { color: activeTab === 'activity' ? themeColors.textPrimary : inactiveTabColor }]}
                                     >
                                         Activity
                                     </Text>
@@ -1172,104 +1359,34 @@ export default function WalletScreen() {
                             {/* Right dropdown: network filter for Coins, status filter for Activity */}
                             <View style={styles.tabFilterWrap}>
                                 {activeTab === 'coins' ? (
-                                    Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
-                                        <Host matchContents>
-                                            <Menu
-                                                label={(
-                                                    <View style={[styles.tabFilterButton, { backgroundColor: themeColors.surface }]}>
-                                                        {networkFilter !== 'all' && (
-                                                            <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
-                                                        )}
-                                                        <Text numberOfLines={1} style={[styles.tabFilterText, { color: themeColors.textPrimary }]}>
-                                                            {networkFilter === 'all' ? 'All Networks' : CHAIN_DISPLAY_NAMES[networkFilter] ?? networkFilter}
-                                                        </Text>
-                                                        <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                                                    </View>
-                                                )}
-                                            >
-                                                <ExpoButton label="All Networks" onPress={() => setNetworkFilter('all')} />
-                                                <ExpoButton label="Base"     onPress={() => setNetworkFilter('base')} />
-                                                <ExpoButton label="Arbitrum" onPress={() => setNetworkFilter('arbitrum')} />
-                                                <ExpoButton label="Polygon"  onPress={() => setNetworkFilter('polygon')} />
-                                                <ExpoButton label="Optimism" onPress={() => setNetworkFilter('optimism')} />
-                                                {/* Celo temporarily disabled. */}
-                                                <ExpoButton label="Solana"   onPress={() => setNetworkFilter('solana')} />
-                                            </Menu>
-                                        </Host>
-                                    ) : (
-                                        <AndroidDropdownMenu
-                                            options={[
-                                                { label: 'All Networks', onPress: () => setNetworkFilter('all') },
-                                                { label: 'Base',     onPress: () => setNetworkFilter('base') },
-                                                { label: 'Arbitrum', onPress: () => setNetworkFilter('arbitrum') },
-                                                { label: 'Polygon',  onPress: () => setNetworkFilter('polygon') },
-                                                { label: 'Optimism', onPress: () => setNetworkFilter('optimism') },
-                                                // Celo temporarily disabled.
-                                                { label: 'Solana',   onPress: () => setNetworkFilter('solana') },
-                                            ]}
-                                            trigger={
-                                                <View style={[styles.tabFilterButton, { backgroundColor: themeColors.surface }]}>
-                                                    {networkFilter !== 'all' && (
-                                                        <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
-                                                    )}
-                                                    <Text numberOfLines={1} style={[styles.tabFilterText, { color: themeColors.textPrimary }]}>
-                                                        {networkFilter === 'all' ? 'All Networks' : CHAIN_DISPLAY_NAMES[networkFilter] ?? networkFilter}
-                                                    </Text>
-                                                    <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                                                </View>
-                                            }
-                                        />
-                                    )
+                                    <TouchableOpacity
+                                        activeOpacity={0.8}
+                                        onPress={() => setNetworkFilterSheetOpen(true)}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <View style={[styles.tabFilterButton, { backgroundColor: themeColors.surface }]}>
+                                            {networkFilter !== 'all' && (
+                                                <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
+                                            )}
+                                            <Text numberOfLines={1} style={[styles.tabFilterText, { color: themeColors.textPrimary }]}>
+                                                {getNetworkFilterLabel(networkFilter)}
+                                            </Text>
+                                            <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
+                                        </View>
+                                    </TouchableOpacity>
                                 ) : (
-                                    /* Activity filter dropdown */
-                                    Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
-                                        <Host matchContents>
-                                            <Menu
-                                                label={(
-                                                    <View style={[styles.tabFilterButton, { backgroundColor: themeColors.surface }]}>
-                                                        <Text numberOfLines={1} style={[styles.tabFilterText, { color: themeColors.textPrimary }]}>
-                                                            {activityFilter === 'all' ? 'All' :
-                                                             activityFilter === 'in' ? 'Received' :
-                                                             activityFilter === 'out' ? 'Sent' :
-                                                             activityFilter === 'withdrawals' ? 'Withdrawals' :
-                                                             activityFilter === 'onramps' ? 'Buy USDC' : 'Failed'}
-                                                        </Text>
-                                                        <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                                                    </View>
-                                                )}
-                                            >
-                                                <ExpoButton label="All"         onPress={() => setActivityFilter('all')} />
-                                                <ExpoButton label="Received"    onPress={() => setActivityFilter('in')} />
-                                                <ExpoButton label="Sent"        onPress={() => setActivityFilter('out')} />
-                                                <ExpoButton label="Withdrawals" onPress={() => setActivityFilter('withdrawals')} />
-                                                <ExpoButton label="Buy USDC"    onPress={() => setActivityFilter('onramps')} />
-                                                <ExpoButton label="Failed"      onPress={() => setActivityFilter('failed')} />
-                                            </Menu>
-                                        </Host>
-                                    ) : (
-                                        <AndroidDropdownMenu
-                                            options={[
-                                                { label: 'All',         onPress: () => setActivityFilter('all') },
-                                                { label: 'Received',    onPress: () => setActivityFilter('in') },
-                                                { label: 'Sent',        onPress: () => setActivityFilter('out') },
-                                                { label: 'Withdrawals', onPress: () => setActivityFilter('withdrawals') },
-                                                { label: 'Buy USDC',    onPress: () => setActivityFilter('onramps') },
-                                                { label: 'Failed',      onPress: () => setActivityFilter('failed') },
-                                            ]}
-                                            trigger={
-                                                <View style={[styles.tabFilterButton, { backgroundColor: themeColors.surface }]}>
-                                                    <Text numberOfLines={1} style={[styles.tabFilterText, { color: themeColors.textPrimary }]}>
-                                                        {activityFilter === 'all' ? 'All' :
-                                                         activityFilter === 'in' ? 'Received' :
-                                                         activityFilter === 'out' ? 'Sent' :
-                                                         activityFilter === 'withdrawals' ? 'Withdrawals' :
-                                                         activityFilter === 'onramps' ? 'Buy USDC' : 'Failed'}
-                                                    </Text>
-                                                    <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                                                </View>
-                                            }
-                                        />
-                                    )
+                                    <TouchableOpacity
+                                        activeOpacity={0.8}
+                                        onPress={() => setActivityFilterSheetOpen(true)}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <View style={[styles.tabFilterButton, { backgroundColor: themeColors.surface }]}>
+                                            <Text numberOfLines={1} style={[styles.tabFilterText, { color: themeColors.textPrimary }]}>
+                                                {getActivityFilterLabel(activityFilter)}
+                                            </Text>
+                                            <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
+                                        </View>
+                                    </TouchableOpacity>
                                 )}
                             </View>
                         </View>
@@ -1368,6 +1485,30 @@ export default function WalletScreen() {
                         )}
                     </View>
                 </ScrollView>
+
+                <SelectorSheet
+                    visible={networkFilterSheetOpen}
+                    onClose={() => setNetworkFilterSheetOpen(false)}
+                    title="Asset filter"
+                    options={NETWORK_FILTER_OPTIONS}
+                    selectedId={networkFilter}
+                    detentFraction={0.56}
+                    onSelect={(id) => {
+                        setNetworkFilter(id as NetworkFilter);
+                    }}
+                />
+
+                <SelectorSheet
+                    visible={activityFilterSheetOpen}
+                    onClose={() => setActivityFilterSheetOpen(false)}
+                    title="Activity filter"
+                    options={ACTIVITY_FILTER_OPTIONS}
+                    selectedId={activityFilter}
+                    detentFraction={0.52}
+                    onSelect={(id) => {
+                        setActivityFilter(id as ActivityFilter);
+                    }}
+                />
 
                 {/* ──────────────── Bottom sheets ──────────────── */}
 
@@ -1535,6 +1676,55 @@ export default function WalletScreen() {
                             </View>
                             <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
                         </TouchableOpacity>
+                    </View>
+                </TrueSheet>
+
+                {/* Activity settings sheet */}
+                <TrueSheet
+                    ref={activitySettingsSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDidDismiss={handleSheetDismiss}
+                >
+                    <View style={styles.sendSheetContent}>
+                        <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Activity settings</Text>
+                        <Text style={[styles.sendSheetSubtitle, { color: themeColors.textSecondary }]}>
+                            Choose which wallet activity stays visible.
+                        </Text>
+
+                        <View style={[styles.activitySettingCard, { backgroundColor: themeColors.surface }]}>
+                            <View style={styles.activitySettingCopy}>
+                                <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Hide microtransactions</Text>
+                                <Text style={[styles.sendOptionSubtitle, { color: themeColors.textSecondary }]}>
+                                    Filters activity worth less than $0.10.
+                                </Text>
+                            </View>
+                            <Switch
+                                value={settings?.hideMicrotransactions ?? false}
+                                onValueChange={(enabled) => { void settings?.setHideMicrotransactions(enabled); }}
+                                trackColor={{ false: themeColors.border, true: Colors.success }}
+                                thumbColor="#FFFFFF"
+                                ios_backgroundColor={themeColors.border}
+                            />
+                        </View>
+
+                        <View style={[styles.activitySettingCard, { backgroundColor: themeColors.surface }]}>
+                            <View style={styles.activitySettingCopy}>
+                                <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Hide unusual activity</Text>
+                                <Text style={[styles.sendOptionSubtitle, { color: themeColors.textSecondary }]}>
+                                    Filters inbound spam, obscure coins, and suspicious token transfers.
+                                </Text>
+                            </View>
+                            <Switch
+                                value={settings?.hideUnusualActivity ?? false}
+                                onValueChange={(enabled) => { void settings?.setHideUnusualActivity(enabled); }}
+                                trackColor={{ false: themeColors.border, true: Colors.success }}
+                                thumbColor="#FFFFFF"
+                                ios_backgroundColor={themeColors.border}
+                            />
+                        </View>
                     </View>
                 </TrueSheet>
 
@@ -1953,7 +2143,8 @@ const styles = StyleSheet.create({
     header:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
     headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     profileImage:   { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-    settingsButton: { padding: 8 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    settingsButton: { width: 40, height: 40, borderRadius: 20 },
     content:        { flex: 1, paddingHorizontal: 20 },
 
     balanceSection: { marginTop: 24, marginBottom: 28, alignItems: 'flex-start' },
@@ -2074,6 +2265,8 @@ const styles = StyleSheet.create({
     sendOptionCard:    { borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', ...Platform.select({ ios: { padding: 14, marginBottom: 10 }, android: { padding: 16, marginBottom: 12 } }) },
     sendOptionTitle:   { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, marginBottom: 4 },
     sendOptionSubtitle:{ fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13 },
+    activitySettingCard: { borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, ...Platform.select({ ios: { padding: 14, marginBottom: 10 }, android: { padding: 16, marginBottom: 12 } }) },
+    activitySettingCopy: { flex: 1, minWidth: 0 },
     chainOptionLeft:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
     chainOptionIcon:   { width: 20, height: 20, borderRadius: 10 },
 

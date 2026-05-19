@@ -44,7 +44,8 @@ export default function TabLayout() {
                 <Tabs.Screen name="invoices" options={{ title: 'Invoices' }} />
                 <Tabs.Screen name="links" options={{ title: 'Links' }} />
                 <Tabs.Screen name="wallet" options={{ title: 'Wallet' }} />
-                <Tabs.Screen name="search" options={{ title: 'Search' }} />
+                <Tabs.Screen name="more" options={{ title: 'More' }} />
+                <Tabs.Screen name="search" options={{ href: null }} />
             </Tabs>
         );
     }
@@ -79,12 +80,12 @@ export default function TabLayout() {
             labelStyle={
                 isAndroid
                     ? ({
-                        default: { color: androidUnselectedColor, fontSize: 12, fontWeight: '600' },
-                        selected: { color: androidTintColor, fontSize: 12, fontWeight: '700' },
+                        default: { color: androidUnselectedColor, fontSize: 12, fontWeight: '600', fontFamily: 'GoogleSansFlex_600SemiBold' },
+                        selected: { color: androidTintColor, fontSize: 12, fontWeight: '700', fontFamily: 'GoogleSansFlex_600SemiBold' },
                     } as const)
                     : ({
-                        default: { color: iosUnselectedColor, fontSize: 11, fontWeight: '600' },
-                        selected: { color: iosTintColor, fontSize: 11, fontWeight: '700' },
+                        default: { color: iosUnselectedColor, fontSize: 11, fontWeight: '600', fontFamily: 'GoogleSansFlex_600SemiBold' },
+                        selected: { color: iosTintColor, fontSize: 11, fontWeight: '700', fontFamily: 'GoogleSansFlex_600SemiBold' },
                     } as const)
             }
             {...(isAndroid ? { labelVisibilityMode: 'labeled' as const } : {})}
@@ -112,12 +113,9 @@ export default function TabLayout() {
                 <NativeTabs.Trigger.Icon sf="creditcard.fill" md="account_balance_wallet" />
             </NativeTabs.Trigger>
 
-            <NativeTabs.Trigger
-                name="search"
-                {...(!isAndroid ? ({ role: 'search' as const }) : {})}
-            >
-                <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
+            <NativeTabs.Trigger name="more">
+                <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
+                <NativeTabs.Trigger.Icon sf="ellipsis.circle.fill" md="more_horiz" />
             </NativeTabs.Trigger>
         </NativeTabs>
     );

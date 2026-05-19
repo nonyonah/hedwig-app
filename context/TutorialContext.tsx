@@ -23,6 +23,8 @@ interface TutorialContextType {
     nextStep: () => void;
     /** Go back one step */
     prevStep: () => void;
+    /** Jump to a specific intro step */
+    goToStep: (step: number) => void;
     /** Skip the whole tutorial immediately */
     skipTutorial: () => void;
     /** Reset completion state so tutorial shows again (for Settings replay) */
@@ -98,6 +100,12 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setActiveStepIndex(prev => Math.max(0, prev - 1));
     }, []);
 
+    const goToStep = useCallback((step: number) => {
+        const next = Math.max(0, Math.min(step, TOTAL_STEPS - 1));
+        setActiveStepIndex(next);
+        setIsVisible(true);
+    }, []);
+
     const skipTutorial = useCallback(() => {
         setIsVisible(false);
         setIsCompleted(true);
@@ -139,6 +147,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 startTutorial,
                 nextStep,
                 prevStep,
+                goToStep,
                 skipTutorial,
                 resetTutorial,
                 shouldShowOnScreen,

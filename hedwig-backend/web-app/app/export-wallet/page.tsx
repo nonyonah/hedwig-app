@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useExportWallet, usePrivy, useWallets } from '@privy-io/react-auth';
+import { useExportWallet, useLoginWithOAuth, usePrivy, useWallets } from '@privy-io/react-auth';
 import { ArrowLeft, Key, Lock, SpinnerGap, Warning } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 
@@ -23,7 +23,8 @@ function getExportError(error: unknown) {
 }
 
 export default function ExportWalletPage() {
-  const { authenticated, login, ready } = usePrivy();
+  const { authenticated, ready } = usePrivy();
+  const { initOAuth } = useLoginWithOAuth();
   const { wallets, ready: walletsReady } = useWallets();
   const { exportWallet } = useExportWallet();
   const autoStarted = useRef(false);
@@ -40,7 +41,7 @@ export default function ExportWalletPage() {
 
     if (!ready) return;
     if (!authenticated) {
-      login();
+      setError('Sign in with the same account you used in the mobile app, then export again.');
       return;
     }
 
@@ -58,7 +59,7 @@ export default function ExportWalletPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [authenticated, embeddedWallet?.address, exportWallet, login, ready, walletsReady]);
+  }, [authenticated, embeddedWallet?.address, exportWallet, ready, walletsReady]);
 
   useEffect(() => {
     if (autoStarted.current) return;
@@ -112,10 +113,21 @@ export default function ExportWalletPage() {
               </div>
             )}
 
-            <Button className="w-full" onClick={openExport} disabled={!ready || isExporting}>
-              {isExporting || !ready ? <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" /> : <Key className="h-4 w-4" weight="bold" />}
-              {!ready ? 'Loading…' : authenticated ? 'Open export screen' : 'Sign in to export'}
-            </Button>
+            {!authenticated ? (
+              <div className="space-y-2">
+                <Button className="w-full" onClick={() => initOAuth({ provider: 'apple' })} disabled={!ready}>
+                  Continue with Apple
+                </Button>
+                <Button className="w-full" variant="secondary" onClick={() => initOAuth({ provider: 'google' })} disabled={!ready}>
+                  Continue with Google
+                </Button>
+              </div>
+            ) : (
+              <Button className="w-full" onClick={openExport} disabled={!ready || isExporting}>
+                {isExporting || !ready ? <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" /> : <Key className="h-4 w-4" weight="bold" />}
+                {!ready ? 'Loading…' : 'Open export screen'}
+              </Button>
+            )}
           </div>
         </section>
       </div>

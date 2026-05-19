@@ -62,6 +62,9 @@ interface TransactionItem {
     status: 'completed' | 'pending' | 'failed';
     from: string;
     to: string;
+    contractAddress?: string | null;
+    category?: string | null;
+    tokenName?: string | null;
 }
 
 router.get('/', authenticate, async (req: Request, res: Response) => {
@@ -106,6 +109,9 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                     status: tx.status.toLowerCase(),
                     from: tx.from_address,
                     to: tx.to_address,
+                    contractAddress: tx.contract_address || null,
+                    category: tx.category || null,
+                    tokenName: tx.token_name || null,
                 });
             });
         }
@@ -149,6 +155,9 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                                 status: 'completed',
                                 from: tx.from,
                                 to: tx.to || ethAddress,
+                                contractAddress: tx.rawContract?.address || null,
+                                category: tx.category || null,
+                                tokenName: tx.asset || null,
                             });
                         }
                     });
@@ -167,6 +176,9 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                                 status: 'completed',
                                 from: tx.from,
                                 to: tx.to || '',
+                                contractAddress: tx.rawContract?.address || null,
+                                category: tx.category || null,
+                                tokenName: tx.asset || null,
                             });
                         }
                     });
@@ -222,6 +234,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                         let amount = 0;
                         let type: 'IN' | 'OUT' = 'IN';
                         let isTokenTx = false;
+                        let tokenMint: string | null = null;
 
                         // Check for token transfers
                         for (const postBalance of tokenTransfers) {
@@ -231,6 +244,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
                             if (postBalance.owner === solAddress || preBalance?.owner === solAddress) {
                                 const mint = postBalance.mint;
+                                tokenMint = mint;
                                 const postAmount = parseFloat(postBalance.uiTokenAmount?.uiAmountString || '0');
                                 const preAmount = parseFloat(preBalance?.uiTokenAmount?.uiAmountString || '0');
                                 const diff = postAmount - preAmount;
@@ -300,7 +314,10 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                             network: 'solana',
                             status: 'completed',
                             from: from,
-                            to: solAddress
+                            to: solAddress,
+                            contractAddress: tokenMint,
+                            category: isTokenTx ? 'spl' : 'native',
+                            tokenName: tokenSymbol,
                         });
                     } catch (txErr) {
                         logger.debug('Error fetching Solana tx');
