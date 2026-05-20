@@ -18,8 +18,19 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('CircleGatewayWebhooks');
 
-const CIRCLE_API_BASE_URL = (process.env.CIRCLE_API_BASE_URL || 'https://api.circle.com').replace(/\/+$/, '');
-const NOTIFICATION_TYPES = ['gateway.*'];
+const CIRCLE_NOTIFICATIONS_API_BASE_URL = (
+    process.env.CIRCLE_NOTIFICATIONS_API_BASE_URL ||
+    process.env.CIRCLE_DEVELOPER_API_BASE_URL ||
+    'https://api.circle.com'
+).replace(/\/+$/, '');
+const NOTIFICATION_TYPES = (process.env.CIRCLE_GATEWAY_NOTIFICATION_TYPES || 'gateway.deposit.finalized,gateway.mint.forwarded,gateway.mint.finalized')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+const MAX_ADDRESSES_PER_SUBSCRIPTION = Math.max(
+    1,
+    Number(process.env.CIRCLE_GATEWAY_WEBHOOK_BATCH_SIZE || 10) || 10,
+);
 
 // Circle Gateway domain ids — same numbering on TEST + LIVE.
 const EVM_GATEWAY_DOMAINS = ['2', '3', '6', '7'] as const;
@@ -66,12 +77,16 @@ function getConfig(): {
     };
 }
 
-function endpointFor(endpoint: string, label: 'EVM' | 'Solana'): string {
+function endpointFor(endpoint: string, label: 'EVM' | 'Solana', batchIndex = 0, domain?: string): string {
     // Circle rejects duplicate subscriptions on the same endpoint URL, and its
     // validator strips query strings. Use distinct path suffixes so EVM and
     // Solana subscriptions can both register.
-    if (label === 'EVM') return endpoint;
-    return `${endpoint.replace(/\/+$/, '')}/${label.toLowerCase()}`;
+    const base = endpoint.replace(/\/+$/, '');
+    if (label === 'EVM') {
+        if (domain) return `${base}/evm/${domain}${batchIndex > 0 ? `-${batchIndex + 1}` : ''}`;
+        return batchIndex === 0 ? endpoint : `${base}/evm/${batchIndex + 1}`;
+    }
+    return batchIndex === 0 ? `${base}/solana` : `${base}/solana/${batchIndex + 1}`;
 }
 
 async function callCircle(
@@ -80,7 +95,7 @@ async function callCircle(
     path: string,
     body?: Record<string, unknown>,
 ): Promise<{ ok: boolean; body: any }> {
-    const res = await fetch(`${CIRCLE_API_BASE_URL}${path}`, {
+    const res = await fetch(`${CIRCLE_NOTIFICATIONS_API_BASE_URL}${path}`, {
         method,
         headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -103,14 +118,47 @@ async function findSubscriptionIdForEndpoint(
     apiKey: string,
     endpoint: string,
 ): Promise<string | null> {
+    const items = await listSubscriptions(apiKey);
+    const match = items.find((item: any) => item?.endpoint === endpoint);
+    return match?.id ? String(match.id) : null;
+}
+
+async function listSubscriptions(apiKey: string): Promise<any[]> {
     const { ok, body } = await callCircle(
         apiKey,
         'GET',
         `/v2/notifications/subscriptions/permissionless?environment=${gatewayEnvironment()}`,
     );
-    if (!ok || !Array.isArray(body?.data)) return null;
-    const match = body.data.find((item: any) => item?.endpoint === endpoint);
-    return match?.id ? String(match.id) : null;
+    const items = Array.isArray(body?.data)
+        ? body.data
+        : Array.isArray(body?.subscriptions)
+            ? body.subscriptions
+            : [];
+    return ok ? items : [];
+}
+
+async function findWritableSubscription(
+    apiKey: string,
+    baseEndpoint: string,
+    label: 'EVM' | 'Solana',
+    domain?: string,
+): Promise<{ id: string | null; endpoint: string; batchIndex: number }> {
+    const existing = await listSubscriptions(apiKey);
+    const usedEndpoints = new Set(existing.map((item: any) => String(item?.endpoint || '')).filter(Boolean));
+
+    for (let index = 0; index < 20; index += 1) {
+        const endpoint = endpointFor(baseEndpoint, label, index, domain);
+        const match = existing.find((item: any) => item?.endpoint === endpoint);
+        const addressCount = Array.isArray(match?.addresses) ? match.addresses.length : 0;
+        if (match?.id && addressCount < MAX_ADDRESSES_PER_SUBSCRIPTION) {
+            return { id: String(match.id), endpoint, batchIndex: index };
+        }
+        if (!usedEndpoints.has(endpoint)) {
+            return { id: null, endpoint, batchIndex: index };
+        }
+    }
+
+    return { id: null, endpoint: endpointFor(baseEndpoint, label, Date.now(), domain), batchIndex: Date.now() };
 }
 
 async function ensureSubscription(
@@ -122,7 +170,7 @@ async function ensureSubscription(
 ): Promise<string | null> {
     const existingId = await findSubscriptionIdForEndpoint(apiKey, endpoint);
     if (existingId) {
-        const ok = await patchSubscription(apiKey, existingId, seedAddresses, domains, label);
+        const ok = await patchSubscription(apiKey, existingId, endpoint, seedAddresses, domains, label);
         return ok ? existingId : null;
     }
 
@@ -140,7 +188,7 @@ async function ensureSubscription(
         if (body?.message && String(body.message).includes('associated with another subscription')) {
             const retryId = await findSubscriptionIdForEndpoint(apiKey, endpoint);
             if (retryId) {
-                const patched = await patchSubscription(apiKey, retryId, seedAddresses, domains, label);
+                const patched = await patchSubscription(apiKey, retryId, endpoint, seedAddresses, domains, label);
                 return patched ? retryId : null;
             }
         }
@@ -160,6 +208,7 @@ async function ensureSubscription(
 async function patchSubscription(
     apiKey: string,
     subscriptionId: string,
+    endpoint: string,
     addresses: string[],
     domains: readonly string[],
     label: 'EVM' | 'Solana',
@@ -177,8 +226,9 @@ async function patchSubscription(
         return false;
     }
 
-    const currentAddresses = Array.isArray(existing?.data?.addresses)
-        ? existing.data.addresses
+    const subscription = existing?.data ?? existing;
+    const currentAddresses = Array.isArray(subscription?.addresses)
+        ? subscription.addresses
         : [];
     const mergedAddresses = [
         ...new Set([
@@ -186,24 +236,36 @@ async function patchSubscription(
             ...addresses,
         ]),
     ];
+    if (mergedAddresses.length > MAX_ADDRESSES_PER_SUBSCRIPTION) {
+        logger.info('Circle Gateway subscription is full; will use another batch endpoint', {
+            subscriptionId,
+            label,
+            addressCount: mergedAddresses.length,
+            maxAddresses: MAX_ADDRESSES_PER_SUBSCRIPTION,
+        });
+        return false;
+    }
 
     const { ok, body } = await callCircle(
         apiKey,
         'PATCH',
         `/v2/notifications/subscriptions/permissionless/${subscriptionId}`,
         {
-            name: existing?.data?.name || 'Gateway Webhooks',
-            enabled: existing?.data?.enabled ?? true,
+            endpoint,
+            name: subscription?.name || `Gateway Webhooks ${label}`,
+            enabled: subscription?.enabled ?? true,
             environment: gatewayEnvironment(),
             notificationTypes: NOTIFICATION_TYPES,
             addresses: mergedAddresses,
             domains,
+            restricted: false,
         },
     );
     if (!ok) {
         logger.warn('Failed to patch Circle Gateway subscription', {
             subscriptionId,
             label,
+            addressCount: mergedAddresses.length,
             status: body?.message || body,
         });
         return false;
@@ -238,12 +300,57 @@ async function registerAddressGroup(input: {
     if (fresh.length === 0) return;
 
     let subscriptionId = input.subscriptionId;
+    let endpoint = input.endpoint;
     if (!subscriptionId) {
-        subscriptionId = await ensureSubscription(input.apiKey, input.endpoint, fresh, input.domains, input.label);
+        const candidate = await findWritableSubscription(input.apiKey, input.endpoint, input.label);
+        endpoint = candidate.endpoint;
+        subscriptionId = candidate.id;
+        if (!subscriptionId) {
+            if (input.label === 'EVM' && candidate.batchIndex > 0) {
+                await Promise.all(EVM_GATEWAY_DOMAINS.map(async (domain) => {
+                    const domainCandidate = await findWritableSubscription(input.apiKey, input.endpoint, 'EVM', domain);
+                    const domainSubscriptionId = domainCandidate.id || await ensureSubscription(
+                        input.apiKey,
+                        domainCandidate.endpoint,
+                        fresh,
+                        [domain],
+                        'EVM',
+                    );
+                    if (domainSubscriptionId && domainCandidate.id) {
+                        await patchSubscription(input.apiKey, domainSubscriptionId, domainCandidate.endpoint, fresh, [domain], 'EVM');
+                    }
+                }));
+                for (const addr of fresh) registeredCache.add(`${input.label}:${addr}`);
+                return;
+            }
+            subscriptionId = await ensureSubscription(input.apiKey, endpoint, fresh, input.domains, input.label);
+        }
         if (!subscriptionId) return;
     } else {
-        const ok = await patchSubscription(input.apiKey, subscriptionId, fresh, input.domains, input.label);
-        if (!ok) return;
+        const ok = await patchSubscription(input.apiKey, subscriptionId, endpoint, fresh, input.domains, input.label);
+        if (!ok) {
+            if (input.label === 'EVM') {
+                await Promise.all(EVM_GATEWAY_DOMAINS.map(async (domain) => {
+                    const candidate = await findWritableSubscription(input.apiKey, input.endpoint, 'EVM', domain);
+                    const domainSubscriptionId = candidate.id || await ensureSubscription(
+                        input.apiKey,
+                        candidate.endpoint,
+                        fresh,
+                        [domain],
+                        'EVM',
+                    );
+                    if (domainSubscriptionId && candidate.id) {
+                        await patchSubscription(input.apiKey, domainSubscriptionId, candidate.endpoint, fresh, [domain], 'EVM');
+                    }
+                }));
+                for (const addr of fresh) registeredCache.add(`${input.label}:${addr}`);
+                return;
+            }
+            const candidate = await findWritableSubscription(input.apiKey, input.endpoint, input.label);
+            endpoint = candidate.endpoint;
+            subscriptionId = candidate.id || await ensureSubscription(input.apiKey, endpoint, fresh, input.domains, input.label);
+            if (!subscriptionId) return;
+        }
     }
 
     for (const addr of fresh) registeredCache.add(`${input.label}:${addr}`);
@@ -264,7 +371,7 @@ export async function registerGatewayWebhookAddresses(addresses: WalletAddresses
     await Promise.all([
         registerAddressGroup({
             apiKey: config.apiKey,
-            endpoint: endpointFor(config.endpoint, 'EVM'),
+            endpoint: config.endpoint,
             subscriptionId: config.evmSubscriptionId,
             addresses: list.evm,
             domains: EVM_GATEWAY_DOMAINS,
@@ -272,7 +379,7 @@ export async function registerGatewayWebhookAddresses(addresses: WalletAddresses
         }),
         registerAddressGroup({
             apiKey: config.apiKey,
-            endpoint: endpointFor(config.endpoint, 'Solana'),
+            endpoint: config.endpoint,
             subscriptionId: config.solanaSubscriptionId,
             addresses: list.solana,
             domains: SOLANA_GATEWAY_DOMAINS,

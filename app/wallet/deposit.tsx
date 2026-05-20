@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
+    Image,
     Platform,
     ScrollView,
     StyleSheet,
@@ -19,16 +20,41 @@ import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { SelectorSheet } from '../../components/SelectorSheet';
 import {
     GATEWAY_EVM_CHAINS,
+    GATEWAY_NETWORK_MODE,
     type GatewayChainKey,
     type GatewayEvmChainKey,
 } from '../../lib/gateway/constants';
 import { depositSolanaToGateway, depositToGateway } from '../../lib/gateway';
 import { useGatewayBalance } from '../../hooks/useGatewayBalance';
 
-const NETWORK_OPTIONS: GatewayChainKey[] = ['base', 'arbitrum', 'polygon', 'solana'];
+const NETWORK_OPTIONS: GatewayChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism', 'solana'];
+
+const CHAIN_ICONS: Record<GatewayChainKey, any> = {
+    base: require('../../assets/icons/networks/base.png'),
+    arbitrum: require('../../assets/icons/networks/arbitrum.png'),
+    polygon: require('../../assets/icons/networks/polygon.png'),
+    optimism: require('../../assets/icons/networks/optimism.png'),
+    solana: require('../../assets/icons/networks/solana.png'),
+};
 
 const getChainLabel = (chain: GatewayChainKey): string =>
-    chain === 'solana' ? 'Solana Devnet' : GATEWAY_EVM_CHAINS[chain].name;
+    chain === 'solana'
+        ? (GATEWAY_NETWORK_MODE === 'testnet' ? 'Solana Devnet' : 'Solana')
+        : GATEWAY_EVM_CHAINS[chain].name;
+
+const getChainSublabel = (chain: GatewayChainKey): string =>
+    chain === 'solana'
+        ? (GATEWAY_NETWORK_MODE === 'testnet' ? 'Gateway deposits on Solana Devnet' : 'Gateway deposits on Solana')
+        : 'Gateway-supported USDC chain';
+
+const normalizeGatewayChainParam = (value?: string): GatewayChainKey => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'arbitrum' || normalized.includes('arbitrum')) return 'arbitrum';
+    if (normalized === 'polygon' || normalized.includes('polygon') || normalized.includes('amoy')) return 'polygon';
+    if (normalized === 'optimism' || normalized.includes('optimism') || normalized.includes('op sepolia')) return 'optimism';
+    if (normalized === 'solana' || normalized.includes('solana')) return 'solana';
+    return 'base';
+};
 
 export default function DepositToGatewayScreen() {
     const router = useRouter();
@@ -41,7 +67,7 @@ export default function DepositToGatewayScreen() {
     const gatewayBalance = useGatewayBalance();
 
     const [chainKey, setChainKey] = useState<GatewayChainKey>(
-        (params.network as GatewayChainKey) || 'base'
+        normalizeGatewayChainParam(params.network)
     );
     const [amount, setAmount] = useState<string>(params.amount ?? '');
     const [submitting, setSubmitting] = useState(false);
@@ -121,6 +147,7 @@ export default function DepositToGatewayScreen() {
                         <Text style={[styles.label, { color: themeColors.textPrimary }]}>Chain</Text>
                         <TouchableOpacity onPress={() => setPicker(true)}>
                             <View style={[styles.field, { backgroundColor: themeColors.surface }]}>
+                                <Image source={CHAIN_ICONS[chainKey]} style={styles.chainIcon} />
                                 <Text style={[styles.fieldText, { color: themeColors.textPrimary }]}>{chainLabel}</Text>
                             </View>
                         </TouchableOpacity>
@@ -161,7 +188,12 @@ export default function DepositToGatewayScreen() {
                 visible={picker}
                 onClose={() => setPicker(false)}
                 title="Chain"
-                options={NETWORK_OPTIONS.map((id) => ({ id, label: getChainLabel(id) }))}
+                options={NETWORK_OPTIONS.map((id) => ({
+                    id,
+                    label: getChainLabel(id),
+                    sublabel: getChainSublabel(id),
+                    icon: CHAIN_ICONS[id],
+                }))}
                 selectedId={chainKey}
                 onSelect={(id) => setChainKey(id as GatewayChainKey)}
             />
@@ -193,8 +225,10 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 10,
     },
     fieldText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16 },
+    chainIcon: { width: 22, height: 22, borderRadius: 11 },
     input: { flex: 1, fontFamily: 'GoogleSansFlex_400Regular', fontSize: 18, paddingVertical: 0 },
     notice: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, lineHeight: 18, marginTop: 16 },
     footer: { padding: 20 },

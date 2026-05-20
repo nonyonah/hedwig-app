@@ -1,6 +1,6 @@
 import { Drawer } from 'expo-router/drawer';
 import { useRouter } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { Alert, Linking, View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useThemeColors } from '../../theme/colors';
 import { useTutorial } from '../../hooks/useTutorial';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -16,6 +16,8 @@ const resolveHugeIcon = (...names: string[]) => {
     }
     return null;
 };
+
+const WHATSAPP_FEEDBACK_URL = 'https://wa.me/message/4E5VFMHK3F4QO1';
 
 function CustomDrawerContent(props: any) {
     const router = useRouter();
@@ -39,7 +41,7 @@ function CustomDrawerContent(props: any) {
         router.push(route as any);
     };
 
-    const handleFeedbackPress = () => {
+    const openFeedbackForm = () => {
         props.navigation.closeDrawer();
         setTimeout(() => {
             void openUserbackFeedback(user).then((opened) => {
@@ -47,6 +49,29 @@ function CustomDrawerContent(props: any) {
                     router.push('/feedback' as any);
                 }
             });
+        }, 300);
+    };
+
+    const handleFeedbackPress = () => {
+        props.navigation.closeDrawer();
+        setTimeout(() => {
+            Alert.alert(
+                'Give feedback',
+                'Send a quick message or open the feedback form.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'WhatsApp',
+                        onPress: () => {
+                            void Linking.openURL(WHATSAPP_FEEDBACK_URL);
+                        },
+                    },
+                    {
+                        text: 'Feedback form',
+                        onPress: openFeedbackForm,
+                    },
+                ],
+            );
         }, 300);
     };
 

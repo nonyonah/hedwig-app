@@ -31,11 +31,11 @@ const GATEWAY_WALLET_DEPOSIT_ABI = [
     },
 ] as const;
 
-const APPROVE_GAS_FALLBACK = 200_000n;
-const DEPOSIT_GAS_FALLBACK = 500_000n;
-const GAS_BUFFER_NUMERATOR = 180n;
+const APPROVE_GAS_FALLBACK = 90_000n;
+const DEPOSIT_GAS_FALLBACK = 220_000n;
+const GAS_BUFFER_NUMERATOR = 125n;
 const GAS_BUFFER_DENOMINATOR = 100n;
-const FEE_BUFFER_NUMERATOR = 150n;
+const FEE_BUFFER_NUMERATOR = 115n;
 const FEE_BUFFER_DENOMINATOR = 100n;
 const POLYGON_PRIORITY_FEE_FLOOR_WEI = 30_000_000_000n;
 const depositLocks = new Map<string, Promise<DepositResult>>();
@@ -128,18 +128,19 @@ const sendTransaction = async (
     provider: any,
     tx: RpcTx,
     gas: bigint,
-    feeParams: Record<string, string>,
+    _feeParams: Record<string, string>,
     nonce?: number,
 ): Promise<string> => {
     // Use standard EIP-1193 `eth_sendTransaction`; do not sign and broadcast
     // raw transactions from app code. Also omit `type` because Privy's
     // transaction schema only accepts numeric literal types and rejects string
-    // aliases. Privy's converter expects camel-case gas fields.
+    // aliases. Do not pass explicit fee fields here; on L2s a conservative
+    // maxFeePerGas can make the wallet reserve much more ETH than the tx will
+    // actually spend. Privy's converter expects camel-case gas fields.
     return await provider.request({
         method: 'eth_sendTransaction',
         params: [{
             ...tx,
-            ...feeParams,
             gasLimit: toHex(gas),
             ...(typeof nonce === 'number' ? { nonce: toHex(BigInt(nonce)) } : {}),
         }],
@@ -268,16 +269,42 @@ export async function depositToGateway({
     return depositPromise;
 }
 
-// Minimum native balance (in wei) required for both approve + deposit.
-// Conservative — covers the highest-fee chain (Polygon ~$0.005) plus headroom.
-const MIN_NATIVE_FOR_DEPOSIT_WEI = 1_000_000_000_000_000n; // 0.001 ETH/POL
-
 class InsufficientNativeGasError extends Error {
     constructor(chainName: string, nativeSymbol: string) {
-        super(`Not enough ${nativeSymbol} on ${chainName} to deposit USDC into the unified balance. Top up a small amount of ${nativeSymbol} on ${chainName} and try again.`);
+        super(`Not enough ${nativeSymbol} on ${chainName} to deposit USDC into the unified balance. Make sure you have a small amount of ${nativeSymbol} on ${chainName}, then try again.`);
         this.name = 'InsufficientNativeGasError';
     }
 }
+
+const maxFeePerGasFromParams = (feeParams: Record<string, string>): bigint | null => {
+    const raw = feeParams.maxFeePerGas || feeParams.gasPrice;
+    if (!raw) return null;
+    try {
+        return BigInt(raw);
+    } catch {
+        return null;
+    }
+};
+
+const assertSufficientNativeGas = async (
+    rpc: ethers.JsonRpcProvider,
+    account: string,
+    config: (typeof GATEWAY_EVM_CHAINS)[GatewayEvmChainKey],
+    approveGas: bigint,
+    approveFeeParams: Record<string, string>,
+    depositGas: bigint,
+    depositFeeParams: Record<string, string>,
+) => {
+    const approveFee = maxFeePerGasFromParams(approveFeeParams);
+    const depositFee = maxFeePerGasFromParams(depositFeeParams);
+    if (approveFee === null || depositFee === null) return;
+
+    const required = approveGas * approveFee + depositGas * depositFee;
+    const nativeBalance = await rpc.getBalance(account);
+    if (nativeBalance < required) {
+        throw new InsufficientNativeGasError(config.name, config.nativeSymbol);
+    }
+};
 
 async function runGatewayDeposit({
     chainKey,
@@ -287,22 +314,6 @@ async function runGatewayDeposit({
     onStatus,
 }: DepositToGatewayArgs & { account: string }): Promise<DepositResult> {
     const config = GATEWAY_EVM_CHAINS[chainKey];
-
-    // Pre-flight: bail before broadcasting if the EOA can't even cover gas.
-    // This surfaces a clear error instead of letting Privy or the RPC return
-    // a generic "insufficient funds" mid-broadcast.
-    try {
-        const rpcCheck = new ethers.JsonRpcProvider(config.rpcUrl);
-        const nativeBalance = await rpcCheck.getBalance(account);
-        if (nativeBalance < MIN_NATIVE_FOR_DEPOSIT_WEI) {
-            throw new InsufficientNativeGasError(config.name, config.nativeSymbol);
-        }
-    } catch (err: any) {
-        if (err instanceof InsufficientNativeGasError) throw err;
-        // RPC failure shouldn't block deposit attempt — fall through and let
-        // the broadcast surface the real error.
-    }
-
     const rpc = new ethers.JsonRpcProvider(config.rpcUrl);
     const erc20 = new ethers.Interface(ERC20_APPROVE_ABI as any);
     const gatewayWallet = new ethers.Interface(GATEWAY_WALLET_DEPOSIT_ABI as any);
@@ -317,10 +328,7 @@ async function runGatewayDeposit({
     };
     const approveGas = await getGasLimit(rpc, eip1193Provider, approveTx, APPROVE_GAS_FALLBACK);
     const approveFeeParams = await getFeeParams(rpc, chainKey);
-    const approveTxHash = await sendWithNonceRetry(eip1193Provider, approveTx, approveGas, approveFeeParams, rpc, account);
-    await rpc.waitForTransaction(approveTxHash);
 
-    onStatus?.('Depositing into Gateway...');
     const depositTx: RpcTx = {
         from: account,
         to: GATEWAY_WALLET_EVM,
@@ -330,6 +338,31 @@ async function runGatewayDeposit({
     };
     const depositGas = await getGasLimit(rpc, eip1193Provider, depositTx, DEPOSIT_GAS_FALLBACK);
     const depositFeeParams = await getFeeParams(rpc, chainKey);
+
+    // Do not hard-block on our own gas check. Embedded-wallet providers can
+    // report conservative max-fee requirements, while L2 deposits often settle
+    // for cents. Let `eth_sendTransaction` perform the authoritative wallet/RPC
+    // validation so users with enough native gas are not incorrectly blocked.
+    assertSufficientNativeGas(
+        rpc,
+        account,
+        config,
+        approveGas,
+        approveFeeParams,
+        depositGas,
+        depositFeeParams
+    ).catch((err: any) => {
+        if (err instanceof InsufficientNativeGasError) {
+            console.log('[GatewayDeposit] Native gas precheck warning:', err.message);
+            return;
+        }
+        console.log('[GatewayDeposit] Native gas precheck skipped:', getErrorMessage(err));
+    });
+
+    const approveTxHash = await sendWithNonceRetry(eip1193Provider, approveTx, approveGas, approveFeeParams, rpc, account);
+    await rpc.waitForTransaction(approveTxHash);
+
+    onStatus?.('Depositing into Gateway...');
     const depositTxHash = await sendWithNonceRetry(eip1193Provider, depositTx, depositGas, depositFeeParams, rpc, account);
     await rpc.waitForTransaction(depositTxHash);
 

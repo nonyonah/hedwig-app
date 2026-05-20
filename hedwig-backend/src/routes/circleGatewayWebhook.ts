@@ -9,7 +9,11 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('CircleGatewayWebhook');
 const router = Router();
 
-const CIRCLE_API_BASE_URL = (process.env.CIRCLE_API_BASE_URL || 'https://api.circle.com').replace(/\/+$/, '');
+const CIRCLE_NOTIFICATIONS_API_BASE_URL = (
+    process.env.CIRCLE_NOTIFICATIONS_API_BASE_URL ||
+    process.env.CIRCLE_DEVELOPER_API_BASE_URL ||
+    'https://api.circle.com'
+).replace(/\/+$/, '');
 const CIRCLE_API_KEY = String(process.env.CIRCLE_API_KEY || '').trim();
 const CIRCLE_PUBLIC_KEY_CACHE_MS = 1000 * 60 * 60 * 6;
 
@@ -70,7 +74,7 @@ const getCircleNotificationPublicKey = async (keyId: string): Promise<crypto.Key
         return null;
     }
 
-    const response = await fetch(`${CIRCLE_API_BASE_URL}/v2/notifications/publicKey/${encodeURIComponent(keyId)}`, {
+    const response = await fetch(`${CIRCLE_NOTIFICATIONS_API_BASE_URL}/v2/notifications/publicKey/${encodeURIComponent(keyId)}`, {
         method: 'GET',
         headers: {
             Accept: 'application/json',
@@ -273,43 +277,52 @@ const buildCopy = (envelope: WebhookEnvelope): { title: string; body: string; ty
 };
 
 const handleWebhook = async (req: Request, res: Response, _next: NextFunction) => {
-    const rawBody = (req as any).rawBody ?? JSON.stringify(req.body ?? {});
-    const signature = headerValue(req, 'x-circle-signature');
-    const keyId = headerValue(req, 'x-circle-key-id');
+    try {
+        const rawBody = (req as any).rawBody ?? JSON.stringify(req.body ?? {});
+        const signature = headerValue(req, 'x-circle-signature');
+        const keyId = headerValue(req, 'x-circle-key-id');
 
-    // Circle pings `webhooks.test` (no signature) when verifying a new
-    // subscription endpoint. Acknowledge it with 200 unconditionally,
-    // otherwise the permissionless subscription creation aborts with a
-    // generic "API parameter invalid".
-    const probeType = String((req.body as any)?.notificationType || '').toLowerCase();
-    if (probeType === 'webhooks.test') {
-        res.status(200).json({ received: true, status: 'preflight_ok' });
-        return;
-    }
+        // Circle pings `webhooks.test` (no signature) when verifying a new
+        // subscription endpoint. Acknowledge it with 200 unconditionally,
+        // otherwise the permissionless subscription creation aborts with a
+        // generic "API parameter invalid".
+        const probeType = String((req.body as any)?.notificationType || '').toLowerCase();
+        if (probeType === 'webhooks.test') {
+            res.status(200).json({ received: true, status: 'preflight_ok' });
+            return;
+        }
 
-    if (process.env.NODE_ENV === 'production' && !(await verifySignature(rawBody, signature, keyId))) {
-        logger.warn('Invalid Circle Gateway webhook signature', {
-            signaturePresent: Boolean(signature),
-            keyIdPresent: Boolean(keyId),
-        });
-        res.status(401).json({ error: 'invalid_signature' });
-        return;
-    }
-    if (process.env.NODE_ENV !== 'production' && signature && keyId && !(await verifySignature(rawBody, signature, keyId))) {
-        logger.warn('Invalid Circle Gateway webhook signature (dev)', {
-            signaturePresent: true,
-            keyIdPresent: true,
-        });
-    }
+        if (process.env.NODE_ENV === 'production' && !(await verifySignature(rawBody, signature, keyId))) {
+            logger.warn('Invalid Circle Gateway webhook signature', {
+                signaturePresent: Boolean(signature),
+                keyIdPresent: Boolean(keyId),
+            });
+            res.status(401).json({ error: 'invalid_signature' });
+            return;
+        }
+        if (process.env.NODE_ENV !== 'production' && signature && keyId && !(await verifySignature(rawBody, signature, keyId))) {
+            logger.warn('Invalid Circle Gateway webhook signature (dev)', {
+                signaturePresent: true,
+                keyIdPresent: true,
+            });
+        }
 
-    const envelope = (req.body || {}) as WebhookEnvelope;
-    if (!envelope.notificationId || !envelope.notificationType) {
-        res.status(200).json({ received: true, status: 'ignored_missing_fields' });
-        return;
-    }
+        const envelope = (req.body || {}) as WebhookEnvelope;
+        if (!envelope.notificationId || !envelope.notificationType) {
+            res.status(200).json({ received: true, status: 'ignored_missing_fields' });
+            return;
+        }
 
     const notification = envelope.notification as any || {};
-    const walletAddress = notification.walletAddress ?? notification.to ?? null;
+    const walletAddress =
+        notification.walletAddress ??
+        notification.depositorAddress ??
+        notification.depositor ??
+        notification.sourceDepositor ??
+        notification.sourceWalletAddress ??
+        notification.to ??
+        notification.from ??
+        null;
     const transferId = notification.transferId ?? null;
     const txHash = notification.txHash ?? null;
     const domain = notification.domain ?? null;
@@ -342,8 +355,6 @@ const handleWebhook = async (req: Request, res: Response, _next: NextFunction) =
             return;
         }
         logger.error('Failed to persist gateway webhook', { error: insertErr.message });
-        res.status(500).json({ error: insertErr.message });
-        return;
     }
 
     BackendAnalytics.capture(
@@ -453,20 +464,53 @@ const handleWebhook = async (req: Request, res: Response, _next: NextFunction) =
         });
     }
 
-    await supabase
-        .from('gateway_webhook_events')
-        .update({ processed_at: new Date().toISOString(), push_sent_at: new Date().toISOString() })
-        .eq('id', inserted.id);
+    if (inserted?.id) {
+        await supabase
+            .from('gateway_webhook_events')
+            .update({ processed_at: new Date().toISOString(), push_sent_at: new Date().toISOString() })
+            .eq('id', inserted.id);
+    }
 
     res.status(200).json({ received: true });
+    } catch (error) {
+        logger.error('Unhandled Circle Gateway webhook error', {
+            error: error instanceof Error ? error.message : 'Unknown',
+        });
+        res.status(200).json({ received: true, status: 'accepted_with_processing_error' });
+    }
+};
+
+const handleVerificationProbe = (_req: Request, res: Response) => {
+    res.status(200).json({
+        status: 'ok',
+        service: 'circle-gateway-webhook',
+        timestamp: new Date().toISOString(),
+    });
 };
 
 // Circle disallows two permissionless subscriptions on the exact same
 // endpoint URL, so we keep EVM and Solana on distinct paths and accept both
 // on the same handler.
+router.get('/', handleVerificationProbe);
+router.get('/solana', handleVerificationProbe);
+router.get('/evm', handleVerificationProbe);
+router.head('/', handleVerificationProbe);
+router.head('/solana', handleVerificationProbe);
+router.head('/evm', handleVerificationProbe);
+router.options('/', handleVerificationProbe);
+router.options('/solana', handleVerificationProbe);
+router.options('/evm', handleVerificationProbe);
 router.post('/', handleWebhook);
 router.post('/solana', handleWebhook);
 router.post('/evm', handleWebhook);
+router.get('/solana/:batch', handleVerificationProbe);
+router.get('/evm/:batch', handleVerificationProbe);
+router.head('/solana/:batch', handleVerificationProbe);
+router.head('/evm/:batch', handleVerificationProbe);
+router.options('/solana/:batch', handleVerificationProbe);
+router.options('/evm/:batch', handleVerificationProbe);
+router.post('/solana/:batch', handleWebhook);
+router.post('/evm/:batch', handleWebhook);
 
 router.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -55,6 +55,15 @@ export default function LoginScreen() {
     const { getAccessToken, user, isReady } = usePrivy();
     const { login: oauthLogin } = useLoginWithOAuth();
 
+    const waitForAccessToken = async (attempts = 10): Promise<string | null> => {
+        for (let i = 0; i < attempts; i += 1) {
+            const token = await getAccessToken();
+            if (token) return token;
+            await new Promise((resolve) => setTimeout(resolve, 350));
+        }
+        return null;
+    };
+
     // Redirect already-authenticated users
     useEffect(() => {
         if (isReady && user) {
@@ -162,7 +171,7 @@ export default function LoginScreen() {
             console.log('OAuth login successful:', user?.id);
 
             // After OAuth, check if user exists in our backend
-            const token = await getAccessToken();
+            const token = await waitForAccessToken();
             if (token) {
                 const response = await fetch(joinApiUrl('/api/auth/me'), {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -173,6 +182,12 @@ export default function LoginScreen() {
                 } else if (response.status === 404) {
                     router.replace('/auth/profile');
                 }
+            } else {
+                // Privy can finish the native OAuth browser flow before the
+                // session token is hydrated locally. Land in the app and let
+                // the root auth state finish syncing instead of bouncing the
+                // user back to the sign-in screen.
+                router.replace('/');
             }
         } catch (error: any) {
             // Don't show error if user cancelled the flow

@@ -30,6 +30,8 @@ import Analytics from '../../services/analytics';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { SelectorSheet, SelectorSheetOption } from '../../components/SelectorSheet';
 import { useCoinbasePay } from '../../hooks/useCoinbasePay';
+import { useGatewayBalance } from '../../hooks/useGatewayBalance';
+import { useSettings } from '../../context/SettingsContext';
 
 // Network options
 const NETWORKS = [
@@ -82,6 +84,8 @@ export default function CreateWithdrawalScreen() {
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
     const { createSession: createCoinbaseSession } = useCoinbasePay();
+    const gatewayBalance = useGatewayBalance();
+    const { gatewayAutoDepositEnabled } = useSettings();
 
     // Form State
     const [amount, setAmount] = useState('');
@@ -892,6 +896,7 @@ export default function CreateWithdrawalScreen() {
                     amount,
                     token: selectedToken.id,
                     network: selectedNetwork.id, // This will be 'base' after bridge completes
+                    unified: selectedToken.id.toUpperCase() === 'USDC' && (gatewayAutoDepositEnabled || gatewayBalance.available > 0n),
                     fiatCurrency: selectedCountry.currency,
                     bankName: selectedBank.name,
                     accountNumber,

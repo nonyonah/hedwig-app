@@ -20,6 +20,17 @@ export async function getOrCreateUser(privyId: string) {
             .single();
 
         if (user && !error) {
+            if (user.ethereum_wallet_address || user.solana_wallet_address) {
+                void registerGatewayWebhookAddresses({
+                    ethereum: user.ethereum_wallet_address,
+                    solana: user.solana_wallet_address,
+                }).catch((gatewayError: any) => {
+                    logger.warn('Failed to register existing user wallets with Circle Gateway', {
+                        userId: user.id,
+                        error: gatewayError?.message || 'Unknown error',
+                    });
+                });
+            }
             return user;
         }
 

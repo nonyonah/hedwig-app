@@ -73,6 +73,8 @@ interface OfframpData {
     amount: string;
     token: string;
     network: string;
+    /** True when this withdrawal should settle from Circle Gateway unified USDC. */
+    unified?: boolean;
     fiatCurrency: string;
     bankName: string;
     accountNumber: string;
@@ -254,6 +256,17 @@ const parseOfframpError = (error: any, hasTokensBeenSent: boolean): ParsedOffram
 export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
     const { hapticsEnabled, gatewayAutoDepositEnabled } = useSettings();
     const gatewayBalance = useGatewayBalance();
+    const hasGatewayLiquidity = useCallback((minimumSubunits = 1n): boolean => {
+        try {
+            return gatewayBalance.perDomain.some((entry) => BigInt(entry.balance ?? '0') >= minimumSubunits);
+        } catch {
+            return false;
+        }
+    }, [gatewayBalance.perDomain]);
+    const shouldUseGatewayForData = useCallback((payload: OfframpData | null, minimumSubunits = 1n): boolean => {
+        if (!payload || payload.token.toUpperCase() !== 'USDC') return false;
+        return payload.unified === true || gatewayAutoDepositEnabled || hasGatewayLiquidity(minimumSubunits);
+    }, [gatewayAutoDepositEnabled, hasGatewayLiquidity]);
     const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const { user, getAccessToken } = useAuth();
@@ -287,6 +300,13 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
     // KYC hook
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
 
+    useEffect(() => {
+        if (!data) return;
+        if (data.token.toUpperCase() === 'USDC') {
+            gatewayBalance.refresh().catch(() => undefined);
+        }
+    }, [data]);
+
     const estimateNetworkFee = useCallback(async () => {
         if (!data || modalState !== 'confirm') return;
         const network = data.network.toLowerCase();
@@ -296,11 +316,12 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             return;
         }
 
-        // Gateway fee breakdown only applies when the user is settling via
-        // the unified USDC path. When aggregated USDC is OFF we use a plain
-        // ERC-20 transfer from the EOA — no Forwarder / service fee — so
-        // fall through to the native gas estimate below.
-        if (data.token.toUpperCase() === 'USDC' && gatewayAutoDepositEnabled) {
+        // Gateway fee breakdown applies when the withdrawal is backed by the
+        // unified USDC balance. This is intentionally based on the selected
+        // source / available Gateway liquidity, not only the global auto-
+        // deposit setting, because users can still hold unified balance after
+        // turning auto-deposit off.
+        if (shouldUseGatewayForData(data)) {
             const sourceKey = (() => {
                 const n = network;
                 if (n.includes('base')) return 'base' as const;
@@ -370,7 +391,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             console.log('[OfframpModal] Network fee estimation error:', error?.message || error);
             setNetworkFeeError(`Estimate unavailable (paid in ${getNativeFeeSymbol(chainConfig)})`);
         }
-    }, [data, modalState, evmWallets, gatewayAutoDepositEnabled]);
+    }, [data, modalState, evmWallets, shouldUseGatewayForData]);
 
     // Fetch exchange rate when data changes
     useEffect(() => {
@@ -623,7 +644,9 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                 token: data.token,
             });
 
-            if (!gatewayAutoDepositEnabled) {
+            const shouldUseGateway = shouldUseGatewayForData(data, transferAmountSubunits);
+
+            if (!shouldUseGateway) {
                 // ---------- Direct ERC-20 path (unified off) ----------
                 const destConfig = GATEWAY_EVM_CHAINS[destChainKey];
                 setStatusMessage(`Sending USDC on ${destConfig.name}…`);

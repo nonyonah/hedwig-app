@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Alert, Linking, View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -17,6 +17,7 @@ const resolveHugeIcon = (...names: string[]) => {
 };
 
 const MORE_ICON_STROKE = 1.35;
+const WHATSAPP_FEEDBACK_URL = 'https://wa.me/message/4E5VFMHK3F4QO1';
 
 export default function MoreScreen() {
     const router = useRouter();
@@ -33,9 +34,31 @@ export default function MoreScreen() {
         { name: 'Settings', route: '/settings', icon: resolveHugeIcon('Settings01Icon', 'Settings02Icon') },
     ];
 
-    const handleFeedbackPress = async () => {
+    const openFeedbackForm = async () => {
         const opened = await openUserbackFeedback(user);
         if (!opened) router.push('/feedback' as any);
+    };
+
+    const handleFeedbackPress = () => {
+        Alert.alert(
+            'Give feedback',
+            'Send a quick message or open the feedback form.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'WhatsApp',
+                    onPress: () => {
+                        void Linking.openURL(WHATSAPP_FEEDBACK_URL);
+                    },
+                },
+                {
+                    text: 'Feedback form',
+                    onPress: () => {
+                        void openFeedbackForm();
+                    },
+                },
+            ],
+        );
     };
 
     return (

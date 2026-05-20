@@ -1,5 +1,5 @@
 import { Color, Tabs, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DynamicColorIOS, Platform, PlatformColor, useColorScheme } from 'react-native';
 
 import { useAuth } from '../../../hooks/useAuth';
@@ -24,16 +24,27 @@ const getPlatformColorSafe = (resource: string, fallback: string): string => {
 export default function TabLayout() {
     const router = useRouter();
     const { user, isReady } = useAuth();
+    const [authGraceElapsed, setAuthGraceElapsed] = useState(false);
     const themeColors = useThemeColors();
     const isAndroid = Platform.OS === 'android';
     const isIOS = Platform.OS === 'ios';
     const systemColorScheme = useColorScheme();
 
     useEffect(() => {
-        if (isReady && !user) {
+        if (user) {
+            setAuthGraceElapsed(false);
+            return;
+        }
+        if (!isReady) return;
+        const timer = setTimeout(() => setAuthGraceElapsed(true), 1800);
+        return () => clearTimeout(timer);
+    }, [isReady, user]);
+
+    useEffect(() => {
+        if (isReady && !user && authGraceElapsed) {
             router.replace('/auth/welcome');
         }
-    }, [isReady, user, router]);
+    }, [authGraceElapsed, isReady, user, router]);
 
     if (!isReady) return null;
 
