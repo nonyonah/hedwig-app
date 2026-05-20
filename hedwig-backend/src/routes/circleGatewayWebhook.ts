@@ -28,6 +28,18 @@ const circlePublicKeyCache = new Map<string, CirclePublicKeyCacheEntry>();
 // emits the chain key (e.g. "baseSepolia") so we mirror what the mobile UI
 // shows so users see the same wording across surfaces.
 const CHAIN_LABELS: Record<string, string> = {
+    '0': 'Ethereum',
+    '2': 'Optimism',
+    '3': 'Arbitrum',
+    '5': 'Solana',
+    '6': 'Base',
+    '7': 'Polygon',
+    '10': 'Unichain',
+    '13': 'Sonic',
+    '14': 'World Chain',
+    '16': 'Sei',
+    '19': 'HyperEVM',
+    '26': 'Arc Testnet',
     base: 'Base',
     baseSepolia: 'Base Sepolia',
     arbitrum: 'Arbitrum',
@@ -40,9 +52,10 @@ const CHAIN_LABELS: Record<string, string> = {
     solanaDevnet: 'Solana Devnet',
 };
 
-const formatChainLabel = (domain?: string | null): string => {
-    if (!domain) return 'unknown chain';
-    return CHAIN_LABELS[domain] || domain.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+const formatChainLabel = (domain?: string | number | null): string => {
+    if (domain === null || domain === undefined || domain === '') return 'unknown chain';
+    const key = String(domain).trim();
+    return CHAIN_LABELS[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 };
 
 const formatUsdc = (raw?: string | number | null): string => {

@@ -18,7 +18,7 @@ import KYCVerificationModal from './KYCVerificationModal';
 import Analytics from '../services/analytics';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
 import { getChainAddParams, getEvmUsdcChain, getNativeFeeSymbol } from '../lib/usdcFeeNetworks';
-import { useGatewayBalance, formatGatewayUsdc } from '../hooks/useGatewayBalance';
+import { useGatewayBalance, formatGatewayUsdc, GatewayPerDomainBalance } from '../hooks/useGatewayBalance';
 import {
     GATEWAY_DOMAINS,
     GATEWAY_EVM_CHAINS,
@@ -92,6 +92,13 @@ const getPlatformFee = (grossAmount: number): number => grossAmount * PLATFORM_F
 const getNetCryptoAmount = (grossAmount: number): number => Math.max(0, grossAmount - getPlatformFee(grossAmount));
 const USDC_DECIMALS = 6;
 
+const parseUsdcSubunits = (value: string | number): bigint => {
+    const raw = String(value ?? '').trim();
+    const match = raw.match(/^(\d+)(?:\.(\d+))?$/);
+    if (!match) return 0n;
+    return BigInt(match[1]) * 1_000_000n + BigInt(((match[2] ?? '') + '000000').slice(0, 6));
+};
+
 const buildErc20TransferData = (recipient: string, amount: number, decimals = USDC_DECIMALS): string => {
     const amountWei = BigInt(Math.floor(amount * Math.pow(10, decimals)));
     const recipientPadded = recipient.slice(2).toLowerCase().padStart(64, '0');
@@ -150,9 +157,27 @@ interface ParsedOfframpError {
     shouldShowRetry: boolean;
 }
 
-const parseOfframpError = (error: any, hasTokensBeenSent: boolean): ParsedOfframpError => {
+const parseOfframpError = (error: any, hasTokensBeenSent: boolean, usedGateway = false): ParsedOfframpError => {
     const message = String(error?.message || '').toLowerCase();
     const fallbackMessage = error?.message || 'Unable to submit withdrawal right now. Please try again.';
+
+    if (usedGateway && (
+        message.includes('insufficient funds') ||
+        message.includes('insufficient balance') ||
+        message.includes('not enough balance') ||
+        message.includes('transfer amount exceeds') ||
+        message.includes('gas required exceeds') ||
+        message.includes('unified balance') ||
+        message.includes('aggregated usdc')
+    )) {
+        return {
+            type: 'insufficient_funds',
+            title: 'Not enough Aggregated USDC',
+            message: "Your Aggregated USDC balance cannot cover this withdrawal plus Gateway fees yet.",
+            recoveryHint: 'Reduce the withdrawal amount or add more USDC to your Aggregated USDC balance. You do not need native token for this Gateway withdrawal.',
+            shouldShowRetry: true,
+        };
+    }
 
     if (
         message.includes('insufficient funds') ||
@@ -258,11 +283,12 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
     const gatewayBalance = useGatewayBalance();
     const hasGatewayLiquidity = useCallback((minimumSubunits = 1n): boolean => {
         try {
-            return gatewayBalance.perDomain.some((entry) => BigInt(entry.balance ?? '0') >= minimumSubunits);
+            return gatewayBalance.available >= minimumSubunits ||
+                gatewayBalance.perDomain.some((entry) => BigInt(entry.balance ?? '0') >= minimumSubunits);
         } catch {
             return false;
         }
-    }, [gatewayBalance.perDomain]);
+    }, [gatewayBalance.available, gatewayBalance.perDomain]);
     const shouldUseGatewayForData = useCallback((payload: OfframpData | null, minimumSubunits = 1n): boolean => {
         if (!payload || payload.token.toUpperCase() !== 'USDC') return false;
         return payload.unified === true || gatewayAutoDepositEnabled || hasGatewayLiquidity(minimumSubunits);
@@ -462,6 +488,22 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
         estimateNetworkFee();
     }, [estimateNetworkFee]);
 
+    const fetchFreshGatewayPerDomain = async (): Promise<GatewayPerDomainBalance[]> => {
+        try {
+            const token = await getAccessToken();
+            if (!token) return gatewayBalance.perDomain;
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/gateway/balance`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const payload = await res.json();
+            const list = payload?.data?.perDomain;
+            return Array.isArray(list) ? (list as GatewayPerDomainBalance[]) : gatewayBalance.perDomain;
+        } catch {
+            return gatewayBalance.perDomain;
+        }
+    };
+
     const handleDismiss = useCallback(() => {
         setModalState('confirm');
         setOrderId(null);
@@ -492,6 +534,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
         let createdOrderId: string | null = null;
         let submittedTxHash: string | null = null;
         let tokensSentInAttempt = false;
+        let usedGatewayInAttempt = false;
         setParsedError(null);
 
         Analytics.withdrawalFlowStep('confirm_tapped', {
@@ -636,7 +679,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             const providerServiceFee = Number(order.serviceFee || 0);
             const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount)) + (Number.isFinite(providerServiceFee) ? providerServiceFee : 0);
             const transferAmountStr = transferAmount.toFixed(6);
-            const transferAmountSubunits = BigInt(Math.floor(transferAmount * 1_000_000));
+            const transferAmountSubunits = parseUsdcSubunits(transferAmountStr);
 
             Analytics.withdrawalFlowStep('token_transfer_started', {
                 order_id: order.id,
@@ -644,7 +687,17 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                 token: data.token,
             });
 
-            const shouldUseGateway = shouldUseGatewayForData(data, transferAmountSubunits);
+            let freshPerDomainForGateway: GatewayPerDomainBalance[] | null = null;
+            let shouldUseGateway = shouldUseGatewayForData(data, transferAmountSubunits);
+            if (!shouldUseGateway) {
+                freshPerDomainForGateway = await fetchFreshGatewayPerDomain();
+                const freshTotal = freshPerDomainForGateway.reduce(
+                    (sum, entry) => sum + BigInt(entry.balance ?? '0'),
+                    0n,
+                );
+                shouldUseGateway = freshTotal >= transferAmountSubunits;
+            }
+            usedGatewayInAttempt = shouldUseGateway;
 
             if (!shouldUseGateway) {
                 // ---------- Direct ERC-20 path (unified off) ----------
@@ -705,25 +758,41 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                 setStatusMessage('Submitting USDC via Circle Gateway...');
 
             // Pick a source domain that holds enough Gateway liquidity for
-            // the burn. Prefer Base for cheapest gas.
+            // the burn plus Gateway fees. Prefer Base for cheapest gas.
+            const freshPerDomain = freshPerDomainForGateway ?? await fetchFreshGatewayPerDomain();
             const liquidityByDomain = new Map<number, bigint>();
-            for (const entry of gatewayBalance.perDomain) {
+            for (const entry of freshPerDomain) {
                 liquidityByDomain.set(
                     entry.domain,
                     (liquidityByDomain.get(entry.domain) ?? 0n) + BigInt(entry.balance ?? '0')
                 );
             }
             const sourceCandidates: GatewayEvmChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism'];
-            const sourceChainKey = sourceCandidates.find((key) =>
-                (liquidityByDomain.get(GATEWAY_DOMAINS[key]) ?? 0n) >= transferAmountSubunits
-            );
+            const requiredByChain = new Map<GatewayEvmChainKey, bigint>();
+            const sourceChainKey = sourceCandidates.find((key) => {
+                const feePreview = previewGatewayFees({
+                    sourceChain: key,
+                    destChain: destChainKey,
+                    valueUsdc: transferAmountSubunits,
+                    sourceGasFeeUsdc: GATEWAY_EVM_CHAINS[key].gasFeeUsdc,
+                    useForwarder: true,
+                });
+                const required = transferAmountSubunits + feePreview.totalFeeUsdc;
+                requiredByChain.set(key, required);
+                return (liquidityByDomain.get(GATEWAY_DOMAINS[key]) ?? 0n) >= required;
+            });
             if (!sourceChainKey) {
                 const totalGateway = sourceCandidates.reduce(
                     (sum, key) => sum + (liquidityByDomain.get(GATEWAY_DOMAINS[key]) ?? 0n),
                     0n,
                 );
+                const lowestRequired = sourceCandidates.reduce<bigint | null>((lowest, key) => {
+                    const required = requiredByChain.get(key);
+                    if (!required) return lowest;
+                    return lowest === null || required < lowest ? required : lowest;
+                }, null);
                 throw new Error(
-                    `Unified balance has ${formatGatewayUsdc(totalGateway)} USDC, but no single Gateway chain has enough for this withdrawal yet. Add balance on one supported chain or withdraw a smaller amount.`
+                    `Aggregated USDC has ${formatGatewayUsdc(totalGateway)} USDC, but this withdrawal needs about ${formatGatewayUsdc(lowestRequired ?? transferAmountSubunits)} USDC on one Gateway source chain including Gateway fees. Add balance on one supported chain or withdraw a smaller amount.`
                 );
             }
             const sourceConfig = GATEWAY_EVM_CHAINS[sourceChainKey];
@@ -890,7 +959,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
 
         } catch (error: any) {
             console.error('Offramp Failed:', error);
-            const handledError = parseOfframpError(error, tokensSentInAttempt);
+            const handledError = parseOfframpError(error, tokensSentInAttempt, usedGatewayInAttempt);
             setParsedError(handledError);
             setStatusMessage(handledError.message);
             setModalState('failed');
