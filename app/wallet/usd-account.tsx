@@ -18,6 +18,7 @@ const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Ar
 const ChevronRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowRight01Icon} {...props} />;
 const Copy = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Copy01Icon} {...props} />;
 const Landmark = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).BankIcon} {...props} />;
+const Loading = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Loading03Icon || (HugeiconsCore as any).Clock01Icon || (HugeiconsCore as any).Timer01Icon || (HugeiconsCore as any).BankIcon} {...props} />;
 const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
 
 
@@ -107,6 +108,7 @@ export default function UsdAccountScreen() {
     const [isContinuing, setIsContinuing] = useState(false);
     const [selectedTransfer, setSelectedTransfer] = useState<UsdTransfer | null>(null);
     const guidelinesSheetRef = useRef<TrueSheet>(null);
+    const accountDetailsSheetRef = useRef<TrueSheet>(null);
     const transferSheetRef = useRef<TrueSheet>(null);
 
     const loadData = useCallback(async () => {
@@ -200,6 +202,7 @@ export default function UsdAccountScreen() {
         const achAny = details?.ach as any;
         const accountNumber = details?.ach?.accountNumber || achAny?.account_number || details?.ach?.accountNumberMasked || 'N/A';
         const routing = details?.ach?.routingNumber || achAny?.routing_number || details?.ach?.routingNumberMasked || 'N/A';
+        const depositMessage = details?.ach?.depositMessage || achAny?.deposit_message || achAny?.memo || achAny?.reference || null;
         const bankName = details?.ach?.bankName || 'N/A';
         const bankAddress = details?.ach?.bankAddress || achAny?.bank_address || '1801 Main St., Kansas City, MO 64108';
 
@@ -209,9 +212,10 @@ export default function UsdAccountScreen() {
             `Account Number: ${accountNumber}`,
             'Account Type: USD Account',
             `Routing Number: ${routing}`,
+            depositMessage ? `Memo / Reference: ${depositMessage}` : null,
             `Bank Name: ${bankName}`,
             `Bank Address: ${bankAddress}`,
-        ].join('\n');
+        ].filter(Boolean).join('\n');
 
         try {
             await Share.share({ message });
@@ -223,6 +227,7 @@ export default function UsdAccountScreen() {
     const achAny = details?.ach as any;
     const resolvedAccountNumber = details?.ach?.accountNumber || achAny?.account_number || details?.ach?.accountNumberMasked || null;
     const resolvedRoutingNumber = details?.ach?.routingNumber || achAny?.routing_number || details?.ach?.routingNumberMasked || null;
+    const resolvedDepositMessage = details?.ach?.depositMessage || achAny?.deposit_message || achAny?.memo || achAny?.reference || null;
     const showAccountDetails = !!resolvedAccountNumber;
     const isNewUserState = !loading && !showAccountDetails && (status?.accountStatus === 'not_started' || !status?.accountStatus);
     const normalizedAccountStatus = String(status?.accountStatus || '').toLowerCase();
@@ -242,6 +247,7 @@ export default function UsdAccountScreen() {
         { label: 'Account number', value: accountNumber, copyLabel: 'Account number' },
         { label: 'Account type', value: 'USD Account', copyLabel: 'Account type' },
         { label: 'Routing number', value: routingNumber, copyLabel: 'Routing number' },
+        ...(resolvedDepositMessage ? [{ label: 'Memo / reference', value: resolvedDepositMessage, copyLabel: 'Memo / reference' }] : []),
         { label: 'Bank name', value: bankName, copyLabel: 'Bank name' },
         { label: 'Bank address', value: bankAddress, copyLabel: 'Bank address' },
     ];
@@ -361,23 +367,23 @@ export default function UsdAccountScreen() {
                         <View style={[styles.emptyStateIconWrap, { backgroundColor: themeColors.surface }]}>
                             <Landmark size={36} color={Colors.primary} />
                         </View>
-                        <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>We&apos;re reviewing your request</Text>
+                        <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>We're reviewing your request</Text>
                         <Text style={[styles.emptyStateBody, { color: themeColors.textSecondary }]}>
-                            We&apos;re reviewing your request and will notify you once it&apos;s approved and account has been created.
+                            We're reviewing your request and will notify you once it's approved and your account has been created.
                         </Text>
                     </View>
                 ) : isCreationPendingState ? (
                     <View style={styles.emptyStateContainer}>
                         <View style={[styles.emptyStateIconWrap, { backgroundColor: themeColors.surface }]}>
-                            <Landmark size={36} color={Colors.primary} />
+                            <Loading size={36} color={Colors.primary} />
                         </View>
                         <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>
                             {isContinuing ? 'Please wait...' : 'Fetching your USD account'}
                         </Text>
                         <Text style={[styles.emptyStateBody, { color: themeColors.textSecondary }]}>
                             {isContinuing
-                                ? 'We&apos;re creating your USD account details.'
-                                : 'We&apos;re fetching your account details. This can take a moment.'}
+                                ? "We're creating your USD account details."
+                                : "We're fetching your account details. This can take a moment."}
                         </Text>
                     </View>
                 ) : (
@@ -393,21 +399,23 @@ export default function UsdAccountScreen() {
 
                         <View style={[styles.card, { backgroundColor: themeColors.surface }]}>
                             {showAccountDetails ? (
-                                <View style={styles.detailsList}>
-                                    {accountRows.map((row) => (
-                                        <View key={row.label} style={styles.accountDetailRow}>
-                                            <View style={styles.accountDetailTextWrap}>
-                                                <Text style={[styles.accountDetailLabel, { color: themeColors.textSecondary }]}>{row.label}</Text>
-                                                <Text style={[styles.accountDetailValue, { color: themeColors.textPrimary }]}>{row.value}</Text>
-                                            </View>
-                                            <TouchableOpacity
-                                                style={styles.copyCircle}
-                                                onPress={() => copyValue(row.copyLabel, row.value)}
-                                            >
-                                                <Copy size={16} color={Colors.primary} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
+                                <View style={styles.accountSummaryBlock}>
+                                    <View style={[styles.accountSummaryIcon, { backgroundColor: themeColors.background }]}>
+                                        <Landmark size={24} color={themeColors.textPrimary} />
+                                    </View>
+                                    <View style={styles.accountSummaryTextWrap}>
+                                        <Text style={[styles.accountSummaryTitle, { color: themeColors.textPrimary }]}>{bankName}</Text>
+                                        <Text style={[styles.accountSummarySubtitle, { color: themeColors.textSecondary }]}>
+                                            {accountNumber}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.detailsButton, { backgroundColor: Colors.primary }]}
+                                        onPress={() => accountDetailsSheetRef.current?.present()}
+                                        activeOpacity={0.9}
+                                    >
+                                        <Text style={styles.detailsButtonText}>View</Text>
+                                    </TouchableOpacity>
                                 </View>
                             ) : (
                                 <View style={styles.actionBlock}>
@@ -432,15 +440,6 @@ export default function UsdAccountScreen() {
                                 </View>
                             )}
                         </View>
-                        {showAccountDetails ? (
-                            <TouchableOpacity
-                                style={[styles.aboutAccountRow, { backgroundColor: themeColors.surface }]}
-                                onPress={() => guidelinesSheetRef.current?.present()}
-                            >
-                                <Text style={[styles.aboutAccountText, { color: themeColors.textPrimary }]}>About this account</Text>
-                                <ChevronRight size={18} color={Colors.primary} />
-                            </TouchableOpacity>
-                        ) : null}
                     </>
                 )}
                 </ScrollView>
@@ -483,6 +482,63 @@ export default function UsdAccountScreen() {
                     </TouchableOpacity>
                 </View>
             ) : null}
+
+            <TrueSheet
+                ref={accountDetailsSheetRef}
+                detents={['auto']}
+                cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                backgroundBlur="regular"
+                grabber={true}
+                scrollable={true}
+            >
+                <View style={styles.accountDetailsSheetContainer}>
+                    <View style={styles.sheetHeaderRow}>
+                        <View>
+                            <Text style={[styles.sheetTitle, { color: themeColors.textPrimary }]}>USD account details</Text>
+                            <Text style={[styles.sheetSubtitle, { color: themeColors.textSecondary }]}>
+                                Share these details to receive USD bank transfers.
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            style={[styles.infoCircleButton, { backgroundColor: themeColors.surface }]}
+                            onPress={() => guidelinesSheetRef.current?.present()}
+                            accessibilityLabel="About this account"
+                            activeOpacity={0.85}
+                        >
+                            <Text style={[styles.infoCircleText, { color: themeColors.textPrimary }]}>!</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={[styles.accountDetailsCard, { backgroundColor: themeColors.surface }]}>
+                        {accountRows.map((row, index) => (
+                            <View key={row.label}>
+                                <View style={styles.accountDetailRow}>
+                                    <View style={styles.accountDetailTextWrap}>
+                                        <Text style={[styles.accountDetailLabel, { color: themeColors.textSecondary }]}>{row.label}</Text>
+                                        <Text selectable style={[styles.accountDetailValue, { color: themeColors.textPrimary }]}>{row.value}</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.copyCircle, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+                                        onPress={() => copyValue(row.copyLabel, row.value)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Copy size={16} color={themeColors.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
+                                {index < accountRows.length - 1 ? <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} /> : null}
+                            </View>
+                        ))}
+                    </View>
+
+                    <TouchableOpacity
+                        style={[styles.shareDetailsButton, { backgroundColor: Colors.primary }]}
+                        onPress={shareBankDetails}
+                        activeOpacity={0.9}
+                    >
+                        <Text style={styles.shareDetailsButtonText}>Share details</Text>
+                    </TouchableOpacity>
+                </View>
+            </TrueSheet>
 
             <TrueSheet
                 ref={guidelinesSheetRef}
@@ -561,7 +617,7 @@ export default function UsdAccountScreen() {
                 cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                 backgroundBlur="regular"
                 grabber={true}
-                onDismiss={() => setSelectedTransfer(null)}
+                onDidDismiss={() => setSelectedTransfer(null)}
             >
                 <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 24 }}>
                     <View style={styles.modalHeader}>
@@ -851,6 +907,42 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         padding: 18,
     },
+    accountSummaryBlock: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    accountSummaryIcon: {
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    accountSummaryTextWrap: {
+        flex: 1,
+    },
+    accountSummaryTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
+        marginBottom: 3,
+    },
+    accountSummarySubtitle: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 13,
+    },
+    detailsButton: {
+        minHeight: 38,
+        borderRadius: 999,
+        paddingHorizontal: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    detailsButtonText: {
+        color: '#FFFFFF',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 13,
+    },
     cardTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
@@ -861,11 +953,47 @@ const styles = StyleSheet.create({
         fontSize: 13,
         lineHeight: 20,
     },
-    detailsList: { gap: 18 },
-    accountDetailRow: {
+    accountDetailsSheetContainer: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        paddingBottom: 22,
+    },
+    sheetHeaderRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: 14,
+        marginBottom: 12,
+    },
+    sheetSubtitle: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 13,
+        lineHeight: 19,
+        maxWidth: 280,
+    },
+    infoCircleButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    infoCircleText: {
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: 18,
+    },
+    accountDetailsCard: {
+        borderRadius: 22,
+        paddingHorizontal: 14,
+        paddingVertical: 4,
+        marginBottom: 14,
+    },
+    detailsList: { gap: 18 },
+    accountDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
     },
     accountDetailTextWrap: {
         flex: 1,
@@ -873,20 +1001,31 @@ const styles = StyleSheet.create({
     },
     accountDetailLabel: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 14,
-        marginBottom: 4,
+        fontSize: 13,
+        marginBottom: 3,
     },
     accountDetailValue: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 15,
+        fontSize: 14,
     },
     copyCircle: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        backgroundColor: 'rgba(37, 99, 235, 0.18)',
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    shareDetailsButton: {
+        minHeight: 54,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    shareDetailsButtonText: {
+        color: '#FFFFFF',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
     },
     actionBlock: {
         marginTop: 12,

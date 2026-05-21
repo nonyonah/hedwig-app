@@ -4,7 +4,16 @@ import axios, { AxiosInstance } from 'axios';
 type AnyObj = Record<string, any>;
 
 const apiKey = String(process.env.BRIDGE_API_KEY || '').trim();
-const baseUrl = String(process.env.BRIDGE_API_BASE_URL || 'https://api.bridge.xyz').replace(/\/+$/, '');
+const bridgeEnv = String(process.env.BRIDGE_ENV || '').trim().replace(/^["']|["']$/g, '').toLowerCase();
+const inferBaseUrl = () => {
+    const configuredBaseUrl = String(process.env.BRIDGE_API_BASE_URL || '').trim().replace(/^["']|["']$/g, '');
+    if (configuredBaseUrl) return configuredBaseUrl;
+    if (bridgeEnv === 'sandbox' || bridgeEnv === 'test' || apiKey.startsWith('sk-test-')) {
+        return 'https://api.sandbox.bridge.xyz';
+    }
+    return 'https://api.bridge.xyz';
+};
+const baseUrl = inferBaseUrl().replace(/\/+$/, '');
 const webhookUrl =
     String(process.env.BRIDGE_USD_WEBHOOK_URL || '').trim() ||
     `${String(process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '')}/api/webhooks/bridge-usd`;
@@ -84,6 +93,14 @@ const requireWebhookId = () => {
 };
 
 const run = async () => {
+    if (command === 'list') {
+        const response = await client.get('/v0/webhooks');
+        const payload = extractPayload(response.data);
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify(payload, null, 2));
+        return;
+    }
+
     if (command === 'create') {
         if (!webhookUrl.startsWith('https://')) {
             // eslint-disable-next-line no-console
@@ -141,7 +158,7 @@ const run = async () => {
     }
 
     // eslint-disable-next-line no-console
-    console.error('Unknown command. Use one of: create | activate | test | logs | events');
+    console.error('Unknown command. Use one of: list | create | activate | test | logs | events');
     process.exit(1);
 };
 
@@ -151,4 +168,3 @@ run().catch((error: any) => {
     console.error(`Bridge webhook command failed: ${details}`);
     process.exit(1);
 });
-

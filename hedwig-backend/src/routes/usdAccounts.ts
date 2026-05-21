@@ -4,6 +4,8 @@ import { bridgeUsdService } from '../services/bridgeUsd';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
+import NotificationService from '../services/notifications';
+import { EmailService } from '../services/email';
 const router = Router();
 const logger = createLogger('UsdAccountsRoute');
 
@@ -74,6 +76,7 @@ type UsdAccountRow = {
     ach_account_number_masked: string | null;
     ach_routing_number_masked: string | null;
     bank_name: string | null;
+    deposit_message: string | null;
     settlement_chain: string;
     settlement_token: string;
     feature_enabled: boolean;
@@ -111,6 +114,41 @@ const ensureUsdAccountRow = async (userId: string): Promise<UsdAccountRow> => {
 
     if (error) throw new Error(`Failed to create USD account row: ${error.message}`);
     return data as UsdAccountRow;
+};
+
+const notifyVirtualAccountReady = async (params: {
+    userId: string;
+    email?: string | null;
+    firstName?: string | null;
+    currency: string;
+    bankName?: string | null;
+    accountNumberMasked?: string | null;
+    routingNumberMasked?: string | null;
+}): Promise<void> => {
+    try {
+        await NotificationService.notifyUser(params.userId, {
+            title: `${params.currency} account ready`,
+            body: `Your ${params.currency} receiving account has been generated and is ready to use.`,
+            data: { type: 'virtual_account_ready', currency: params.currency, route: '/wallet' },
+        });
+
+        if (params.email) {
+            await EmailService.sendUsdVirtualAccountReadyEmail({
+                to: params.email,
+                firstName: params.firstName || null,
+                currency: params.currency,
+                bankName: params.bankName || null,
+                accountNumberMasked: params.accountNumberMasked || null,
+                routingNumberMasked: params.routingNumberMasked || null,
+            });
+        }
+    } catch (error: any) {
+        logger.warn('Failed to send virtual account ready notification', {
+            userId: params.userId,
+            currency: params.currency,
+            error: error?.message,
+        });
+    }
 };
 
 /**
@@ -590,6 +628,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
         let accountNumberMasked = account.ach_account_number_masked;
         let routingNumberMasked = account.ach_routing_number_masked;
         let bankName = account.bank_name;
+        let depositMessage = account.deposit_message;
         let bankAddress: string | null = null;
         let accountName: string | null = null;
         let enabled = account.feature_enabled;
@@ -601,7 +640,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
         const hasStoredAchDetails = Boolean(account.ach_account_number_masked && account.ach_routing_number_masked);
         const hasStoredVirtualAccount = Boolean(account.bridge_virtual_account_id);
 
-        if (isBridgeApproved && !(hasStoredAchDetails || hasStoredVirtualAccount)) {
+        if (isBridgeApproved && !hasStoredAchDetails) {
             const destinationAddress = settlement.destinationAddress;
             if (!destinationAddress) {
                 res.status(400).json({
@@ -675,6 +714,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                 bankName = virtualAccount.bankName;
                 bankAddress = virtualAccount.bankAddress;
                 accountName = virtualAccount.accountName;
+                depositMessage = virtualAccount.depositMessage;
                 enabled = Boolean(virtualAccount.accountNumberMasked && virtualAccount.routingNumberMasked);
             } catch (virtualAccountError: any) {
                 const message = String(virtualAccountError?.message || '').toLowerCase();
@@ -682,7 +722,10 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                     message.includes('kyc') ||
                     message.includes('pending') ||
                     message.includes('review') ||
-                    message.includes('not approved');
+                    message.includes('not approved') ||
+                    message.includes('missing_address_data') ||
+                    message.includes('missing required address data') ||
+                    message.includes('missing address');
                 const inactiveCustomerLike =
                     sandboxMode &&
                     (message.includes('requires_active_kyc_status') ||
@@ -720,6 +763,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                         bankName = retryVirtualAccount.bankName;
                         bankAddress = retryVirtualAccount.bankAddress;
                         accountName = retryVirtualAccount.accountName;
+                        depositMessage = retryVirtualAccount.depositMessage;
                         enabled = Boolean(retryVirtualAccount.accountNumberMasked && retryVirtualAccount.routingNumberMasked);
                     } catch (retryError: any) {
                         logger.warn('Retry after inactive Bridge customer failed', {
@@ -732,6 +776,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                         accountNumberMasked = account.ach_account_number_masked;
                         routingNumberMasked = account.ach_routing_number_masked;
                         bankName = account.bank_name;
+                        depositMessage = account.deposit_message;
                     }
                 } else if (pendingLike) {
                     // Keep account in pending review state without crashing UI.
@@ -742,6 +787,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                     accountNumberMasked = account.ach_account_number_masked;
                     routingNumberMasked = account.ach_routing_number_masked;
                     bankName = account.bank_name;
+                    depositMessage = account.deposit_message;
                 } else {
                     throw virtualAccountError;
                 }
@@ -749,6 +795,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
         } else if (hasStoredAchDetails || hasStoredVirtualAccount) {
             // Use stable stored account details; avoid creating new virtual accounts on page open.
             enabled = Boolean(account.ach_account_number_masked && account.ach_routing_number_masked);
+            depositMessage = account.deposit_message;
             if (enabled && providerStatus === 'pending_kyc') {
                 providerStatus = 'active';
             }
@@ -765,20 +812,51 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
             bankName: bankName || null,
         });
 
-        const { error: updateError } = await supabase
+        const updatePayload: Record<string, unknown> = {
+            bridge_kyc_status: bridgeKycStatus,
+            provider_status: providerStatus,
+            bridge_virtual_account_id: virtualAccountId,
+            ach_account_number_masked: accountNumberMasked,
+            ach_routing_number_masked: routingNumberMasked,
+            bank_name: bankName,
+            deposit_message: depositMessage,
+            feature_enabled: enabled,
+        };
+
+        let { error: updateError } = await supabase
             .from('user_usd_accounts')
-            .update({
-                bridge_kyc_status: bridgeKycStatus,
-                provider_status: providerStatus,
-                bridge_virtual_account_id: virtualAccountId,
-                ach_account_number_masked: accountNumberMasked,
-                ach_routing_number_masked: routingNumberMasked,
-                bank_name: bankName,
-                feature_enabled: enabled,
-            })
+            .update(updatePayload)
             .eq('id', account.id);
+
+        if (updateError && String(updateError.message || '').toLowerCase().includes('deposit_message')) {
+            logger.warn('USD account deposit_message column missing; retrying update without memo persistence', {
+                userId: user.id,
+                message: updateError.message,
+            });
+            delete updatePayload.deposit_message;
+            const retry = await supabase
+                .from('user_usd_accounts')
+                .update(updatePayload)
+                .eq('id', account.id);
+            updateError = retry.error;
+        }
+
         if (updateError) {
             throw new Error(`Failed to update USD account details: ${updateError.message}`);
+        }
+
+        const wasReadyBefore = Boolean(account.feature_enabled && account.ach_account_number_masked && account.ach_routing_number_masked);
+        const isReadyNow = Boolean(enabled && accountNumberMasked && routingNumberMasked);
+        if (!wasReadyBefore && isReadyNow) {
+            await notifyVirtualAccountReady({
+                userId: user.id,
+                email: user.email || null,
+                firstName: user.first_name || null,
+                currency: 'USD',
+                bankName,
+                accountNumberMasked,
+                routingNumberMasked,
+            });
         }
 
         res.json({
@@ -796,6 +874,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                     bankName,
                     accountName,
                     bankAddress,
+                    depositMessage,
                     accountNumberMasked: accountNumberMasked,
                     routingNumberMasked: routingNumberMasked,
                     rail: 'ACH',

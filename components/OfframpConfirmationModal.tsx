@@ -279,20 +279,12 @@ const parseOfframpError = (error: any, hasTokensBeenSent: boolean, usedGateway =
 };
 
 export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
-    const { hapticsEnabled, gatewayAutoDepositEnabled } = useSettings();
+    const { hapticsEnabled } = useSettings();
     const gatewayBalance = useGatewayBalance();
-    const hasGatewayLiquidity = useCallback((minimumSubunits = 1n): boolean => {
-        try {
-            return gatewayBalance.available >= minimumSubunits ||
-                gatewayBalance.perDomain.some((entry) => BigInt(entry.balance ?? '0') >= minimumSubunits);
-        } catch {
-            return false;
-        }
-    }, [gatewayBalance.available, gatewayBalance.perDomain]);
-    const shouldUseGatewayForData = useCallback((payload: OfframpData | null, minimumSubunits = 1n): boolean => {
+    const shouldUseGatewayForData = useCallback((payload: OfframpData | null): boolean => {
         if (!payload || payload.token.toUpperCase() !== 'USDC') return false;
-        return payload.unified === true || gatewayAutoDepositEnabled || hasGatewayLiquidity(minimumSubunits);
-    }, [gatewayAutoDepositEnabled, hasGatewayLiquidity]);
+        return payload.unified === true;
+    }, []);
     const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const { user, getAccessToken } = useAuth();
@@ -342,11 +334,9 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             return;
         }
 
-        // Gateway fee breakdown applies when the withdrawal is backed by the
-        // unified USDC balance. This is intentionally based on the selected
-        // source / available Gateway liquidity, not only the global auto-
-        // deposit setting, because users can still hold unified balance after
-        // turning auto-deposit off.
+        // Gateway fee breakdown applies only when this withdrawal was
+        // explicitly marked as Aggregated USDC. Existing Gateway liquidity
+        // must not override a user turning Aggregated USDC off.
         if (shouldUseGatewayForData(data)) {
             const sourceKey = (() => {
                 const n = network;
@@ -688,15 +678,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             });
 
             let freshPerDomainForGateway: GatewayPerDomainBalance[] | null = null;
-            let shouldUseGateway = shouldUseGatewayForData(data, transferAmountSubunits);
-            if (!shouldUseGateway) {
-                freshPerDomainForGateway = await fetchFreshGatewayPerDomain();
-                const freshTotal = freshPerDomainForGateway.reduce(
-                    (sum, entry) => sum + BigInt(entry.balance ?? '0'),
-                    0n,
-                );
-                shouldUseGateway = freshTotal >= transferAmountSubunits;
-            }
+            const shouldUseGateway = shouldUseGatewayForData(data);
             usedGatewayInAttempt = shouldUseGateway;
 
             if (!shouldUseGateway) {

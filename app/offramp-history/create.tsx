@@ -78,6 +78,13 @@ interface Beneficiary {
     createdAt?: string | number;
 }
 
+const parseDisplayAmount = (value?: string | number | null): number => {
+    const parsed = Number.parseFloat(String(value ?? '0').replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatUsd = (value: number): string => `$${Math.max(0, value).toFixed(2)}`;
+
 export default function CreateWithdrawalScreen() {
     const router = useRouter();
     const navigation = useNavigation();
@@ -114,7 +121,7 @@ export default function CreateWithdrawalScreen() {
     const beneficiariesSheetRef = useRef<TrueSheet>(null);
 
     // Wallets & Address
-    const { address: baseAddress } = useWallet();
+    const { address: baseAddress, balances, fetchBalances, isLoading: isWalletBalanceLoading } = useWallet();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const evmWallets = (ethereumWallet as any)?.wallets || [];
     const evmAddress = evmWallets[0]?.address || baseAddress || ''; // Use Privy EVM wallet address first
@@ -122,6 +129,17 @@ export default function CreateWithdrawalScreen() {
     const solanaWalletHook = useEmbeddedSolanaWallet();
     const solanaAddress = (solanaWalletHook as any)?.wallets?.[0]?.address || '';
     const isCoinbaseCountry = selectedCountry.currency === 'USD';
+    const selectedChainUsdcBalance = useMemo(() => {
+        const balance = balances.find((item) =>
+            item.chain?.toLowerCase() === selectedNetwork.id.toLowerCase() &&
+            item.asset?.toLowerCase() === selectedToken.id.toLowerCase()
+        );
+        return parseDisplayAmount(balance?.display_values?.usd || balance?.display_values?.token);
+    }, [balances, selectedNetwork.id, selectedToken.id]);
+    const aggregatedUsdcBalance = useMemo(() => Number(gatewayBalance.available) / 1_000_000, [gatewayBalance.available]);
+    const isUsingAggregatedUsdc = selectedToken.id.toUpperCase() === 'USDC' && gatewayAutoDepositEnabled;
+    const selectedSourceBalance = isUsingAggregatedUsdc ? aggregatedUsdcBalance : selectedChainUsdcBalance;
+    const selectedSourceName = isUsingAggregatedUsdc ? 'Aggregated USDC' : `${selectedNetwork.name} USDC`;
 
     // Modal States
     const [isBridgeModalVisible, setIsBridgeModalVisible] = useState(false);
@@ -211,6 +229,11 @@ export default function CreateWithdrawalScreen() {
     useEffect(() => {
         loadBeneficiaries();
     }, [loadBeneficiaries]);
+
+    useEffect(() => {
+        fetchBalances().catch(() => undefined);
+        gatewayBalance.refresh().catch(() => undefined);
+    }, [fetchBalances, gatewayBalance.refresh]);
 
     const loadBanks = useCallback(async () => {
         try {
@@ -550,6 +573,38 @@ export default function CreateWithdrawalScreen() {
                 amount,
             });
             Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0.');
+            return;
+        }
+
+        if (isWalletBalanceLoading || gatewayBalance.isLoading) {
+            Alert.alert('Balance still loading', 'Please wait a moment while we refresh your available USDC balance.');
+            return;
+        }
+
+        if (selectedSourceBalance < 1) {
+            Analytics.withdrawalFlowFailed('review', 'insufficient_funds_under_minimum', {
+                network: selectedNetwork.id,
+                source: isUsingAggregatedUsdc ? 'gateway' : 'per_chain',
+                available_usd: selectedSourceBalance,
+            });
+            Alert.alert(
+                'Insufficient funds',
+                `${selectedSourceName} has ${formatUsd(selectedSourceBalance)} available. You need at least $1.00 in that balance before you can withdraw.`
+            );
+            return;
+        }
+
+        if (numAmount > selectedSourceBalance) {
+            Analytics.withdrawalFlowFailed('review', 'insufficient_funds', {
+                network: selectedNetwork.id,
+                source: isUsingAggregatedUsdc ? 'gateway' : 'per_chain',
+                requested_usd: numAmount,
+                available_usd: selectedSourceBalance,
+            });
+            Alert.alert(
+                'Insufficient funds',
+                `${selectedSourceName} has ${formatUsd(selectedSourceBalance)} available, but this withdrawal is for ${formatUsd(numAmount)}.`
+            );
             return;
         }
 
@@ -896,7 +951,7 @@ export default function CreateWithdrawalScreen() {
                     amount,
                     token: selectedToken.id,
                     network: selectedNetwork.id, // This will be 'base' after bridge completes
-                    unified: selectedToken.id.toUpperCase() === 'USDC' && (gatewayAutoDepositEnabled || gatewayBalance.available > 0n),
+                    unified: selectedToken.id.toUpperCase() === 'USDC' && gatewayAutoDepositEnabled,
                     fiatCurrency: selectedCountry.currency,
                     bankName: selectedBank.name,
                     accountNumber,

@@ -467,9 +467,11 @@ app.use('/api/webhooks/circle-gateway', (req, _res, next) => {
     next();
 });
 app.use('/api/webhooks/circle-gateway', circleGatewayWebhookRoutes);
-app.use('/api/webhooks', webhookRoutes);
+app.use('/api/webhooks/didit', diditWebhookRoutes);
+app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 app.use('/api/webhooks/revenuecat', revenuecatWebhookRoutes);
 app.use('/api/webhooks/payments', paymentWebhooksRoutes);
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -480,7 +482,6 @@ app.use('/api/recipients', recipientRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/recurring-invoices', documentLimiter, recurringRoutes);
 app.use('/api/kyc', kycRoutes);
-app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', aiLimiter, creationBoxRoutes);
 app.use('/api/solana/rpc', solanaRpcLimiter, solanaRpcRoutes);
@@ -497,7 +498,6 @@ app.use('/api/usd-accounts', (req, _res, next) => {
     next();
 });
 app.use('/api/usd-accounts', financialLimiter, usdAccountRoutes);
-app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 app.use('/api/integrations', integrationsLimiter, integrationsRoutes);
 app.use('/api/revenue', insightsLimiter, revenueRoutes);
 app.use('/api/currency', currencyRoutes);

@@ -9,6 +9,24 @@ import BackendAnalytics from '../services/analytics';
 const logger = createLogger('KYC');
 const router = Router();
 
+const mapDiditStatus = (value?: string | null): 'pending' | 'approved' | 'rejected' | 'retry_required' => {
+    const decision = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_');
+
+    if (['approved', 'verified', 'completed', 'complete'].includes(decision)) {
+        return 'approved';
+    }
+    if (['declined', 'rejected', 'failed', 'denied', 'expired', 'abandoned'].includes(decision)) {
+        return 'rejected';
+    }
+    if (['resubmission_requested', 'retry', 'retry_required', 'resubmit', 'requires_resubmission'].includes(decision)) {
+        return 'retry_required';
+    }
+    return 'pending';
+};
+
 /**
  * GET /api/kyc/status
  * Get user's current KYC verification status
@@ -154,19 +172,7 @@ router.post('/check', authenticate, async (req: Request, res: Response, next) =>
             data: sessionData 
         });
 
-        let newStatus = user.kyc_status;
-        const decision = (sessionData.decision || sessionData.status || '').toLowerCase();
-
-        // Map status
-        if (decision === 'approved' || decision === 'verified' || decision === 'completed') {
-            newStatus = 'approved';
-        } else if (decision === 'declined' || decision === 'rejected' || decision === 'failed') {
-            newStatus = 'rejected';
-        } else if (decision === 'resubmission_requested' || decision === 'retry') {
-            newStatus = 'retry_required';
-        } else if (decision === 'review_needed' || decision === 'review' || decision === 'pending') {
-            // Keep pending
-        }
+        const newStatus = mapDiditStatus(sessionData.decision || sessionData.status);
 
         // Update if changed
         if (newStatus !== user.kyc_status) {

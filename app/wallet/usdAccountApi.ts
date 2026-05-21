@@ -50,6 +50,7 @@ export interface UsdAccountDetails {
         rail: string;
         currency: string;
         bankAddress?: string | null;
+        depositMessage?: string | null;
     };
     settlement: {
         chain: string;

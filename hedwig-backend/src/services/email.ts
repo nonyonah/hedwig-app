@@ -1436,4 +1436,147 @@ export const EmailService = {
             return false;
         }
     },
+
+    async sendKycApprovedEmail(data: {
+        to: string;
+        firstName?: string | null;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping KYC approved email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = String(data.firstName || '').trim();
+        const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
+        const deepLink = 'hedwig://';
+        const fallbackUrl = `${APP_URL}/settings`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Your Hedwig verification is approved</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Verification approved</p>
+                    <h1 class="heading">You are verified</h1>
+                    <p class="description">${greeting}</p>
+                    <p class="description">Your identity verification has been approved. You can now use supported withdrawals and payout features in Hedwig.</p>
+                    <div class="btn-container">
+                        <a href="${deepLink}" class="btn">Open Hedwig</a>
+                    </div>
+                    <p style="margin-top:14px;font-size:12px;color:#717680;text-align:center;">
+                        Prefer web?
+                        <a href="${fallbackUrl}" style="color:#2563eb;">Open settings</a>
+                    </p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: 'Your Hedwig verification is approved',
+                html,
+            });
+            logger.info('KYC approved email sent', { to: data.to });
+            return true;
+        } catch (error) {
+            logger.error('KYC approved email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+            });
+            return false;
+        }
+    },
+
+    async sendUsdVirtualAccountReadyEmail(data: {
+        to: string;
+        firstName?: string | null;
+        bankName?: string | null;
+        accountNumberMasked?: string | null;
+        routingNumberMasked?: string | null;
+        currency?: string | null;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping USD virtual account ready email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = String(data.firstName || '').trim();
+        const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
+        const currency = String(data.currency || 'USD').toUpperCase();
+        const fallbackUrl = `${APP_URL}/wallet`;
+        const detailsHtml = [
+            data.bankName ? ['Bank', data.bankName] : null,
+            data.accountNumberMasked ? ['Account', data.accountNumberMasked] : null,
+            data.routingNumberMasked ? ['Routing', data.routingNumberMasked] : null,
+        ].filter(Boolean).map((item) => {
+            const [label, value] = item as string[];
+            return `<tr><td style="padding:8px 0;color:#717680;font-size:13px;">${escapeHtml(label)}</td><td style="padding:8px 0;color:#181d27;font-size:13px;font-weight:600;text-align:right;">${escapeHtml(value)}</td></tr>`;
+        }).join('');
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Your ${escapeHtml(currency)} account is ready</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">${escapeHtml(currency)} account</p>
+                    <h1 class="heading">Your account details are ready</h1>
+                    <p class="description">${greeting}</p>
+                    <p class="description">Your ${escapeHtml(currency)} receiving account has been generated. You can now share these details to receive bank transfers into Hedwig.</p>
+                    ${detailsHtml ? `<div style="border:1px solid #e9eaeb;background:#f9fafb;border-radius:14px;padding:16px;margin:20px 0;"><table style="width:100%;border-collapse:collapse;">${detailsHtml}</table></div>` : ''}
+                    <div class="btn-container">
+                        <a href="hedwig://" class="btn">Open Hedwig app</a>
+                    </div>
+                    <p style="margin-top:14px;font-size:12px;color:#717680;text-align:center;">
+                        Prefer web?
+                        <a href="${fallbackUrl}" style="color:#2563eb;">Open wallet</a>
+                    </p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `Your ${currency} account is ready`,
+                html,
+            });
+            logger.info('USD virtual account ready email sent', { to: data.to, currency });
+            return true;
+        } catch (error) {
+            logger.error('USD virtual account ready email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+            });
+            return false;
+        }
+    },
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, Alert, Share, ToastAndroid, ActivityIndicator, DeviceEventEmitter, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, Alert, Share, ToastAndroid, DeviceEventEmitter, Switch } from 'react-native';
 let Menu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
@@ -27,7 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
     Settings as Gear, Copy, QrCode,
     ChevronDown as CaretDown, ChevronLeft as CaretLeft,
-    X, ArrowUp, Wallet as WalletIcon, Plus, ShieldCheck, ArrowRight,
+    X, ArrowUp, Wallet as WalletIcon, ShieldCheck, ArrowRight,
     ArrowLeftRight as ArrowLeftRightIcon,
     Landmark as LandmarkIcon,
     Clock as ClockIcon,
@@ -50,7 +50,7 @@ import IOSGlassIconButton from '../../../components/ui/IOSGlassIconButton';
 import HeaderActionButtons from '../../../components/ui/HeaderActionButtons';
 import { SelectorSheet } from '../../../components/SelectorSheet';
 import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetailSheet';
-import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
+import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
 import type { OnrampOrder } from '../../../hooks/useOnramp';
 import type { CoinbasePayActivitySession } from '../../../hooks/useCoinbasePay';
@@ -155,9 +155,10 @@ type ActivityItem =
     | { kind: 'tx';         data: Transaction  }
     | { kind: 'withdrawal'; data: OfframpOrder }
     | { kind: 'onramp';     data: OnrampOrder  }
-    | { kind: 'coinbase';   data: CoinbasePayActivitySession };
+    | { kind: 'coinbase';   data: CoinbasePayActivitySession }
+    | { kind: 'usd';        data: UsdTransfer };
 
-type ActivityFilter = 'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'failed';
+type ActivityFilter = 'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'usd_account' | 'failed';
 type NetworkFilter = 'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo';
 
 const NETWORK_FILTER_OPTIONS: Array<{ id: NetworkFilter; label: string; sublabel: string; icon?: any }> = [
@@ -178,6 +179,7 @@ const ACTIVITY_FILTER_OPTIONS: Array<{ id: ActivityFilter; label: string; sublab
     { id: 'out', label: 'Sent', sublabel: 'Outgoing wallet transfers' },
     { id: 'withdrawals', label: 'Withdrawals', sublabel: 'Bank cash-out activity' },
     { id: 'onramps', label: 'Buy USDC', sublabel: 'Fiat deposits and USDC purchases' },
+    { id: 'usd_account', label: 'USD account', sublabel: 'Incoming USD account deposits' },
     { id: 'failed', label: 'Failed', sublabel: 'Failed or cancelled activity' },
 ];
 
@@ -297,11 +299,20 @@ const getActivityUsdValue = (item: ActivityItem): number | null => {
     }
     if (item.kind === 'withdrawal') return toNumber(item.data.fiatAmount);
     if (item.kind === 'onramp') return toNumber(item.data.cryptoAmount);
+    if (item.kind === 'usd') return toNumber(item.data.netUsd || item.data.grossUsd);
     if (item.kind === 'coinbase') {
         if (typeof item.data.fiatAmount === 'number') return item.data.fiatAmount;
         return String(item.data.token || '').toUpperCase() === 'USDC' ? toNumber(item.data.cryptoAmount) : toNumber(item.data.cryptoAmount);
     }
     return null;
+};
+
+const normalizeUsdTransferStatus = (status?: string | null): keyof typeof WITHDRAWAL_STATUS_CONFIG => {
+    const key = String(status || 'PENDING').trim().toUpperCase();
+    if (key in WITHDRAWAL_STATUS_CONFIG) return key as keyof typeof WITHDRAWAL_STATUS_CONFIG;
+    if (key === 'SUCCESS' || key === 'SETTLED') return 'COMPLETED';
+    if (key === 'ERROR') return 'FAILED';
+    return 'PENDING';
 };
 
 const isUnusualInboundActivity = (item: ActivityItem): boolean => {
@@ -471,17 +482,18 @@ export default function WalletScreen() {
     const receiveSheetRef         = useRef<TrueSheet>(null);
     const sendSheetRef            = useRef<TrueSheet>(null);
     const activitySettingsSheetRef = useRef<TrueSheet>(null);
-    const autoSettlementSheetRef  = useRef<TrueSheet>(null);
     const bridgeKycInfoSheetRef   = useRef<TrueSheet>(null);
+    const usdAccountDetailsSheetRef = useRef<TrueSheet>(null);
+    const usdAccountAboutSheetRef = useRef<TrueSheet>(null);
     const tokenDetailSheetRef     = useRef<TrueSheet>(null);
     const txDetailSheetRef        = useRef<TrueSheet>(null);
     const withdrawalDetailSheetRef = useRef<TrueSheet>(null);
     const onrampDetailSheetRef    = useRef<TrueSheet>(null);
+    const usdTransferDetailSheetRef = useRef<TrueSheet>(null);
 
     const [selectedToken,          setSelectedToken]          = useState<SelectedToken | null>(null);
     const sheetInteractionLockedRef = useRef(false);
     const sheetUnlockTimeoutRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [isUpdatingAutoSettlement, setIsUpdatingAutoSettlement] = useState(false);
     const [selectedChain, setSelectedChain] = useState<'base' | 'solana'>('base');
 
     // Network Filter & Dropdown
@@ -494,9 +506,7 @@ export default function WalletScreen() {
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
     const [tokenPriceChanges, setTokenPriceChanges] = useState<Record<string, number>>({});
 
-    const isAutoSettlementEnabled = parseFeatureFlag(process.env.EXPO_PUBLIC_ENABLE_WALLET_AUTO_SETTLEMENT, false);
-    const showUsdAccountCard      = parseFeatureFlag(process.env.EXPO_PUBLIC_SHOW_USD_ACCOUNT_CARD, false);
-    const isAutoSettlementDisabled = !isAutoSettlementEnabled;
+    const showUsdAccountCard      = parseFeatureFlag(process.env.EXPO_PUBLIC_SHOW_USD_ACCOUNT_CARD, true);
 
     // ── Activity tab state ──
     const [activeTab,       setActiveTab]       = useState<'coins' | 'activity'>('coins');
@@ -510,6 +520,7 @@ export default function WalletScreen() {
     const [selectedTx,       setSelectedTx]      = useState<Transaction | null>(null);
     const [selectedOrder,    setSelectedOrder]   = useState<OfframpOrder | null>(null);
     const [selectedOnrampOrder, setSelectedOnrampOrder] = useState<OnrampOrder | null>(null);
+    const [selectedUsdTransfer, setSelectedUsdTransfer] = useState<UsdTransfer | null>(null);
 
     // ── Sheet helpers ──
     const lockSheetInteractions = useCallback((durationMs = 220) => {
@@ -522,9 +533,9 @@ export default function WalletScreen() {
 
     const dismissAllSheets = useCallback((except?: React.RefObject<TrueSheet | null>) => {
         const refs = [
-            receiveChooserSheetRef, receiveSheetRef, sendSheetRef, activitySettingsSheetRef, autoSettlementSheetRef,
-            bridgeKycInfoSheetRef, tokenDetailSheetRef,
-            txDetailSheetRef, withdrawalDetailSheetRef, onrampDetailSheetRef,
+            receiveChooserSheetRef, receiveSheetRef, sendSheetRef, activitySettingsSheetRef,
+            bridgeKycInfoSheetRef, usdAccountDetailsSheetRef, usdAccountAboutSheetRef, tokenDetailSheetRef,
+            txDetailSheetRef, withdrawalDetailSheetRef, onrampDetailSheetRef, usdTransferDetailSheetRef,
         ];
         refs.forEach(ref => { if (ref !== except) ref.current?.dismiss(); });
     }, []);
@@ -605,14 +616,20 @@ export default function WalletScreen() {
             setUsdStatus(status);
             if (status.featureEnabled || status.accountStatus !== 'not_started') {
                 try { setUsdDetails(await getUsdAccountDetails(getAccessToken)); }
-                catch { setUsdDetails(null); }
+                catch {
+                    // Preserve previously loaded account details if Bridge or the API is temporarily unavailable.
+                    setUsdDetails(current => current);
+                }
             } else {
                 setUsdDetails(null);
             }
             try { setUsdTransfers(await getUsdTransfers(getAccessToken)); }
             catch { setUsdTransfers([]); }
         } catch {
-            setUsdStatus(null); setUsdDetails(null); setUsdTransfers([]);
+            // Do not clear USD account state on transient auth/network/backend failures.
+            setUsdStatus(current => current);
+            setUsdDetails(current => current);
+            setUsdTransfers(current => current);
         } finally {
             setUsdLoading(false);
         }
@@ -765,10 +782,54 @@ export default function WalletScreen() {
         return sum + toNumber(t.netUsd);
     }, 0);
     const usdAccountBalance = explicitUsdBalance ?? unsettledCompletedUsd;
-    const usdAccountName    = usdDetails?.ach?.accountName || usdDetails?.ach?.bankName || 'USD Account';
-    const usdAccountNumber  = usdDetails?.ach?.accountNumberMasked || 'Tap to complete setup';
-    const hasActiveUsdAccountDetails = Boolean(usdDetails?.ach?.accountNumberMasked);
+    const usdAch = (usdDetails?.ach || {}) as Record<string, any>;
+    const usdAccountName = String(usdAch.accountName || usdAch.account_name || '').trim();
+    const usdBankName = String(usdAch.bankName || usdAch.bank_name || '').trim();
+    const usdAccountNumber = String(
+        usdAch.accountNumber || usdAch.account_number || usdAch.accountNumberMasked || usdAch.account_number_masked || ''
+    ).trim();
+    const usdRoutingNumber = String(
+        usdAch.routingNumber || usdAch.routing_number || usdAch.routingNumberMasked || usdAch.routing_number_masked || ''
+    ).trim();
+    const usdDepositMessage = String(
+        usdAch.depositMessage || usdAch.deposit_message || usdAch.memo || usdAch.reference || ''
+    ).trim();
+    const hasActiveUsdAccountDetails = Boolean(
+        usdAccountNumber ||
+        usdRoutingNumber ||
+        usdDetails?.bridgeVirtualAccountId ||
+        (String(usdStatus?.accountStatus || '').toLowerCase() === 'active' && usdDetails)
+    );
+    const normalizedUsdAccountStatus = String(usdStatus?.accountStatus || '').trim().toLowerCase();
+    const normalizedUsdKycStatus = String(usdStatus?.bridgeKycStatus || '').trim().toLowerCase();
+    const hasStartedUsdAccountFlow = Boolean(
+        hasActiveUsdAccountDetails ||
+        (normalizedUsdAccountStatus && normalizedUsdAccountStatus !== 'not_started') ||
+        ['approved', 'active', 'submitted', 'pending', 'in_review'].includes(normalizedUsdKycStatus)
+    );
     const canAccessUsdAccountFeature = Boolean(usdStatus?.featureEnabled);
+    const shouldShowUsdAccountCard = showUsdAccountCard && (canAccessUsdAccountFeature || usdLoading || !usdStatus);
+    const usdCardTitle = hasActiveUsdAccountDetails
+        ? (usdAccountName || usdBankName || 'USD account')
+        : !hasStartedUsdAccountFlow || normalizedUsdAccountStatus === 'not_started'
+        ? 'Set up USD account'
+        : normalizedUsdAccountStatus === 'pending_kyc'
+        ? 'Continue USD account setup'
+        : 'USD account pending';
+    const usdCardSubtitle = hasActiveUsdAccountDetails
+        ? (usdAccountNumber || 'View account details')
+        : usdLoading
+        ? 'Fetching account status...'
+        : hasStartedUsdAccountFlow && normalizedUsdAccountStatus !== 'pending_kyc'
+        ? 'We’ll show your details here once Bridge returns them'
+        : 'Get account details for receiving bank transfers';
+    const usdAccountRows: Array<{ label: string; value: string; copyLabel: string }> = [
+        { label: 'Account name', value: usdAccountName || usdBankName || 'USD account', copyLabel: 'Account name' },
+        { label: 'Account number', value: usdAccountNumber || 'Not assigned', copyLabel: 'Account number' },
+        { label: 'Routing number', value: usdRoutingNumber || 'Not assigned', copyLabel: 'Routing number' },
+        ...(usdDepositMessage ? [{ label: 'Memo / reference', value: usdDepositMessage, copyLabel: 'Memo / reference' }] : []),
+        { label: 'Bank', value: usdBankName || 'Pending setup', copyLabel: 'Bank' },
+    ];
 
     const bal = (chain: string, asset: string) => walletBalances.find(b => b.chain === chain && b.asset === asset);
 
@@ -856,12 +917,13 @@ export default function WalletScreen() {
         const wdItems = offrampOrders.map(o => ({ kind: 'withdrawal' as const, data: o }));
         const onrampItems = onrampOrders.map(o => ({ kind: 'onramp' as const, data: o }));
         const coinbaseItems = coinbaseSessions.map(o => ({ kind: 'coinbase' as const, data: o }));
-        return [...txItems, ...wdItems, ...onrampItems, ...coinbaseItems].sort((a, b) => {
+        const usdItems = usdTransfers.map(t => ({ kind: 'usd' as const, data: t }));
+        return [...txItems, ...wdItems, ...onrampItems, ...coinbaseItems, ...usdItems].sort((a, b) => {
             const dateA = a.kind === 'tx' ? new Date(a.data.date).getTime() : new Date(a.data.createdAt).getTime();
             const dateB = b.kind === 'tx' ? new Date(b.data.date).getTime() : new Date(b.data.createdAt).getTime();
             return dateB - dateA;
         });
-    }, [transactions, offrampOrders, onrampOrders, coinbaseSessions]);
+    }, [transactions, offrampOrders, onrampOrders, coinbaseSessions, usdTransfers]);
 
     const filteredActivity = useMemo(() => allActivity.filter(item => {
         if (settings?.hideMicrotransactions) {
@@ -874,15 +936,17 @@ export default function WalletScreen() {
         }
 
         if (activityFilter === 'all')         return true;
-        if (activityFilter === 'in')          return (item.kind === 'tx' && item.data.type === 'IN') || item.kind === 'onramp' || (item.kind === 'coinbase' && item.data.direction === 'buy');
+        if (activityFilter === 'in')          return (item.kind === 'tx' && item.data.type === 'IN') || item.kind === 'onramp' || item.kind === 'usd' || (item.kind === 'coinbase' && item.data.direction === 'buy');
         if (activityFilter === 'out')         return item.kind === 'tx' && item.data.type === 'OUT';
         if (activityFilter === 'withdrawals') return item.kind === 'withdrawal' || (item.kind === 'coinbase' && item.data.direction === 'sell');
         if (activityFilter === 'onramps')     return item.kind === 'onramp' || (item.kind === 'coinbase' && item.data.direction === 'buy');
+        if (activityFilter === 'usd_account') return item.kind === 'usd';
         if (activityFilter === 'failed')      return (
             (item.kind === 'tx' && item.data.status === 'failed') ||
             (item.kind === 'withdrawal' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED')) ||
             (item.kind === 'onramp' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED')) ||
-            (item.kind === 'coinbase' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED'))
+            (item.kind === 'coinbase' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED')) ||
+            (item.kind === 'usd' && normalizeUsdTransferStatus(item.data.status) === 'FAILED')
         );
         return true;
     }), [allActivity, activityFilter, settings?.hideMicrotransactions, settings?.hideUnusualActivity]);
@@ -926,11 +990,13 @@ export default function WalletScreen() {
         setTimeout(() => { router.push(path as any); }, 120);
     };
 
-    const handleReceiveOptionPress = (option: 'onramp' | 'crypto') => {
+    const handleReceiveOptionPress = (option: 'onramp' | 'crypto' | 'usd') => {
         lockSheetInteractions(260);
         receiveChooserSheetRef.current?.dismiss();
         if (option === 'onramp') {
             setTimeout(() => { router.push('/onramp/amount' as any); }, 120);
+        } else if (option === 'usd') {
+            setTimeout(() => { void handleOpenUsdAccount(); }, 240);
         } else {
             setTimeout(() => { receiveSheetRef.current?.present(); }, 240);
         }
@@ -938,22 +1004,50 @@ export default function WalletScreen() {
 
     const handleUsdKyc = async () => {
         try {
+            await enrollUsdAccount(getAccessToken).catch(() => undefined);
             const result = await createUsdKycLink(getAccessToken);
             if (!result?.url) { Alert.alert('Unavailable', 'KYC link is not available right now.'); return; }
             await WebBrowser.openBrowserAsync(result.url);
+            await fetchUsdData();
         } catch (error: any) {
             Alert.alert('Could not open KYC', error?.message || 'Please try again later.');
         }
     };
 
-    const handleOpenUsdAccount = () => {
-        const normalizedAccountStatus = String(usdStatus?.accountStatus || '').toLowerCase();
-        const hasStartedUsdFlow =
-            hasActiveUsdAccountDetails ||
-            (normalizedAccountStatus.length > 0 && normalizedAccountStatus !== 'not_started') ||
-            String(usdStatus?.bridgeKycStatus || '').toLowerCase() === 'approved';
-        if (hasStartedUsdFlow) {
-            router.push({ pathname: '/wallet/usd-account', params: { view: 'transactions' } } as any);
+    const handleOpenUsdAccount = async () => {
+        if (usdStatus && !canAccessUsdAccountFeature) {
+            Alert.alert('USD account unavailable', 'USD accounts are not enabled for this account yet.');
+            return;
+        }
+        if (hasActiveUsdAccountDetails) {
+            presentSheet(usdAccountDetailsSheetRef);
+            return;
+        }
+        if (hasStartedUsdAccountFlow && normalizedUsdAccountStatus !== 'pending_kyc') {
+            try {
+                setUsdLoading(true);
+                const details = await getUsdAccountDetails(getAccessToken);
+                setUsdDetails(details);
+                const ach = (details?.ach || {}) as Record<string, any>;
+                const accountNumber = String(
+                    ach.accountNumber || ach.account_number || ach.accountNumberMasked || ach.account_number_masked || ''
+                ).trim();
+                const routingNumber = String(
+                    ach.routingNumber || ach.routing_number || ach.routingNumberMasked || ach.routing_number_masked || ''
+                ).trim();
+                if (accountNumber || routingNumber || details?.bridgeVirtualAccountId) {
+                    usdAccountDetailsSheetRef.current?.present();
+                    return;
+                }
+            } catch {
+                // Keep the user in the pending state instead of restarting setup.
+            } finally {
+                setUsdLoading(false);
+            }
+            Alert.alert(
+                'USD account is being prepared',
+                'Your account setup has already started. We’ll show your account and routing details here once Bridge returns them.'
+            );
             return;
         }
         presentSheet(bridgeKycInfoSheetRef);
@@ -972,9 +1066,10 @@ export default function WalletScreen() {
         try {
             setIsUpdatingAutoSettlement(true);
             await updateUsdSettlement(getAccessToken, chain);
+            await fetchUsdData();
             lockSheetInteractions(260);
             autoSettlementSheetRef.current?.dismiss();
-            setTimeout(() => { router.push('/wallet/usd-account' as any); }, 120);
+            setTimeout(() => { usdAccountDetailsSheetRef.current?.present(); }, 300);
         } catch (error: any) {
             Alert.alert('Could not update settlement', error?.message || 'Please try again.');
         } finally {
@@ -998,6 +1093,12 @@ export default function WalletScreen() {
         setSelectedOnrampOrder(order);
         Haptics.selectionAsync();
         presentSheet(onrampDetailSheetRef);
+    };
+
+    const openUsdTransferDetail = (transfer: UsdTransfer) => {
+        setSelectedUsdTransfer(transfer);
+        Haptics.selectionAsync();
+        presentSheet(usdTransferDetailSheetRef);
     };
 
     const openCoinbaseSession = async (session: CoinbasePayActivitySession) => {
@@ -1170,6 +1271,46 @@ export default function WalletScreen() {
             );
         }
 
+        if (item.kind === 'usd') {
+            const transfer = item.data;
+            const statusKey = normalizeUsdTransferStatus(transfer.status);
+            const statusCfg = WITHDRAWAL_STATUS_CONFIG[statusKey] || WITHDRAWAL_STATUS_CONFIG.PENDING;
+            const StatusIcon = statusCfg.Icon;
+            const sourceLabel = transfer.sourceLabel || (transfer.sourceType === 'EXTERNAL_ADDRESS' ? 'External address' : transfer.sourceType === 'ACH' ? 'ACH transfer' : 'USD deposit');
+            return (
+                <TouchableOpacity
+                    key={`usd-${transfer.id}`}
+                    style={[styles.activityItem, { borderBottomColor: themeColors.border }]}
+                    onPress={() => openUsdTransferDetail(transfer)}
+                    activeOpacity={0.7}
+                >
+                    <View style={styles.activityIconContainer}>
+                        <View style={[styles.activityTokenIcon, styles.activityBankIcon, { backgroundColor: themeColors.surface }]}>
+                            <LandmarkIcon size={22} color={themeColors.textPrimary} />
+                        </View>
+                        <View style={[styles.activityChainBadge, { backgroundColor: themeColors.background, borderColor: themeColors.background }]}>
+                            <Image source={ACTIVITY_ICONS.usdc} style={styles.activityChainBadgeIcon} />
+                        </View>
+                    </View>
+                    <View style={styles.activityContent}>
+                        <Text style={[styles.activityTitle, { color: themeColors.textPrimary }]}>USD account deposit</Text>
+                        <Text style={[styles.activitySubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                            {sourceLabel}
+                        </Text>
+                    </View>
+                    <View style={styles.activityRight}>
+                        <Text style={[styles.activityAmount, { color: Colors.success }]}>
+                            +${Number(transfer.grossUsd || transfer.netUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '20' }]}>
+                            <StatusIcon size={11} color={statusCfg.color} strokeWidth={3} />
+                            <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            );
+        }
+
         const order = item.data;
         const statusCfg = WITHDRAWAL_STATUS_CONFIG[order.status] || WITHDRAWAL_STATUS_CONFIG.PENDING;
         const chainInfo = ACTIVITY_CHAINS[order.chain] || ACTIVITY_CHAINS.BASE;
@@ -1287,13 +1428,13 @@ export default function WalletScreen() {
                     </View>
 
                     {/* ── USD Account card ── */}
-                    {showUsdAccountCard && canAccessUsdAccountFeature ? (
+                    {shouldShowUsdAccountCard ? (
                         <View style={styles.usdAccountSection}>
                             <View style={styles.tokenHeader}>
                                 <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>USD Account</Text>
                             </View>
                             <TouchableOpacity
-                                style={[styles.tokenItem, { backgroundColor: themeColors.surface }]}
+                                style={[styles.tokenItem, styles.usdSetupCard, { backgroundColor: themeColors.surface }]}
                                 onPress={handleOpenUsdAccount}
                                 activeOpacity={0.9}
                             >
@@ -1302,9 +1443,9 @@ export default function WalletScreen() {
                                         <WalletIcon size={20} color={themeColors.textPrimary} />
                                     </View>
                                     <View>
-                                        <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{usdAccountName}</Text>
+                                        <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{usdCardTitle}</Text>
                                         <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>
-                                            {usdLoading ? 'Fetching account details...' : usdAccountNumber}
+                                            {usdCardSubtitle}
                                         </Text>
                                     </View>
                                 </View>
@@ -1554,6 +1695,25 @@ export default function WalletScreen() {
                             </View>
                             <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
                         </TouchableOpacity>
+                        {canAccessUsdAccountFeature ? (
+                            <TouchableOpacity
+                                style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
+                                onPress={() => handleReceiveOptionPress('usd')}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                                    <View style={[styles.actionIconBox, { backgroundColor: themeColors.background, width: 40, height: 40 }]}>
+                                        <WalletIcon size={20} color={themeColors.textPrimary} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>USD account</Text>
+                                        <Text style={[styles.sendOptionSubtitle, { color: themeColors.textSecondary }]} numberOfLines={2}>
+                                            {hasActiveUsdAccountDetails ? 'View account and routing details' : 'Open account details for bank transfers'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
+                            </TouchableOpacity>
+                        ) : null}
                     </View>
                 </TrueSheet>
 
@@ -1771,6 +1931,114 @@ export default function WalletScreen() {
                     </View>
                 </TrueSheet>
 
+                {/* USD account details sheet */}
+                <TrueSheet
+                    ref={usdAccountDetailsSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDidDismiss={handleSheetDismiss}
+                >
+                    <View style={styles.usdAccountDetailsSheet}>
+                        <View style={styles.usdAccountDetailsHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>USD account</Text>
+                                <Text style={[styles.sendSheetSubtitle, { color: themeColors.textSecondary, marginBottom: 0 }]}>
+                                    Account and routing details for bank transfers.
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={[styles.usdInfoButton, { backgroundColor: themeColors.surface }]}
+                                onPress={() => {
+                                    usdAccountDetailsSheetRef.current?.dismiss();
+                                    setTimeout(() => usdAccountAboutSheetRef.current?.present(), 160);
+                                }}
+                                activeOpacity={0.85}
+                                accessibilityLabel="About this account"
+                            >
+                                <Text style={[styles.usdInfoButtonText, { color: themeColors.textPrimary }]}>!</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={[styles.usdDetailsCard, { backgroundColor: themeColors.surface }]}>
+                            {usdAccountRows.map((row, index) => (
+                                <View key={row.label}>
+                                    <View style={styles.usdDetailsRow}>
+                                        <View style={styles.usdDetailsTextWrap}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{row.label}</Text>
+                                            <Text selectable style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
+                                                {row.value}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={[styles.usdCopyButton, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+                                            onPress={() => copyToClipboard(row.value)}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Copy size={15} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                        </TouchableOpacity>
+                                    </View>
+                                    {index < usdAccountRows.length - 1 ? <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} /> : null}
+                                </View>
+                            ))}
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.viewButton, { backgroundColor: Colors.primary }]}
+                            onPress={() => {
+                                const message = usdAccountRows.map(row => `${row.label}: ${row.value}`).join('\n');
+                                Share.share({ message }).catch(() => undefined);
+                            }}
+                            activeOpacity={0.9}
+                        >
+                            <Text style={styles.viewButtonText}>Share details</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TrueSheet>
+
+                {/* USD account about sheet */}
+                <TrueSheet
+                    ref={usdAccountAboutSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDidDismiss={handleSheetDismiss}
+                >
+                    <View style={styles.usdAboutSheet}>
+                        <View style={[styles.usdAboutIcon, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.usdAboutIconText, { color: themeColors.textPrimary }]}>!</Text>
+                        </View>
+                        <Text style={[styles.usdAboutTitle, { color: themeColors.textPrimary }]}>About this account</Text>
+                        <Text style={[styles.usdAboutBody, { color: themeColors.textSecondary }]}>
+                            Use these account details to receive USD bank transfers from clients. Deposits are processed by Bridge and settle into your Hedwig balance after review.
+                        </Text>
+                        <View style={[styles.usdAboutCard, { backgroundColor: themeColors.surface }]}>
+                            {[
+                                'Only share these details with clients and trusted payers.',
+                                'USD deposits usually settle in one to three business days.',
+                                'The minimum recommended deposit is $5. Deposits below $5 may be delayed while they are reviewed or reconciled.',
+                                'Hedwig charges a 1% processing fee on USD account deposits.',
+                                'If a memo or reference is shown, your client must include it with the transfer.',
+                                'ACH deposits can be tracked with a trace number. Wire deposits can be tracked with an IMAD or wire message when available.',
+                            ].map(item => (
+                                <View key={item} style={styles.usdAboutRow}>
+                                    <View style={[styles.usdAboutBullet, { backgroundColor: Colors.primary }]} />
+                                    <Text style={[styles.usdAboutText, { color: themeColors.textSecondary }]}>{item}</Text>
+                                </View>
+                            ))}
+                        </View>
+                        <TouchableOpacity
+                            style={[styles.bridgeKycPrimaryButton, { backgroundColor: Colors.primary, marginBottom: 0 }]}
+                            onPress={() => usdAccountAboutSheetRef.current?.dismiss()}
+                            activeOpacity={0.9}
+                        >
+                            <Text style={styles.bridgeKycPrimaryButtonText}>Got it</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TrueSheet>
+
                 {/* Bridge KYC info sheet */}
                 <TrueSheet
                     ref={bridgeKycInfoSheetRef}
@@ -1804,12 +2072,12 @@ export default function WalletScreen() {
                             </View>
                             <TouchableOpacity
                                 style={[styles.bridgeKycPrimaryButton, { backgroundColor: Colors.primary }]}
-                                onPress={() => {
+                                onPress={async () => {
                                     bridgeKycInfoSheetRef.current?.dismiss();
-                                    setTimeout(() => router.push('/wallet/usd-account' as any), 120);
+                                    setTimeout(() => { void handleUsdKyc(); }, 180);
                                 }}
                             >
-                                <Text style={styles.bridgeKycPrimaryButtonText}>Continue to setup</Text>
+                                <Text style={styles.bridgeKycPrimaryButtonText}>Verify and create account</Text>
                                 <ArrowRight size={18} color="#FFFFFF" />
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -1819,6 +2087,89 @@ export default function WalletScreen() {
                                 <Text style={[styles.bridgeKycSecondaryButtonText, { color: themeColors.textPrimary }]}>Not now</Text>
                             </TouchableOpacity>
                         </View>
+                    </View>
+                </TrueSheet>
+
+                {/* USD account transfer detail sheet */}
+                <TrueSheet
+                    ref={usdTransferDetailSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDidDismiss={handleSheetDismiss}
+                >
+                    <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 20 }}>
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderLeft}>
+                                <View style={[styles.modalIconContainer, { backgroundColor: themeColors.surface }]}>
+                                    <LandmarkIcon size={30} color={themeColors.textPrimary} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>USD account deposit</Text>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                        {selectedUsdTransfer?.createdAt ? format(new Date(selectedUsdTransfer.createdAt), 'MMM d, h:mm a') : ''}
+                                    </Text>
+                                </View>
+                            </View>
+                            <IOSGlassIconButton
+                                onPress={() => usdTransferDetailSheetRef.current?.dismiss()}
+                                systemImage="xmark"
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                            />
+                        </View>
+
+                        {selectedUsdTransfer ? (
+                            <ScrollView showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
+                                <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary, marginBottom: 6 }]}>Amount received</Text>
+                                    <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                        +${Number(selectedUsdTransfer.grossUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </Text>
+                                    <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary, marginTop: 4 }]}>
+                                        Net ${Number(selectedUsdTransfer.netUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} settled
+                                    </Text>
+                                </View>
+
+                                <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                    {[
+                                        { label: 'Transfer ID', value: selectedUsdTransfer.bridgeTransferId || selectedUsdTransfer.id, copy: selectedUsdTransfer.bridgeTransferId || selectedUsdTransfer.id },
+                                        {
+                                            label: 'Status',
+                                            value: WITHDRAWAL_STATUS_CONFIG[normalizeUsdTransferStatus(selectedUsdTransfer.status)]?.label || 'Pending',
+                                        },
+                                        {
+                                            label: 'Source',
+                                            value: selectedUsdTransfer.sourceLabel ||
+                                                (selectedUsdTransfer.sourceType === 'EXTERNAL_ADDRESS'
+                                                    ? 'External address'
+                                                    : selectedUsdTransfer.sourceType === 'ACH'
+                                                        ? 'ACH transfer'
+                                                        : 'USD deposit'),
+                                        },
+                                        { label: 'Provider fee', value: `$${Number(selectedUsdTransfer.providerFeeUsd || 0).toFixed(2)}` },
+                                        { label: 'Hedwig fee', value: `$${Number(selectedUsdTransfer.hedwigFeeUsd || 0).toFixed(2)}` },
+                                        ...(selectedUsdTransfer.usdcTxHash ? [{ label: 'USDC tx', value: `${selectedUsdTransfer.usdcTxHash.slice(0, 10)}…${selectedUsdTransfer.usdcTxHash.slice(-8)}`, copy: selectedUsdTransfer.usdcTxHash }] : []),
+                                    ].map((row, i, arr) => (
+                                        <View key={row.label}>
+                                            <View style={styles.detailRow}>
+                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{row.label}</Text>
+                                                {row.copy ? (
+                                                    <TouchableOpacity onPress={() => copyToClipboard(row.copy!)} style={styles.detailValueRow}>
+                                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">{row.value}</Text>
+                                                        <Copy size={14} color={themeColors.textSecondary} strokeWidth={2.5} style={{ marginLeft: 6 }} />
+                                                    </TouchableOpacity>
+                                                ) : (
+                                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{row.value}</Text>
+                                                )}
+                                            </View>
+                                            {i < arr.length - 1 && <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />}
+                                        </View>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        ) : null}
                     </View>
                 </TrueSheet>
 
@@ -2163,6 +2514,7 @@ const styles = StyleSheet.create({
     usdActionRow:       { marginTop: 12 },
     usdActionButton:    { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' },
     usdActionButtonText:{ color: '#FFFFFF', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
+    usdSetupCard:       { borderRadius: 22, paddingHorizontal: 14 },
 
     tokenSection:       { marginBottom: 100 },
 
@@ -2223,6 +2575,7 @@ const styles = StyleSheet.create({
     },
     activityIconContainer: { position: 'relative', marginRight: 16 },
     activityTokenIcon:     { width: 44, height: 44, borderRadius: 22 },
+    activityBankIcon:      { alignItems: 'center', justifyContent: 'center' },
     activityChainBadge: {
         position: 'absolute', bottom: -2, right: -2,
         width: 18, height: 18, borderRadius: 9,
@@ -2282,6 +2635,23 @@ const styles = StyleSheet.create({
     bridgeKycPrimaryButtonText:  { color: '#FFFFFF', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 15 },
     bridgeKycSecondaryButton:    { borderRadius: 999, minHeight: 56, alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 18 },
     bridgeKycSecondaryButtonText:{ fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14 },
+    usdAccountDetailsSheet:      { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 22 },
+    usdAccountDetailsHeader:     { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+    usdInfoButton:               { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+    usdInfoButtonText:           { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 18 },
+    usdDetailsCard:              { borderRadius: 22, paddingHorizontal: 14, paddingVertical: 4, marginBottom: 14 },
+    usdDetailsRow:               { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 10 },
+    usdDetailsTextWrap:          { flex: 1 },
+    usdCopyButton:               { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    usdAboutSheet:               { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 22, alignItems: 'center' },
+    usdAboutIcon:                { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+    usdAboutIconText:            { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 24 },
+    usdAboutTitle:               { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 22, marginBottom: 8, textAlign: 'center' },
+    usdAboutBody:                { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 16 },
+    usdAboutCard:                { alignSelf: 'stretch', borderRadius: 20, padding: 14, marginBottom: 14 },
+    usdAboutRow:                 { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 6 },
+    usdAboutBullet:              { width: 7, height: 7, borderRadius: 4, marginTop: 7 },
+    usdAboutText:                { flex: 1, fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14, lineHeight: 20 },
 
     // ─── Detail sheet shared ───
     modalHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16 },

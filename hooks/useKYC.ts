@@ -6,16 +6,10 @@ export type KYCStatus = 'not_started' | 'pending' | 'approved' | 'rejected' | 'r
 
 interface KYCState {
     status: KYCStatus;
-    applicantId: string | null;
+    sessionId: string | null;
     isApproved: boolean;
     isLoading: boolean;
     error: string | null;
-}
-
-interface StartKYCResult {
-    accessToken: string;
-    applicantId: string;
-    status: KYCStatus;
 }
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -24,7 +18,7 @@ export const useKYC = () => {
     const { getAccessToken } = useAuth();
     const [state, setState] = useState<KYCState>({
         status: 'not_started',
-        applicantId: null,
+        sessionId: null,
         isApproved: false,
         isLoading: true,
         error: null,
@@ -56,7 +50,7 @@ export const useKYC = () => {
             if (data.success) {
                 setState({
                     status: data.data.status,
-                    applicantId: data.data.applicantId,
+                    sessionId: data.data.sessionId,
                     isApproved: data.data.isApproved,
                     isLoading: false,
                     error: null,
@@ -106,14 +100,9 @@ export const useKYC = () => {
                 setState(prev => ({
                     ...prev,
                     status: data.data.status,
-                    applicantId: data.data.sessionId, // reusing field name locally or rename to sessionId
+                    sessionId: data.data.sessionId,
                     isLoading: false,
                 }));
-
-                return {
-                    url: data.data.url,
-                    sessionId: data.data.sessionId,
-                };
 
                 try {
                     await fetch(`${API_URL}/api/engagement/events`, {
@@ -133,6 +122,11 @@ export const useKYC = () => {
                 } catch (engagementError) {
                     console.error('Failed to record kyc_started engagement event:', engagementError);
                 }
+
+                return {
+                    url: data.data.url,
+                    sessionId: data.data.sessionId,
+                };
             }
 
             return null;

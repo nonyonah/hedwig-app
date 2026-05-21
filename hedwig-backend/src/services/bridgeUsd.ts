@@ -27,6 +27,7 @@ export interface BridgeVirtualAccount {
     bankName: string | null;
     bankAddress: string | null;
     accountName: string | null;
+    depositMessage: string | null;
 }
 
 export interface BridgeUsdTransfer {
@@ -320,11 +321,13 @@ class BridgeUsdService {
             const ts = Number(timestamp);
             if (!Number.isFinite(ts)) return false;
 
-            // Reject replayed events older than 10 minutes (docs recommendation)
-            // Bridge uses Stripe-style header: t=<unix_seconds>,v0=<sig>
-            // Convert seconds to ms before comparing against Date.now()
+            // Reject replayed events older than 10 minutes (docs recommendation).
+            // Bridge documents t=<timestamp> in milliseconds. Keep a seconds
+            // fallback for older sandbox/test payloads that may be copied from
+            // Stripe-style examples.
             const nowMs = Date.now();
-            if (Math.abs(nowMs - ts * 1000) > 10 * 60 * 1000) return false;
+            const timestampMs = ts > 10_000_000_000 ? ts : ts * 1000;
+            if (Math.abs(nowMs - timestampMs) > 10 * 60 * 1000) return false;
 
             const signedPayload = `${timestamp}.${rawBody}`;
 
@@ -668,6 +671,11 @@ class BridgeUsdService {
             accountName:
                 this.readString(sourceDepositInstructions, ['bank_beneficiary_name']) ||
                 this.readString(obj, ['account_name', 'accountName']) ||
+                null,
+            depositMessage:
+                this.readString(sourceDepositInstructions, ['deposit_message', 'depositMessage', 'payment_message', 'paymentMessage']) ||
+                this.readString(sourcePaymentRail, ['deposit_message', 'depositMessage', 'payment_message', 'paymentMessage']) ||
+                this.readString(obj, ['deposit_message', 'depositMessage', 'memo', 'reference']) ||
                 null,
         };
     }

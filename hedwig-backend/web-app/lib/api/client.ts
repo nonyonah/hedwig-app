@@ -674,6 +674,7 @@ const mapBackendUsdAccount = (details: any, balanceUsd = 0): UsdAccount => ({
   bankName: details.ach?.bankName || undefined,
   accountNumberMasked: details.ach?.accountNumberMasked || undefined,
   routingNumberMasked: details.ach?.routingNumberMasked || undefined,
+  depositMessage: details.ach?.depositMessage || details.ach?.deposit_message || undefined,
   balanceUsd,
   settlementChain:
     String(details.settlement?.chain || details.settlementChain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',

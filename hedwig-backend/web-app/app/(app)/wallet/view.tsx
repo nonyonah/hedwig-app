@@ -133,6 +133,8 @@ export function WalletView({
           <ShareWalletDialog
             baseAddress={baseAccount?.address ?? null}
             solanaAddress={solanaAccount?.address ?? null}
+            usdAccountsEnabled={usdAccountsEnabled}
+            usdAccount={usdAccount}
           />
         </div>
       </div>

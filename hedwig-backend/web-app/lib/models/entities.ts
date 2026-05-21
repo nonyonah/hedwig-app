@@ -269,6 +269,7 @@ export interface UsdAccount {
   bankName?: string;
   accountNumberMasked?: string;
   routingNumberMasked?: string;
+  depositMessage?: string;
   balanceUsd: number;
   settlementChain: 'Base' | 'Solana';
   settlementToken?: 'USDC';

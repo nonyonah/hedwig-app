@@ -38,8 +38,12 @@ interface DiditCreateSessionResponse {
 }
 
 interface DiditGetSessionResponse {
+  session_id?: string;
+  vendor_data?: string;
+  session_kind?: string;
   status: string;
   decision?: string;
+  workflow_id?: string;
   verification?: {
     status?: string;
     decision?: string;
@@ -198,8 +202,9 @@ class DiditService {
       const payload = JSON.stringify({
         workflow_id: this.workflowId,
         vendor_data: params.userId,
-        callback: this.callbackUrl, // Didit v3 docs
+        callback: this.callbackUrl,
         callback_url: this.callbackUrl, // compatibility fallback
+        callback_method: 'both',
         email: params.email,
         contact_details: {
           email: params.email,
@@ -288,7 +293,7 @@ class DiditService {
   /**
    * Get session status
    */
-  async getSessionStatus(sessionId: string): Promise<{ status: string; decision?: string }> {
+  async getSessionStatus(sessionId: string): Promise<{ status: string; decision?: string; sessionId?: string; vendorData?: string }> {
       try {
         const endpoints = [
           `${DIDIT_API_URL}/session/${sessionId}/decision/`,
@@ -343,6 +348,8 @@ class DiditService {
           return {
             status,
             decision,
+            sessionId: data.session_id || sessionId,
+            vendorData: data.vendor_data,
           };
         } else {
           logger.error('Failed to get Didit session status', { 
