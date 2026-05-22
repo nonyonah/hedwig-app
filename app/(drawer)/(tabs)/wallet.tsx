@@ -158,7 +158,7 @@ type ActivityItem =
     | { kind: 'coinbase';   data: CoinbasePayActivitySession }
     | { kind: 'usd';        data: UsdTransfer };
 
-type ActivityFilter = 'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'usd_account' | 'failed';
+type ActivityFilter = 'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'failed';
 type NetworkFilter = 'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo';
 
 const NETWORK_FILTER_OPTIONS: Array<{ id: NetworkFilter; label: string; sublabel: string; icon?: any }> = [
@@ -179,7 +179,6 @@ const ACTIVITY_FILTER_OPTIONS: Array<{ id: ActivityFilter; label: string; sublab
     { id: 'out', label: 'Sent', sublabel: 'Outgoing wallet transfers' },
     { id: 'withdrawals', label: 'Withdrawals', sublabel: 'Bank cash-out activity' },
     { id: 'onramps', label: 'Buy USDC', sublabel: 'Fiat deposits and USDC purchases' },
-    { id: 'usd_account', label: 'USD account', sublabel: 'Incoming USD account deposits' },
     { id: 'failed', label: 'Failed', sublabel: 'Failed or cancelled activity' },
 ];
 
@@ -940,7 +939,6 @@ export default function WalletScreen() {
         if (activityFilter === 'out')         return item.kind === 'tx' && item.data.type === 'OUT';
         if (activityFilter === 'withdrawals') return item.kind === 'withdrawal' || (item.kind === 'coinbase' && item.data.direction === 'sell');
         if (activityFilter === 'onramps')     return item.kind === 'onramp' || (item.kind === 'coinbase' && item.data.direction === 'buy');
-        if (activityFilter === 'usd_account') return item.kind === 'usd';
         if (activityFilter === 'failed')      return (
             (item.kind === 'tx' && item.data.status === 'failed') ||
             (item.kind === 'withdrawal' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED')) ||

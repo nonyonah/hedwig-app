@@ -20,54 +20,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/colors';
 import {
     ArrowRight,
-    CircleUser,
-    FileText,
     Landmark,
-    Link2,
     Wallet,
     X,
 } from './ui/AppIcon';
 
 const INTRO_STEPS = [
     {
-        title: 'Invoices',
-        description: 'Create client-ready invoices with an amount, due date, and client email. Hedwig sends the invoice automatically when it is ready.',
-        label: 'Invoice',
-        Icon: FileText,
+        title: 'Receive stablecoins',
+        description: 'Get paid in USDC from clients, friends, or anywhere. Just share your wallet address or QR code.',
+        label: 'Receive',
+        Icon: Wallet,
         color: '#2563EB',
         bg: '#EFF4FF',
     },
     {
-        title: 'Payment links',
-        description: 'Create a quick payment request for one-off work, deposits, retainers, or small follow-ups.',
-        label: 'Links',
-        Icon: Link2,
+        title: 'Send to bank account',
+        description: 'Cash out your stablecoins directly to your bank account whenever you need them.',
+        label: 'Bank',
+        Icon: Landmark,
         color: '#7C3AED',
         bg: '#F4F3FF',
     },
     {
-        title: 'Clients',
-        description: 'Keep client details, invoices, payment links, projects, and payment history tied together.',
-        label: 'Clients',
-        Icon: CircleUser,
+        title: 'Your wallet, your control',
+        description: 'Track every transaction, manage your tokens, and always know your balance — all in one place.',
+        label: 'Wallet',
+        Icon: ArrowRight,
         color: '#067647',
         bg: '#ECFDF3',
-    },
-    {
-        title: 'Receive payments',
-        description: 'Get paid into your Hedwig wallet and see what is paid, pending, or overdue without digging through messages.',
-        label: 'Receive',
-        Icon: Wallet,
-        color: '#C11574',
-        bg: '#FDF2FA',
-    },
-    {
-        title: 'Send to bank account',
-        description: 'Move available funds from Hedwig to your bank account when you are ready to cash out.',
-        label: 'Bank',
-        Icon: Landmark,
-        color: '#B54708',
-        bg: '#FFFAEB',
     },
 ];
 
