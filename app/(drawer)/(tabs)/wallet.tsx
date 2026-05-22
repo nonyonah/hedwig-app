@@ -506,7 +506,7 @@ export default function WalletScreen() {
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
     const [tokenPriceChanges, setTokenPriceChanges] = useState<Record<string, number>>({});
 
-    const showUsdAccountCard      = parseFeatureFlag(process.env.EXPO_PUBLIC_SHOW_USD_ACCOUNT_CARD, true);
+    const showUsdAccountCard      = parseFeatureFlag(process.env.EXPO_PUBLIC_SHOW_USD_ACCOUNT_CARD, false);
 
     // ── Activity tab state ──
     const [activeTab,       setActiveTab]       = useState<'coins' | 'activity'>('coins');

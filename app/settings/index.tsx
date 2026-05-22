@@ -128,8 +128,6 @@ export default function SettingsScreen() {
     const kycSheetRef = useRef<TrueSheet>(null);
     const [isCheckingConnection, setIsCheckingConnection] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
-    const [clientRemindersEnabled, setClientRemindersEnabled] = useState(true);
-
     // KYC status
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
 
@@ -147,7 +145,6 @@ export default function SettingsScreen() {
         fetchUserData();
         fetchConversations();
         void checkConnection();
-        void loadClientRemindersPreference();
     }, []);
 
     useEffect(() => {
@@ -338,40 +335,6 @@ export default function SettingsScreen() {
             // Disabling biometrics
             setBiometricsEnabled(false);
             if (user?.id) await AsyncStorage.setItem(`biometricsEnabled:${user.id}`, 'false');
-        }
-    };
-
-    const loadClientRemindersPreference = async () => {
-        try {
-            const token = await getAccessToken();
-            if (!token) return;
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const res = await fetch(`${apiUrl}/api/users/preferences`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            if (data.success) {
-                setClientRemindersEnabled(data.data.clientRemindersEnabled);
-                if (typeof data.data.gatewayAutoDepositEnabled === 'boolean') {
-                    await setGatewayAutoDepositEnabled(data.data.gatewayAutoDepositEnabled);
-                }
-            }
-        } catch {}
-    };
-
-    const toggleClientReminders = async (value: boolean) => {
-        setClientRemindersEnabled(value);
-        try {
-            const token = await getAccessToken();
-            if (!token) return;
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            await fetch(`${apiUrl}/api/users/preferences`, {
-                method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientRemindersEnabled: value }),
-            });
-        } catch {
-            setClientRemindersEnabled(!value);
         }
     };
 
@@ -712,18 +675,6 @@ export default function SettingsScreen() {
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
 
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-                    <View style={styles.settingRow}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Client reminders</Text>
-                        <Switch
-                            trackColor={{ false: themeColors.border, true: Colors.success }}
-                            thumbColor={"#FFFFFF"}
-                            ios_backgroundColor={themeColors.border}
-                            value={clientRemindersEnabled}
-                            onValueChange={(value) => { void toggleClientReminders(value); }}
-                        />
-                    </View>
                 </View>
 
                 <View style={styles.spacer} />

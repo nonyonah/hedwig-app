@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,11 @@ export default function GoalScreen() {
     const [target, setTarget] = useState(5000);
     const [selectedPreset, setSelectedPreset] = useState<string | null>('Growing');
     const [loading, setLoading] = useState(false);
+
+    // Redirect to biometrics — target setting is no longer part of onboarding
+    useEffect(() => {
+        router.replace('/auth/biometrics');
+    }, [router]);
 
     const adjustTarget = (amount: number) => {
         const newValue = Math.max(0, target + amount);

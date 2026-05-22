@@ -20,6 +20,7 @@ export default function WelcomeScreen() {
     const { user, isReady } = useAuth();
     const buttonOpacity = useRef(new Animated.Value(0)).current;
     const buttonTranslateY = useRef(new Animated.Value(20)).current;
+    const textOpacity = useRef(new Animated.Value(0)).current;
     const [buttonVisible, setButtonVisible] = useState(false);
 
     useAnalyticsScreen('Welcome');
@@ -32,6 +33,11 @@ export default function WelcomeScreen() {
         const timer = setTimeout(() => {
             setButtonVisible(true);
             Animated.parallel([
+                Animated.timing(textOpacity, {
+                    toValue: 1,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
                 Animated.timing(buttonOpacity, {
                     toValue: 1,
                     duration: 500,
@@ -43,20 +49,28 @@ export default function WelcomeScreen() {
                     useNativeDriver: true,
                 }),
             ]).start();
-        }, 1800);
+        }, 1200);
         return () => clearTimeout(timer);
     }, []);
 
     return (
         <View style={styles.root}>
-            {/* Logo — centered on brand blue */}
+            {/* Logo */}
             <Image
                 source={require('../../assets/images/hedwig-logo-transparent.png')}
                 style={styles.logo}
                 resizeMode="contain"
             />
 
-            {/* Get Started button — fades in after delay */}
+            {/* Tagline */}
+            <Animated.View style={{ opacity: textOpacity, alignItems: 'center', paddingHorizontal: 40 }}>
+                <Text style={styles.headline}>Your wallet, simplified</Text>
+                <Text style={styles.subheadline}>
+                    Receive funds in stablecoin. Send to your bank account. All in one place.
+                </Text>
+            </Animated.View>
+
+            {/* Get Started button */}
             <Animated.View
                 style={[
                     styles.buttonWrap,
@@ -87,9 +101,24 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     logo: {
-        width: 210,
-        height: 80,
+        width: 180,
+        height: 70,
         tintColor: '#FFFFFF',
+        marginBottom: 24,
+    },
+    headline: {
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: 28,
+        color: '#FFFFFF',
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    subheadline: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.85)',
+        textAlign: 'center',
+        lineHeight: 24,
     },
     buttonWrap: {
         position: 'absolute',
@@ -99,18 +128,16 @@ const styles = StyleSheet.create({
     },
     button: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 999,
+        borderRadius: 14,
         paddingVertical: 16,
         alignItems: 'center',
-        justifyContent: 'center',
     },
     buttonPressed: {
         opacity: 0.85,
     },
     buttonText: {
-        color: BRAND_BLUE,
-        fontSize: 16,
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        letterSpacing: -0.2,
+        fontSize: 16,
+        color: BRAND_BLUE,
     },
 });

@@ -199,7 +199,7 @@ export default function ProfileScreen() {
                     Alert.alert('Success', 'Profile updated successfully');
                     router.back();
                 } else {
-                    router.replace('/auth/goal');
+                    router.replace('/auth/biometrics');
                 }
             } else {
                 throw new Error(data.error?.message || 'Failed to create profile');
