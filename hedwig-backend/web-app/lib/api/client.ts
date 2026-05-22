@@ -1887,14 +1887,27 @@ export const hedwigApi = {
         plan: 'free',
         entitlement: { id: 'pro', isActive: false },
         pricing: {
-          monthly: { id: 'pro-monthly', interval: 'monthly', priceUsd: 5, label: '$5/month' },
-          annual: {
-            id: 'pro-annual',
-            interval: 'annual',
-            priceUsd: 48,
-            label: '$48/year',
-            monthlyEquivalentUsd: 4,
-            discountPercent: 20
+          starter: {
+            monthly: { id: 'starter-monthly', interval: 'monthly', priceUsd: 5, label: '$5/month' },
+            annual: {
+              id: 'starter-annual',
+              interval: 'annual',
+              priceUsd: 48,
+              label: '$48/year',
+              monthlyEquivalentUsd: 4,
+              discountPercent: 20
+            }
+          },
+          pro: {
+            monthly: { id: 'pro-monthly', interval: 'monthly', priceUsd: 12, label: '$12/month' },
+            annual: {
+              id: 'pro-annual',
+              interval: 'annual',
+              priceUsd: 115,
+              label: '$115/year',
+              monthlyEquivalentUsd: 9.58,
+              discountPercent: 20
+            }
           }
         },
         checkout: {
