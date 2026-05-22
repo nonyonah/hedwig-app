@@ -1053,30 +1053,6 @@ export default function WalletScreen() {
         presentSheet(bridgeKycInfoSheetRef);
     };
 
-    const handleSelectAutoSettlementChain = async (chain: 'BASE' | 'SOLANA') => {
-        if (isUpdatingAutoSettlement) return;
-        if (chain === 'SOLANA' && !solanaAddress) {
-            Alert.alert('Solana wallet unavailable', 'Create a Solana wallet first before selecting Solana settlement.');
-            return;
-        }
-        if (chain === 'BASE' && !baseAddress) {
-            Alert.alert('Base wallet unavailable', 'Create a Base wallet first before selecting Base settlement.');
-            return;
-        }
-        try {
-            setIsUpdatingAutoSettlement(true);
-            await updateUsdSettlement(getAccessToken, chain);
-            await fetchUsdData();
-            lockSheetInteractions(260);
-            autoSettlementSheetRef.current?.dismiss();
-            setTimeout(() => { usdAccountDetailsSheetRef.current?.present(); }, 300);
-        } catch (error: any) {
-            Alert.alert('Could not update settlement', error?.message || 'Please try again.');
-        } finally {
-            setIsUpdatingAutoSettlement(false);
-        }
-    };
-
     const openTxDetail = (tx: Transaction) => {
         setSelectedTx(tx);
         Haptics.selectionAsync();
@@ -1417,14 +1393,6 @@ export default function WalletScreen() {
                             </View>
                             <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Receive</Text>
                         </TouchableOpacity>
-                        {!isAutoSettlementDisabled && (
-                            <TouchableOpacity style={styles.actionButton} onPress={() => presentSheet(autoSettlementSheetRef)}>
-                                <View style={[styles.actionIconBox, { backgroundColor: themeColors.surface }]}>
-                                    <Plus size={24} color={themeColors.textPrimary} />
-                                </View>
-                                <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Add</Text>
-                            </TouchableOpacity>
-                        )}
                     </View>
 
                     {/* ── USD Account card ── */}
@@ -1885,49 +1853,6 @@ export default function WalletScreen() {
                                 ios_backgroundColor={themeColors.border}
                             />
                         </View>
-                    </View>
-                </TrueSheet>
-
-                {/* Auto-settlement sheet */}
-                <TrueSheet
-                    ref={autoSettlementSheetRef}
-                    detents={['auto']}
-                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
-                    backgroundBlur="regular"
-                    grabber={true}
-                    onDidDismiss={handleSheetDismiss}
-                >
-                    <View style={styles.sendSheetContent}>
-                        <Text style={[styles.sendSheetTitle,    { color: themeColors.textPrimary }]}>Auto-settlement</Text>
-                        <Text style={[styles.sendSheetSubtitle, { color: themeColors.textSecondary }]}>
-                            Choose where incoming USD settles as USDC
-                        </Text>
-                        <TouchableOpacity
-                            style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
-                            onPress={() => handleSelectAutoSettlementChain('BASE')}
-                            disabled={isUpdatingAutoSettlement}
-                        >
-                            <View style={styles.chainOptionLeft}>
-                                <Image source={require('../../../assets/icons/networks/base.png')} style={styles.chainOptionIcon} />
-                                <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary, marginBottom: 0 }]}>Base</Text>
-                            </View>
-                            {isUpdatingAutoSettlement
-                                ? <ActivityIndicator size="small" color={themeColors.textSecondary} />
-                                : <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
-                            onPress={() => handleSelectAutoSettlementChain('SOLANA')}
-                            disabled={isUpdatingAutoSettlement}
-                        >
-                            <View style={styles.chainOptionLeft}>
-                                <Image source={require('../../../assets/icons/networks/solana.png')} style={styles.chainOptionIcon} />
-                                <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary, marginBottom: 0 }]}>Solana</Text>
-                            </View>
-                            {isUpdatingAutoSettlement
-                                ? <ActivityIndicator size="small" color={themeColors.textSecondary} />
-                                : <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />}
-                        </TouchableOpacity>
                     </View>
                 </TrueSheet>
 
