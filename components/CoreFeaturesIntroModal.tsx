@@ -202,10 +202,9 @@ export default function CoreFeaturesIntroModal({
                         <Pressable
                             onPress={goNext}
                             accessibilityRole="button"
-                            accessibilityLabel={isLast ? 'Create first invoice' : 'Next intro step'}
-                            style={[styles.primaryButton, { backgroundColor: themeColors.primary }]}
+                            accessibilityLabel={isLast ? 'Continue' : 'Next intro step'}
                         >
-                            <Text style={styles.primaryText}>{isLast ? 'Create first invoice' : 'Next'}</Text>
+                            <Text style={styles.primaryText}>{isLast ? 'Continue' : 'Next'}</Text>
                             {isLast ? <ArrowRight size={17} color="#FFFFFF" strokeWidth={3} /> : null}
                         </Pressable>
                     </Animated.View>

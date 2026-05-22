@@ -57,7 +57,6 @@ function GlobalTutorial() {
             onDismiss={skipTutorial}
             onStart={() => {
                 skipTutorial();
-                router.push('/invoice/create' as any);
             }}
         />
     );

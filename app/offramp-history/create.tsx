@@ -528,6 +528,10 @@ export default function CreateWithdrawalScreen() {
                 Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0.');
                 return;
             }
+            if (numAmount < 1) {
+                Alert.alert('Minimum withdrawal', 'The minimum withdrawal amount is $1.00. Please enter a higher amount.');
+                return;
+            }
 
             const walletAddress = selectedNetwork.id === 'solana' ? solanaAddress : evmAddress;
             if (!walletAddress) {
@@ -573,6 +577,15 @@ export default function CreateWithdrawalScreen() {
                 amount,
             });
             Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0.');
+            return;
+        }
+
+        if (numAmount < 1) {
+            Analytics.withdrawalFlowFailed('review', 'under_minimum', {
+                amount: numAmount,
+                minimum: 1,
+            });
+            Alert.alert('Minimum withdrawal', 'The minimum withdrawal amount is $1.00. Please enter a higher amount.');
             return;
         }
 
