@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from '../../components/ui/AppIcon';
+import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp, Camera } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { TrueSheet } from '@hedwig/true-sheet';
@@ -29,6 +29,8 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import Analytics from '../../services/analytics';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { SelectorSheet, SelectorSheetOption } from '../../components/SelectorSheet';
+import OCRScanner from '../../components/OCRScanner';
+import { parsePaymentDetails, ParsedPaymentDetails } from '../../utils/paymentParser';
 import { useCoinbasePay } from '../../hooks/useCoinbasePay';
 import { useGatewayBalance } from '../../hooks/useGatewayBalance';
 import { useSettings } from '../../context/SettingsContext';
@@ -112,6 +114,7 @@ export default function CreateWithdrawalScreen() {
     const [banksLoading, setBanksLoading] = useState(false);
     const [bankPickerOpen, setBankPickerOpen] = useState(false);
     const [coinbaseLoading, setCoinbaseLoading] = useState(false);
+    const [showScanner, setShowScanner] = useState(false);
 
     // Bottom Sheet Refs
     // bankSheetRef removed
@@ -701,6 +704,56 @@ export default function CreateWithdrawalScreen() {
         }
     }, [banks.length, loadBanks, selectedCountry.currency]);
 
+    const handleOCRTextDetected = useCallback((text: string) => {
+        const parsed = parsePaymentDetails(text);
+        console.log('OCR Parsed:', parsed);
+
+        if (!parsed.country_code) {
+            Alert.alert('Could not detect details', 'We could not automatically detect payment details from the image. Please enter them manually.');
+            return;
+        }
+
+        // Auto-fill form fields based on parsed data
+        if (parsed.country_code) {
+            const country = COUNTRIES.find(c => c.id === parsed.country_code);
+            if (country) setSelectedCountry(country);
+        }
+
+        if (parsed.identifier) {
+            if (parsed.payment_method === 'bank_transfer') {
+                setAccountNumber(parsed.identifier);
+            } else if (parsed.payment_method === 'mobile_money') {
+                setAccountNumber(parsed.identifier);
+            } else if (parsed.payment_method === 'pix') {
+                setAccountNumber(parsed.identifier);
+            }
+        }
+
+        if (parsed.recipient_name) {
+            setAccountName(parsed.recipient_name);
+        }
+
+        if (parsed.institution_hint) {
+            // Try to find matching bank
+            const matchedBank = banks.find(b =>
+                b.name.toLowerCase().includes(parsed.institution_hint!.toLowerCase())
+            );
+            if (matchedBank) {
+                setSelectedBank(matchedBank);
+            }
+        }
+
+        Alert.alert(
+            'Details Detected',
+            `Country: ${parsed.country_code || 'Unknown'}\n` +
+            `Type: ${parsed.payment_method || 'Unknown'}\n` +
+            `Identifier: ${parsed.identifier || 'N/A'}\n` +
+            `Name: ${parsed.recipient_name || 'N/A'}\n` +
+            `Institution: ${parsed.institution_hint || 'N/A'}`,
+            [{ text: 'OK' }]
+        );
+    }, [banks]);
+
     const handleOpenBeneficiariesSheet = useCallback(() => {
         if (!beneficiaries.length) {
             Alert.alert('No beneficiaries yet', 'Add a beneficiary after verifying account details.');
@@ -722,7 +775,13 @@ export default function CreateWithdrawalScreen() {
                         icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
                     />
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>New Withdrawal</Text>
-                    <View style={styles.placeholder} />
+                    <IOSGlassIconButton
+                        onPress={() => setShowScanner(true)}
+                        systemImage="camera.fill"
+                        containerStyle={styles.cameraButton}
+                        circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                        icon={<Camera size={20} color={themeColors.textPrimary} strokeWidth={2} />}
+                    />
                 </View>
 
                 <KeyboardAvoidingView
@@ -1137,6 +1196,16 @@ export default function CreateWithdrawalScreen() {
                     }, 100);
                 }}
             />
+
+            {/* OCR Scanner Modal */}
+            {showScanner && (
+                <View style={StyleSheet.absoluteFill}>
+                    <OCRScanner
+                        onTextDetected={handleOCRTextDetected}
+                        onClose={() => setShowScanner(false)}
+                    />
+                </View>
+            )}
         </View>
     );
 }
@@ -1174,8 +1243,9 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: Platform.OS === 'android' ? 20 : 22,
     },
-    placeholder: {
+    cameraButton: {
         width: 40,
+        height: 40,
     },
     content: {
         padding: 24,
