@@ -51,12 +51,8 @@ export default function TabLayout() {
     if (!NativeTabs) {
         return (
             <Tabs screenOptions={{ headerShown: false }}>
-                <Tabs.Screen name="index" options={{ title: 'Home' }} />
-                <Tabs.Screen name="invoices" options={{ title: 'Invoices' }} />
-                <Tabs.Screen name="links" options={{ title: 'Links' }} />
                 <Tabs.Screen name="wallet" options={{ title: 'Wallet' }} />
-                <Tabs.Screen name="more" options={{ title: 'More' }} />
-                <Tabs.Screen name="search" options={{ href: null }} />
+                <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
             </Tabs>
         );
     }
@@ -104,29 +100,14 @@ export default function TabLayout() {
             {...(isAndroid ? { disableTransparentOnScrollEdge: true as const } : {})}
             {...(!isAndroid ? { minimizeBehavior: 'onScrollDown' as const } : {})}
         >
-            <NativeTabs.Trigger name="index">
-                <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
-            </NativeTabs.Trigger>
-
-            <NativeTabs.Trigger name="invoices">
-                <NativeTabs.Trigger.Label>Invoices</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="doc.text.fill" md="receipt_long" />
-            </NativeTabs.Trigger>
-
-            <NativeTabs.Trigger name="links">
-                <NativeTabs.Trigger.Label>Links</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="link" md="link" />
-            </NativeTabs.Trigger>
-
             <NativeTabs.Trigger name="wallet">
                 <NativeTabs.Trigger.Label>Wallet</NativeTabs.Trigger.Label>
                 <NativeTabs.Trigger.Icon sf="creditcard.fill" md="account_balance_wallet" />
             </NativeTabs.Trigger>
 
-            <NativeTabs.Trigger name="more">
-                <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="ellipsis.circle.fill" md="more_horiz" />
+            <NativeTabs.Trigger name="settings">
+                <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+                <NativeTabs.Trigger.Icon sf="gearshape.fill" md="settings" />
             </NativeTabs.Trigger>
         </NativeTabs>
     );

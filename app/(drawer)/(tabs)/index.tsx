@@ -47,6 +47,11 @@ export default function HomeDashboard() {
     const router = useRouter();
     const { user, getAccessToken, isReady } = useAuth();
 
+    // Redirect to wallet — this screen is no longer part of the main navigation
+    useEffect(() => {
+        router.replace('/wallet');
+    }, [router]);
+
     // User Data
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
