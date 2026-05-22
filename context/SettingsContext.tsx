@@ -170,12 +170,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const resolvedSystemTheme = resolveToAppTheme(deviceTheme || systemColorScheme);
     const currentTheme = theme === 'system' ? resolvedSystemTheme : theme;
 
-    useEffect(() => {
-        const targetColorScheme: ColorSchemeName = theme === 'system' ? 'unspecified' : theme;
-        if (typeof Appearance.setColorScheme === 'function') {
-            Appearance.setColorScheme(targetColorScheme);
-        }
-    }, [theme]);
+    // Note: we deliberately do NOT call Appearance.setColorScheme here.
+    // It causes iOS to manage the status bar automatically based on the
+    // system appearance, which conflicts with our manual status bar style
+    // management in ThemeAwareStatusBar. The app's dark mode is purely
+    // cosmetic (background/text colours); the system color scheme stays
+    // unchanged so the status bar can be driven imperatively.
 
     useEffect(() => {
         const targetBackground = currentTheme === 'dark' ? '#000000' : '#FFFFFF';

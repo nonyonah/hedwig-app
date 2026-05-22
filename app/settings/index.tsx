@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
 import { useAuth } from '../../hooks/useAuth';
+import { useLoginWithOAuth } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Sidebar } from '../../components/Sidebar';
@@ -102,6 +103,7 @@ export default function SettingsScreen() {
     } = useSettings();
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
+    const { login: oauthLogin } = useLoginWithOAuth();
     const { replayTutorial } = useTutorial();
 
     const [conversations, setConversations] = useState<any[]>([]);
@@ -123,7 +125,7 @@ export default function SettingsScreen() {
 
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
-    const [isBiometricExporting, setIsBiometricExporting] = useState(false);
+
 
     const kycSheetRef = useRef<TrueSheet>(null);
     const [isCheckingConnection, setIsCheckingConnection] = useState(false);
@@ -501,6 +503,31 @@ export default function SettingsScreen() {
         }
     };
 
+    const handleRecoveryReauth = async (provider: 'google' | 'apple') => {
+        try {
+            await oauthLogin({ provider });
+            await openRecoverySheet();
+        } catch (error: any) {
+            if (error?.message?.includes('cancelled') || error?.message?.includes('canceled') || error?.message?.includes('dismissed')) {
+                return;
+            }
+            console.error('Recovery re-auth error:', error);
+            Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
+        }
+    };
+
+    const promptRecoveryReauth = () => {
+        Alert.alert(
+            'Verify your identity',
+            'To keep your wallet secure, please sign in again before exporting your recovery phrase.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Google', onPress: () => { void handleRecoveryReauth('google'); } },
+                { text: 'Apple', onPress: () => { void handleRecoveryReauth('apple'); } },
+            ]
+        );
+    };
+
     const closeRecoverySheet = async () => {
         if (shouldUseSwiftUIBottomSheet) {
             setIsRecoverySheetPresented(false);
@@ -682,7 +709,7 @@ export default function SettingsScreen() {
                 {/* Security */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>
                 <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                    <TouchableOpacity style={styles.settingRow} onPress={openRecoverySheet}>
+                    <TouchableOpacity style={styles.settingRow} onPress={promptRecoveryReauth}>
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Recovery Phrase</Text>
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
@@ -948,52 +975,30 @@ export default function SettingsScreen() {
                                 </Text>
                             </TouchableOpacity>
 
-                            {/* Continue Button - with biometric auth */}
+                            {/* Continue Button */}
                             <Button
-                                title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
-                                loading={isBiometricExporting}
-                                disabled={!recoveryAcknowledged || isBiometricExporting}
+                                title="Continue"
+                                disabled={!recoveryAcknowledged}
                                 variant={recoveryAcknowledged ? 'primary' : 'secondary'}
                                 size="large"
                                 onPress={async () => {
                                     if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    setIsBiometricExporting(true);
 
-                                    try {
-                                        // Authenticate with biometrics
-                                        const authResult = await LocalAuthentication.authenticateAsync({
-                                            promptMessage: 'Authenticate to view recovery phrase',
-                                            cancelLabel: 'Cancel',
-                                            disableDeviceFallback: false,
-                                        });
+                                    // Build URL first - fallback to API host in production if web client URL isn't set
+                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                    const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+                                    const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
+                                    const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
 
-                                        if (authResult.success) {
-                                            // Build URL first - fallback to API host in production if web client URL isn't set
-                                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                            const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-                                            const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
-                                            const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
+                                    // Open in-app browser
+                                    await WebBrowser.openBrowserAsync(exportUrl, {
+                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                                        controlsColor: Colors.primary,
+                                    });
 
-                                            // Close modal AFTER a small delay to let browser open
-                                            setIsBiometricExporting(false);
-
-                                            // Open in-app browser first
-                                            await WebBrowser.openBrowserAsync(exportUrl, {
-                                                presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-                                                controlsColor: Colors.primary,
-                                            });
-
-                                            // Close modal after browser is dismissed
-                                            await closeRecoverySheet();
-                                        } else {
-                                            setIsBiometricExporting(false);
-                                            Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
-                                        }
-                                    } catch (error) {
-                                        console.error('Biometric auth error:', error);
-                                        setIsBiometricExporting(false);
-                                        Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
-                                    }
+                                    // Close modal after browser is dismissed and log out for security
+                                    await closeRecoverySheet();
+                                    await logout();
                                 }}
                             />
                         </View>
@@ -1067,52 +1072,30 @@ export default function SettingsScreen() {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Continue Button - with biometric auth */}
+                        {/* Continue Button */}
                         <Button
-                            title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
-                            loading={isBiometricExporting}
-                            disabled={!recoveryAcknowledged || isBiometricExporting}
+                            title="Continue"
+                            disabled={!recoveryAcknowledged}
                             variant={recoveryAcknowledged ? 'primary' : 'secondary'}
                             size="large"
                             onPress={async () => {
                                 if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                setIsBiometricExporting(true);
 
-                                try {
-                                    // Authenticate with biometrics
-                                    const authResult = await LocalAuthentication.authenticateAsync({
-                                        promptMessage: 'Authenticate to view recovery phrase',
-                                        cancelLabel: 'Cancel',
-                                        disableDeviceFallback: false,
-                                    });
+                                // Build URL first - fallback to API host in production if web client URL isn't set
+                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+                                const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
+                                const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
 
-                                    if (authResult.success) {
-                                        // Build URL first - fallback to API host in production if web client URL isn't set
-                                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                        const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-                                        const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
-                                        const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
+                                // Open in-app browser
+                                await WebBrowser.openBrowserAsync(exportUrl, {
+                                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                                    controlsColor: Colors.primary,
+                                });
 
-                                        // Close modal AFTER a small delay to let browser open
-                                        setIsBiometricExporting(false);
-
-                                        // Open in-app browser first
-                                        await WebBrowser.openBrowserAsync(exportUrl, {
-                                            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-                                            controlsColor: Colors.primary,
-                                        });
-
-                                        // Close modal after browser is dismissed
-                                        await closeRecoverySheet();
-                                    } else {
-                                        setIsBiometricExporting(false);
-                                        Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
-                                    }
-                                } catch (error) {
-                                    console.error('Biometric auth error:', error);
-                                    setIsBiometricExporting(false);
-                                    Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
-                                }
+                                // Close modal after browser is dismissed and log out for security
+                                await closeRecoverySheet();
+                                await logout();
                             }}
                         />
                     </View>
@@ -1194,52 +1177,30 @@ export default function SettingsScreen() {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Continue Button - with biometric auth */}
+                        {/* Continue Button */}
                         <Button
-                            title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
-                            loading={isBiometricExporting}
-                            disabled={!recoveryAcknowledged || isBiometricExporting}
+                            title="Continue"
+                            disabled={!recoveryAcknowledged}
                             variant={recoveryAcknowledged ? 'primary' : 'secondary'}
                             size="large"
                             onPress={async () => {
                                 if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                setIsBiometricExporting(true);
 
-                                try {
-                                    // Authenticate with biometrics
-                                    const authResult = await LocalAuthentication.authenticateAsync({
-                                        promptMessage: 'Authenticate to view recovery phrase',
-                                        cancelLabel: 'Cancel',
-                                        disableDeviceFallback: false,
-                                    });
+                                // Build URL first - fallback to API host in production if web client URL isn't set
+                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+                                const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
+                                const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
 
-                                    if (authResult.success) {
-                                        // Build URL first - fallback to API host in production if web client URL isn't set
-                                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                        const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-                                        const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
-                                        const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
+                                // Open in-app browser
+                                await WebBrowser.openBrowserAsync(exportUrl, {
+                                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                                    controlsColor: Colors.primary,
+                                });
 
-                                        // Close modal AFTER a small delay to let browser open
-                                        setIsBiometricExporting(false);
-
-                                        // Open in-app browser first
-                                        await WebBrowser.openBrowserAsync(exportUrl, {
-                                            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-                                            controlsColor: Colors.primary,
-                                        });
-
-                                        // Close modal after browser is dismissed
-                                        await closeRecoverySheet();
-                                    } else {
-                                        setIsBiometricExporting(false);
-                                        Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
-                                    }
-                                } catch (error) {
-                                    console.error('Biometric auth error:', error);
-                                    setIsBiometricExporting(false);
-                                    Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
-                                }
+                                // Close modal after browser is dismissed and log out for security
+                                await closeRecoverySheet();
+                                await logout();
                             }}
                         />
                     </BottomSheetView>

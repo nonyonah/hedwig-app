@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,7 +17,6 @@ const Fingerprint = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).
 
 export default function BiometricsScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const themeColors = useThemeColors();
     const ethWalletHook = useEmbeddedEthereumWallet();
     const solWalletHook = useEmbeddedSolanaWallet();
@@ -296,7 +295,7 @@ export default function BiometricsScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
+        <SafeAreaView edges={['top', 'bottom']} style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={styles.content}>
                 <View style={styles.iconContainer}>
                     <LinearGradient
@@ -335,9 +334,8 @@ export default function BiometricsScreen() {
                         disabled={isEnableLoading || isLaterLoading}
                     />
                 </View>
-                <View style={{ height: insets.bottom + 8 }} />
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 

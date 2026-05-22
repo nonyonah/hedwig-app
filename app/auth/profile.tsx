@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, ScrollView, Image, ActivityIndicator, Animated, Keyboard } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, Check, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
@@ -214,7 +214,7 @@ export default function ProfileScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
+        <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -308,7 +308,7 @@ export default function ProfileScreen() {
                     disabled={!name.trim() || loading}
                 />
             </Animated.View>
-        </View>
+        </SafeAreaView>
     );
 }
 
