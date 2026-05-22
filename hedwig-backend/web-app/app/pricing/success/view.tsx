@@ -7,8 +7,8 @@ import { useSearchParams } from 'next/navigation';
 import { Check, Sparkle } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import type { BillingStatusSummary } from '@/lib/api/client';
-import { isProPlan } from '@/lib/billing/feature-gates';
-import { PRO_PLAN_FEATURES } from '@/lib/billing/pricing';
+import { isOnPaidPlan } from '@/lib/billing/feature-gates';
+import { PRO_PLAN_FEATURES, STARTER_PLAN_FEATURES } from '@/lib/billing/pricing';
 
 export function SuccessPageClient({
   accessToken,
@@ -23,11 +23,15 @@ export function SuccessPageClient({
   const [pollCount, setPollCount] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isPro = isProPlan(billing);
+  const plan = billing?.plan ?? 'free';
+  const isPaid = isOnPaidPlan(billing);
+  const isPro = plan === 'pro';
+  const planFeatures = isPro ? PRO_PLAN_FEATURES : STARTER_PLAN_FEATURES;
+  const planLabel = plan === 'pro' ? 'Pro' : plan === 'starter' ? 'Starter' : 'Paid';
 
   // On mount: immediately sync via Polar API so we don't wait for webhook
   useEffect(() => {
-    if (isPro || !accessToken || !checkoutId) return;
+    if (isPaid || !accessToken || !checkoutId) return;
 
     const syncNow = async () => {
       try {
@@ -44,9 +48,9 @@ export function SuccessPageClient({
     void syncNow();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Poll billing status until Pro is confirmed
+  // Poll billing status until plan is confirmed
   useEffect(() => {
-    if (isPro || !accessToken || !checkoutId) return;
+    if (isPaid || !accessToken || !checkoutId) return;
 
     const poll = async () => {
       try {
@@ -66,14 +70,14 @@ export function SuccessPageClient({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPro, accessToken, checkoutId]);
+  }, [isPaid, accessToken, checkoutId]);
 
-  // Stop polling after Pro is confirmed or after 10 attempts
+  // Stop polling after plan is confirmed or after 10 attempts
   useEffect(() => {
-    if ((isPro || pollCount >= 10) && intervalRef.current) {
+    if ((isPaid || pollCount >= 10) && intervalRef.current) {
       clearInterval(intervalRef.current);
     }
-  }, [isPro, pollCount]);
+  }, [isPaid, pollCount]);
 
   return (
     <main className="min-h-screen bg-[#fafafa]">
@@ -101,38 +105,38 @@ export function SuccessPageClient({
           </div>
 
           <h1 className="text-[32px] font-bold tracking-[-0.04em] text-[#181d27]">
-            {isPro ? "You're on Pro" : 'Payment received'}
+            {isPaid ? `You're on ${planLabel}` : 'Payment received'}
           </h1>
           <p className="mt-3 text-[15px] text-[#667085] leading-relaxed">
-            {isPro
-              ? 'Your Pro subscription is active. Everything is ready to go.'
+            {isPaid
+              ? `Your ${planLabel} subscription is active. Everything is ready to go.`
               : 'Your payment was successful. Your subscription will be active shortly — this usually takes a few seconds.'}
           </p>
 
           {/* Sync indicator */}
-          {!isPro && checkoutId && pollCount < 10 && (
+          {!isPaid && checkoutId && pollCount < 10 && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#f2f4f7] px-3.5 py-1.5">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2563eb]" />
               <span className="text-[12px] font-medium text-[#717680]">Syncing subscription…</span>
             </div>
           )}
 
-          {isPro && (
+          {isPaid && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#ecfdf3] px-3.5 py-1.5">
               <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#12b76a]">
                 <Check className="h-2.5 w-2.5 text-white" weight="bold" />
               </span>
-              <span className="text-[12px] font-semibold text-[#027a48]">Pro active</span>
+              <span className="text-[12px] font-semibold text-[#027a48]">{planLabel} active</span>
             </div>
           )}
 
           {/* Features */}
           <div className="mt-8 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white text-left">
             <div className="border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">What you get with Pro</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">What you get with {planLabel}</p>
             </div>
             <div className="divide-y divide-[#f9fafb]">
-              {PRO_PLAN_FEATURES.map((feat) => (
+              {planFeatures.map((feat) => (
                 <div key={feat} className="flex items-center gap-3 px-5 py-3.5">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#eff4ff]">
                     <Check className="h-3 w-3 text-[#2563eb]" weight="bold" />

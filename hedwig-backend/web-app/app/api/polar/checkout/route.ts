@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth/session';
 import {
+  resolveAllPolarProductIds,
   resolvePolarCheckoutReturnUrl,
   resolvePolarCheckoutSuccessUrl,
-  resolvePolarProductId,
   resolvePolarServer
 } from '@/lib/billing/polar';
 
@@ -57,9 +57,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     );
   }
 
-  const allowedProductIds = new Set(
-    [resolvePolarProductId('monthly'), resolvePolarProductId('annual')].filter(Boolean)
-  );
+  const allowedProductIds = new Set(resolveAllPolarProductIds());
   if (products.some((product) => !allowedProductIds.has(product))) {
     return NextResponse.json(
       { success: false, error: 'Invalid product for this workspace.' },

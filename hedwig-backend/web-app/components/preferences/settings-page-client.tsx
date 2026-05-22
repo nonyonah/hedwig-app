@@ -29,7 +29,7 @@ import { PayoutBankSection } from '@/components/preferences/payout-bank-section'
 import { useCurrency } from '@/components/providers/currency-provider';
 import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
-import { isProPlan } from '@/lib/billing/feature-gates';
+import { isProPlan, isOnPaidPlan } from '@/lib/billing/feature-gates';
 import { billingSwitchErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
 
 type SettingsClientProps = {
@@ -94,6 +94,12 @@ function SettingsRow({
   );
 }
 
+const planLabel = (plan: string | undefined): string => {
+  if (plan === 'pro') return 'Pro';
+  if (plan === 'starter') return 'Starter';
+  return 'Free plan';
+};
+
 export function SettingsClient({ accessToken, initialUser }: SettingsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,7 +136,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [isSavingAsstPref, setIsSavingAsstPref] = useState<string | null>(null);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
-  const isProUser = isProPlan(billingStatus);
+  const isProUser = isOnPaidPlan(billingStatus);
   const subscriptionProvider = useMemo(() => resolveSubscriptionProvider(billingStatus), [billingStatus]);
   const billingInterval = billingStatus?.entitlement.billingInterval ?? null;
 
@@ -426,7 +432,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             <div>
               <div className="flex items-center gap-2">
                 <p className="text-[16px] font-semibold text-[#181d27]">{fullName}</p>
-                {isProUser ? <Badge variant="success">Pro</Badge> : null}
+                {isProUser ? <Badge variant="success">{planLabel(billingStatus?.plan)}</Badge> : null}
               </div>
               <p className="text-[13px] text-[#717680]">{email}</p>
             </div>
@@ -574,7 +580,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 </span>
               ) : null}
               <Badge variant={isProUser ? 'success' : 'neutral'}>
-                {isLoadingBilling ? 'Checking…' : isProUser ? 'Pro' : 'Free plan'}
+                {isLoadingBilling ? 'Checking…' : planLabel(billingStatus?.plan)}
               </Badge>
             </div>
           </SettingsRow>

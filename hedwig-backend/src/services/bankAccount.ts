@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
-import { FREE_PLAN_LIMITS, requireProFeatureAccess } from './billingRules';
+import { FREE_PLAN_LIMITS, requireProFeatureAccess, getUserPlan, getBankAccountLimit } from './billingRules';
 
 const logger = createLogger('BankAccount');
 
@@ -306,15 +306,23 @@ export class BankAccountService {
         const validationError = validateInput(input);
         if (validationError) throw new Error(validationError);
 
-        // Free plan: cap to FREE_PLAN_LIMITS.bankAccounts. Pro: unlimited.
+        // Check plan-specific bank account limit
         const existing = await BankAccountService.listByUserId(userId);
-        if (existing.length >= FREE_PLAN_LIMITS.bankAccounts) {
-            const { data: userRow } = await supabase
-                .from('users')
-                .select('id, email, privy_id, subscription_status, subscription_expiry, created_at')
-                .eq('id', userId)
-                .maybeSingle();
-            if (userRow) {
+        const { data: userRow } = await supabase
+            .from('users')
+            .select('id, email, privy_id, subscription_status, subscription_expiry, created_at')
+            .eq('id', userId)
+            .maybeSingle();
+        if (userRow) {
+            const plan = await getUserPlan(userRow as any);
+            const limit = getBankAccountLimit(plan);
+            if (existing.length >= limit) {
+                if (plan === 'free') {
+                    throw new Error(`The free plan includes ${FREE_PLAN_LIMITS.bankAccounts} payout bank account. Upgrade to add more.`);
+                }
+                if (plan === 'starter') {
+                    throw new Error(`Starter includes 3 payout bank accounts. Upgrade to Pro for unlimited.`);
+                }
                 const access = await requireProFeatureAccess(userRow as any, 'multi_bank_accounts');
                 if (!access.allowed) {
                     throw new Error(access.message || 'Upgrade to Pro to add more bank accounts.');

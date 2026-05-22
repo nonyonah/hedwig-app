@@ -67,7 +67,7 @@ const getRangeStart = (range: RangeKey): Date => {
 // Pro: any range. Returns the effective range plus whether it was clamped.
 async function resolveRangeForUser(user: any, requested: RangeKey): Promise<{ range: RangeKey; gated: boolean }> {
     const plan = await getUserPlan(user);
-    if (plan === 'pro') return { range: requested, gated: false };
+    if (plan !== 'free') return { range: requested, gated: false };
 
     const gateEnabledAt = process.env.HEDWIG_AI_GATE_ENABLED_AT || '';
     if (gateEnabledAt && user?.created_at && Date.parse(user.created_at) < Date.parse(gateEnabledAt)) {

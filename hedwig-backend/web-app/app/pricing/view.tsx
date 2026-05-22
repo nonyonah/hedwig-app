@@ -7,16 +7,20 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Sparkle } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import type { BillingStatusSummary } from '@/lib/api/client';
-import { isProPlan } from '@/lib/billing/feature-gates';
+import { isOnPaidPlan } from '@/lib/billing/feature-gates';
 import {
   FREE_PLAN_FEATURES,
-  PLAN_COMPARISON_ROWS,
+  STARTER_PLAN_FEATURES,
   PRO_PLAN_FEATURES,
+  PLAN_COMPARISON_ROWS,
 } from '@/lib/billing/pricing';
-import { billingSwitchErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
+import { friendlyErrorMessage } from '@/lib/api/errors';
 
 type Interval = 'monthly' | 'annual';
 type SubscriptionProvider = 'polar' | 'revenue_cat';
+
+const MONTHLY_PRICES = { starter: 5, pro: 12 } as const;
+const ANNUAL_PRICES = { starter: 48, pro: 115 } as const;
 
 const resolveSubscriptionProvider = (billing: BillingStatusSummary | null): SubscriptionProvider | null => {
   const provider = billing?.subscriptionProvider;
@@ -37,76 +41,33 @@ export function PricingPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [interval, setInterval] = useState<Interval>('annual');
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const checkoutId = searchParams.get('checkoutId');
 
-  const isPro = isProPlan(billing);
+  const plan = billing?.plan ?? 'free';
+  const isPaid = isOnPaidPlan(billing);
   const subscriptionProvider = useMemo(() => resolveSubscriptionProvider(billing), [billing]);
   const billingInterval = billing?.entitlement?.billingInterval ?? null;
-  const canSwitchOnWeb = Boolean(accessToken && isPro && subscriptionProvider !== 'revenue_cat');
-  const targetSwitchInterval: Interval = billingInterval === 'annual' ? 'monthly' : 'annual';
+  const canSwitchOnWeb = Boolean(accessToken && isPaid && subscriptionProvider !== 'revenue_cat');
 
-  const price = useMemo(() => {
-    if (interval === 'annual') {
-      return {
-        value: '$48',
-        suffix: '/year',
-        helper: 'Billed annually',
-        badge: 'Save 20%',
-      };
-    }
-
-    return {
-      value: '$5',
-      suffix: '/month',
-      helper: 'Billed monthly',
-      badge: null,
-    };
-  }, [interval]);
-
-  const switchPlanInterval = async (targetInterval: Interval) => {
-    const response = await fetch('/api/billing/polar/switch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ interval: targetInterval }),
-    });
-    const data = await response.json().catch(() => null) as { success?: boolean; error?: string; code?: string; data?: { changed?: boolean } } | null;
-    if (!response.ok || !data?.success) {
-      throw new Error(billingSwitchErrorMessage(data));
-    }
-    setInfo(
-      data.data?.changed === false
-        ? 'That billing interval is already active.'
-        : `Your plan has been switched to ${targetInterval === 'annual' ? 'yearly' : 'monthly'} billing.`
-    );
-  };
-
-  const startCheckout = async () => {
+  const startCheckout = async (targetPlan: 'starter' | 'pro') => {
     if (!accessToken) {
       router.push('/sign-in');
       return;
     }
-    if (isPro && interval === billingInterval) return;
 
-    setIsRedirecting(true);
+    const key = `${targetPlan}-${interval}`;
+    setIsRedirecting((prev) => ({ ...prev, [key]: true }));
     setError(null);
-    setInfo(isPro ? 'Opening plan switch…' : 'Opening secure checkout…');
+    setInfo('Opening secure checkout…');
 
     try {
-      if (isPro) {
-        await switchPlanInterval(interval);
-        setIsRedirecting(false);
-        return;
-      }
-
-      window.location.assign(`/api/billing/polar/checkout?interval=${interval}`);
+      window.location.assign(`/api/billing/polar/checkout?plan=${targetPlan}&interval=${interval}`);
     } catch (checkoutError: any) {
       setError(friendlyErrorMessage(checkoutError, 'Could not start checkout right now.'));
-      setIsRedirecting(false);
-    } finally {
-      // no-op: browser navigates away on success
+      setIsRedirecting((prev) => ({ ...prev, [key]: false }));
     }
   };
 
@@ -125,6 +86,36 @@ export function PricingPageClient({
     }
 
     window.location.assign('/api/billing/polar/portal');
+  };
+
+  const priceFor = (p: 'starter' | 'pro') => {
+    if (interval === 'annual') {
+      const monthly = MONTHLY_PRICES[p];
+      const annual = ANNUAL_PRICES[p];
+      const monthlyEq = (annual / 12).toFixed(2).replace(/\.?0+$/, '');
+      return {
+        value: `$${annual}`,
+        suffix: '/year',
+        compareAt: `$${monthly}/mo`,
+        helper: `$${monthlyEq}/mo billed annually`,
+      };
+    }
+    return {
+      value: `$${MONTHLY_PRICES[p]}`,
+      suffix: '/month',
+      compareAt: null,
+      helper: 'Billed monthly',
+    };
+  };
+
+  const buttonFor = (targetPlan: 'starter' | 'pro') => {
+    const key = `${targetPlan}-${interval}`;
+    const busy = isRedirecting[key];
+    const isOnThisPlan = plan === targetPlan;
+
+    if (busy) return 'Opening…';
+    if (isOnThisPlan) return 'Subscribed';
+    return 'Subscribe';
   };
 
   return (
@@ -156,7 +147,7 @@ export function PricingPageClient({
             Simple pricing. No surprises.
           </h1>
           <p className="mt-3 text-[15px] text-[#667085] max-w-[480px] mx-auto leading-relaxed">
-            Start free. Upgrade when you need the assistant, recurring automation, and more creation headroom.
+            Start free. Upgrade to Starter for recurring invoices and full history, or go Pro for AI, automations, and integrations.
           </p>
 
           {/* Toggle */}
@@ -192,7 +183,7 @@ export function PricingPageClient({
 
       {/* Plans */}
       <section className="mx-auto max-w-[1100px] px-6 py-10">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
 
           {/* Free */}
           <article className="rounded-2xl border border-[#e9eaeb] bg-white p-6">
@@ -221,7 +212,7 @@ export function PricingPageClient({
             </Button>
           </article>
 
-          {/* Pro */}
+          {/* Starter — always shown as highlighted Recommended plan */}
           <article className="relative rounded-2xl border border-[#2563eb] bg-white p-6 ring-1 ring-[#2563eb]/10">
             <div className="absolute right-5 top-5">
               <span className="inline-flex items-center gap-1 rounded-full bg-[#2563eb] px-2.5 py-1 text-[11px] font-semibold text-white">
@@ -230,97 +221,160 @@ export function PricingPageClient({
               </span>
             </div>
             <div className="border-b border-[#f2f4f7] pb-5 mb-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Pro</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Starter</p>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">{price.value}</span>
-                <span className="text-[13px] text-[#a4a7ae]">{price.suffix}</span>
+                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">{priceFor('starter').value}</span>
+                <span className="text-[13px] text-[#a4a7ae]">{priceFor('starter').suffix}</span>
+                {priceFor('starter').compareAt && (
+                  <>
+                    <span className="mx-1 text-[13px] text-[#a4a7ae]">—</span>
+                    <span className="text-[13px] text-[#a4a7ae] line-through">{priceFor('starter').compareAt}</span>
+                  </>
+                )}
               </div>
-              <p className="mt-1.5 text-[13px] text-[#667085]">{price.helper} · cancel anytime.</p>
-              {!isPro && (
+              <p className="mt-1.5 text-[13px] text-[#667085]">{priceFor('starter').helper} · cancel anytime.</p>
+              {plan === 'free' && (
                 <p className="mt-1 text-[12px] font-medium text-[#027a48]">7-day free trial included</p>
               )}
             </div>
             <div className="space-y-3 mb-6">
-              {[...FREE_PLAN_FEATURES, ...PRO_PLAN_FEATURES].map((item, i) => (
+              {[...FREE_PLAN_FEATURES, ...STARTER_PLAN_FEATURES].map((item, i) => (
                 <div key={item} className="flex items-center gap-2.5">
                   <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${i < FREE_PLAN_FEATURES.length ? 'bg-[#f2f4f7]' : 'bg-[#eff4ff]'}`}>
                     <Check className={`h-2.5 w-2.5 font-bold ${i < FREE_PLAN_FEATURES.length ? 'text-[#717680]' : 'text-[#2563eb]'}`} weight="bold" />
                   </span>
                   <span className="text-[13px] text-[#414651]">{item}</span>
                   {i >= FREE_PLAN_FEATURES.length && (
-                    <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[#2563eb]">Pro</span>
+                    <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[#2563eb]">Starter</span>
                   )}
                 </div>
               ))}
             </div>
             <div className="space-y-2">
-              <Button onClick={startCheckout} disabled={isRedirecting || (isPro && interval === billingInterval)} className="w-full">
-                {isRedirecting
-                  ? 'Opening checkout…'
-                  : isPro && interval === billingInterval
-                    ? `Current ${billingInterval === 'annual' ? 'yearly' : 'monthly'} plan`
-                    : isPro
-                      ? `Switch to ${interval === 'annual' ? 'yearly' : 'monthly'}`
-                      : 'Start free trial'}
+              <Button
+                onClick={() => startCheckout('starter')}
+                disabled={isRedirecting[`starter-${interval}`] || plan === 'starter'}
+                className="w-full"
+              >
+                {buttonFor('starter')}
               </Button>
-              {canSwitchOnWeb ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setInterval(targetSwitchInterval);
-                    setIsRedirecting(true);
-                    setError(null);
-                    setInfo('Opening plan switch…');
-                    try {
-                      await switchPlanInterval(targetSwitchInterval);
-                    } catch (checkoutError: any) {
-                      setError(friendlyErrorMessage(checkoutError, 'Could not switch your plan right now.'));
-                    } finally {
-                      setIsRedirecting(false);
-                    }
-                  }}
-                  className="block w-full text-center text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8] transition-colors"
-                >
-                  {targetSwitchInterval === 'annual' ? 'Switch to yearly billing' : 'Switch back to monthly billing'}
-                </button>
-              ) : null}
-              {!isPro && (
-                <p className="text-center text-[11px] text-[#717680]">7 days free · then {price.value}{price.suffix} · cancel anytime</p>
+              {plan === 'free' && (
+                <p className="text-center text-[11px] text-[#717680]">7 days free · then {priceFor('starter').value}{priceFor('starter').suffix} · cancel anytime</p>
               )}
-              {accessToken ? (
-                <button
-                  type="button"
-                  onClick={openSubscriptionManagement}
-                  className="block w-full text-center text-[12px] font-medium text-[#717680] hover:text-[#414651] transition-colors"
-                >
-                  Manage subscription
-                </button>
-              ) : null}
-              {info || checkoutId ? (
-                <p className="text-center text-[12px] text-[#717680]">
-                  {info || 'Checkout completed. Subscription sync is in progress.'}
-                </p>
-              ) : null}
-              {error ? <p className="text-center text-[12px] text-[#b42318]">{error}</p> : null}
+            </div>
+          </article>
+
+          {/* Pro */}
+          <article className={`relative rounded-2xl border bg-white p-6 ring-1 ${
+            plan === 'pro'
+              ? 'border-[#7c3aed] ring-[#7c3aed]/10'
+              : 'border-[#e9eaeb] ring-transparent'
+          }`}>
+            <div className="border-b border-[#f2f4f7] pb-5 mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#7c3aed]">Pro</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">{priceFor('pro').value}</span>
+                <span className="text-[13px] text-[#a4a7ae]">{priceFor('pro').suffix}</span>
+                {priceFor('pro').compareAt && (
+                  <>
+                    <span className="mx-1 text-[13px] text-[#a4a7ae]">—</span>
+                    <span className="text-[13px] text-[#a4a7ae] line-through">{priceFor('pro').compareAt}</span>
+                  </>
+                )}
+              </div>
+              <p className="mt-1.5 text-[13px] text-[#667085]">{priceFor('pro').helper} · cancel anytime.</p>
+              {plan === 'free' && (
+                <p className="mt-1 text-[12px] font-medium text-[#027a48]">7-day free trial included</p>
+              )}
+            </div>
+            <div className="space-y-3 mb-6">
+              {[...FREE_PLAN_FEATURES, ...STARTER_PLAN_FEATURES, ...PRO_PLAN_FEATURES].map((item, i) => {
+                const freeCount = FREE_PLAN_FEATURES.length;
+                const starterCount = STARTER_PLAN_FEATURES.length;
+                const isFree = i < freeCount;
+                const isStarter = i < freeCount + starterCount;
+                let circleBg: string, checkColor: string;
+                if (isFree) {
+                  circleBg = 'bg-[#f2f4f7]';
+                  checkColor = 'text-[#717680]';
+                } else if (isStarter) {
+                  circleBg = 'bg-[#eff4ff]';
+                  checkColor = 'text-[#2563eb]';
+                } else {
+                  circleBg = 'bg-[#f3e8ff]';
+                  checkColor = 'text-[#7c3aed]';
+                }
+                return (
+                  <div key={item} className="flex items-center gap-2.5">
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${circleBg}`}>
+                      <Check className={`h-2.5 w-2.5 font-bold ${checkColor}`} weight="bold" />
+                    </span>
+                    <span className="text-[13px] text-[#414651]">{item}</span>
+                    {!isFree && !isStarter && (
+                      <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[#7c3aed]">Pro</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-2">
+              <Button
+                onClick={() => startCheckout('pro')}
+                disabled={isRedirecting[`pro-${interval}`] || plan === 'pro'}
+                className="w-full"
+              >
+                {buttonFor('pro')}
+              </Button>
+              {plan === 'free' && (
+                <p className="text-center text-[11px] text-[#717680]">7 days free · then {priceFor('pro').value}{priceFor('pro').suffix} · cancel anytime</p>
+              )}
             </div>
           </article>
         </div>
+
+        {/* Manage subscription */}
+        {accessToken && isPaid ? (
+          <div className="mt-6 text-center space-y-2">
+            {canSwitchOnWeb ? (
+              <button
+                type="button"
+                onClick={openSubscriptionManagement}
+                className="text-[12px] font-semibold text-[#717680] hover:text-[#414651] transition-colors"
+              >
+                Manage subscription
+              </button>
+            ) : (
+              <p className="text-[12px] text-[#717680]">
+                Subscription managed on mobile — open the app to make changes.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {info || checkoutId ? (
+          <p className="mt-4 text-center text-[12px] text-[#717680]">
+            {info || 'Checkout completed. Subscription sync is in progress.'}
+          </p>
+        ) : null}
+        {error ? <p className="mt-4 text-center text-[12px] text-[#b42318]">{error}</p> : null}
       </section>
 
       {/* Comparison table */}
       <section className="mx-auto max-w-[1100px] px-6 pb-16">
         <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
-          <div className="grid grid-cols-[1fr_120px_120px] border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
+          <div className="grid grid-cols-[1fr_100px_100px_100px] border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Feature</p>
             <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Free</p>
-            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Pro</p>
+            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Starter</p>
+            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#7c3aed]">Pro</p>
           </div>
           <div className="divide-y divide-[#f9fafb]">
             {PLAN_COMPARISON_ROWS.map((row) => (
-              <div key={row.feature} className="grid grid-cols-[1fr_120px_120px] items-center px-5 py-3.5">
+              <div key={row.feature} className="grid grid-cols-[1fr_100px_100px_100px] items-center px-5 py-3.5">
                 <p className="text-[13px] text-[#414651]">{row.feature}</p>
                 <p className="text-center text-[12px] font-medium text-[#717680]">{row.free}</p>
-                <p className="text-center text-[12px] font-semibold text-[#2563eb]">{row.pro}</p>
+                <p className="text-center text-[12px] font-semibold text-[#2563eb]">{row.starter}</p>
+                <p className="text-center text-[12px] font-semibold text-[#7c3aed]">{row.pro}</p>
               </div>
             ))}
           </div>

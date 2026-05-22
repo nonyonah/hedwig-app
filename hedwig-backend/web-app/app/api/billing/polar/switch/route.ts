@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth/session';
 import { backendConfig } from '@/lib/auth/config';
-import { resolvePolarProductId, resolvePolarServer, type BillingInterval } from '@/lib/billing/polar';
+import { resolvePolarProductId, resolvePlanFromProductId, resolvePolarServer, type BillingInterval, type PlanTier } from '@/lib/billing/polar';
 
 export const runtime = 'nodejs';
 
@@ -109,26 +109,30 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const body = await req.json().catch(() => null) as { interval?: string } | null;
   const interval = normalizeInterval(body?.interval);
-  const targetProductId = resolvePolarProductId(interval);
-
-  if (!targetProductId) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Missing ${interval === 'annual' ? 'POLAR_PRODUCT_ID_ANNUAL' : 'POLAR_PRODUCT_ID_MONTHLY'} configuration.`,
-      },
-      { status: 503 }
-    );
-  }
 
   try {
     const subscriptions = await listActiveSubscriptions(session.user.id);
-    const subscription = subscriptions.find((item) => String(item?.product_id || '') !== targetProductId) || subscriptions[0];
+    const subscription = subscriptions[0];
 
     if (!subscription?.id) {
       return NextResponse.json(
         { success: false, error: 'No active Polar subscription was found for this account.', code: 'BILLING_SUBSCRIPTION_NOT_FOUND' },
         { status: 404 }
+      );
+    }
+
+    // Detect which plan the user is on from their current subscription's product ID
+    const currentPlan = resolvePlanFromProductId(String(subscription.product_id || ''));
+    const plan: PlanTier = currentPlan ?? 'pro';
+    const targetProductId = resolvePolarProductId(interval, plan);
+
+    if (!targetProductId) {
+      const key = plan === 'pro'
+        ? (interval === 'annual' ? 'POLAR_PRO_ANNUAL_ID' : 'POLAR_PRO_MONTHLY_ID')
+        : (interval === 'annual' ? 'POLAR_STARTER_ANNUAL_ID' : 'POLAR_STARTER_MONTHLY_ID');
+      return NextResponse.json(
+        { success: false, error: `Missing ${key} configuration.` },
+        { status: 503 }
       );
     }
 
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         {
           success: false,
           code: 'BILLING_TRIAL_PLAN_CHANGE_LOCKED',
-          error: 'Your Pro trial is already active. You can switch between monthly and yearly billing after the trial ends, or open subscription management to end the trial first.',
+          error: 'Your trial is already active. You can switch between monthly and yearly billing after the trial ends, or open subscription management to end the trial first.',
           data: {
             interval,
             trialEndsAt: getIso(subscription.trial_end || subscription.trial_ends_at || subscription.current_period_end || subscription.current_period_end_at),

@@ -9,14 +9,16 @@ import {
     REVENUECAT_PRIMARY_ENTITLEMENT,
     syncRevenueCatStateForUser,
 } from '../services/revenuecat';
-import { hasProTestAccess } from '../services/billingRules';
+import { hasProTestAccess, resolvePlanFromProductId } from '../services/billingRules';
 
 const logger = createLogger('Billing');
 const router = Router();
 
-const PRO_MONTHLY_PRICE_USD = 5;
-const PRO_ANNUAL_PRICE_USD = 48;
-const PRO_ANNUAL_DISCOUNT_PERCENT = 20;
+const STARTER_MONTHLY_PRICE_USD = 5;
+const STARTER_ANNUAL_PRICE_USD = 48;
+const PRO_MONTHLY_PRICE_USD = 12;
+const PRO_ANNUAL_PRICE_USD = 115;
+const ANNUAL_DISCOUNT_PERCENT = 20;
 
 type BillingInterval = 'monthly' | 'annual';
 
@@ -110,21 +112,28 @@ const buildCheckoutUrl = (params: {
     }
 };
 
-const pricingResponse = {
+type PlanId = 'starter' | 'pro';
+
+const pricingForPlan = (plan: PlanId) => ({
     monthly: {
-        id: 'pro-monthly',
-        interval: 'monthly',
-        priceUsd: PRO_MONTHLY_PRICE_USD,
-        label: '$5/month',
+        id: `${plan}-monthly`,
+        interval: 'monthly' as const,
+        priceUsd: plan === 'pro' ? PRO_MONTHLY_PRICE_USD : STARTER_MONTHLY_PRICE_USD,
+        label: plan === 'pro' ? '$12/month' : '$5/month',
     },
     annual: {
-        id: 'pro-annual',
-        interval: 'annual',
-        priceUsd: PRO_ANNUAL_PRICE_USD,
-        label: '$48/year',
-        monthlyEquivalentUsd: Number((PRO_ANNUAL_PRICE_USD / 12).toFixed(2)),
-        discountPercent: PRO_ANNUAL_DISCOUNT_PERCENT,
+        id: `${plan}-annual`,
+        interval: 'annual' as const,
+        priceUsd: plan === 'pro' ? PRO_ANNUAL_PRICE_USD : STARTER_ANNUAL_PRICE_USD,
+        label: plan === 'pro' ? '$115/year' : '$48/year',
+        monthlyEquivalentUsd: Number(((plan === 'pro' ? PRO_ANNUAL_PRICE_USD : STARTER_ANNUAL_PRICE_USD) / 12).toFixed(2)),
+        discountPercent: ANNUAL_DISCOUNT_PERCENT,
     },
+});
+
+const pricingResponse = {
+    starter: pricingForPlan('starter'),
+    pro: pricingForPlan('pro'),
 } as const;
 
 router.get('/status', authenticate, async (req: Request, res: Response, next: NextFunction) => {
@@ -148,8 +157,14 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
 
         const paidIsActive = unifiedIsActive ?? Boolean(state?.is_active);
         const isActive = hasTestProAccess || paidIsActive;
-        const plan = isActive ? 'pro' : 'free';
         const productId = hasTestProAccess ? 'test-pro-access' : state?.product_id || null;
+        const plan = isActive
+            ? hasTestProAccess
+                ? 'pro'
+                : productId
+                    ? resolvePlanFromProductId(productId)
+                    : 'starter'
+            : 'free';
         const expiresAt = unifiedExpiry || state?.expires_at || null;
         const updatedAt = normalizeString(user?.updated_at ?? user?.updatedAt) || state?.updated_at || null;
         const featureFlags = {
@@ -211,12 +226,20 @@ router.get('/checkout-config', authenticate, async (req: Request, res: Response,
 
         const isActive = hasTestProAccess || (unifiedIsActive ?? Boolean(state?.is_active));
         const appUserId = String(state?.app_user_id || user.id);
+        const productId = state?.product_id || null;
+        const plan = isActive
+            ? hasTestProAccess
+                ? 'pro'
+                : productId
+                    ? resolvePlanFromProductId(productId)
+                    : 'starter'
+            : 'free';
 
         res.json({
             success: true,
             data: {
                 appUserId,
-                plan: isActive ? 'pro' : 'free',
+                plan,
                 entitlement: {
                     id: REVENUECAT_PRIMARY_ENTITLEMENT,
                     isActive,
@@ -275,7 +298,7 @@ router.post('/checkout-link', authenticate, async (req: Request, res: Response, 
                 interval,
                 appUserId,
                 checkoutUrl,
-                pricing: pricingResponse[interval],
+                pricing: pricingResponse.starter[interval],
             },
         });
     } catch (error) {

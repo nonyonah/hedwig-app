@@ -105,7 +105,7 @@ export interface KycStatusSummary {
 }
 
 export interface BillingStatusSummary {
-  plan: 'free' | 'pro';
+  plan: 'free' | 'starter' | 'pro';
   appUserId: string;
   subscriptionProvider?: 'polar' | 'revenue_cat' | null;
   entitlement: {
@@ -133,25 +133,19 @@ export interface BillingStatusSummary {
 
 export interface BillingCheckoutConfigSummary {
   appUserId: string;
-  plan: 'free' | 'pro';
+  plan: 'free' | 'starter' | 'pro';
   entitlement: {
     id: string;
     isActive: boolean;
   };
   pricing: {
-    monthly: {
-      id: string;
-      interval: 'monthly';
-      priceUsd: number;
-      label: string;
+    starter: {
+      monthly: { id: string; interval: 'monthly'; priceUsd: number; label: string };
+      annual: { id: string; interval: 'annual'; priceUsd: number; label: string; monthlyEquivalentUsd: number; discountPercent: number };
     };
-    annual: {
-      id: string;
-      interval: 'annual';
-      priceUsd: number;
-      label: string;
-      monthlyEquivalentUsd: number;
-      discountPercent: number;
+    pro: {
+      monthly: { id: string; interval: 'monthly'; priceUsd: number; label: string };
+      annual: { id: string; interval: 'annual'; priceUsd: number; label: string; monthlyEquivalentUsd: number; discountPercent: number };
     };
   };
   checkout: {

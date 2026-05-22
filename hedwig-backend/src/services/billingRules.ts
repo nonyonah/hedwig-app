@@ -1,13 +1,12 @@
 import { supabase } from '../lib/supabase';
 import { getRevenueCatStateForUser } from './revenuecat';
 
-export type HedwigPlan = 'free' | 'pro';
+export type HedwigPlan = 'free' | 'starter' | 'pro';
 export type LimitedDocumentType = 'INVOICE' | 'PAYMENT_LINK' | 'CONTRACT';
 export type ProFeature =
     | 'assistant'
     | 'assistant_chat'
     | 'attachment_ai'
-    | 'creation_box'
     | 'recurring_automation'
     | 'milestone_invoice_automation'
     | 'composio_integrations'
@@ -15,11 +14,9 @@ export type ProFeature =
     | 'revenue_history';
 
 /**
- * Free-plan caps. The volume-based caps for invoices, payment links and
- * contracts are now `Infinity` — they were lifted to make Hedwig usable for
- * day-to-day invoicing without forcing an upgrade. Pro still differentiates
- * via the assistant, automations, multi-bank payouts, and full revenue
- * history below.
+ * Free-plan caps. Volume caps are Infinity — document creation is unlimited on
+ * all plans. Paid plans differentiate via bank accounts, revenue history,
+ * AI features, and integrations.
  */
 export const FREE_PLAN_LIMITS = {
     invoicesPerMonth: Infinity,
@@ -113,6 +110,41 @@ function getDocumentLimitMessage(type: LimitedDocumentType, limit: number): stri
     }
 }
 
+/**
+ * Resolve plan from a subscription product ID.
+ * Checks new Starter/Pro env vars, then falls back to legacy Pro IDs for
+ * backward compatibility with existing subscribers.
+ */
+export function resolvePlanFromProductId(productId: string | null): HedwigPlan {
+    if (!productId) return 'free';
+    const normalized = productId.trim();
+
+    const proMonthly = normalizeString(process.env.POLAR_PRO_MONTHLY_ID);
+    const proAnnual = normalizeString(process.env.POLAR_PRO_ANNUAL_ID);
+    if ((proMonthly && normalized === proMonthly) || (proAnnual && normalized === proAnnual)) {
+        return 'pro';
+    }
+
+    const starterMonthly = normalizeString(process.env.POLAR_STARTER_MONTHLY_ID);
+    const starterAnnual = normalizeString(process.env.POLAR_STARTER_ANNUAL_ID);
+    if ((starterMonthly && normalized === starterMonthly) || (starterAnnual && normalized === starterAnnual)) {
+        return 'starter';
+    }
+
+    // Legacy Polar product IDs (old $5 Pro → 'pro' for backward compat)
+    const legacyMonthly = normalizeString(process.env.POLAR_PRODUCT_ID_MONTHLY);
+    const legacyAnnual = normalizeString(process.env.POLAR_PRODUCT_ID_ANNUAL);
+    if ((legacyMonthly && normalized === legacyMonthly) || (legacyAnnual && normalized === legacyAnnual)) {
+        return 'pro';
+    }
+
+    const lower = normalized.toLowerCase();
+    if (lower.includes('pro') || lower.includes('premium')) return 'pro';
+    if (lower.includes('starter')) return 'starter';
+
+    return 'starter';
+}
+
 function getFeatureMessage(feature: ProFeature): string {
     switch (feature) {
         case 'assistant':
@@ -120,19 +152,26 @@ function getFeatureMessage(feature: ProFeature): string {
             return 'Hedwig Assistant is a Pro feature.';
         case 'attachment_ai':
             return 'AI document import (OCR + classification) is a Pro feature.';
-        case 'creation_box':
-            return 'Natural-language invoice and payment link creation is a Pro feature.';
         case 'recurring_automation':
-            return 'Recurring invoice automation is a Pro feature.';
+            return 'Recurring invoice automation is a Pro feature. Upgrade to Starter or Pro.';
         case 'milestone_invoice_automation':
             return 'Automatic milestone invoice creation is a Pro feature.';
         case 'composio_integrations':
             return 'Connecting Gmail, Calendar, Drive, and Docs is a Pro feature.';
         case 'multi_bank_accounts':
-            return `The free plan includes ${FREE_PLAN_LIMITS.bankAccounts} payout bank account. Upgrade to Pro to add more.`;
+            return `Unlock more payout bank accounts by upgrading. Free: 1, Starter: 3, Pro: unlimited.`;
         case 'revenue_history':
-            return `Free plan revenue history covers the last ${FREE_PLAN_LIMITS.revenueHistoryDays} days. Upgrade to Pro for full history.`;
+            return `Free plan revenue history covers the last ${FREE_PLAN_LIMITS.revenueHistoryDays} days. Upgrade to Starter or Pro for full history.`;
     }
+}
+
+/**
+ * Maximum bank accounts allowed per plan.
+ */
+export function getBankAccountLimit(plan: HedwigPlan): number {
+    if (plan === 'pro') return Infinity;
+    if (plan === 'starter') return 3;
+    return FREE_PLAN_LIMITS.bankAccounts;
 }
 
 export async function getUserPlan(user: {
@@ -148,10 +187,16 @@ export async function getUserPlan(user: {
     const unifiedExpiry = resolveUnifiedExpiry(user);
     const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;
 
-    if (unifiedIsActive === true) return 'pro';
+    if (unifiedIsActive === true) {
+        const state = await getRevenueCatStateForUser(user);
+        if (state?.product_id) return resolvePlanFromProductId(state.product_id);
+        return 'starter';
+    }
 
     const state = await getRevenueCatStateForUser(user);
-    return state?.is_active ? 'pro' : 'free';
+    if (!state?.is_active) return 'free';
+    if (state.product_id) return resolvePlanFromProductId(state.product_id);
+    return 'starter';
 }
 
 export async function requireProFeatureAccess(
@@ -168,7 +213,7 @@ export async function checkDocumentCreationLimit(params: {
     type: LimitedDocumentType;
 }): Promise<{ allowed: boolean; plan: HedwigPlan; count: number; limit: number | null; remaining: number | null; message?: string }> {
     const plan = await getUserPlan(params.user);
-    if (plan === 'pro') {
+    if (plan !== 'free') {
         return { allowed: true, plan, count: 0, limit: null, remaining: null };
     }
 

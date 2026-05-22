@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth/session';
-import { resolvePolarProductId, type BillingInterval } from '@/lib/billing/polar';
+import { resolvePolarProductId, resolvePolarDiscountId, type BillingInterval, type PlanTier } from '@/lib/billing/polar';
 
 const normalizeInterval = (value: string | null): BillingInterval => (
   value?.toLowerCase() === 'monthly' ? 'monthly' : 'annual'
 );
 
-const discountIdAnnual = String(process.env.POLAR_DISCOUNT_ID_ANNUAL || '').trim();
+const normalizePlan = (value: string | null): PlanTier => (
+  value?.toLowerCase() === 'pro' ? 'pro' : 'starter'
+);
+
 const trialDays = parseInt(String(process.env.POLAR_TRIAL_DAYS || '0'), 10);
 
 export async function GET(req: NextRequest): Promise<Response> {
@@ -17,15 +20,16 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   const interval = normalizeInterval(req.nextUrl.searchParams.get('interval'));
+  const plan = normalizePlan(req.nextUrl.searchParams.get('plan'));
   const mode = req.nextUrl.searchParams.get('mode') === 'switch' ? 'switch' : 'checkout';
-  const productId = resolvePolarProductId(interval);
+  const productId = resolvePolarProductId(interval, plan);
 
   if (!productId) {
+    const key = plan === 'pro'
+      ? (interval === 'annual' ? 'POLAR_PRO_ANNUAL_ID' : 'POLAR_PRO_MONTHLY_ID')
+      : (interval === 'annual' ? 'POLAR_STARTER_ANNUAL_ID' : 'POLAR_STARTER_MONTHLY_ID');
     return NextResponse.json(
-      {
-        success: false,
-        error: `Missing ${interval === 'annual' ? 'POLAR_PRODUCT_ID_ANNUAL' : 'POLAR_PRODUCT_ID_MONTHLY'} configuration.`,
-      },
+      { success: false, error: `Missing ${key} configuration.` },
       { status: 503 }
     );
   }
@@ -47,14 +51,18 @@ export async function GET(req: NextRequest): Promise<Response> {
     'metadata',
     JSON.stringify({
       source: 'hedwig-web',
+      plan,
       interval,
       mode,
       userId: session.user.id,
     })
   );
 
-  if (interval === 'annual' && discountIdAnnual) {
-    redirectUrl.searchParams.set('discountId', discountIdAnnual);
+  if (interval === 'annual') {
+    const discountId = resolvePolarDiscountId(interval, plan);
+    if (discountId) {
+      redirectUrl.searchParams.set('discountId', discountId);
+    }
   }
   if (trialDays > 0 && mode !== 'switch') {
     redirectUrl.searchParams.set('trialDays', String(trialDays));
