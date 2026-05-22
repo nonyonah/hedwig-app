@@ -461,25 +461,18 @@ function ThemeAwareStatusBar() {
     // `<StatusBar />` from expo-status-bar tracks the latest *mounted* node,
     // not re-renders of an existing node, so swapping `style` on a theme
     // toggle didn't actually push a new appearance until the app was killed
-    // and relaunched. Drive `style` imperatively from a theme-bound effect so
-    // every toggle takes effect on the next render frame.
+    // and relaunched. Drive `style` imperatively from a theme-bound effect.
     //
     // We deliberately DON'T call setStatusBarBackgroundColor here: on Android
     // edge-to-edge it toggles the translucent flag mid-session, which then
-    // collapses the SafeAreaView top inset on the next screen mount (the bug
-    // reproduced when popping back from the onramp order page). The status
-    // bar background is left to follow the system / app config defaults.
-    React.useLayoutEffect(() => {
+    // collapses the SafeAreaView top inset on the next screen mount.
+    useEffect(() => {
         // Pass `animated: false` — on iOS the animated style swap briefly
         // forces the status bar into a transitional state which collapses
         // SafeAreaView top insets on the next screen mount.
-        setStatusBarStyle(isDark ? 'light' : 'dark', false);
+        const style = isDark ? 'light' : 'dark';
+        setStatusBarStyle(style, false);
         RNStatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', false);
-        const frame = requestAnimationFrame(() => {
-            setStatusBarStyle(isDark ? 'light' : 'dark', false);
-            RNStatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', false);
-        });
-        return () => cancelAnimationFrame(frame);
     }, [isDark]);
 
     return (

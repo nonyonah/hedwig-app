@@ -14,8 +14,8 @@ import {
     Image,
     Linking
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { Button } from '../../components/Button';
@@ -33,7 +33,6 @@ const TERMS_OF_SERVICE_URL = 'https://www.hedwigbot.xyz/terms';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const themeColors = useThemeColors();
     const keyboardAppearance = useKeyboardAppearance();
 
@@ -235,7 +234,7 @@ export default function LoginScreen() {
 
     return (
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
-            <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
+            <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>
                     <IOSGlassIconButton
@@ -397,7 +396,7 @@ export default function LoginScreen() {
                         )}
                     </ScrollView>
                 </KeyboardAvoidingView>
-            </View>
+            </SafeAreaView>
         </TouchableWithoutFeedback>
     );
 }
