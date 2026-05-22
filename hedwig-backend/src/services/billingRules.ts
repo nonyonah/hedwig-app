@@ -11,7 +11,8 @@ export type ProFeature =
     | 'milestone_invoice_automation'
     | 'composio_integrations'
     | 'multi_bank_accounts'
-    | 'revenue_history';
+    | 'revenue_history'
+    | 'creation_box';
 
 /**
  * Free-plan caps. Volume caps are Infinity — document creation is unlimited on
@@ -162,6 +163,8 @@ function getFeatureMessage(feature: ProFeature): string {
             return `Unlock more payout bank accounts by upgrading. Free: 1, Starter: 3, Pro: unlimited.`;
         case 'revenue_history':
             return `Free plan revenue history covers the last ${FREE_PLAN_LIMITS.revenueHistoryDays} days. Upgrade to Starter or Pro for full history.`;
+        case 'creation_box':
+            return 'Creation Box (AI invoice creation) is a Pro feature.';
     }
 }
 
