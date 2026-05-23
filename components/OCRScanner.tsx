@@ -1,9 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    TouchableOpacity,
     ActivityIndicator,
     Alert,
 } from 'react-native';
@@ -19,20 +18,26 @@ interface OCRScannerProps {
     getAccessToken: () => Promise<string | null>;
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1500;
+
 /**
  * OCR Scanner component using expo-camera + Gemini Vision backend.
- * Captures an image, sends it to the backend for text extraction,
- * then passes the recognized text to the parent component.
+ * Auto-captures when camera is ready. If no text is detected, automatically
+ * retries up to MAX_RETRIES times before showing an error.
  */
 export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: OCRScannerProps) {
     const themeColors = useThemeColors();
     const [permission, requestPermission] = useCameraPermissions();
     const [isScanning, setIsScanning] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
     const cameraRef = useRef<CameraView>(null);
+    const isActiveRef = useRef(true);
 
-    const handleCapture = async () => {
-        if (!cameraRef.current) return;
+    const handleCapture = useCallback(async () => {
+        if (!cameraRef.current || !isActiveRef.current) return;
         setIsScanning(true);
+
         try {
             const photo = await cameraRef.current.takePictureAsync({
                 quality: 0.8,
@@ -40,22 +45,19 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
             });
 
             if (!photo?.base64) {
-                Alert.alert('Capture Failed', 'Could not capture image.');
-                setIsScanning(false);
+                if (!isActiveRef.current) return;
+                handleRetry('Could not capture image.');
                 return;
             }
 
-            // Use base64 as a data URI for React Native FormData
             const base64Data = photo.base64;
             const mimeType = 'image/jpeg';
             const dataUri = `data:${mimeType};base64,${base64Data}`;
 
-            // Upload to backend for Gemini Vision extraction
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            
-            // Get auth token from parent
             const token = await getAccessToken();
             if (!token) {
+                if (!isActiveRef.current) return;
                 Alert.alert('Not Authenticated', 'Please sign in to use the scanner.');
                 setIsScanning(false);
                 return;
@@ -76,23 +78,70 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
                 body: formData,
             });
 
+            if (!isActiveRef.current) return;
             const data = await response.json();
 
-            if (response.ok && data.success && data.data?.rawText) {
+            if (response.ok && data.success && data.data?.rawText && data.data.rawText.trim().length > 0) {
                 onTextDetected(data.data.rawText);
             } else {
-                Alert.alert(
-                    'Could not read text',
-                    data.error || 'The image was not clear enough. Try again with better lighting.'
-                );
-                setIsScanning(false);
+                const errorMsg = data.error || 'No text detected in the image.';
+                handleRetry(errorMsg);
             }
         } catch (error) {
             console.error('OCR scan error:', error);
-            Alert.alert('Scan Failed', 'Could not process the image. Please try again.');
-            setIsScanning(false);
+            if (!isActiveRef.current) return;
+            handleRetry('Could not process the image.');
         }
-    };
+    }, [getAccessToken, onTextDetected]);
+
+    const handleRetry = useCallback((reason: string) => {
+        setRetryCount((prev) => {
+            const next = prev + 1;
+            if (next >= MAX_RETRIES) {
+                setIsScanning(false);
+                Alert.alert(
+                    'Scan Failed',
+                    `${reason}\n\nPlease ensure payment details are clearly visible and try again.`,
+                    [
+                        { text: 'Try Again', onPress: () => {
+                            setRetryCount(0);
+                            setIsScanning(true);
+                            setTimeout(() => handleCapture(), 300);
+                        }},
+                        { text: 'Cancel', style: 'cancel', onPress: () => {
+                            setIsScanning(false);
+                            onClose();
+                        }},
+                    ]
+                );
+                return next;
+            }
+            // Auto-retry after delay
+            setTimeout(() => {
+                if (isActiveRef.current) {
+                    handleCapture();
+                }
+            }, RETRY_DELAY_MS);
+            return next;
+        });
+    }, [handleCapture, onClose]);
+
+    // Auto-capture when camera is ready
+    useEffect(() => {
+        isActiveRef.current = true;
+        return () => {
+            isActiveRef.current = false;
+        };
+    }, []);
+
+    const onCameraReady = useCallback(() => {
+        // Small delay to let the camera stabilize
+        setTimeout(() => {
+            if (isActiveRef.current) {
+                handleCapture();
+            }
+        }, 500);
+    }, [handleCapture]);
 
     if (!permission?.granted) {
         return (
@@ -101,12 +150,13 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
                     <Text style={[styles.permissionText, { color: themeColors.textPrimary }]}>
                         Camera permission is required to scan payment details.
                     </Text>
-                    <TouchableOpacity
+                    <View
                         style={[styles.permissionButton, { backgroundColor: themeColors.primary }]}
-                        onPress={requestPermission}
+                        accessible={true}
+                        accessibilityRole="button"
                     >
-                        <Text style={styles.permissionButtonText}>Grant Permission</Text>
-                    </TouchableOpacity>
+                        <Text style={styles.permissionButtonText} onPress={requestPermission}>Grant Permission</Text>
+                    </View>
                 </View>
             </SafeAreaView>
         );
@@ -134,6 +184,7 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
                     style={styles.camera}
                     facing="back"
                     ratio="16:9"
+                    onCameraReady={onCameraReady}
                 >
                     <View style={styles.overlay}>
                         <View style={styles.scanFrame}>
@@ -142,29 +193,20 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
                             <View style={[styles.scanCorner, styles.bottomLeft]} />
                             <View style={[styles.scanCorner, styles.bottomRight]} />
                         </View>
-                        <Text style={styles.scanInstructions}>
-                            Position payment details within the frame
-                        </Text>
+                        {isScanning ? (
+                            <View style={styles.scanningOverlay}>
+                                <ActivityIndicator size="large" color="#FFFFFF" />
+                                <Text style={styles.scanningText}>
+                                    {retryCount > 0 ? `Scanning… (retry ${retryCount}/${MAX_RETRIES})` : 'Scanning…'}
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.scanInstructions}>
+                                Position payment details within the frame
+                            </Text>
+                        )}
                     </View>
                 </CameraView>
-            </View>
-
-            {/* Bottom Controls */}
-            <View style={styles.bottomControls}>
-                {isScanning ? (
-                    <View style={styles.scanningContainer}>
-                        <ActivityIndicator size="large" color="#FFFFFF" />
-                        <Text style={styles.scanningText}>Reading text...</Text>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        style={styles.captureButton}
-                        onPress={handleCapture}
-                        activeOpacity={0.8}
-                    >
-                        <View style={styles.captureButtonInner} />
-                    </TouchableOpacity>
-                )}
             </View>
         </SafeAreaView>
     );
@@ -257,31 +299,16 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingHorizontal: 40,
     },
-    bottomControls: {
-        height: 120,
+    scanningOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingBottom: 20,
-    },
-    captureButton: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 4,
-        borderColor: '#FFFFFF',
-    },
-    captureButtonInner: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#FFFFFF',
-    },
-    scanningContainer: {
-        alignItems: 'center',
-        gap: 12,
+        gap: 16,
     },
     scanningText: {
         fontFamily: 'GoogleSansFlex_400Regular',
