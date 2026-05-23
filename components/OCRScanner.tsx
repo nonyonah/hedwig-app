@@ -20,22 +20,43 @@ interface OCRScannerProps {
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;
+const STABILITY_CHECK_INTERVAL_MS = 600;
+const STABLE_FRAMES_NEEDED = 2;
+const STABILITY_VARIANCE_THRESHOLD = 0.08; // 8% variance allowed
+const MAX_STABILITY_WAIT_MS = 8000; // fallback capture after 8s
 
 /**
  * OCR Scanner component using expo-camera + Gemini Vision backend.
- * Auto-captures when camera is ready. If no text is detected, automatically
- * retries up to MAX_RETRIES times before showing an error.
+ * Auto-captures only when the camera is held steady over text.
+ * Uses frame stability detection (comparing consecutive low-res snapshots)
+ * to determine when the user has positioned the camera correctly.
  */
 export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: OCRScannerProps) {
     const themeColors = useThemeColors();
     const [permission, requestPermission] = useCameraPermissions();
     const [isScanning, setIsScanning] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
+    const [phase, setPhase] = useState<'positioning' | 'stabilizing' | 'scanning'>('positioning');
     const cameraRef = useRef<CameraView>(null);
     const isActiveRef = useRef(true);
+    const stabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const stableFrameCountRef = useRef(0);
+    const lastFrameSizeRef = useRef(0);
 
-    const handleCapture = useCallback(async () => {
+    // Cleanup on unmount
+    useEffect(() => {
+        isActiveRef.current = true;
+        return () => {
+            isActiveRef.current = false;
+            if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+            if (maxWaitTimerRef.current) clearTimeout(maxWaitTimerRef.current);
+        };
+    }, []);
+
+    const doFullCapture = useCallback(async () => {
         if (!cameraRef.current || !isActiveRef.current) return;
+        setPhase('scanning');
         setIsScanning(true);
 
         try {
@@ -99,49 +120,130 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
             const next = prev + 1;
             if (next >= MAX_RETRIES) {
                 setIsScanning(false);
+                setPhase('positioning');
                 Alert.alert(
                     'Scan Failed',
                     `${reason}\n\nPlease ensure payment details are clearly visible and try again.`,
                     [
-                        { text: 'Try Again', onPress: () => {
-                            setRetryCount(0);
-                            setIsScanning(true);
-                            setTimeout(() => handleCapture(), 300);
-                        }},
-                        { text: 'Cancel', style: 'cancel', onPress: () => {
-                            setIsScanning(false);
-                            onClose();
-                        }},
+                        {
+                            text: 'Try Again',
+                            onPress: () => {
+                                setRetryCount(0);
+                                setPhase('positioning');
+                                startStabilityCheck();
+                            },
+                        },
+                        {
+                            text: 'Cancel',
+                            style: 'cancel',
+                            onPress: () => {
+                                setIsScanning(false);
+                                setPhase('positioning');
+                                onClose();
+                            },
+                        },
                     ]
                 );
                 return next;
             }
             // Auto-retry after delay
-            setTimeout(() => {
+            if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+            stabilityTimerRef.current = setTimeout(() => {
                 if (isActiveRef.current) {
-                    handleCapture();
+                    doFullCapture();
                 }
             }, RETRY_DELAY_MS);
             return next;
         });
-    }, [handleCapture, onClose]);
+    }, [doFullCapture, onClose]);
 
-    // Auto-capture when camera is ready
-    useEffect(() => {
-        isActiveRef.current = true;
-        return () => {
-            isActiveRef.current = false;
+    const startStabilityCheck = useCallback(() => {
+        if (!cameraRef.current || !isActiveRef.current) return;
+
+        stableFrameCountRef.current = 0;
+        lastFrameSizeRef.current = 0;
+        setPhase('stabilizing');
+
+        // Fallback: capture anyway after max wait time
+        if (maxWaitTimerRef.current) clearTimeout(maxWaitTimerRef.current);
+        maxWaitTimerRef.current = setTimeout(() => {
+            if (isActiveRef.current && phase !== 'scanning') {
+                doFullCapture();
+            }
+        }, MAX_STABILITY_WAIT_MS);
+
+        const checkFrame = async () => {
+            if (!cameraRef.current || !isActiveRef.current) return;
+
+            try {
+                const photo = await cameraRef.current.takePictureAsync({
+                    quality: 0.05, // very low quality for speed
+                    base64: true,
+                });
+
+                if (!photo?.base64) {
+                    scheduleNext();
+                    return;
+                }
+
+                const currentSize = photo.base64.length;
+
+                if (lastFrameSizeRef.current > 0) {
+                    const diff = Math.abs(currentSize - lastFrameSizeRef.current);
+                    const variance = diff / lastFrameSizeRef.current;
+
+                    if (variance < STABILITY_VARIANCE_THRESHOLD) {
+                        stableFrameCountRef.current += 1;
+                        if (stableFrameCountRef.current >= STABLE_FRAMES_NEEDED) {
+                            // Camera is stable — do full capture
+                            if (maxWaitTimerRef.current) clearTimeout(maxWaitTimerRef.current);
+                            doFullCapture();
+                            return;
+                        }
+                    } else {
+                        stableFrameCountRef.current = 0;
+                    }
+                }
+
+                lastFrameSizeRef.current = currentSize;
+                scheduleNext();
+            } catch {
+                scheduleNext();
+            }
         };
-    }, []);
+
+        const scheduleNext = () => {
+            if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+            stabilityTimerRef.current = setTimeout(checkFrame, STABILITY_CHECK_INTERVAL_MS);
+        };
+
+        // Start checking
+        scheduleNext();
+    }, [doFullCapture, phase]);
 
     const onCameraReady = useCallback(() => {
-        // Small delay to let the camera stabilize
+        // Small delay to let the camera fully initialize before stability checks
         setTimeout(() => {
             if (isActiveRef.current) {
-                handleCapture();
+                startStabilityCheck();
             }
-        }, 500);
-    }, [handleCapture]);
+        }, 300);
+    }, [startStabilityCheck]);
+
+    const getOverlayText = () => {
+        if (phase === 'positioning') {
+            return 'Point camera at payment details';
+        }
+        if (phase === 'stabilizing') {
+            return 'Hold steady…';
+        }
+        if (isScanning) {
+            return retryCount > 0
+                ? `Scanning… (retry ${retryCount}/${MAX_RETRIES})`
+                : 'Scanning…';
+        }
+        return 'Point camera at payment details';
+    };
 
     if (!permission?.granted) {
         return (
@@ -193,18 +295,14 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
                             <View style={[styles.scanCorner, styles.bottomLeft]} />
                             <View style={[styles.scanCorner, styles.bottomRight]} />
                         </View>
-                        {isScanning ? (
-                            <View style={styles.scanningOverlay}>
-                                <ActivityIndicator size="large" color="#FFFFFF" />
-                                <Text style={styles.scanningText}>
-                                    {retryCount > 0 ? `Scanning… (retry ${retryCount}/${MAX_RETRIES})` : 'Scanning…'}
-                                </Text>
-                            </View>
-                        ) : (
+                        <View style={styles.instructionsContainer}>
+                            {phase === 'scanning' ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginBottom: 8 }} />
+                            ) : null}
                             <Text style={styles.scanInstructions}>
-                                Position payment details within the frame
+                                {getOverlayText()}
                             </Text>
-                        )}
+                        </View>
                     </View>
                 </CameraView>
             </View>
@@ -291,29 +389,16 @@ const styles = StyleSheet.create({
         borderBottomWidth: 3,
         borderRightWidth: 3,
     },
+    instructionsContainer: {
+        marginTop: 20,
+        alignItems: 'center',
+        paddingHorizontal: 40,
+    },
     scanInstructions: {
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: 'rgba(255,255,255,0.8)',
-        marginTop: 20,
         textAlign: 'center',
-        paddingHorizontal: 40,
-    },
-    scanningOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 16,
-    },
-    scanningText: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.8)',
     },
     permissionContainer: {
         flex: 1,
