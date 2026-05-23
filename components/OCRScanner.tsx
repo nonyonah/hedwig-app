@@ -45,16 +45,10 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
                 return;
             }
 
-            // Convert base64 to blob for upload
+            // Use base64 as a data URI for React Native FormData
             const base64Data = photo.base64;
             const mimeType = 'image/jpeg';
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: mimeType });
+            const dataUri = `data:${mimeType};base64,${base64Data}`;
 
             // Upload to backend for Gemini Vision extraction
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -68,7 +62,11 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
             }
 
             const formData = new FormData();
-            formData.append('file', blob as any, 'scan.jpg');
+            formData.append('file', {
+                uri: dataUri,
+                type: mimeType,
+                name: 'scan.jpg',
+            } as any);
 
             const response = await fetch(`${apiUrl}/api/integrations/extract-payment-details`, {
                 method: 'POST',
