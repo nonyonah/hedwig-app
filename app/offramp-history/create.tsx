@@ -704,7 +704,7 @@ export default function CreateWithdrawalScreen() {
         }
     }, [banks.length, loadBanks, selectedCountry.currency]);
 
-    const handleOCRTextDetected = useCallback((text: string) => {
+    const handleOCRTextDetected = useCallback(async (text: string) => {
         const parsed = parsePaymentDetails(text);
         console.log('OCR Parsed:', parsed);
 
@@ -713,46 +713,74 @@ export default function CreateWithdrawalScreen() {
             return;
         }
 
-        // Auto-fill form fields based on parsed data
-        if (parsed.country_code) {
-            const country = COUNTRIES.find(c => c.id === parsed.country_code);
-            if (country) setSelectedCountry(country);
+        // Close scanner immediately
+        setShowScanner(false);
+
+        // Step 1: Set country
+        const country = COUNTRIES.find(c => c.id === parsed.country_code);
+        if (country) {
+            setSelectedCountry(country);
         }
 
+        // Step 2: Load banks for this country's currency via Paycrest
+        let bankList: Bank[] = [];
+        try {
+            if (country && country.currency !== 'USD') {
+                setBanksLoading(true);
+                const token = await getAccessToken();
+                if (token) {
+                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                    const response = await fetch(
+                        `${apiUrl}/api/offramp/institutions?currency=${country.currency}`,
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    const data = await response.json();
+                    if (response.ok && data?.success && Array.isArray(data?.data?.banks)) {
+                        bankList = data.data.banks
+                            .map((bank: any) => ({
+                                code: bank.code || bank.institutionCode || bank.id || bank.name || bank.institutionName,
+                                name: bank.name || bank.institutionName || 'Unknown Bank',
+                            }))
+                            .filter((bank: Bank) => bank.code && bank.name !== 'Unknown Bank')
+                            .sort((a: Bank, b: Bank) => a.name.localeCompare(b.name));
+                        setBanks(bankList);
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('[OCR] Failed to load banks:', error);
+        } finally {
+            setBanksLoading(false);
+        }
+
+        // Step 3: Set account number
         if (parsed.identifier) {
-            if (parsed.payment_method === 'bank_transfer') {
-                setAccountNumber(parsed.identifier);
-            } else if (parsed.payment_method === 'mobile_money') {
-                setAccountNumber(parsed.identifier);
-            } else if (parsed.payment_method === 'pix') {
-                setAccountNumber(parsed.identifier);
+            setAccountNumber(parsed.identifier);
+        }
+
+        // Step 4: Find and set bank using Paycrest resolver
+        if (parsed.institution_hint && bankList.length > 0) {
+            const hint = parsed.institution_hint.toLowerCase();
+            // Fuzzy match: check if bank name contains the hint OR hint contains bank name
+            const matchedBank = bankList.find(b => {
+                const bankName = b.name.toLowerCase();
+                return bankName.includes(hint) || hint.includes(bankName.replace(' bank', '').replace(' limited', '').trim());
+            });
+            if (matchedBank) {
+                console.log('[OCR] Matched bank:', matchedBank.name, matchedBank.code);
+                setSelectedBank(matchedBank);
+            } else {
+                console.log('[OCR] No bank match found for hint:', hint, 'Available:', bankList.map(b => b.name));
             }
         }
 
+        // Step 5: Set account name if provided
         if (parsed.recipient_name) {
             setAccountName(parsed.recipient_name);
         }
 
-        if (parsed.institution_hint) {
-            // Try to find matching bank
-            const matchedBank = banks.find(b =>
-                b.name.toLowerCase().includes(parsed.institution_hint!.toLowerCase())
-            );
-            if (matchedBank) {
-                setSelectedBank(matchedBank);
-            }
-        }
-
-        Alert.alert(
-            'Details Detected',
-            `Country: ${parsed.country_code || 'Unknown'}\n` +
-            `Type: ${parsed.payment_method || 'Unknown'}\n` +
-            `Identifier: ${parsed.identifier || 'N/A'}\n` +
-            `Name: ${parsed.recipient_name || 'N/A'}\n` +
-            `Institution: ${parsed.institution_hint || 'N/A'}`,
-            [{ text: 'OK' }]
-        );
-    }, [banks]);
+        // The verifyAccount useEffect will auto-trigger when selectedBank + accountNumber are set
+    }, [getAccessToken]);
 
     const handleOpenBeneficiariesSheet = useCallback(() => {
         if (!beneficiaries.length) {
@@ -1203,6 +1231,7 @@ export default function CreateWithdrawalScreen() {
                     <OCRScanner
                         onTextDetected={handleOCRTextDetected}
                         onClose={() => setShowScanner(false)}
+                        getAccessToken={getAccessToken}
                     />
                 </View>
             )}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -6,69 +6,99 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Alert,
-    Platform,
-    Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/colors';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
-import { X, ScanLine } from './ui/AppIcon';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { X } from './ui/AppIcon';
 
 interface OCRScannerProps {
     onTextDetected: (text: string) => void;
     onClose: () => void;
+    getAccessToken: () => Promise<string | null>;
 }
 
 /**
- * OCR Scanner component using expo-camera.
- * On iOS uses native SwiftUI glass buttons via IOSGlassIconButton.
+ * OCR Scanner component using expo-camera + Gemini Vision backend.
+ * Captures an image, sends it to the backend for text extraction,
+ * then passes the recognized text to the parent component.
  */
-export default function OCRScanner({ onTextDetected, onClose }: OCRScannerProps) {
+export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: OCRScannerProps) {
     const themeColors = useThemeColors();
     const [permission, requestPermission] = useCameraPermissions();
     const [isScanning, setIsScanning] = useState(false);
-    const [capturedText, setCapturedText] = useState('');
     const cameraRef = useRef<CameraView>(null);
-
-    useEffect(() => {
-        if (!permission?.granted) {
-            requestPermission();
-        }
-    }, [permission]);
 
     const handleCapture = async () => {
         if (!cameraRef.current) return;
         setIsScanning(true);
         try {
-            // Take a photo
             const photo = await cameraRef.current.takePictureAsync({
                 quality: 0.8,
                 base64: true,
             });
 
-            if (photo?.base64) {
-                // In a real implementation, you'd send this to an OCR service
-                // For now, we'll simulate with a mock delay
-                setTimeout(() => {
-                    // This is where you'd integrate with Google Vision, ML Kit, or similar
-                    // For demo purposes, we'll pass the captured text through
-                    onTextDetected(capturedText || 'Sample detected text from OCR');
-                    setIsScanning(false);
-                }, 1500);
+            if (!photo?.base64) {
+                Alert.alert('Capture Failed', 'Could not capture image.');
+                setIsScanning(false);
+                return;
+            }
+
+            // Convert base64 to blob for upload
+            const base64Data = photo.base64;
+            const mimeType = 'image/jpeg';
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+
+            // Upload to backend for Gemini Vision extraction
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            
+            // Get auth token from parent
+            const token = await getAccessToken();
+            if (!token) {
+                Alert.alert('Not Authenticated', 'Please sign in to use the scanner.');
+                setIsScanning(false);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', blob as any, 'scan.jpg');
+
+            const response = await fetch(`${apiUrl}/api/integrations/extract-payment-details`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success && data.data?.rawText) {
+                onTextDetected(data.data.rawText);
+            } else {
+                Alert.alert(
+                    'Could not read text',
+                    data.error || 'The image was not clear enough. Try again with better lighting.'
+                );
+                setIsScanning(false);
             }
         } catch (error) {
-            console.error('Camera capture error:', error);
-            Alert.alert('Capture Failed', 'Could not capture image. Please try again.');
+            console.error('OCR scan error:', error);
+            Alert.alert('Scan Failed', 'Could not process the image. Please try again.');
             setIsScanning(false);
         }
     };
 
     if (!permission?.granted) {
         return (
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={styles.permissionContainer}>
                     <Text style={[styles.permissionText, { color: themeColors.textPrimary }]}>
                         Camera permission is required to scan payment details.
@@ -107,7 +137,6 @@ export default function OCRScanner({ onTextDetected, onClose }: OCRScannerProps)
                     facing="back"
                     ratio="16:9"
                 >
-                    {/* Scan overlay */}
                     <View style={styles.overlay}>
                         <View style={styles.scanFrame}>
                             <View style={[styles.scanCorner, styles.topLeft]} />
@@ -125,7 +154,10 @@ export default function OCRScanner({ onTextDetected, onClose }: OCRScannerProps)
             {/* Bottom Controls */}
             <View style={styles.bottomControls}>
                 {isScanning ? (
-                    <ActivityIndicator size="large" color="#FFFFFF" />
+                    <View style={styles.scanningContainer}>
+                        <ActivityIndicator size="large" color="#FFFFFF" />
+                        <Text style={styles.scanningText}>Reading text...</Text>
+                    </View>
                 ) : (
                     <TouchableOpacity
                         style={styles.captureButton}
@@ -185,8 +217,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     scanFrame: {
-        width: SCREEN_WIDTH * 0.75,
-        height: SCREEN_WIDTH * 0.5,
+        width: 280,
+        height: 180,
         position: 'relative',
     },
     scanCorner: {
@@ -225,6 +257,7 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.8)',
         marginTop: 20,
         textAlign: 'center',
+        paddingHorizontal: 40,
     },
     bottomControls: {
         height: 120,
@@ -248,17 +281,26 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         backgroundColor: '#FFFFFF',
     },
+    scanningContainer: {
+        alignItems: 'center',
+        gap: 12,
+    },
+    scanningText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+    },
     permissionContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 40,
+        gap: 16,
     },
     permissionText: {
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
         textAlign: 'center',
-        marginBottom: 24,
     },
     permissionButton: {
         paddingHorizontal: 24,
