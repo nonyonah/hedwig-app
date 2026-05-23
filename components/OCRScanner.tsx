@@ -42,6 +42,7 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
             const photo = await cameraRef.current.takePictureAsync({
                 quality: 0.8,
                 base64: true,
+                mute: !cameraSoundEnabled,
             });
 
             if (!photo?.base64) {

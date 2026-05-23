@@ -95,7 +95,7 @@ export function useThemeColors(): ThemeColors {
 
     const isDark = settings.currentTheme === 'dark';
     const palette = isDark ? DarkColors : LightColors;
-    const useAndroidDynamicPalette = Platform.OS === 'android' && settings.theme === 'system';
+    const useAndroidDynamicPalette = Platform.OS === 'android';
 
     if (!useAndroidDynamicPalette) {
         return palette;
@@ -123,8 +123,8 @@ export function useThemeColors(): ThemeColors {
 }
 
 export function useKeyboardAppearance(): 'dark' | 'light' {
-    const settings = useSettings();
-    return settings.currentTheme === 'dark' ? 'dark' : 'light';
+    const colorScheme = useColorScheme();
+    return colorScheme === 'dark' ? 'dark' : 'light';
 }
 
 // Export static colors (for backward compatibility where hooks can't be used)

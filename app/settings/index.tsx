@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Platform, ActivityIndicator, Linking } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { TrueSheet } from '@hedwig/true-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,7 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
-import { useSettings, Theme } from '../../context/SettingsContext';
+import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoginWithOAuth } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,17 +24,14 @@ import KYCVerificationModal from '../../components/KYCVerificationModal';
 import { useTutorial } from '../../hooks/useTutorial';
 import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
 import { SvgXml } from 'react-native-svg';
-import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     ChevronRight as CaretRight,
-    Check,
     ShieldAlert as ShieldWarning,
     Lock,
     Copy,
     AlertCircle as WarningCircle,
     SquareCheck as CheckSquare,
     Square,
-    ChevronLeft as CaretLeft,
     Calendar as CalendarIcon,
 } from '../../components/ui/AppIcon';
 
@@ -54,12 +51,6 @@ const GOOGLE_CALENDAR_SVG = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org
 </svg>`;
 
 
-
-const THEMES: { code: Theme; label: string }[] = [
-    { code: 'light', label: 'Light' },
-    { code: 'dark', label: 'Dark' },
-    { code: 'system', label: 'System' },
-];
 
 type TrueSheetLikeRef = {
     present: (index?: number, animated?: boolean) => Promise<void>;
@@ -92,8 +83,6 @@ export default function SettingsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const {
-        theme,
-        setTheme,
         hapticsEnabled,
         setHapticsEnabled,
         liveTrackingEnabled,
@@ -102,6 +91,8 @@ export default function SettingsScreen() {
         setGatewayAutoDepositEnabled,
         cameraSoundEnabled,
         setCameraSoundEnabled,
+        lockScreenEnabled,
+        setLockScreenEnabled,
     } = useSettings();
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
@@ -113,15 +104,12 @@ export default function SettingsScreen() {
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
 
     // Modals refs
-    const themeSheetRef = useRef<TrueSheetLikeRef | null>(null);
-    const themeFallbackSheetRef = useRef<BottomSheetModal>(null);
     const recoverySheetRef = useRef<TrueSheetLikeRef | null>(null);
     const recoveryFallbackSheetRef = useRef<BottomSheetModal>(null);
     const calendarSheetRef = useRef<TrueSheetLikeRef | null>(null);
     const calendarFallbackSheetRef = useRef<BottomSheetModal>(null);
     const [recoveryAcknowledged, setRecoveryAcknowledged] = useState(false);
     const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
-    const [isThemeSheetPresented, setIsThemeSheetPresented] = useState(false);
     const [isRecoverySheetPresented, setIsRecoverySheetPresented] = useState(false);
     const [isCalendarSheetPresented, setIsCalendarSheetPresented] = useState(false);
 
@@ -134,9 +122,6 @@ export default function SettingsScreen() {
     const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
     // KYC status
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
-
-    // Animation for bottom sheet
-    const slideAnim = useRef(new Animated.Value(0)).current;
 
     // Parse user data
     const privyUser = user as any;
@@ -171,7 +156,17 @@ export default function SettingsScreen() {
                 return;
             }
             const enabled = await AsyncStorage.getItem(`biometricsEnabled:${user.id}`);
-            setBiometricsEnabled(enabled === 'true');
+            const isEnabled = enabled === 'true';
+            setBiometricsEnabled(isEnabled);
+            // Sync per-user biometrics setting to the global lock screen setting
+            // so users who enabled biometrics before the lock screen feature
+            // was added still get the lock gate.
+            if (isEnabled) {
+                const lockScreenSetting = await AsyncStorage.getItem('settings_lock_screen');
+                if (lockScreenSetting === null) {
+                    await setLockScreenEnabled(true);
+                }
+            }
         } catch (error) {
             console.error('Failed to load biometrics state:', error);
         }
@@ -334,11 +329,13 @@ export default function SettingsScreen() {
             if (result.success) {
                 setBiometricsEnabled(true);
                 if (user?.id) await AsyncStorage.setItem(`biometricsEnabled:${user.id}`, 'true');
+                await setLockScreenEnabled(true);
             }
         } else {
             // Disabling biometrics
             setBiometricsEnabled(false);
             if (user?.id) await AsyncStorage.setItem(`biometricsEnabled:${user.id}`, 'false');
+            await setLockScreenEnabled(false);
         }
     };
 
@@ -475,26 +472,6 @@ export default function SettingsScreen() {
         }
     };
 
-    const openThemeSheet = async () => {
-        if (shouldUseSwiftUIBottomSheet) {
-            setIsThemeSheetPresented(true);
-        } else if (TrueSheetComponent && themeSheetRef.current?.present) {
-            await themeSheetRef.current.present().catch(() => {});
-        } else {
-            themeFallbackSheetRef.current?.present();
-        }
-    };
-
-    const closeThemeSheet = async () => {
-        if (shouldUseSwiftUIBottomSheet) {
-            setIsThemeSheetPresented(false);
-        } else if (TrueSheetComponent && themeSheetRef.current?.dismiss) {
-            await themeSheetRef.current.dismiss().catch(() => {});
-        } else {
-            themeFallbackSheetRef.current?.dismiss();
-        }
-    };
-
     const openRecoverySheet = async () => {
         if (shouldUseSwiftUIBottomSheet) {
             setIsRecoverySheetPresented(true);
@@ -546,13 +523,7 @@ export default function SettingsScreen() {
             {/* Header */}
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerTop}>
-                    <IOSGlassIconButton
-                        onPress={() => router.back()}
-                        systemImage="chevron.left"
-                        containerStyle={styles.headerButton}
-                        circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
-                        icon={<CaretLeft size={26} color={themeColors.textPrimary} strokeWidth={3.5} />}
-                    />
+                    <View style={styles.headerSpacer} />
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
                     <View style={styles.headerSpacer} />
                 </View>
@@ -597,18 +568,6 @@ export default function SettingsScreen() {
                 {/* General Settings */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>General Settings</Text>
                 <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                    <TouchableOpacity style={styles.settingRow} onPress={openThemeSheet}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Theme</Text>
-                        <View style={styles.settingValueContainer}>
-                            <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
-                                {THEMES.find(t => t.code === theme)?.label || 'System'}
-                            </Text>
-                            {/* <CaretDown size={16} color={themeColors.textSecondary} /> */}
-                        </View>
-                    </TouchableOpacity>
-
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
                     <View style={styles.settingRow}>
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Haptic Feedback</Text>
                         <Switch
@@ -732,12 +691,12 @@ export default function SettingsScreen() {
                     <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                     <View style={styles.settingRow}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Biometrics</Text>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Lock Screen</Text>
                         <Switch
                             trackColor={{ false: themeColors.border, true: Colors.success }}
                             thumbColor={"#FFFFFF"}
                             ios_backgroundColor={themeColors.border}
-                            value={biometricsEnabled}
+                            value={lockScreenEnabled}
                             onValueChange={toggleBiometrics}
                         />
                     </View>
@@ -776,7 +735,7 @@ export default function SettingsScreen() {
                         style={styles.settingRow}
                         onPress={() => Linking.openURL('https://wa.me/2349114109308')}
                     >
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Send feedback on WhatsApp</Text>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Send feedback</Text>
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
                 </View>
@@ -807,123 +766,6 @@ export default function SettingsScreen() {
 
             </ScrollView>
 
-
-            {/* Theme Modal */}
-            {shouldUseSwiftUIBottomSheet ? (
-                <SwiftUIBottomSheet
-                    isPresented={isThemeSheetPresented}
-                    onIsPresentedChange={setIsThemeSheetPresented}
-                    fitToContents
-                >
-                    <SwiftUIGroup
-                        modifiers={[
-                            ...(presentationDetentsModifier ? [presentationDetentsModifier([{ height: 320 }])] : []),
-                            ...(presentationDragIndicatorModifier ? [presentationDragIndicatorModifier('visible')] : []),
-                        ]}
-                    >
-                        <View style={{ padding: 24, paddingTop: 34, paddingBottom: 40, backgroundColor: themeColors.background }}>
-                            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
-                            {THEMES.map((opt) => (
-                                <TouchableOpacity
-                                    key={opt.code}
-                                    style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
-                                    onPress={async () => {
-                                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        setTheme(opt.code);
-                                        await closeThemeSheet();
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.modalItemText,
-                                        { color: themeColors.textPrimary },
-                                        theme === opt.code && styles.modalItemTextSelected
-                                    ]}>
-                                        {opt.label}
-                                    </Text>
-                                    {theme === opt.code && (
-                                        <Check size={20} color={Colors.primary} strokeWidth={3} />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </SwiftUIGroup>
-                </SwiftUIBottomSheet>
-            ) : TrueSheetComponent ? (
-                <TrueSheetComponent
-                    ref={themeSheetRef}
-                    detents={['auto']}
-                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
-                    backgroundColor={Platform.OS === 'ios' ? undefined : themeColors.background}
-                >
-                    <View style={{ padding: 24, paddingTop: Platform.OS === 'ios' ? 34 : 24, paddingBottom: 40 }}>
-                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
-                        {THEMES.map((opt) => (
-                            <TouchableOpacity
-                                key={opt.code}
-                                style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
-                                onPress={async () => {
-                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    setTheme(opt.code);
-                                    await closeThemeSheet();
-                                }}
-                            >
-                                <Text style={[
-                                    styles.modalItemText,
-                                    { color: themeColors.textPrimary },
-                                    theme === opt.code && styles.modalItemTextSelected
-                                ]}>
-                                    {opt.label}
-                                </Text>
-                                {theme === opt.code && (
-                                    <Check size={20} color={Colors.primary} strokeWidth={3} />
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </TrueSheetComponent>
-            ) : (
-                <BottomSheetModal
-                    ref={themeFallbackSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{
-                        backgroundColor: themeColors.background,
-                        borderTopLeftRadius: Platform.OS === 'ios' ? 50 : 24,
-                        borderTopRightRadius: Platform.OS === 'ios' ? 50 : 24,
-                    }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-                >
-                    <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
-                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
-                        {THEMES.map((opt) => (
-                            <TouchableOpacity
-                                key={opt.code}
-                                style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
-                                onPress={async () => {
-                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    setTheme(opt.code);
-                                    await closeThemeSheet();
-                                }}
-                            >
-                                <Text style={[
-                                    styles.modalItemText,
-                                    { color: themeColors.textPrimary },
-                                    theme === opt.code && styles.modalItemTextSelected
-                                ]}>
-                                    {opt.label}
-                                </Text>
-                                {theme === opt.code && (
-                                    <Check size={20} color={Colors.primary} strokeWidth={3} />
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                    </BottomSheetView>
-                </BottomSheetModal>
-            )}
 
             {/* Recovery Warning Modal */}
             {shouldUseSwiftUIBottomSheet ? (

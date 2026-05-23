@@ -1,20 +1,15 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useColorScheme, Appearance, ColorSchemeName } from 'react-native';
+import { useColorScheme, Appearance } from 'react-native';
 let SystemUI: { setBackgroundColorAsync: (color: string) => Promise<void> } | null = null;
 try { SystemUI = require('expo-system-ui'); } catch { /* native module not available in this build */ }
 
 export type Currency = 'USD' | 'NGN' | 'GHS' | 'KES';
-export type Theme = 'light' | 'dark' | 'system';
 
 interface SettingsContextType {
     currency: Currency;
     setCurrency: (currency: Currency) => Promise<void>;
-    theme: Theme;
-    setTheme: (theme: Theme) => Promise<void>;
-    toggleTheme: () => Promise<void>;
-    currentTheme: 'light' | 'dark'; // Resolved theme (if system)
+    currentTheme: 'light' | 'dark';
     hapticsEnabled: boolean;
     setHapticsEnabled: (enabled: boolean) => Promise<void>;
     liveTrackingEnabled: boolean;
@@ -34,14 +29,9 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-const resolveToAppTheme = (colorScheme: ColorSchemeName | null | undefined): 'light' | 'dark' =>
-    colorScheme === 'dark' ? 'dark' : 'light';
-
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const systemColorScheme = useColorScheme();
-    const [deviceTheme, setDeviceTheme] = useState<'light' | 'dark'>(resolveToAppTheme(Appearance.getColorScheme()));
     const [currency, setCurrencyState] = useState<Currency>('USD');
-    const [theme, setThemeState] = useState<Theme>('system');
     const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
     const [liveTrackingEnabled, setLiveTrackingEnabledState] = useState<boolean>(true);
     const [lockScreenEnabled, setLockScreenEnabledState] = useState<boolean>(false);
@@ -54,14 +44,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [cameraSoundEnabled, setCameraSoundEnabledState] = useState<boolean>(true);
     const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
 
-    // Listen for system theme changes
-    useEffect(() => {
-        const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-            console.log('[Settings] System theme changed to:', colorScheme);
-            setDeviceTheme(resolveToAppTheme(colorScheme));
-        });
-        return () => subscription.remove();
-    }, []);
+    // Always follow system color scheme
+    const currentTheme: 'light' | 'dark' = systemColorScheme === 'dark' ? 'dark' : 'light';
 
     // Initial load
     useEffect(() => {
@@ -71,7 +55,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const loadSettings = async () => {
         try {
             const storedCurrency = await AsyncStorage.getItem('settings_currency');
-            const storedTheme = await AsyncStorage.getItem('settings_theme');
             const storedHaptics = await AsyncStorage.getItem('settings_haptics');
             const storedLiveTracking = await AsyncStorage.getItem('settings_live_tracking');
             const storedHideMicrotransactions = await AsyncStorage.getItem('wallet_hide_microtransactions');
@@ -79,13 +62,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const storedCameraSound = await AsyncStorage.getItem('settings_camera_sound');
 
             if (storedCurrency) setCurrencyState(storedCurrency as Currency);
-            if (storedTheme) setThemeState(storedTheme as Theme);
             if (storedHaptics !== null) setHapticsEnabledState(storedHaptics === 'true');
             if (storedLiveTracking !== null) setLiveTrackingEnabledState(storedLiveTracking === 'true');
             if (storedHideMicrotransactions !== null) setHideMicrotransactionsState(storedHideMicrotransactions === 'true');
             if (storedHideUnusualActivity !== null) setHideUnusualActivityState(storedHideUnusualActivity === 'true');
             if (storedCameraSound !== null) setCameraSoundEnabledState(storedCameraSound === 'true');
-            await AsyncStorage.removeItem('settings_lock_screen');
+            const storedLockScreen = await AsyncStorage.getItem('settings_lock_screen');
+            if (storedLockScreen !== null) setLockScreenEnabledState(storedLockScreen === 'true');
         } catch (error) {
             console.error('Failed to load settings:', error);
         } finally {
@@ -100,21 +83,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (error) {
             console.error('Failed to save currency:', error);
         }
-    };
-
-    const setTheme = async (newTheme: Theme) => {
-        try {
-            console.log('[Settings] Setting theme to:', newTheme);
-            setThemeState(newTheme);
-            await AsyncStorage.setItem('settings_theme', newTheme);
-        } catch (error) {
-            console.error('Failed to save theme:', error);
-        }
-    };
-
-    const toggleTheme = async () => {
-        const nextTheme = theme === 'light' ? 'dark' : 'light';
-        await setTheme(nextTheme);
     };
 
     const setHapticsEnabled = async (enabled: boolean) => {
@@ -137,9 +105,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const setLockScreenEnabled = async (enabled: boolean) => {
         try {
-            void enabled;
-            setLockScreenEnabledState(false);
-            await AsyncStorage.removeItem('settings_lock_screen');
+            setLockScreenEnabledState(enabled);
+            await AsyncStorage.setItem('settings_lock_screen', enabled ? 'true' : 'false');
         } catch (error) {
             console.error('Failed to save lock screen setting:', error);
         }
@@ -180,17 +147,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     }, []);
 
-    // Use deviceTheme (from listener) or systemColorScheme (from hook) - prioritize the reactive one
-    const resolvedSystemTheme = resolveToAppTheme(deviceTheme || systemColorScheme);
-    const currentTheme = theme === 'system' ? resolvedSystemTheme : theme;
-
-    // Note: we deliberately do NOT call Appearance.setColorScheme here.
-    // It causes iOS to manage the status bar automatically based on the
-    // system appearance, which conflicts with our manual status bar style
-    // management in ThemeAwareStatusBar. The app's dark mode is purely
-    // cosmetic (background/text colours); the system color scheme stays
-    // unchanged so the status bar can be driven imperatively.
-
     useEffect(() => {
         const targetBackground = currentTheme === 'dark' ? '#000000' : '#FFFFFF';
         SystemUI?.setBackgroundColorAsync(targetBackground).catch(() => {
@@ -198,15 +154,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
     }, [currentTheme]);
 
-    console.log('[Settings] Theme state:', { storedTheme: theme, deviceTheme, systemColorScheme, currentTheme });
-
     return (
         <SettingsContext.Provider value={{
             currency,
             setCurrency,
-            theme,
-            setTheme,
-            toggleTheme,
             currentTheme,
             hapticsEnabled,
             setHapticsEnabled,

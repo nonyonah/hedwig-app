@@ -16,11 +16,11 @@ import {
     GoogleSansFlex_700Bold,
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
-import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState, Text, TextInput, StatusBar as RNStatusBar } from 'react-native';
+import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState, Text, TextInput, StatusBar as RNStatusBar, useColorScheme } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LockScreen } from '../components/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import {
     SettingsProvider,
@@ -406,10 +406,11 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
 // Native layout with Privy
 function NativeLayout() {
-    const { currentTheme } = useSettings();
+    const systemColorScheme = useColorScheme();
     const colors = useThemeColors();
+    const isDark = systemColorScheme === 'dark';
     const navigationTheme =
-        currentTheme === 'dark'
+        isDark
             ? {
                 ...DarkTheme,
                 colors: {
@@ -454,22 +455,13 @@ function NativeLayout() {
 }
 
 function ThemeAwareStatusBar() {
-    const { currentTheme } = useSettings();
+    const systemColorScheme = useColorScheme();
     const colors = useThemeColors();
-    const isDark = currentTheme === 'dark';
+    const isDark = systemColorScheme === 'dark';
 
-    // `<StatusBar />` from expo-status-bar tracks the latest *mounted* node,
-    // not re-renders of an existing node, so swapping `style` on a theme
-    // toggle didn't actually push a new appearance until the app was killed
-    // and relaunched. Drive `style` imperatively from a theme-bound effect.
-    //
-    // We deliberately DON'T call setStatusBarBackgroundColor here: on Android
-    // edge-to-edge it toggles the translucent flag mid-session, which then
-    // collapses the SafeAreaView top inset on the next screen mount.
+    // Use system color scheme directly — no async dependency so the
+    // status bar style is correct from the very first render frame.
     useEffect(() => {
-        // Pass `animated: false` — on iOS the animated style swap briefly
-        // forces the status bar into a transitional state which collapses
-        // SafeAreaView top insets on the next screen mount.
         const style = isDark ? 'light' : 'dark';
         setStatusBarStyle(style, false);
         RNStatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', false);
@@ -585,7 +577,7 @@ function RootLayout() {
     const isWeb = Platform.OS === 'web';
 
     return (
-        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <SafeAreaProvider>
             <SettingsProvider>
                 <TutorialProvider>
                     <GestureHandlerRootView style={{ flex: 1 }}>
