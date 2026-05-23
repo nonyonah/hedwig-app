@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { ChevronLeft as CaretLeft, ScanLine, Wallet, History } from '../../components/ui/AppIcon';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { ChevronLeft as CaretLeft, ScanLine, Wallet, History, X } from '../../components/ui/AppIcon';
 import { useThemeColors } from '../../theme/colors';
 import {
     detectRecipientChain,
@@ -29,6 +30,7 @@ export default function SendAddressScreen() {
 
     const [address, setAddress] = useState(typeof params.recipient === 'string' ? params.recipient : '');
     const [recentRecipients, setRecentRecipients] = useState<SavedRecipient[]>([]);
+    const [showQrScanner, setShowQrScanner] = useState(false);
 
     const detectedChain = useMemo(() => detectRecipientChain(address), [address]);
     const matchingRecent = useMemo(
@@ -127,7 +129,7 @@ export default function SendAddressScreen() {
 
             <TouchableOpacity
                 style={styles.scanRow}
-                onPress={() => Alert.alert('QR scanner', 'QR scanning is not enabled in this build yet. Paste or choose a recent address for now.')}
+                onPress={() => setShowQrScanner(true)}
             >
                 <View style={[styles.scanIconWrap, { backgroundColor: themeColors.surface }]}> 
                     <ScanLine size={24} color={themeColors.textSecondary} />
@@ -185,7 +187,120 @@ export default function SendAddressScreen() {
                     disabled={!hasInput}
                 />
             </View>
+
+            {/* QR Scanner Overlay */}
+            {showQrScanner && <QrScannerOverlay onAddressScanned={(addr) => { setAddress(addr); setShowQrScanner(false); }} onClose={() => setShowQrScanner(false)} />}
         </SafeAreaView>
+    );
+}
+
+function QrScannerOverlay({
+    onAddressScanned,
+    onClose,
+}: {
+    onAddressScanned: (address: string) => void;
+    onClose: () => void;
+}) {
+    const themeColors = useThemeColors();
+    const [permission, requestPermission] = useCameraPermissions();
+    const [scanned, setScanned] = useState(false);
+
+    const handleBarCodeScanned = useCallback(
+        ({ data }: { type: string; data: string }) => {
+            if (scanned) return;
+            setScanned(true);
+
+            // Parse address from QR data (handle ethereum:, solana: URI schemes)
+            let address = data.trim();
+            const lower = address.toLowerCase();
+            if (lower.startsWith('ethereum:')) {
+                address = address.slice('ethereum:'.length).split('?')[0];
+            } else if (lower.startsWith('solana:')) {
+                address = address.slice('solana:'.length).split('?')[0];
+            } else if (lower.startsWith('bitcoin:')) {
+                // Unsupported, show error
+                Alert.alert('Unsupported chain', 'Bitcoin addresses are not supported yet.');
+                setScanned(false);
+                return;
+            }
+
+            const chain = detectRecipientChain(address);
+            if (!chain) {
+                Alert.alert('Invalid QR Code', 'Could not recognize a valid wallet address.');
+                setScanned(false);
+                return;
+            }
+
+            onAddressScanned(address);
+        },
+        [scanned, onAddressScanned]
+    );
+
+    if (!permission?.granted) {
+        return (
+            <View style={StyleSheet.absoluteFill}>
+                <SafeAreaView style={[styles.qrContainer, { backgroundColor: themeColors.background }]}>
+                    <View style={styles.qrHeader}>
+                        <IOSGlassIconButton
+                            onPress={onClose}
+                            systemImage="xmark"
+                            containerStyle={styles.qrCloseBtn}
+                            circleStyle={[styles.qrCloseCircle, { backgroundColor: themeColors.surface }]}
+                            icon={<X size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
+                    </View>
+                    <View style={styles.qrPermissionBody}>
+                        <Text style={[styles.qrPermissionText, { color: themeColors.textPrimary }]}>
+                            Camera permission is required to scan QR codes.
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.qrPermissionButton, { backgroundColor: themeColors.primary }]}
+                            onPress={requestPermission}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.qrPermissionButtonText}>Grant Permission</Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </View>
+        );
+    }
+
+    return (
+        <View style={StyleSheet.absoluteFill}>
+            <CameraView
+                style={StyleSheet.absoluteFill}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                onBarcodeScanned={handleBarCodeScanned}
+            >
+                <SafeAreaView style={styles.qrOverlay}>
+                    <View style={styles.qrHeader}>
+                        <IOSGlassIconButton
+                            onPress={onClose}
+                            systemImage="xmark"
+                            containerStyle={styles.qrCloseBtn}
+                            circleStyle={[styles.qrCloseCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+                            icon={<X size={20} color="#FFFFFF" strokeWidth={3} />}
+                        />
+                        <Text style={styles.qrHeaderTitle}>Scan QR Code</Text>
+                        <View style={styles.qrHeaderSpacer} />
+                    </View>
+
+                    <View style={styles.qrFrameContainer}>
+                        <View style={styles.qrFrame}>
+                            <View style={[styles.qrCorner, styles.qrTopLeft]} />
+                            <View style={[styles.qrCorner, styles.qrTopRight]} />
+                            <View style={[styles.qrCorner, styles.qrBottomLeft]} />
+                            <View style={[styles.qrCorner, styles.qrBottomRight]} />
+                        </View>
+                        <Text style={styles.qrHint}>
+                            {scanned ? 'Processing…' : 'Point camera at a wallet QR code'}
+                        </Text>
+                    </View>
+                </SafeAreaView>
+            </CameraView>
+        </View>
     );
 }
 
@@ -324,5 +439,110 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
+    },
+    // QR Scanner overlay styles
+    qrContainer: {
+        flex: 1,
+    },
+    qrHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        zIndex: 10,
+    },
+    qrCloseBtn: {
+        width: 40,
+        height: 40,
+    },
+    qrCloseCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    qrHeaderTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 17,
+        color: '#FFFFFF',
+    },
+    qrHeaderSpacer: {
+        width: 40,
+    },
+    qrOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    qrFrameContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    qrFrame: {
+        width: 240,
+        height: 240,
+        position: 'relative',
+    },
+    qrCorner: {
+        position: 'absolute',
+        width: 32,
+        height: 32,
+        borderColor: '#FFFFFF',
+    },
+    qrTopLeft: {
+        top: 0,
+        left: 0,
+        borderTopWidth: 4,
+        borderLeftWidth: 4,
+    },
+    qrTopRight: {
+        top: 0,
+        right: 0,
+        borderTopWidth: 4,
+        borderRightWidth: 4,
+    },
+    qrBottomLeft: {
+        bottom: 0,
+        left: 0,
+        borderBottomWidth: 4,
+        borderLeftWidth: 4,
+    },
+    qrBottomRight: {
+        bottom: 0,
+        right: 0,
+        borderBottomWidth: 4,
+        borderRightWidth: 4,
+    },
+    qrHint: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+        marginTop: 20,
+        textAlign: 'center',
+        paddingHorizontal: 40,
+    },
+    qrPermissionBody: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 40,
+        gap: 16,
+    },
+    qrPermissionText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 16,
+        textAlign: 'center',
+    },
+    qrPermissionButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+        borderRadius: 12,
+    },
+    qrPermissionButtonText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
+        color: '#FFFFFF',
     },
 });
