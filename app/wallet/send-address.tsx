@@ -7,6 +7,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ChevronLeft as CaretLeft, ScanLine, Wallet, History, X } from '../../components/ui/AppIcon';
 import { useThemeColors } from '../../theme/colors';
+import { useSettings } from '../../context/SettingsContext';
 import {
     detectRecipientChain,
     SendChain,
@@ -202,6 +203,7 @@ function QrScannerOverlay({
     onClose: () => void;
 }) {
     const themeColors = useThemeColors();
+    const { cameraSoundEnabled } = useSettings();
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
 
@@ -273,6 +275,7 @@ function QrScannerOverlay({
                 facing="back"
                 barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                 onBarcodeScanned={handleBarCodeScanned}
+                mute={!cameraSoundEnabled}
             >
                 <SafeAreaView style={styles.qrOverlay}>
                     <View style={styles.qrHeader}>

@@ -17,7 +17,7 @@ import {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useThemeColors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 import {
     ArrowRight,
     Landmark,
@@ -203,6 +203,7 @@ export default function CoreFeaturesIntroModal({
                             onPress={goNext}
                             accessibilityRole="button"
                             accessibilityLabel={isLast ? 'Continue' : 'Next intro step'}
+                            style={[styles.primaryButton, { backgroundColor: Colors.primary }]}
                         >
                             <Text style={styles.primaryText}>{isLast ? 'Continue' : 'Next'}</Text>
                             {isLast ? <ArrowRight size={17} color="#FFFFFF" strokeWidth={3} /> : null}

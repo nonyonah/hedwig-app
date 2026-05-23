@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated, ActivityIndicator, Linking } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { TrueSheet } from '@hedwig/true-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -100,6 +100,8 @@ export default function SettingsScreen() {
         setLiveTrackingEnabled,
         gatewayAutoDepositEnabled,
         setGatewayAutoDepositEnabled,
+        cameraSoundEnabled,
+        setCameraSoundEnabled,
     } = useSettings();
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
@@ -621,6 +623,19 @@ export default function SettingsScreen() {
                     <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                     <View style={styles.settingRow}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Camera Sound</Text>
+                        <Switch
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor={themeColors.border}
+                            value={cameraSoundEnabled}
+                            onValueChange={setCameraSoundEnabled}
+                        />
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <View style={styles.settingRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                             <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Aggregated USDC</Text>
                             <View style={styles.betaBadge}>
@@ -753,6 +768,18 @@ export default function SettingsScreen() {
                 </View>
 
                 <View style={styles.spacer} />
+
+                {/* Feedback */}
+                <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Feedback</Text>
+                <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
+                    <TouchableOpacity
+                        style={styles.settingRow}
+                        onPress={() => Linking.openURL('https://wa.me/2349114109308')}
+                    >
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Send feedback on WhatsApp</Text>
+                        <CaretRight size={20} color={themeColors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
 
                 <View style={styles.spacer} />
 

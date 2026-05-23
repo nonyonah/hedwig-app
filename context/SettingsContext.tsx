@@ -27,6 +27,8 @@ interface SettingsContextType {
     setHideMicrotransactions: (enabled: boolean) => Promise<void>;
     hideUnusualActivity: boolean;
     setHideUnusualActivity: (enabled: boolean) => Promise<void>;
+    cameraSoundEnabled: boolean;
+    setCameraSoundEnabled: (enabled: boolean) => Promise<void>;
     settingsLoaded: boolean;
 }
 
@@ -49,6 +51,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [gatewayAutoDepositEnabled, setGatewayAutoDepositEnabledState] = useState<boolean>(false);
     const [hideMicrotransactions, setHideMicrotransactionsState] = useState<boolean>(false);
     const [hideUnusualActivity, setHideUnusualActivityState] = useState<boolean>(false);
+    const [cameraSoundEnabled, setCameraSoundEnabledState] = useState<boolean>(true);
     const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
 
     // Listen for system theme changes
@@ -73,6 +76,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const storedLiveTracking = await AsyncStorage.getItem('settings_live_tracking');
             const storedHideMicrotransactions = await AsyncStorage.getItem('wallet_hide_microtransactions');
             const storedHideUnusualActivity = await AsyncStorage.getItem('wallet_hide_unusual_activity');
+            const storedCameraSound = await AsyncStorage.getItem('settings_camera_sound');
 
             if (storedCurrency) setCurrencyState(storedCurrency as Currency);
             if (storedTheme) setThemeState(storedTheme as Theme);
@@ -80,6 +84,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (storedLiveTracking !== null) setLiveTrackingEnabledState(storedLiveTracking === 'true');
             if (storedHideMicrotransactions !== null) setHideMicrotransactionsState(storedHideMicrotransactions === 'true');
             if (storedHideUnusualActivity !== null) setHideUnusualActivityState(storedHideUnusualActivity === 'true');
+            if (storedCameraSound !== null) setCameraSoundEnabledState(storedCameraSound === 'true');
             await AsyncStorage.removeItem('settings_lock_screen');
         } catch (error) {
             console.error('Failed to load settings:', error);
@@ -166,6 +171,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     }, []);
 
+    const setCameraSoundEnabled = useCallback(async (enabled: boolean) => {
+        try {
+            setCameraSoundEnabledState(enabled);
+            await AsyncStorage.setItem('settings_camera_sound', enabled ? 'true' : 'false');
+        } catch (error) {
+            console.error('Failed to save camera sound setting:', error);
+        }
+    }, []);
+
     // Use deviceTheme (from listener) or systemColorScheme (from hook) - prioritize the reactive one
     const resolvedSystemTheme = resolveToAppTheme(deviceTheme || systemColorScheme);
     const currentTheme = theme === 'system' ? resolvedSystemTheme : theme;
@@ -206,6 +220,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setHideMicrotransactions,
             hideUnusualActivity,
             setHideUnusualActivity,
+            cameraSoundEnabled,
+            setCameraSoundEnabled,
             settingsLoaded,
         }}>
             {children}
