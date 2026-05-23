@@ -116,6 +116,13 @@ export default function CreateWithdrawalScreen() {
     const [coinbaseLoading, setCoinbaseLoading] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
 
+    // Amount input mode: 'crypto' (USDC) or 'fiat' (local currency)
+    const [amountInputMode, setAmountInputMode] = useState<'crypto' | 'fiat'>('crypto');
+    const [fiatAmount, setFiatAmount] = useState('');
+    const [amountModeSheetOpen, setAmountModeSheetOpen] = useState(false);
+    const [fiatToCryptoRate, setFiatToCryptoRate] = useState<number | null>(null);
+    const [isFetchingConversionRate, setIsFetchingConversionRate] = useState(false);
+
     // Bottom Sheet Refs
     // bankSheetRef removed
     // chainSheetRef removed
@@ -238,6 +245,61 @@ export default function CreateWithdrawalScreen() {
         gatewayBalance.refresh().catch(() => undefined);
     }, [fetchBalances, gatewayBalance.refresh]);
 
+    // Fetch conversion rate for fiat input mode (rate per 1 USDC)
+    useEffect(() => {
+        if (amountInputMode !== 'fiat' || isCoinbaseCountry) {
+            setFiatToCryptoRate(null);
+            return;
+        }
+
+        let isCancelled = false;
+        const fetchRate = async () => {
+            try {
+                setIsFetchingConversionRate(true);
+                const token = await getAccessToken();
+                if (!token) {
+                    if (!isCancelled) setIsFetchingConversionRate(false);
+                    return;
+                }
+
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const rateNetwork = selectedNetwork.id === 'solana' ? 'base' : selectedNetwork.id;
+                const response = await fetch(
+                    `${apiUrl}/api/offramp/rates?token=${selectedToken.id}&amount=1&currency=${selectedCountry.currency}&network=${rateNetwork}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+                const result = await response.json();
+
+                if (!isCancelled && response.ok && result?.data?.rate) {
+                    const rateNum = parseFloat(result.data.rate);
+                    if (Number.isFinite(rateNum) && rateNum > 0) {
+                        setFiatToCryptoRate(rateNum);
+                    }
+                }
+            } catch {
+                // silently fail
+            } finally {
+                if (!isCancelled) setIsFetchingConversionRate(false);
+            }
+        };
+
+        fetchRate();
+        return () => { isCancelled = true; };
+    }, [amountInputMode, selectedCountry.currency, selectedNetwork.id, selectedToken.id, getAccessToken, isCoinbaseCountry]);
+
+    // Auto-switch to crypto mode for Coinbase (USD) countries
+    useEffect(() => {
+        if (isCoinbaseCountry && amountInputMode === 'fiat') {
+            setAmountInputMode('crypto');
+            setFiatAmount('');
+        }
+    }, [isCoinbaseCountry, amountInputMode]);
+
     const loadBanks = useCallback(async () => {
         try {
             if (selectedCountry.currency === 'USD') {
@@ -292,7 +354,7 @@ export default function CreateWithdrawalScreen() {
 
     useEffect(() => {
         const parsedAmount = parseFloat(amount);
-        if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0 || isCoinbaseCountry) {
+        if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0 || isCoinbaseCountry || amountInputMode === 'fiat') {
             setFiatEquivalent('');
             setIsFetchingFiatEquivalent(false);
             return;
@@ -340,7 +402,7 @@ export default function CreateWithdrawalScreen() {
             isCancelled = true;
             clearTimeout(timeout);
         };
-    }, [amount, selectedCountry.currency, selectedNetwork.id, getAccessToken, isCoinbaseCountry]);
+    }, [amount, selectedCountry.currency, selectedNetwork.id, getAccessToken, isCoinbaseCountry, amountInputMode]);
 
     // Validate account when bank and number are present
     useEffect(() => {
@@ -503,6 +565,25 @@ export default function CreateWithdrawalScreen() {
             Alert.alert('Delete failed', error?.message || 'Unable to delete beneficiary');
         }
     }, [getAccessToken]);
+
+    const handleAmountChange = useCallback((text: string) => {
+        if (amountInputMode === 'crypto') {
+            setAmount(text);
+        } else {
+            setFiatAmount(text);
+            if (fiatToCryptoRate && text) {
+                const fiatNum = parseFloat(text);
+                if (!Number.isNaN(fiatNum) && fiatNum > 0) {
+                    const crypto = fiatNum / fiatToCryptoRate;
+                    setAmount(crypto > 0 ? crypto.toFixed(2) : '');
+                } else {
+                    setAmount('');
+                }
+            } else {
+                setAmount('');
+            }
+        }
+    }, [amountInputMode, fiatToCryptoRate]);
 
     const handleReview = () => {
         console.log('[CreateWithdrawal] handleReview called', {
@@ -856,27 +937,56 @@ export default function CreateWithdrawalScreen() {
                         {/* Amount Input */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Amount</Text>
                         <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface }]}>
+                            <TouchableOpacity
+                                style={styles.amountModeToggle}
+                                onPress={() => !isCoinbaseCountry && setAmountModeSheetOpen(true)}
+                                disabled={isCoinbaseCountry}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                {amountInputMode === 'crypto' ? (
+                                    <Image source={selectedToken.icon} style={styles.amountModeIcon} />
+                                ) : (
+                                    <Text style={{ fontSize: 20 }}>{selectedCountry.flag}</Text>
+                                )}
+                                {!isCoinbaseCountry && <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />}
+                            </TouchableOpacity>
                             <TextInput
                                 style={[styles.authInput, { color: themeColors.textPrimary, flex: 1, fontSize: 24, paddingVertical: 12 }]}
-                                value={amount}
-                                onChangeText={setAmount}
+                                value={amountInputMode === 'crypto' ? amount : fiatAmount}
+                                onChangeText={handleAmountChange}
                                 placeholder="0.00"
                                 placeholderTextColor={themeColors.textSecondary}
                                 keyboardType="decimal-pad"
                             />
                         </View>
-                        {(isFetchingFiatEquivalent || fiatEquivalent) ? (
-                            <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
-                                {isFetchingFiatEquivalent
-                                    ? `Calculating ${selectedCountry.currency} equivalent...`
-                                    : `≈ ${selectedCountry.currency} ${fiatEquivalent}`}
-                            </Text>
-                        ) : null}
-                        {isCoinbaseCountry && amount ? (
-                            <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
-                                Coinbase will show the final USD quote before you cash out.
-                            </Text>
-                        ) : null}
+                        {amountInputMode === 'fiat' ? (
+                            <>
+                                {isFetchingConversionRate && !fiatToCryptoRate ? (
+                                    <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
+                                        Loading rate…
+                                    </Text>
+                                ) : amount ? (
+                                    <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
+                                        ≈ {formatUsd(parseFloat(amount) || 0)} USDC
+                                    </Text>
+                                ) : null}
+                            </>
+                        ) : (
+                            <>
+                                {(isFetchingFiatEquivalent || fiatEquivalent) ? (
+                                    <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
+                                        {isFetchingFiatEquivalent
+                                            ? `Calculating ${selectedCountry.currency} equivalent…`
+                                            : `≈ ${selectedCountry.currency} ${fiatEquivalent}`}
+                                    </Text>
+                                ) : null}
+                                {isCoinbaseCountry && amount ? (
+                                    <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
+                                        Coinbase will show the final USD quote before you cash out.
+                                    </Text>
+                                ) : null}
+                            </>
+                        )}
 
                         {/* Solana Bridge Disclaimer */}
                         {!isCoinbaseCountry && selectedNetwork.id === 'solana' && (
@@ -1166,6 +1276,28 @@ export default function CreateWithdrawalScreen() {
                 }}
                 detentFraction={0.7}
             />
+            <SelectorSheet
+                visible={amountModeSheetOpen}
+                onClose={() => setAmountModeSheetOpen(false)}
+                title="Amount Currency"
+                options={[
+                    { id: 'crypto', label: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') },
+                    { id: 'fiat', label: `${selectedCountry.currency} (${selectedCountry.name})`, flagEmoji: selectedCountry.flag },
+                ]}
+                selectedId={amountInputMode}
+                onSelect={(id) => {
+                    const newMode = id as 'crypto' | 'fiat';
+                    if (newMode !== amountInputMode) {
+                        setAmountInputMode(newMode);
+                        if (newMode === 'crypto') {
+                            setFiatAmount('');
+                        } else {
+                            setAmount('');
+                        }
+                    }
+                }}
+                detentFraction={0.4}
+            />
 
             {/* Solana Bridge Modal */}
             <SolanaBridgeModal
@@ -1314,6 +1446,18 @@ const styles = StyleSheet.create({
         fontSize: 16,
         paddingVertical: 14,
         flex: 1,
+    },
+    amountModeToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginRight: 10,
+        paddingVertical: 4,
+    },
+    amountModeIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
     },
 
     helperText: {
