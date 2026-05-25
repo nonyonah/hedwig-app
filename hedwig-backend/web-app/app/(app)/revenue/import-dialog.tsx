@@ -100,11 +100,11 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
       const suggestedType = d.suggestedEntryType === 'expense' ? 'expense' : 'credit';
       setEntryType(suggestedType);
       setEditAmount(d.amount ? String(d.amount) : '');
-      setEditCurrency(d.currency || 'USD');
-      setEditCategory(d.category || 'other');
-      setEditTitle(d.suggestedTitle || d.summary || 'Imported document');
-      setEditDate((d.date || '').slice(0, 10) || new Date().toISOString().slice(0, 10));
-      setEditNote(d.notes || d.summary || '');
+      setEditCurrency(String(d.currency || 'USD'));
+      setEditCategory((d.category as any) || 'other');
+      setEditTitle(String(d.suggestedTitle || d.summary || 'Imported document'));
+      setEditDate(String(d.date || '').slice(0, 10) || new Date().toISOString().slice(0, 10));
+      setEditNote(String(d.notes || d.summary || ''));
 
       setStep('preview');
     } catch (err: any) {
