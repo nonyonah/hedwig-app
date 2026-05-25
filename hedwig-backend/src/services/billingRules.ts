@@ -3,6 +3,7 @@ import { getRevenueCatStateForUser } from './revenuecat';
 
 export type HedwigPlan = 'free' | 'starter' | 'pro';
 export type LimitedDocumentType = 'INVOICE' | 'PAYMENT_LINK' | 'CONTRACT';
+export type UsageMetric = 'ai_prompts' | 'emails_sent' | 'document_imports';
 export type ProFeature =
     | 'assistant'
     | 'assistant_chat'
@@ -26,6 +27,31 @@ export const FREE_PLAN_LIMITS = {
     bankAccounts: 1,
     revenueHistoryDays: 30,
 } as const;
+
+/**
+ * Monthly usage caps per plan for cost-controlled features.
+ */
+export const USAGE_LIMITS: Record<HedwigPlan, Record<UsageMetric, number>> = {
+    free: {
+        ai_prompts: 200,
+        emails_sent: 500,
+        document_imports: 50,
+    },
+    starter: {
+        ai_prompts: 1000,
+        emails_sent: 2000,
+        document_imports: 200,
+    },
+    pro: {
+        ai_prompts: 5000,
+        emails_sent: 10000,
+        document_imports: 1000,
+    },
+};
+
+export function getUsageLimit(plan: HedwigPlan, metric: UsageMetric): number {
+    return USAGE_LIMITS[plan]?.[metric] ?? Infinity;
+}
 
 const normalizeString = (value: unknown): string | null => {
     if (typeof value !== 'string') return null;
@@ -186,6 +212,34 @@ export async function getUserPlan(user: {
 }): Promise<HedwigPlan> {
     if (hasProTestAccess(user)) return 'pro';
 
+    const unifiedStatus = resolveUnifiedStatus(user);
+    const unifiedExpiry = resolveUnifiedExpiry(user);
+    const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;
+
+    if (unifiedIsActive === true) {
+        const state = await getRevenueCatStateForUser(user);
+        if (state?.product_id) return resolvePlanFromProductId(state.product_id);
+        return 'starter';
+    }
+
+    const state = await getRevenueCatStateForUser(user);
+    if (!state?.is_active) return 'free';
+    if (state.product_id) return resolvePlanFromProductId(state.product_id);
+    return 'starter';
+}
+
+/**
+ * Get the user's plan without applying the pro test access override.
+ * Used for usage limits — the test flag unlocks features but usage caps
+ * still reflect the user's actual subscription tier.
+ */
+export async function getUserSubscriptionTier(user: {
+    id: string;
+    email?: string | null;
+    privy_id?: string | null;
+    subscription_status?: string | null;
+    subscription_expiry?: string | null;
+}): Promise<HedwigPlan> {
     const unifiedStatus = resolveUnifiedStatus(user);
     const unifiedExpiry = resolveUnifiedExpiry(user);
     const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;

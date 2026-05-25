@@ -28,7 +28,19 @@ import {
 } from '../services/agent/assistant-runtime';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
-import { requireProFeatureAccess, type ProFeature } from '../services/billingRules';
+import {
+    requireProFeatureAccess,
+    getUsageLimit,
+    getUserSubscriptionTier,
+    type ProFeature,
+} from '../services/billingRules';
+import {
+    checkUsageLimit,
+    incrementUsage,
+    getAllUsage,
+    getPeriodResetDate,
+    type UsageMetric,
+} from '../services/usageService';
 
 const logger = createLogger('Assistant');
 const router = Router();
@@ -74,6 +86,35 @@ const ensureAssistantAccess = async (
     }
 
     return { user, allowed: true };
+};
+
+const checkAiUsageLimit = async (
+    res: Response,
+    user: { id: string; subscription_status?: string | null; subscription_expiry?: string | null; email?: string | null; privy_id?: string | null },
+    metric: UsageMetric,
+): Promise<boolean> => {
+    const tier = await getUserSubscriptionTier(user);
+    const limit = getUsageLimit(tier, metric);
+    const result = await checkUsageLimit(user.id, metric, limit);
+    if (!result.allowed) {
+        const resetDate = new Date();
+        resetDate.setUTCDate(1);
+        resetDate.setUTCMonth(resetDate.getUTCMonth() + 1);
+        res.status(429).json({
+            success: false,
+            error: {
+                code: 'usage_limit_exceeded',
+                metric,
+                limit: result.limit,
+                current: result.current,
+                remaining: result.remaining,
+                resetsAt: resetDate.toISOString(),
+                message: `You've used ${result.current} of ${result.limit} ${metric.replace('_', ' ')} this month. Resets on ${resetDate.toISOString().slice(0, 10)}.`,
+            },
+        });
+        return false;
+    }
+    return true;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -129,7 +170,9 @@ router.get('/brief', authenticate, async (req: Request, res: Response) => {
     try {
         const access = await ensureAssistantAccess(req, res);
         if (!access.allowed || !access.user) return;
+        if (!(await checkAiUsageLimit(res, access.user as any, 'ai_prompts'))) return;
         const brief = await generateDailyBrief(access.user.id);
+        await incrementUsage(access.user.id, 'ai_prompts');
         res.json({ success: true, data: brief });
     } catch (err: any) {
         logger.error('Brief failed', { error: err.message });
@@ -143,7 +186,9 @@ router.get('/weekly', authenticate, async (req: Request, res: Response) => {
     try {
         const access = await ensureAssistantAccess(req, res);
         if (!access.allowed || !access.user) return;
+        if (!(await checkAiUsageLimit(res, access.user as any, 'ai_prompts'))) return;
         const weeklySummary = await generateWeeklySummary(access.user.id);
+        await incrementUsage(access.user.id, 'ai_prompts');
         res.json({ success: true, data: weeklySummary });
     } catch (err: any) {
         logger.error('Weekly failed', { error: err.message });
@@ -447,6 +492,8 @@ router.post('/chat', authenticate, async (req: Request, res: Response) => {
             return;
         }
 
+        if (!(await checkAiUsageLimit(res, access.user as any, 'ai_prompts'))) return;
+
         const sanitisedHistory: AgentChatMessage[] = Array.isArray(history)
             ? history
                 .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
@@ -459,6 +506,8 @@ router.post('/chat', authenticate, async (req: Request, res: Response) => {
             history: sanitisedHistory,
             userMessage: message.trim(),
         });
+
+        await incrementUsage(access.user.id, 'ai_prompts');
 
         res.json({ success: true, data: result });
     } catch (err: any) {
@@ -477,6 +526,9 @@ router.post(
         try {
             const access = await ensureAssistantAccess(req, res, 'attachment_ai');
             if (!access.allowed || !access.user) return;
+
+            if (!(await checkAiUsageLimit(res, access.user as any, 'ai_prompts'))) return;
+            if (!(await checkAiUsageLimit(res, access.user as any, 'document_imports'))) return;
 
             const uploaded: Express.Multer.File[] = Array.isArray(req.files)
                 ? (req.files as Express.Multer.File[])
@@ -533,6 +585,9 @@ router.post(
                 ? perFile[0].classification
                 : (perFile.find((item) => item.classification !== 'other')?.classification ?? 'other');
 
+            await incrementUsage(access.user!.id, 'ai_prompts', uploaded.length);
+            await incrementUsage(access.user!.id, 'document_imports', uploaded.length);
+
             res.json({
                 success: true,
                 data: {
@@ -552,5 +607,40 @@ router.post(
         }
     },
 );
+
+// ─── GET /api/assistant/usage ─────────────────────────────────────────────────
+// Returns current usage stats for the frontend usage counter widget.
+
+router.get('/usage', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+
+        const user = access.user;
+        const tier = await getUserSubscriptionTier(user as any);
+        const allUsage = await getAllUsage(user.id);
+
+        const metrics = (['ai_prompts', 'emails_sent', 'document_imports'] as const).map((metric) => {
+            const limit = getUsageLimit(tier, metric);
+            return {
+                metric,
+                current: allUsage[metric],
+                limit: Number.isFinite(limit) ? limit : null,
+                remaining: Number.isFinite(limit) ? Math.max(limit - allUsage[metric], 0) : null,
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                metrics,
+                resetsAt: getPeriodResetDate(),
+            },
+        });
+    } catch (err: any) {
+        logger.error('Usage fetch failed', { error: err?.message });
+        res.status(500).json({ success: false, error: 'Failed to fetch usage' });
+    }
+});
 
 export default router;

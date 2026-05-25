@@ -6,6 +6,8 @@ import { handleAction } from '../services/actions';
 import { getOrCreateUser } from '../utils/userHelper';
 import multer from 'multer';
 import { createLogger } from '../utils/logger';
+import { getUsageLimit, getUserSubscriptionTier } from '../services/billingRules';
+import { checkUsageLimit, incrementUsage } from '../services/usageService';
 
 const logger = createLogger('Chat');
 
@@ -280,6 +282,25 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             }
         }
 
+        // Check usage limit before AI call
+        const tier = await getUserSubscriptionTier(userData as any);
+        const aiLimit = getUsageLimit(tier, 'ai_prompts');
+        const usageCheck = await checkUsageLimit(userId, 'ai_prompts', aiLimit);
+        if (!usageCheck.allowed) {
+            res.status(429).json({
+                success: false,
+                error: {
+                    code: 'usage_limit_exceeded',
+                    metric: 'ai_prompts',
+                    limit: usageCheck.limit,
+                    current: usageCheck.current,
+                    remaining: usageCheck.remaining,
+                    message: `You've used ${usageCheck.current} of ${usageCheck.limit} AI prompts this month. Upgrade or wait for the reset.`,
+                },
+            });
+            return;
+        }
+
         // Generate AI response
         let aiResponseObj;
         try {
@@ -445,6 +466,8 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             };
             logger.debug('Returning CONFIRM_SOLANA_BRIDGE parameters');
         }
+
+        await incrementUsage(userId, 'ai_prompts');
 
         res.json({
             success: true,

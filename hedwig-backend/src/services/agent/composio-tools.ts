@@ -486,6 +486,73 @@ export function getHedwigNativeTools(): AgentToolDefinition[] {
         };
       },
     },
+    {
+      name: 'import_from_email',
+      description: 'CRITICAL: Call this after EVERY gmail_search_emails result that mentions invoices, receipts, bank statements, contracts, proposals, payments, or financial documents. Imports the document directly. NEVER skip this — always call it for matching emails. Extract as many fields as possible (amount, client, date, currency) from the email body.',
+      parameters: {
+        type: 'object',
+        properties: {
+          threadId: { type: 'string', description: 'The Gmail thread ID (from gmail_search_emails results).' },
+          source: { type: 'string', description: 'Source description (e.g., "Email from client@example.com").' },
+          contentType: { type: 'string', enum: ['invoice', 'receipt', 'bank_statement', 'contract', 'other'], description: 'Type of document found in the email.' },
+          title: { type: 'string', description: 'Short title describing what was found.' },
+          summary: { type: 'string', description: 'Brief summary of the email content (amount, client name, date, etc.).' },
+          amount: { type: 'number', description: 'Detected amount if an invoice or receipt, omit if unclear.' },
+          currency: { type: 'string', description: 'Currency code if amount is present (e.g. USD, NGN, EUR).' },
+          clientName: { type: 'string', description: 'Detected client/sender name if identifiable.' },
+          clientEmail: { type: 'string', description: 'Detected client/sender email if identifiable.' },
+          dueDate: { type: 'string', description: 'Detected due date in YYYY-MM-DD format if applicable.' },
+        },
+        required: ['threadId', 'source', 'contentType', 'title', 'summary'],
+      },
+      execute: async (args, context) => {
+        const contentType = String(args.contentType || 'other');
+        const title = String(args.title || 'Imported document');
+        const threadId = String(args.threadId || '');
+        const amount = typeof args.amount === 'number' ? args.amount : null;
+        const currency = String(args.currency || 'USD').toUpperCase();
+        const clientName = args.clientName ? String(args.clientName) : null;
+        const clientEmail = args.clientEmail ? String(args.clientEmail) : null;
+        const dueDate = args.dueDate ? String(args.dueDate) : null;
+
+        const docType = contentType === 'invoice' ? 'INVOICE'
+          : contentType === 'receipt' ? 'RECEIPT'
+          : contentType === 'contract' ? 'CONTRACT'
+          : 'OTHER';
+
+        const { data: doc, error } = await supabase
+          .from('documents')
+          .insert({
+            user_id: context.userId,
+            type: docType,
+            title,
+            ...(amount !== null && amount > 0 ? { amount: Number(amount) } : {}),
+            status: 'DRAFT',
+            chain: 'BASE',
+            content: {
+              currency,
+              created_from: 'email_import',
+              source: String(args.source || 'email'),
+              ...(clientName ? { client_name: clientName } : {}),
+              ...(clientEmail ? { client_email: clientEmail } : {}),
+              ...(dueDate ? { due_date: dueDate } : {}),
+              email_thread_id: threadId,
+            },
+          })
+          .select('id')
+          .single();
+
+        if (error || !doc?.id) {
+          throw new Error(`Failed to import from email: ${error?.message || 'unknown error'}`);
+        }
+
+        return {
+          imported: true,
+          documentId: doc.id,
+          message: `Imported "${title}" from email. You can find it in your documents.`,
+        };
+      },
+    },
   ];
 }
 

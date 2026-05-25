@@ -10,7 +10,7 @@ import {
   type SuggestionDraftEnvelope,
 } from '../assistantSuggestions';
 import { executeComposioWrite, stageFileForComposio } from './composio-tools';
-import { deleteFromR2 } from '../../lib/r2';
+import { deleteFromR2, getFromR2 } from '../../lib/r2';
 import { createLogger } from '../../utils/logger';
 import { convertToUsd } from '../currency';
 
@@ -872,6 +872,134 @@ async function executeComposioStaged(userId: string, action: string, draft: Json
   };
 }
 
+async function executeImportFromEmail(userId: string, draft: JsonRecord): Promise<AssistantApprovalExecutionResult> {
+  const threadId = stringValue(draft.thread_id);
+  const contentType = stringValue(draft.content_type) || 'other';
+  const title = stringValue(draft.title) || 'Imported document';
+  const amount = numberValue(draft.amount);
+  const currency = stringValue(draft.currency) || 'USD';
+  const clientName = stringValue(draft.client_name);
+  const clientEmail = stringValue(draft.client_email);
+  const dueDate = stringValue(draft.due_date);
+
+  // Try to resolve or create a client
+  let resolvedClientId: string | null = null;
+  if (clientName || clientEmail) {
+    try {
+      const resolved = await ClientService.getOrCreateClient(userId, clientName, clientEmail, {
+        createdFrom: 'email_import',
+      });
+      resolvedClientId = resolved.id;
+    } catch {
+      // Non-critical — proceed without a client
+    }
+  }
+
+  // Try to find the email thread for extra data (attachments, etc.)
+  let emailThreadId: string | null = null;
+  if (threadId) {
+    const { data: thread } = await supabase
+      .from('email_threads')
+      .select('id')
+      .eq('provider_thread_id', threadId)
+      .maybeSingle();
+    if (thread) emailThreadId = thread.id;
+  }
+
+  // Always create the document from extracted data first
+  const docType = contentType === 'invoice' ? 'INVOICE'
+    : contentType === 'receipt' ? 'RECEIPT'
+    : contentType === 'contract' ? 'CONTRACT'
+    : 'OTHER';
+
+  const { data: doc, error } = await supabase
+    .from('documents')
+    .insert({
+      user_id: userId,
+      client_id: resolvedClientId,
+      type: docType,
+      title,
+      ...(amount !== null && amount > 0 ? { amount } : {}),
+      status: 'DRAFT',
+      chain: 'BASE',
+      content: {
+        ...(clientName ? { client_name: clientName } : {}),
+        ...(clientEmail ? { recipient_email: clientEmail } : {}),
+        ...(dueDate ? { due_date: dueDate } : {}),
+        currency,
+        created_from: 'email_import',
+        ...(emailThreadId ? { email_thread_id: emailThreadId } : {}),
+        source: String(draft.source || 'email'),
+      },
+    })
+    .select('id')
+    .single();
+
+  if (error || !doc?.id) {
+    throw new Error(`Failed to create document from email: ${error?.message || 'unknown error'}`);
+  }
+
+  // If we have an email thread with attachments, try to process the first importable one
+  if (emailThreadId) {
+    const { data: attachments } = await supabase
+      .from('email_attachments')
+      .select('id, filename, content_type, r2_key')
+      .eq('thread_id', emailThreadId)
+      .limit(5);
+
+    const importable = attachments?.find((a) =>
+      a.r2_key && (a.content_type?.includes('pdf') || a.content_type?.startsWith('image/'))
+    );
+
+    if (importable?.r2_key) {
+      try {
+        const buffer = await getFromR2(importable.r2_key);
+        if (buffer) {
+          const { processAttachment } = await import('./attachment-handler');
+          const result = await processAttachment({
+            userId,
+            fileName: importable.filename || 'email_attachment',
+            mimeType: importable.content_type || 'application/pdf',
+            buffer,
+            instruction: `Import this ${contentType} found in email. ${title ? `Document: ${title}` : ''}`,
+          });
+          return {
+            status: 'completed',
+            action: 'import_from_email',
+            message: result.reply || `Imported "${importable.filename}" from email.`,
+            entity_type: result.classification || contentType,
+            entity_id: doc.id,
+            metadata: {
+              document_id: doc.id,
+              thread_id: emailThreadId,
+              attachment_id: importable.id,
+              staged_suggestions: result.stagedSuggestionIds,
+              created_entities: result.createdEntities,
+            },
+          };
+        }
+      } catch (err) {
+        logger.warn('Email attachment processing failed (non-fatal)', {
+          threadId: emailThreadId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
+
+  return {
+    status: 'completed',
+    action: 'import_from_email',
+    message: `Imported "${title}" from email.`,
+    entity_type: docType.toLowerCase(),
+    entity_id: doc.id,
+    metadata: {
+      document_id: doc.id,
+      ...(emailThreadId ? { thread_id: emailThreadId } : { provider_thread_id: threadId }),
+    },
+  };
+}
+
 async function executeAction(
   userId: string,
   suggestion: AssistantSuggestionRecord,
@@ -901,6 +1029,8 @@ async function executeAction(
       return executeCalendarEvent(userId, draft);
     case 'create_invoice':
       return executeCreateInvoice(userId, draft);
+    case 'import_from_email':
+      return executeImportFromEmail(userId, draft);
     case 'record_revenue_credit':
       return executeRecordRevenueCredit(userId, draft);
     case 'create_project_from_brief':

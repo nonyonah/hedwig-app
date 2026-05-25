@@ -48,6 +48,8 @@ export interface WeeklySummarySnapshot {
   paidInvoiceCount: number;
   overdueCount: number;
   overdueAmountUsd: number;
+  expensesTotalUsd: number;
+  expenseCategories: Array<{ category: string; amountUsd: number }>;
   topClients: Array<{ name: string; amountUsd: number }>;
   projectHighlights: string[];
   contextSummary: string;
@@ -353,7 +355,7 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
   const weekStart = new Date(now.getTime() - 7 * 86_400_000);
   const prevWeekStart = new Date(now.getTime() - 14 * 86_400_000);
 
-  const [paidRes, prevPaidRes, newRes, invoiceQueueRes, projectsRes] = await Promise.all([
+  const [paidRes, prevPaidRes, newRes, invoiceQueueRes, projectsRes, expensesRes] = await Promise.all([
     supabase.from('documents').select('id, amount, content').eq('user_id', userId)
       .eq('type', 'INVOICE').eq('status', 'PAID').gte('updated_at', weekStart.toISOString()),
     supabase.from('documents').select('amount').eq('user_id', userId)
@@ -368,6 +370,8 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
       .in('status', ['ACTIVE', 'ONGOING', 'IN_PROGRESS', 'ON_HOLD'])
       .order('updated_at', { ascending: false })
       .limit(5),
+    supabase.from('expenses').select('amount, converted_amount_usd, category').eq('user_id', userId)
+      .gte('date', weekStart.toISOString()),
   ]);
 
   const paidDocs = paidRes.data ?? [];
@@ -375,6 +379,7 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
   const newDocs = newRes.data ?? [];
   const overdueDocs = (invoiceQueueRes.data ?? []).filter((doc) => isOverdueInvoice(doc, nowIso));
   const projects = projectsRes.data ?? [];
+  const expenseRows = expensesRes.data ?? [];
 
   const revenueUsd = paidDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
   const previousWeekRevenueUsd = prevPaidDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
@@ -382,6 +387,17 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
   const revenueChangePct = previousWeekRevenueUsd > 0
     ? Math.round(((revenueUsd - previousWeekRevenueUsd) / previousWeekRevenueUsd) * 100)
     : 0;
+
+  const expensesTotalUsd = expenseRows.reduce((sum, row) => sum + toNumber(row.converted_amount_usd || row.amount), 0);
+  const expenseCategoryTotals: Record<string, number> = {};
+  for (const row of expenseRows) {
+    const cat = String(row.category || 'other');
+    expenseCategoryTotals[cat] = (expenseCategoryTotals[cat] ?? 0) + toNumber(row.converted_amount_usd || row.amount);
+  }
+  const expenseCategories = Object.entries(expenseCategoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([category, amountUsd]) => ({ category, amountUsd: Math.round(amountUsd * 100) / 100 }));
 
   const clientTotals: Record<string, number> = {};
   for (const doc of paidDocs) {
@@ -410,6 +426,7 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
     `Revenue this week: ${formatUsd(revenueUsd)} (${revenueChangePct >= 0 ? '+' : ''}${revenueChangePct}% vs last week)`,
     `${newDocs.length} new invoice${newDocs.length !== 1 ? 's' : ''} created`,
     overdueDocs.length > 0 ? `${overdueDocs.length} overdue invoices totalling ${formatUsd(overdueAmountUsd)}` : 'No overdue invoices',
+    expensesTotalUsd > 0 ? `Expenses: ${formatUsd(expensesTotalUsd)} across ${expenseRows.length} transaction${expenseRows.length !== 1 ? 's' : ''}` : null,
     topClients[0] ? `Top client: ${topClients[0].name} (${formatUsd(topClients[0].amountUsd)})` : null,
     projectHighlights[0] ? `Project focus: ${projectHighlights[0]}` : null,
   ].filter(Boolean).join('. ');
@@ -427,6 +444,8 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
     paidInvoiceCount: paidDocs.length,
     overdueCount: overdueDocs.length,
     overdueAmountUsd,
+    expensesTotalUsd,
+    expenseCategories,
     topClients,
     projectHighlights,
     contextSummary,

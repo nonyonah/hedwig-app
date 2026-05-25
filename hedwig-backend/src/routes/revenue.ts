@@ -1,13 +1,17 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { convertToUsd } from '../services/currency';
+import { llmService } from '../services/llm';
 import { createLogger } from '../utils/logger';
 import { FREE_PLAN_LIMITS, getUserPlan } from '../services/billingRules';
 
 const logger = createLogger('Revenue');
 const router = Router();
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 type RangeKey = '7d' | '30d' | '90d' | '1y' | 'ytd';
 
@@ -873,6 +877,235 @@ router.delete('/expenses/:id', authenticate, async (req: Request, res: Response,
         logger.error('Failed to delete expense', { error: error instanceof Error ? error.message : 'Unknown' });
         next(error);
     }
+});
+
+// ─── Import document (unified add credit / add expense via AI) ───────────────
+
+const SUPPORTED_MIME = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+]);
+
+function normalizeCurrency(currency: unknown): string | null {
+  if (!currency || typeof currency !== 'string') return null;
+  const clean = currency.trim().toUpperCase().replace(/[^A-Z]/g, '');
+  if (clean.length === 3) return clean;
+  if (clean === 'NGN' || currency.includes('₦') || /naira/i.test(currency)) return 'NGN';
+  if (clean === 'EUR' || currency.includes('€')) return 'EUR';
+  if (clean === 'GBP' || currency.includes('£')) return 'GBP';
+  if (clean === 'GHS' || currency.includes('₵') || /cedis?/i.test(currency)) return 'GHS';
+  if (clean === 'KES' || /ksh|kes/i.test(currency)) return 'KES';
+  if (clean === 'ZAR' || /rand/i.test(currency)) return 'ZAR';
+  return 'USD';
+}
+
+// POST /api/revenue/import-document/analyze — upload file, classify via Gemini, no DB writes
+router.post('/import-document/analyze', authenticate, upload.single('file'), async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) { res.status(400).json({ success: false, error: { message: 'No file uploaded' } }); return; }
+
+    const mimeType = String(file.mimetype || '').trim().toLowerCase();
+    const normalizedMime = SUPPORTED_MIME.has(mimeType) ? mimeType
+      : file.originalname.endsWith('.pdf') ? 'application/pdf'
+      : file.originalname.endsWith('.png') ? 'image/png'
+      : file.originalname.match(/\.jpe?g$/i) ? 'image/jpeg'
+      : file.originalname.endsWith('.webp') ? 'image/webp'
+      : mimeType;
+
+    if (!SUPPORTED_MIME.has(normalizedMime)) {
+      res.status(400).json({ success: false, error: { message: 'Unsupported file type. Use PDF, PNG, JPG, or WebP.' } });
+      return;
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ success: false, error: { message: 'AI analysis is not configured. Contact support.' } });
+      return;
+    }
+
+    const base64Data = file.buffer.toString('base64');
+
+    const prompt = `You are Hedwig, an assistant for freelancers. Classify the attached document and extract bookkeeping fields.
+Return ONLY valid JSON with no markdown fences, no commentary, no extra text.
+
+Schema:
+{
+  "classification": "invoice" | "receipt" | "bank_statement" | "contract" | "other",
+  "confidence": 0.0 to 1.0,
+  "summary": "One sentence describing what this document is.",
+  "suggestedTitle": "Short filing title",
+  "amount": number or null,
+  "currency": "3-letter ISO code like USD, EUR, NGN, GBP or null",
+  "date": "YYYY-MM-DD or null",
+  "issuer": "Sender/company name or null",
+  "issuerEmail": "email or null",
+  "paymentStatus": "paid" | "unpaid" | "unknown",
+  "category": "software" | "contractors" | "marketing" | "travel" | "meals" | "office" | "operations" | "taxes" | "other"
+}
+
+Rules:
+- Use "receipt" for money the user already spent (expense).
+- Use "invoice" for money owed to or paid to the user.
+- Use "bank_statement" for account/transaction statements.
+- Use "contract" for agreements or signed documents.
+- If the document is a receipt or shows money going out, set classification to "receipt".
+- If the document is a bank statement, set classification to "bank_statement" and extract totals.
+- paymentStatus "paid" = the document shows the invoice was paid, receipt, zero balance, or paid stamp.
+- category is for expense categorization — only relevant for receipts.
+- If amount is not clear, set it to null.
+- Currency must be a 3-letter ISO code. Detect from symbols: ₦=NGN, €=EUR, £=GBP, ₵=GHS, KSh/KES, R/ZAR. Default to USD.`;
+
+    const text = (await llmService.generateText(prompt, {
+      forceProvider: 'gemini',
+      useFallbacks: false,
+      maxOutputTokens: 1800,
+      temperature: 0.1,
+      files: [{ mimeType: normalizedMime, data: base64Data }],
+    })).trim();
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      res.status(422).json({ success: false, error: { message: 'AI could not parse the document. Try a clearer scan or different format.' } });
+      return;
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      res.status(422).json({ success: false, error: { message: 'AI returned an unreadable response. Try again.' } });
+      return;
+    }
+
+    const classification = String(parsed.classification || 'other');
+    const validClassifications = ['invoice', 'receipt', 'bank_statement', 'contract', 'other'];
+    const normalizedClassification = validClassifications.includes(classification) ? classification : 'other';
+
+    // Determine if it's expense or credit
+    let suggestedEntryType = 'credit';
+    if (normalizedClassification === 'receipt') {
+      suggestedEntryType = 'expense';
+    } else if (normalizedClassification === 'bank_statement') {
+      suggestedEntryType = 'expense';
+    } else if (normalizedClassification === 'invoice') {
+      suggestedEntryType = parsed.paymentStatus === 'paid' ? 'credit' : 'credit';
+    }
+
+    const amount = typeof parsed.amount === 'number' && parsed.amount > 0 ? parsed.amount : null;
+
+    res.json({
+      success: true,
+      data: {
+        classification: normalizedClassification,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
+        summary: String(parsed.summary || ''),
+        suggestedTitle: parsed.suggestedTitle ? String(parsed.suggestedTitle) : undefined,
+        suggestedEntryType,
+        amount: amount ?? null,
+        currency: normalizeCurrency(parsed.currency),
+        date: parsed.date ? String(parsed.date).slice(0, 10) : null,
+        issuer: parsed.issuer ? String(parsed.issuer) : null,
+        issuerEmail: parsed.issuerEmail ? String(parsed.issuerEmail) : null,
+        paymentStatus: parsed.paymentStatus || 'unknown',
+        category: ['software', 'contractors', 'marketing', 'travel', 'meals', 'office', 'operations', 'taxes', 'other'].includes(String(parsed.category)) ? String(parsed.category) : 'other',
+      },
+    });
+  } catch (error) {
+    logger.error('Document analysis failed', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
+});
+
+// POST /api/revenue/import-document/confirm — create the record (expense or credit)
+router.post('/import-document/confirm', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const { entryType, amount, currency, category, note, date, clientId, title, suggestedTitle, issuer, issuerEmail, classification } = req.body;
+
+    const amt = Number(amount);
+    const curr = String(currency || 'USD').toUpperCase();
+
+    if (!Number.isFinite(amt) || amt <= 0) {
+      res.status(400).json({ success: false, error: { message: 'Valid amount is required' } });
+      return;
+    }
+
+    let convertedAmountUsd: number;
+    if (curr === 'USD') {
+      convertedAmountUsd = amt;
+    } else {
+      try {
+        convertedAmountUsd = await convertToUsd(amt, curr);
+      } catch (err) {
+        logger.warn('Currency conversion failed; using raw amount', { currency: curr, error: err });
+        convertedAmountUsd = amt;
+      }
+    }
+
+    if (entryType === 'expense') {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          amount: amt,
+          currency: curr,
+          converted_amount_usd: convertedAmountUsd,
+          category: category || 'other',
+          note: note || '',
+          source_type: 'attachment_import',
+          date: date ? new Date(date).toISOString() : new Date().toISOString(),
+          client_id: clientId || null,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw new Error(`expense insert failed: ${summarizeError(error)}`);
+      res.json({ success: true, data });
+      return;
+    }
+
+    // Credit / revenue
+    const creditTitle = title || suggestedTitle || 'Imported credit';
+    const { data, error } = await supabase
+      .from('documents')
+      .insert({
+        user_id: user.id,
+        type: 'INVOICE',
+        title: `${creditTitle} [Credit]`,
+        amount: amt,
+        currency: curr,
+        status: 'PAID',
+        chain: 'BASE',
+        client_id: clientId || null,
+        content: {
+          bookkeeping_only: true,
+          created_from: 'document_import',
+          ...(note ? { notes: note } : {}),
+          ...(issuer ? { issuer } : {}),
+          ...(issuerEmail ? { issuer_email: issuerEmail } : {}),
+          ...(classification ? { source_classification: classification } : {}),
+        },
+      })
+      .select('id')
+      .single();
+
+    if (error) throw new Error(`credit insert failed: ${summarizeError(error)}`);
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Document import confirm failed', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
 });
 
 export default router;

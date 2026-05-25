@@ -365,6 +365,9 @@ export const SchedulerService = {
                         ...(brief.projectAlerts || []),
                         ...(brief.highlights || []),
                         brief.financialTrend?.description,
+                        brief.metrics.expensesLast30DaysUsd > 0
+                            ? `Expenses: ${formatUsdBrief(brief.metrics.expensesLast30DaysUsd)}`
+                            : null,
                     ], 3);
                     let emailSent = false;
 
@@ -380,7 +383,7 @@ export const SchedulerService = {
                                 { label: 'Unpaid', value: `${brief.metrics.unpaidCount}` },
                                 { label: 'Overdue', value: `${brief.metrics.overdueCount}` },
                                 { label: 'Outstanding', value: formatUsdBrief(outstandingUsd) },
-                                { label: 'Deadlines', value: `${brief.metrics.upcomingDeadlines}` },
+                                { label: 'Expenses', value: formatUsdBrief(brief.metrics.expensesLast30DaysUsd || 0) },
                             ],
                             ctaPath: '/dashboard',
                         });
@@ -467,6 +470,9 @@ export const SchedulerService = {
                         summary.revenueChangePct !== 0
                             ? `Revenue ${summary.revenueChangePct > 0 ? 'up' : 'down'} ${Math.abs(summary.revenueChangePct)}% vs last week`
                             : 'Revenue was flat against last week',
+                        summary.expensesTotalUsd > 0
+                            ? `Expenses: ${formatUsdBrief(summary.expensesTotalUsd)}`
+                            : null,
                         summary.overdueCount > 0
                             ? `${summary.overdueCount} overdue invoice${summary.overdueCount === 1 ? '' : 's'} worth ${formatUsdBrief(summary.overdueAmountUsd)}`
                             : 'No overdue invoices at week end',
@@ -483,9 +489,9 @@ export const SchedulerService = {
                             highlights: weeklyHighlights,
                             stats: [
                                 { label: 'Revenue', value: formatUsdBrief(summary.revenueUsd) },
+                                { label: 'Expenses', value: formatUsdBrief(summary.expensesTotalUsd) },
                                 { label: 'Paid invoices', value: `${summary.paidInvoiceCount}` },
                                 { label: 'New invoices', value: `${summary.newInvoiceCount}` },
-                                { label: 'Overdue', value: `${summary.overdueCount}` },
                             ],
                             ctaPath: '/dashboard',
                         });
@@ -499,6 +505,8 @@ export const SchedulerService = {
                         revenue_usd: summary.revenueUsd,
                         previous_week_revenue_usd: summary.previousWeekRevenueUsd,
                         revenue_change_pct: summary.revenueChangePct,
+                        expenses_total_usd: summary.expensesTotalUsd,
+                        expense_categories: summary.expenseCategories,
                         overdue_amount_usd: summary.overdueAmountUsd,
                         top_clients: summary.topClients,
                         highlights: weeklyHighlights,

@@ -4,7 +4,8 @@ import { GeminiService } from '../services/gemini';
 import { createLogger } from '../utils/logger';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
-import { requireProFeatureAccess } from '../services/billingRules';
+import { requireProFeatureAccess, getUsageLimit, getUserSubscriptionTier } from '../services/billingRules';
+import { checkUsageLimit, incrementUsage } from '../services/usageService';
 
 const logger = createLogger('CreationBox');
 const router = Router();
@@ -202,6 +203,25 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
 - Extract 'dueDate' if mentioned (preferably in YYYY-MM-DD format).
 - Intent MUST be 'invoice'.
 `;
+        }
+
+        // Check usage limit before AI call
+        const tier = await getUserSubscriptionTier(gateUser as any);
+        const aiLimit = getUsageLimit(tier, 'ai_prompts');
+        const usageCheck = await checkUsageLimit(gateUser.id, 'ai_prompts', aiLimit);
+        if (!usageCheck.allowed) {
+            res.status(429).json({
+                success: false,
+                error: {
+                    code: 'usage_limit_exceeded',
+                    metric: 'ai_prompts',
+                    limit: usageCheck.limit,
+                    current: usageCheck.current,
+                    remaining: usageCheck.remaining,
+                    message: `You've used ${usageCheck.current} of ${usageCheck.limit} AI prompts this month. Upgrade or wait for the reset.`,
+                },
+            });
+            return;
         }
 
         const enrichedText = `${dateContext}\n${networkDefault}\n${modeInstruction}\nUser input: ${text}`;
@@ -614,6 +634,8 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             hasDueDate: !!parsedData.dueDate,
             priority: parsedData.priority
         });
+
+        await incrementUsage(gateUser.id, 'ai_prompts');
 
         res.json({
             success: true,

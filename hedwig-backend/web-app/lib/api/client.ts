@@ -2215,4 +2215,30 @@ export const hedwigApi = {
       options,
     );
   },
+
+  async analyzeImportDocument(file: File, options?: ApiOptions): Promise<Record<string, unknown>> {
+    if (!options?.accessToken) throw new Error('Missing access token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${backendConfig.apiBaseUrl}/api/revenue/import-document/analyze`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${options.accessToken}` },
+      body: formData,
+    });
+    const raw = await res.text();
+    let payload: any;
+    try { payload = JSON.parse(raw); } catch {
+      throw new Error(`Server returned non-JSON. Response started with: ${raw.slice(0, 120).replace(/\s+/g, ' ').trim()}`);
+    }
+    if (!res.ok || !payload?.success) throw new Error(payload?.error?.message || 'Analysis failed');
+    return payload.data;
+  },
+
+  async confirmImportDocument(payload: Record<string, unknown>, options?: ApiOptions): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>('/api/revenue/import-document/confirm', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
 };

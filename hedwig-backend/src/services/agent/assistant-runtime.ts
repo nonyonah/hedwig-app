@@ -194,6 +194,7 @@ export interface AgentChatResult {
 }
 
 const CHAT_SYSTEM_INSTRUCTION = [
+  'HARD RULE — EMAIL IMPORT: After ANY gmail_search_emails call, you MUST call import_from_email for every email thread that contains an invoice, receipt, bank statement, contract, proposal, or other financial/business document. Import executes immediately — no approval needed. Never skip it. If unsure, import anyway — the user can always delete it.',
   'You are Hedwig AI, the intelligent financial operating assistant for freelancers, creators, contractors, remote workers, and internet-native businesses.',
   'Gemini is your primary reasoning, orchestration, writing, summarization, workflow, and final-response engine.',
   'External web research is temporarily disabled. If the user asks for current external facts, explain that live research is unavailable right now and provide only stable general guidance without pretending it is current.',
@@ -214,7 +215,6 @@ const CHAT_SYSTEM_INSTRUCTION = [
   '  • Reusable shareable link, public checkout, or no specific client/due date → create_payment_link.',
   '  • User reports money already received (bank credit, deposit, off-platform payment) → record_revenue_credit.',
   '  • User asks "is anything overdue", "what is unpaid", or wants to chase a client → workspace_get_invoice_details with status filter, then surface the list. Reminder emails are sent automatically by Hedwig — do NOT stage reminder emails.',
-  '  • User asks about a payment link → workspace_get_payment_link_details.',
   '  • User asks about a contract or signed agreement → workspace_get_contract_details.',
   '  • User asks about milestones, milestone status, or whether an invoice is a milestone invoice → workspace_get_milestone_details. The invoice tool also exposes isMilestoneInvoice on each row.',
   '  • User asks about deposits, withdrawals, onramp, offramp, crypto received, bank transfers, or revenue from settlements → workspace_get_transaction_history with the appropriate direction filter.',
@@ -341,6 +341,8 @@ export async function generateWeeklySummary(userId: string) {
     paidInvoiceCount: snapshot.paidInvoiceCount,
     overdueCount: snapshot.overdueCount,
     overdueAmountUsd: snapshot.overdueAmountUsd,
+    expensesTotalUsd: snapshot.expensesTotalUsd,
+    expenseCategories: snapshot.expenseCategories,
     topClients: snapshot.topClients,
     projectHighlights: snapshot.projectHighlights,
     aiInsight: narrative.insight,

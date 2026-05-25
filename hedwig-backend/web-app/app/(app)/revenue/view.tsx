@@ -39,6 +39,7 @@ import { formatShortDate } from '@/lib/utils';
 import { hedwigApi } from '@/lib/api/client';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 import { normalizeExpenseRecord } from '@/lib/revenue-analytics';
+import { ImportDialog } from './import-dialog';
 import type { Invoice, Client } from '@/lib/models/entities';
 import { openPaymentDetail } from '@/lib/payments/open-detail';
 import type {
@@ -512,6 +513,7 @@ export function RevenueClient({
   const [sourceBreakdown, setSourceBreakdown] = useState<PaymentSourceBreakdown[]>(paymentSources);
   const [activityItems, setActivityItems] = useState<ActivityEvent[]>(activityFeed);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [showCreditDialog, setShowCreditDialog] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
@@ -725,17 +727,25 @@ export function RevenueClient({
           <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Operational financial dashboard — what is happening with your money right now.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
-          <Button variant="secondary" onClick={openAddCredit}>
-            <Plus className="h-4 w-4" weight="bold" />
-            Add credit
-          </Button>
+          <div className="relative">
+            <Button onClick={() => setShowImportDialog(true)}>
+              <Plus className="h-4 w-4" weight="bold" />
+              Import
+            </Button>
+          </div>
           <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
             <DownloadSimple className="h-4 w-4" weight="bold" />
             Export
           </Button>
         </div>
-        <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} clients={clients} />
       </div>
+      <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} clients={clients} />
+      <ImportDialog
+        open={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImported={() => { refreshRevenueData(); }}
+        accessToken={accessToken}
+      />
 
       <ContextualSuggestions
         title="Expense review"
@@ -1009,10 +1019,19 @@ export function RevenueClient({
                 : 'No expenses recorded yet'}
             </p>
           </div>
-          <Button onClick={openAddExpense}>
-            <Plus className="h-4 w-4" weight="bold" />
-            Add expense
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setShowImportDialog(true)}>
+              <Plus className="h-4 w-4" weight="bold" />
+              Import
+            </Button>
+            <button
+              type="button"
+              onClick={openAddExpense}
+              className="text-[12px] font-semibold text-[#717680] hover:text-[#414651] transition"
+            >
+              Add manually
+            </button>
+          </div>
         </div>
 
         {expenses.length === 0 ? (

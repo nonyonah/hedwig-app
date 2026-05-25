@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import type { AssistantSuggestion } from '@/lib/types/assistant';
 import { extractApiErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
 import { SUGGESTION_META } from './suggestion-meta';
+import { UsageCounter } from './usage-counter';
+import { AssistantMessage } from './assistant-message';
 
 interface ChatMessage {
   id: string;
@@ -338,6 +340,7 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
             <div className="flex items-center gap-2">
               <p className="text-[15px] font-semibold text-[#181d27]">Hedwig</p>
               <span className="rounded-full bg-[#eff4ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#2563eb]">Beta</span>
+              <UsageCounter />
             </div>
             <p className="text-[12px] text-[#a4a7ae]">Ask anything · Actions need your approval</p>
           </div>
@@ -546,7 +549,11 @@ function MessageBubble({
             : 'bg-[#f5f5f5] text-[#181d27]'
         )}
       >
-        <p className="whitespace-pre-wrap">{isUser ? message.content : formatUsdText(message.content)}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <AssistantMessage content={message.content} />
+        )}
 
         {!isUser && message.toolsCalled && message.toolsCalled.length > 0 && (
           <div className="mt-2">
