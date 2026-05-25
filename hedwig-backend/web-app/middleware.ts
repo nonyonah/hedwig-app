@@ -7,7 +7,6 @@ const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwi
 const PUBLIC_PATHS = [
   '/sign-in',
   '/sign-out',
-  '/pricing',
   // Backend proxy routes authenticate with bearer tokens; keep them reachable
   // during pre-session flows like initial sign-in bootstrap.
   '/api/backend',

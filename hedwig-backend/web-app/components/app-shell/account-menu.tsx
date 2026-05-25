@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { CreditCard, Lifebuoy, SignOut } from '@/components/ui/lucide-icons';
+import { Lifebuoy, SignOut } from '@/components/ui/lucide-icons';
 import { Avatar } from '@/components/ui/avatar';
 
 export function AccountMenu({
@@ -63,15 +63,6 @@ export function AccountMenu({
 
           {/* Menu items — UUI: px-1.5 py-1.5 */}
           <div className="flex flex-col gap-0.5 px-1.5 py-1.5">
-            <Link
-              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#f8f9fb]"
-              href="/pricing"
-              onClick={() => setOpen(false)}
-            >
-              <CreditCard className="h-5 w-5 text-[#a4a7ae]" weight="regular" />
-              <span className="text-[14px] font-semibold text-[#414651] group-hover:text-[#252b37]">Manage subscription</span>
-            </Link>
-
             <Link
               className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#f8f9fb]"
               href="https://help.hedwigbot.xyz"

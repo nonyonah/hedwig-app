@@ -219,9 +219,9 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
       toast({
         type: 'error',
         title: 'Could not open subscription management',
-        message: error?.message || 'Please try again from pricing.'
+        message: error?.message || 'Please try again.'
       });
-      router.push('/pricing');
+      router.push('/dashboard');
     } finally {
       setIsOpeningSubscriptionManagement(false);
     }

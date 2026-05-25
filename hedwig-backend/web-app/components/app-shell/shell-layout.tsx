@@ -52,7 +52,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
               href="/api/auth/exit-demo"
               className="rounded-full bg-[#2563eb] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
             >
-              Try it yourself
+              Try it for free
             </a>
           </div>
         )}

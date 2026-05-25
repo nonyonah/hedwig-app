@@ -38,16 +38,16 @@ function LandingPage() {
           </Link>
           <div className="flex items-center gap-5">
             <Link
-              href="/pricing"
+              href="/sign-in"
               className="text-[13px] font-semibold text-[#717680] transition-colors duration-200 hover:text-[#181d27]"
             >
-              Pricing
+              Sign in
             </Link>
             <a
               href="/api/auth/exit-demo"
               className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition-all duration-200 hover:bg-[#1d4ed8]"
             >
-              Try it yourself
+              Try it for free
             </a>
           </div>
         </div>
@@ -89,7 +89,7 @@ function LandingPage() {
                 href="/api/auth/exit-demo"
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-[#2563eb] px-8 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:bg-[#1d4ed8] hover:shadow-[0_12px_32px_rgba(37,99,235,0.32)]"
               >
-                Try it yourself
+                Try it for free
                 <ArrowRight className="h-4 w-4" weight="bold" />
               </a>
             </div>
@@ -344,7 +344,7 @@ function LandingPage() {
                   href="/api/auth/exit-demo"
                   className="mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[14px] font-semibold text-[#181d27] transition-all duration-200 hover:bg-[#f1f5ff] hover:shadow-lg"
                 >
-                  Try it yourself
+                  Try it for free
                   <ArrowRight className="h-4 w-4" weight="bold" />
                 </a>
               </div>
@@ -361,7 +361,6 @@ function LandingPage() {
           </Link>
           <p className="text-[12px] text-[#a4a7ae]">© {new Date().getFullYear()} Hedwig. All rights reserved.</p>
           <div className="flex items-center gap-5">
-            <Link href="/pricing" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Pricing</Link>
             <Link href="/privacy" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Privacy</Link>
             <Link href="/terms" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Terms</Link>
             <Link href="/returns" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Returns</Link>

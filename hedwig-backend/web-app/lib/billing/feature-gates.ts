@@ -12,28 +12,16 @@ export const PRO_FEATURE_LABELS: Record<ProFeature, string> = {
 };
 
 export function isProPlan(billing: BillingStatusSummary | null | undefined): boolean {
-  if (!billing) return false;
-  return billing.plan === 'pro';
+  return true;
 }
 
 export function isOnPaidPlan(billing: BillingStatusSummary | null | undefined): boolean {
-  if (!billing) return false;
-  return billing.plan === 'starter' || billing.plan === 'pro' || Boolean(billing.entitlement?.isActive);
+  return true;
 }
 
 export function canUseFeature(
   feature: ProFeature,
   billing: BillingStatusSummary | null | undefined
 ): boolean {
-  const isPro = isProPlan(billing);
-  if (!isPro) return false;
-
-  switch (feature) {
-    case 'assistant_summary_advanced':
-    case 'recurring_invoice_automation':
-    case 'usd_account':
-      return true;
-    default:
-      return false;
-  }
+  return true;
 }
