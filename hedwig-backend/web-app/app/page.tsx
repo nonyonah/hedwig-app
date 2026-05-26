@@ -78,7 +78,7 @@ function LandingPage() {
               className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[#667085]"
               style={{ animationDelay: '160ms' }}
             >
-              Hedwig is the financial workspace for freelancers in Nigeria and everywhere else. Create invoices, collect USDC payments, and withdraw to your local bank — all in one place.
+              Send professional invoices in seconds. Your clients pay how they want. You get paid direct to your bank or wallet — no monthly fee.
             </p>
             <p
               className="animate-fade-up mt-4 text-[13px] font-medium text-[#667085]"
@@ -108,7 +108,7 @@ function LandingPage() {
               className="animate-fade-up mt-3 text-[12px] font-medium text-[#a4a7ae]"
               style={{ animationDelay: '280ms' }}
             >
-              No card required. First invoice in under 2 minutes.
+              No card required. First invoice in under 2 minutes. You only pay a small fee when you convert or withdraw.
             </p>
 
             {/* Product Hunt badge */}
@@ -270,19 +270,10 @@ function LandingPage() {
       <section className="border-t border-[#f1f2f4] bg-white px-8 py-24">
         <div className="mx-auto max-w-[1400px]">
           <AnimateIn className="mb-14 text-center">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">Trusted by freelancers worldwide</p>
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-              {[
-                { value: '12,000+', label: 'Active freelancers' },
-                { value: '$4.2M+', label: 'Invoices sent' },
-                { value: '30+', label: 'Countries' },
-              ].map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <p className="text-[36px] font-bold tracking-[-0.03em] text-[#181d27]">{stat.value}</p>
-                  <p className="text-[13px] text-[#667085]">{stat.label}</p>
-                </div>
-              ))}
-            </div>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">Built for freelancers across borders</p>
+            <p className="mx-auto max-w-lg text-[15px] leading-7 text-[#667085]">
+              Hedwig was built by people who have actually freelanced. We know what it feels like to chase a payment across time zones.
+            </p>
           </AnimateIn>
 
           <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
@@ -290,7 +281,7 @@ function LandingPage() {
               {
                 name: 'Chinedu O.',
                 city: 'Lagos',
-                quote: 'I used to explain international bank transfers to clients in London. Now I send a Hedwig invoice, they pay in USDC, and I convert to naira the same day.',
+                quote: 'I used to explain international bank transfers to clients in London. Now I send a Hedwig invoice, they pay in stablecoins, and I convert to naira the same day.',
               },
               {
                 name: 'Ama K.',
@@ -329,9 +320,9 @@ function LandingPage() {
           <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-4">
             {[
               { step: '01', label: 'Send the invoice', desc: 'Create a professional invoice with a built-in payment link. Your client gets a clean, branded bill they can pay in seconds.', accent: 'bg-[#eff4ff] text-[#717680]' },
-              { step: '02', label: 'Client pays', desc: 'They pay in USDC from any wallet, anywhere in the world. No routing numbers, no currency confusion.', accent: 'bg-[#ecfdf3] text-[#717680]' },
-              { step: '03', label: 'Funds land', desc: 'Money hits your Hedwig wallet in minutes. Not days. No middlemen holding your cash.', accent: 'bg-[#fffaeb] text-[#717680]' },
-              { step: '04', label: 'You decide', desc: 'Convert to naira, cedis, or your local currency. Or hold USDC and spend it later. You control the timing.', accent: 'bg-[#f4f3ff] text-[#717680]' },
+              { step: '02', label: 'Client pays', desc: 'They pay in stablecoins from any wallet, anywhere in the world. No routing numbers, no currency confusion.', accent: 'bg-[#ecfdf3] text-[#717680]' },
+              { step: '03', label: 'Funds land', desc: 'Money hits your Hedwig wallet in minutes. Same-day withdrawals to your bank. No holds, no middlemen.', accent: 'bg-[#fffaeb] text-[#717680]' },
+              { step: '04', label: 'You decide', desc: 'Convert to naira, cedis, or your local currency. Or hold stablecoins and spend them later. You control the timing.', accent: 'bg-[#f4f3ff] text-[#717680]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
                 <div className="flex h-full flex-col bg-white px-8 py-10">
@@ -358,17 +349,17 @@ function LandingPage() {
                     Your payments don&apos;t just arrive — they land in your wallet.
                   </h2>
                   <p className="mt-4 max-w-sm text-[15px] leading-7 text-[#667085]">
-                    No more checking five apps to see if you got paid. Your Hedwig wallet holds your USDC balance, tracks your earnings, and moves money to your bank when you&apos;re ready.
+                    No more checking five apps to see if you got paid. Your Hedwig wallet holds your stablecoin balance, tracks your earnings, and moves money to your bank when you&apos;re ready.
                   </p>
                   <div className="mt-9 flex flex-col gap-6">
                     {[
                       {
                         title: 'Your balance, visible',
-                        desc: 'See exactly what you\'ve earned, what\'s pending, and what\'s available to withdraw. In USDC and your local currency.',
+                        desc: 'See exactly what you\'ve earned, what\'s pending, and what\'s available to withdraw. In stablecoins and your local currency.',
                       },
                       {
                         title: 'Convert on your terms',
-                        desc: 'Swap USDC to naira, cedis, or another currency when the rate works for you. Not when a platform decides.',
+                        desc: 'Swap stablecoins to naira, cedis, or another currency when the rate works for you. Not when a platform decides.',
                       },
                       {
                         title: 'Withdraw to your bank',
@@ -406,11 +397,11 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── USDC Explainer ────────────────────────────────────── */}
+      {/* ── Stablecoin Explainer ────────────────────────────────────── */}
       <section className="bg-white px-8 pb-16">
         <div className="mx-auto max-w-2xl rounded-[20px] bg-[#eff4ff] px-8 py-6 text-center">
           <p className="text-[17px] font-medium text-[#181d27]">
-            <span className="font-semibold">USDC is a digital dollar.</span> It lands in your wallet. You convert it to naira, cedis, or whatever you need.
+            <span className="font-semibold">Stablecoins are digital currencies pegged 1:1 to the US dollar.</span> Unlike volatile cryptocurrencies, they hold their value, making them ideal for payments, savings, and transfers. They land in your wallet. You convert them to your local currency whenever you need.
           </p>
         </div>
       </section>
@@ -430,14 +421,61 @@ function LandingPage() {
           <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
             {[
               { step: '01', label: 'Set up in 2 minutes', desc: 'Create your account, connect your bank details, and you are ready to bill. No paperwork, no waiting period.', accent: 'bg-[#eff4ff] text-[#717680]' },
-              { step: '02', label: 'Send an invoice, get paid in hours', desc: 'Build an invoice with your branding, send it to any client anywhere, and receive USDC directly into your Hedwig wallet — usually within minutes.', accent: 'bg-[#ecfdf3] text-[#717680]' },
-              { step: '03', label: 'Convert or cash out same-day', desc: 'Withdraw to your local bank account or hold USDC in your wallet. You control the timing, and most withdrawals settle same day.', accent: 'bg-[#fffaeb] text-[#717680]' },
+              { step: '02', label: 'Send an invoice, get paid in minutes', desc: 'Build an invoice with your branding, send it to any client anywhere, and receive stablecoins directly into your Hedwig wallet — usually within minutes.', accent: 'bg-[#ecfdf3] text-[#717680]' },
+              { step: '03', label: 'Convert or cash out same-day', desc: 'Withdraw to your local bank account or hold stablecoins in your wallet. You control the timing, and most withdrawals settle same day.', accent: 'bg-[#fffaeb] text-[#717680]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
                 <div className="flex h-full flex-col bg-white px-8 py-10">
                   <span className={`mb-5 inline-flex w-fit rounded-full px-3 py-1 text-[12px] font-bold ${accent}`}>{step}</span>
                   <h3 className="text-[19px] font-semibold tracking-[-0.02em] text-[#181d27]">{label}</h3>
                   <p className="mt-3 text-[14px] leading-7 text-[#667085]">{desc}</p>
+                </div>
+              </AnimateIn>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ───────────────────────────────────────────────── */}
+      <section className="border-t border-[#f1f2f4] bg-white px-8 py-24">
+        <div className="mx-auto max-w-[800px]">
+          <AnimateIn className="mb-14 text-center">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">FAQs</p>
+            <h2 className="text-[32px] font-bold tracking-[-0.04em] text-[#181d27] md:text-[44px]">
+              Questions you might have
+            </h2>
+          </AnimateIn>
+          <div className="flex flex-col gap-4">
+            {[
+              {
+                q: 'Will my client know I\'m using crypto?',
+                a: 'No. They see a professional invoice with your logo and a payment link. They click and pay. Whether they use a card, bank transfer, or stablecoin, the experience looks the same to them.',
+              },
+              {
+                q: 'How fast do I actually get paid?',
+                a: 'Stablecoin payments land in your Hedwig wallet within minutes. Bank withdrawals usually settle same day. No holds, no waiting periods.',
+              },
+              {
+                q: 'Is this really free?',
+                a: 'Sending invoices is free. There are no monthly subscriptions. You only pay a small network fee when you convert stablecoins to your local currency or withdraw to your bank.',
+              },
+              {
+                q: 'Do I need a crypto wallet before I start?',
+                a: 'No. Your Hedwig wallet is built in. When a client pays, the money lands there automatically. You do not need to set up anything external.',
+              },
+              {
+                q: 'Can I use this if my client is in another country?',
+                a: 'Yes. That is exactly what Hedwig is built for. Clients in the US, UK, Europe, or Asia can pay your invoice as easily as a local one.',
+              },
+              {
+                q: 'Which countries and currencies do you support?',
+                a: 'We currently support local currency withdrawals in Nigeria, Tanzania, Malawi, Kenya, Uganda, and Brazil. We are adding more fiat currencies and stablecoins soon.',
+              },
+            ].map((faq, i) => (
+              <AnimateIn key={faq.q} delay={i * 60}>
+                <div className="rounded-2xl border border-[#e9eaeb] bg-[#f8f9fb] px-8 py-6">
+                  <p className="text-[15px] font-semibold text-[#181d27]">{faq.q}</p>
+                  <p className="mt-2 text-[14px] leading-7 text-[#667085]">{faq.a}</p>
                 </div>
               </AnimateIn>
             ))}
