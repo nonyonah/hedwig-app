@@ -5,9 +5,9 @@ import Image from 'next/image';
 
 const ITEMS = [
   {
-    title: 'Payment requests clients understand',
+    title: 'Invoices that clients actually pay',
     description:
-      'Send invoices and payment links with clear amount, due date, and payment instructions so clients know what to do next.',
+      'Send branded invoices with clear USDC payment links. Your client sees the amount, due date, and a one-tap way to pay. No confusion, no chasing.',
     preview: <PaymentsPanel />,
   },
   {
@@ -23,15 +23,15 @@ const ITEMS = [
     preview: <ProjectsPanel />,
   },
   {
-    title: 'Less chasing, clearer follow-up',
+    title: 'Clear follow-up, no awkwardness',
     description:
-      'See what has been sent, what has been paid, and what needs a reminder without digging through old messages.',
+      'See what has been paid, what is pending, and what needs a reminder. Hedwig tells you who to follow up with and when.',
     preview: <ContractPanel />,
   },
   {
-    title: 'Your money, visible across devices',
+    title: 'Your money lives here',
     description:
-      'Use web for client work and mobile for alerts, wallet actions, and account tools when you are away from your desk.',
+      'Your Hedwig wallet is where payments land. Check your balance, convert currency, and withdraw to your bank — on web or mobile.',
     preview: <SubscriptionPanel />,
   },
 ];

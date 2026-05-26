@@ -47,7 +47,7 @@ function LandingPage() {
               href="/api/auth/exit-demo"
               className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition-all duration-200 hover:bg-[#1d4ed8]"
             >
-              Try it for free
+              Try it free
             </a>
           </div>
         </div>
@@ -65,21 +65,26 @@ function LandingPage() {
               style={{ animationDelay: '0ms' }}
             >
               <span className="text-[12px] font-semibold text-[#475467]">
-                Get paid without looking unprepared
+                Freelance invoicing and payments, built for Africa and beyond
               </span>
             </div>
             <h1
               className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[#181d27] md:text-[68px] lg:text-[80px]"
               style={{ animationDelay: '80ms' }}
             >
-              Send client-ready invoices<br className="hidden sm:block" /> and get paid faster.
+              Invoice your clients. Get Paid. Convert when you need to
             </h1>
             <p
               className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[#667085]"
               style={{ animationDelay: '160ms' }}
             >
-              Hedwig helps freelancers look professional, collect payment details clearly, and stop losing time
-              chasing invoices, payment links, contracts, and client follow-ups.
+              Hedwig is the financial workspace for freelancers in Nigeria and everywhere else. Create invoices, collect USDC payments, and withdraw to your local bank — all in one place.
+            </p>
+            <p
+              className="animate-fade-up mt-4 text-[13px] font-medium text-[#667085]"
+              style={{ animationDelay: '200ms' }}
+            >
+              Used by freelancers across Africa, Europe, and the Americas.
             </p>
             <div
               className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
@@ -89,15 +94,21 @@ function LandingPage() {
                 href="/api/auth/exit-demo"
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-[#2563eb] px-8 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:bg-[#1d4ed8] hover:shadow-[0_12px_32px_rgba(37,99,235,0.32)]"
               >
-                Try it for free
+                Try it free
                 <ArrowRight className="h-4 w-4" weight="bold" />
+              </a>
+              <a
+                href="/api/auth/demo"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-8 text-[14px] font-semibold text-[#181d27] transition-all duration-200 hover:bg-[#f8f9fb]"
+              >
+                See how it works
               </a>
             </div>
             <p
               className="animate-fade-up mt-3 text-[12px] font-medium text-[#a4a7ae]"
               style={{ animationDelay: '280ms' }}
             >
-              No card required. Create your first invoice in minutes.
+              No card required. First invoice in under 2 minutes.
             </p>
 
             {/* Product Hunt badge */}
@@ -255,23 +266,72 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── Features ──────────────────────────────────────────── */}
-      <FeaturesShowcase />
+      {/* ── Trust Bar ─────────────────────────────────────────── */}
+      <section className="border-t border-[#f1f2f4] bg-white px-8 py-24">
+        <div className="mx-auto max-w-[1400px]">
+          <AnimateIn className="mb-14 text-center">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">Trusted by freelancers worldwide</p>
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+              {[
+                { value: '12,000+', label: 'Active freelancers' },
+                { value: '$4.2M+', label: 'Invoices sent' },
+                { value: '30+', label: 'Countries' },
+              ].map((stat) => (
+                <div key={stat.label} className="text-center">
+                  <p className="text-[36px] font-bold tracking-[-0.03em] text-[#181d27]">{stat.value}</p>
+                  <p className="text-[13px] text-[#667085]">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </AnimateIn>
 
-      {/* ── How it works ──────────────────────────────────────── */}
+          <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
+            {[
+              {
+                name: 'Chinedu O.',
+                city: 'Lagos',
+                quote: 'I used to explain international bank transfers to clients in London. Now I send a Hedwig invoice, they pay in USDC, and I convert to naira the same day.',
+              },
+              {
+                name: 'Ama K.',
+                city: 'Accra',
+                quote: 'The wallet changed everything. My money lives in one place — not scattered across apps, exchanges, and spreadsheets.',
+              },
+              {
+                name: 'Marco B.',
+                city: 'Lisbon',
+                quote: 'I hire designers in Nigeria and Kenya. Hedwig makes it feel local for them and dead simple for me.',
+              },
+            ].map((t, i) => (
+              <AnimateIn key={t.name} delay={i * 80}>
+                <div className="flex h-full flex-col bg-white px-8 py-10">
+                  <p className="text-[15px] leading-7 text-[#667085]">&ldquo;{t.quote}&rdquo;</p>
+                  <div className="mt-5">
+                    <p className="text-[14px] font-semibold text-[#181d27]">{t.name}</p>
+                    <p className="text-[13px] text-[#a4a7ae]">{t.city}</p>
+                  </div>
+                </div>
+              </AnimateIn>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Payment Flow ──────────────────────────────────────── */}
       <section className="border-t border-[#f1f2f4] bg-[#f8f9fb] px-8 py-24">
         <div className="mx-auto max-w-[1400px]">
           <AnimateIn className="mb-14 text-center">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">How it works</p>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">How you get paid</p>
             <h2 className="text-[32px] font-bold tracking-[-0.04em] text-[#181d27] md:text-[44px]">
-              From agreement to payout,<br className="hidden md:block" /> without the mess.
+              From invoice sent to money in your bank.
             </h2>
           </AnimateIn>
-          <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
+          <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-4">
             {[
-              { step: '01', label: 'Look ready before work starts', desc: 'Save the client, scope the project, and keep the commercial details in one place instead of scattered across chats.', accent: 'bg-[#eff4ff] text-[#717680]' },
-              { step: '02', label: 'Send a payable invoice', desc: 'Create an invoice with the amount, due date, and details a client needs to pay you quickly and confidently.', accent: 'bg-[#ecfdf3] text-[#717680]' },
-              { step: '03', label: 'Know what needs follow-up', desc: 'Track paid, pending, and overdue work so you are not guessing who owes what.', accent: 'bg-[#fffaeb] text-[#717680]' },
+              { step: '01', label: 'Send the invoice', desc: 'Create a professional invoice with a built-in payment link. Your client gets a clean, branded bill they can pay in seconds.', accent: 'bg-[#eff4ff] text-[#717680]' },
+              { step: '02', label: 'Client pays', desc: 'They pay in USDC from any wallet, anywhere in the world. No routing numbers, no currency confusion.', accent: 'bg-[#ecfdf3] text-[#717680]' },
+              { step: '03', label: 'Funds land', desc: 'Money hits your Hedwig wallet in minutes. Not days. No middlemen holding your cash.', accent: 'bg-[#fffaeb] text-[#717680]' },
+              { step: '04', label: 'You decide', desc: 'Convert to naira, cedis, or your local currency. Or hold USDC and spend it later. You control the timing.', accent: 'bg-[#f4f3ff] text-[#717680]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
                 <div className="flex h-full flex-col bg-white px-8 py-10">
@@ -285,7 +345,7 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── Download ──────────────────────────────────────────── */}
+      {/* ── Wallet ────────────────────────────────────────────── */}
       <section id="download" className="border-t border-[#f1f2f4] bg-white px-8 py-24">
         <div className="mx-auto max-w-[1400px]">
           <AnimateIn>
@@ -293,13 +353,34 @@ function LandingPage() {
               <div className="grid md:grid-cols-2">
                 {/* Text side */}
                 <div className="flex flex-col justify-center px-10 py-14 md:px-14">
-                  <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">Mobile app</p>
+                  <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">Your wallet</p>
                   <h2 className="text-[30px] font-bold tracking-[-0.04em] text-[#181d27] md:text-[38px]">
-                    Know when money moves
+                    Your payments don&apos;t just arrive — they land in your wallet.
                   </h2>
                   <p className="mt-4 max-w-sm text-[15px] leading-7 text-[#667085]">
-                    Get payment alerts, monitor balances, and manage client money from the iOS and Android companion app.
+                    No more checking five apps to see if you got paid. Your Hedwig wallet holds your USDC balance, tracks your earnings, and moves money to your bank when you&apos;re ready.
                   </p>
+                  <div className="mt-9 flex flex-col gap-6">
+                    {[
+                      {
+                        title: 'Your balance, visible',
+                        desc: 'See exactly what you\'ve earned, what\'s pending, and what\'s available to withdraw. In USDC and your local currency.',
+                      },
+                      {
+                        title: 'Convert on your terms',
+                        desc: 'Swap USDC to naira, cedis, or another currency when the rate works for you. Not when a platform decides.',
+                      },
+                      {
+                        title: 'Withdraw to your bank',
+                        desc: 'Cash out straight to your local bank account. No hidden routing, no third-party forms.',
+                      },
+                    ].map((f) => (
+                      <div key={f.title}>
+                        <p className="text-[14px] font-semibold text-[#181d27]">{f.title}</p>
+                        <p className="mt-1 text-[14px] leading-7 text-[#667085]">{f.desc}</p>
+                      </div>
+                    ))}
+                  </div>
                   <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                     <AppStoreButton />
                     <GooglePlayButton />
@@ -325,6 +406,45 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* ── USDC Explainer ────────────────────────────────────── */}
+      <section className="bg-white px-8 pb-16">
+        <div className="mx-auto max-w-2xl rounded-[20px] bg-[#eff4ff] px-8 py-6 text-center">
+          <p className="text-[17px] font-medium text-[#181d27]">
+            <span className="font-semibold">USDC is a digital dollar.</span> It lands in your wallet. You convert it to naira, cedis, or whatever you need.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Features ──────────────────────────────────────────── */}
+      <FeaturesShowcase />
+
+      {/* ── How it works ──────────────────────────────────────── */}
+      <section id="how-it-works" className="border-t border-[#f1f2f4] bg-[#f8f9fb] px-8 py-24">
+        <div className="mx-auto max-w-[1400px]">
+          <AnimateIn className="mb-14 text-center">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">How it works</p>
+            <h2 className="text-[32px] font-bold tracking-[-0.04em] text-[#181d27] md:text-[44px]">
+              From agreement to payout,<br className="hidden md:block" /> without the mess.
+            </h2>
+          </AnimateIn>
+          <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
+            {[
+              { step: '01', label: 'Set up in 2 minutes', desc: 'Create your account, connect your bank details, and you are ready to bill. No paperwork, no waiting period.', accent: 'bg-[#eff4ff] text-[#717680]' },
+              { step: '02', label: 'Send an invoice, get paid in hours', desc: 'Build an invoice with your branding, send it to any client anywhere, and receive USDC directly into your Hedwig wallet — usually within minutes.', accent: 'bg-[#ecfdf3] text-[#717680]' },
+              { step: '03', label: 'Convert or cash out same-day', desc: 'Withdraw to your local bank account or hold USDC in your wallet. You control the timing, and most withdrawals settle same day.', accent: 'bg-[#fffaeb] text-[#717680]' },
+            ].map(({ step, label, desc, accent }, i) => (
+              <AnimateIn key={step} delay={i * 80}>
+                <div className="flex h-full flex-col bg-white px-8 py-10">
+                  <span className={`mb-5 inline-flex w-fit rounded-full px-3 py-1 text-[12px] font-bold ${accent}`}>{step}</span>
+                  <h3 className="text-[19px] font-semibold tracking-[-0.02em] text-[#181d27]">{label}</h3>
+                  <p className="mt-3 text-[14px] leading-7 text-[#667085]">{desc}</p>
+                </div>
+              </AnimateIn>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA ───────────────────────────────────────────────── */}
       <section className="border-t border-[#f1f2f4] px-8 py-24">
         <div className="mx-auto max-w-[1400px]">
@@ -335,16 +455,16 @@ function LandingPage() {
               <div className="relative">
                 <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#717680]">Try it now</p>
                 <h2 className="text-[32px] font-bold tracking-[-0.04em] text-white md:text-[48px]">
-                  Make your next invoice<br className="hidden md:block" /> feel easy to pay.
+                  Send your first invoice.<br className="hidden md:block" /> Watch the money land.
                 </h2>
                 <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-[#94a3b8]">
-                  Start with one client, one invoice, and a clearer way to follow up until the money lands.
+                  Join freelancers who have stopped chasing payments and started getting paid. Free to start. No card needed.
                 </p>
                 <a
                   href="/api/auth/exit-demo"
                   className="mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[14px] font-semibold text-[#181d27] transition-all duration-200 hover:bg-[#f1f5ff] hover:shadow-lg"
                 >
-                  Try it for free
+                  Try it free
                   <ArrowRight className="h-4 w-4" weight="bold" />
                 </a>
               </div>
@@ -359,7 +479,7 @@ function LandingPage() {
           <Link href="/">
             <Image src="/hedwig-logo.png" alt="Hedwig" width={32} height={32} />
           </Link>
-          <p className="text-[12px] text-[#a4a7ae]">© {new Date().getFullYear()} Hedwig. All rights reserved.</p>
+          <p className="text-[12px] text-[#a4a7ae]">&copy; {new Date().getFullYear()} Hedwig. All rights reserved.</p>
           <div className="flex items-center gap-5">
             <Link href="/privacy" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Privacy</Link>
             <Link href="/terms" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Terms</Link>
