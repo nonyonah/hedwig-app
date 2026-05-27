@@ -1,7 +1,7 @@
 export const privyConfig = {
   appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? '',
   clientId: process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID ?? '',
-  loginMethods: ['email', 'google'] as const,
+  loginMethods: ['email', 'google', 'apple'] as const,
   embeddedWallets: {
     ethereum: {
       createOnLogin: 'all-users' as const
