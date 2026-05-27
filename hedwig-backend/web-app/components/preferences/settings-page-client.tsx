@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
   CaretRight,
+  Key,
   SignOut,
   Trash,
   WarningCircle
@@ -117,7 +118,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteStep, setDeleteStep] = useState<'warn' | 'confirm'>('warn');
+  const [deleteStep, setDeleteStep] = useState<'backup' | 'warn' | 'confirm'>('backup');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [billingStatus, setBillingStatus] = useState<BillingStatusSummary | null>(null);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
@@ -383,7 +384,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   };
 
   const openDeleteDialog = () => {
-    setDeleteStep('warn');
+    setDeleteStep('backup');
     setDeleteOpen(true);
   };
 
@@ -642,6 +643,22 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           </SettingsRow>
         </SettingsSection>
 
+        <SettingsSection title="Security" description="Protect your wallet and account.">
+          <SettingsRow
+            label="Export private key"
+            description="Back up your embedded wallet before deleting your account or switching devices."
+          >
+            <Link
+              href="/export-wallet"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa]"
+            >
+              <Key className="h-3.5 w-3.5" weight="bold" />
+              Export
+              <CaretRight className="h-3.5 w-3.5 text-[#a4a7ae]" />
+            </Link>
+          </SettingsRow>
+        </SettingsSection>
+
         <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
           <div className="border-b border-[#f2f4f7] px-5 py-4">
             <h2 className="text-[16px] font-semibold text-[#181d27]">Account</h2>
@@ -662,10 +679,44 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
         </section>
       </div>
 
-      {/* Account deletion — 2-step dialog */}
+      {/* Account deletion — 3-step dialog: backup → warn → confirm */}
       <Dialog open={deleteOpen} onOpenChange={(open) => { if (!isDeletingAccount) setDeleteOpen(open); }}>
         <DialogContent className="max-w-[480px]">
-          {deleteStep === 'warn' ? (
+          {deleteStep === 'backup' && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Back up your wallet first</DialogTitle>
+                <DialogDescription>
+                  Your account has an embedded crypto wallet. Deleting your account will permanently remove access to it.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogBody className="space-y-4">
+                <div className="flex items-start gap-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
+                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#92400e]" weight="fill" />
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#92400e]">You will lose access to your funds</p>
+                    <p className="mt-0.5 text-[12px] leading-5 text-[#b45309]">
+                      If you have USDC or other tokens in your Hedwig wallet, export your private key now so you can access them later. Hedwig cannot recover this key for you.
+                    </p>
+                  </div>
+                </div>
+              </DialogBody>
+              <DialogFooter className="flex-col gap-2 sm:flex-row">
+                <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+                <Button variant="outline" asChild>
+                  <Link href="/export-wallet" onClick={() => setDeleteOpen(false)}>
+                    <Key className="h-4 w-4" weight="bold" />
+                    Export private key
+                  </Link>
+                </Button>
+                <Button variant="destructive" onClick={() => setDeleteStep('warn')}>
+                  I have backed up — continue
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {deleteStep === 'warn' && (
             <>
               <DialogHeader>
                 <DialogTitle>Before you delete your account</DialogTitle>
@@ -683,13 +734,15 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 </div>
               </DialogBody>
               <DialogFooter>
-                <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+                <Button variant="secondary" onClick={() => setDeleteStep('backup')}>Back</Button>
                 <Button variant="destructive" onClick={() => setDeleteStep('confirm')}>
                   Continue to delete
                 </Button>
               </DialogFooter>
             </>
-          ) : (
+          )}
+
+          {deleteStep === 'confirm' && (
             <>
               <DialogHeader>
                 <DialogTitle>Confirm account deletion</DialogTitle>
