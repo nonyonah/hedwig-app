@@ -179,11 +179,25 @@ const parseOfframpError = (error: any, hasTokensBeenSent: boolean, usedGateway =
         };
     }
 
+    // ERC-20 balance errors — the EOA doesn't have enough USDC on the selected chain.
+    // This can happen when funds are sitting in the Gateway unified balance instead.
+    if (
+        message.includes('transfer amount exceeds') ||
+        (message.includes('insufficient balance') && !message.includes('gas'))
+    ) {
+        return {
+            type: 'insufficient_funds',
+            title: 'Insufficient USDC balance',
+            message: "Your wallet doesn't have enough USDC on this chain to cover this withdrawal.",
+            recoveryHint: 'Check your per-chain USDC balance, or enable Aggregated USDC to withdraw from your unified balance.',
+            shouldShowRetry: true,
+        };
+    }
+
+    // Native gas errors — the EOA has USDC but lacks ETH/POL/etc for network fees.
     if (
         message.includes('insufficient funds') ||
-        message.includes('insufficient balance') ||
         message.includes('not enough balance') ||
-        message.includes('transfer amount exceeds') ||
         message.includes('gas required exceeds')
     ) {
         return {
@@ -666,8 +680,10 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             }
 
             const grossAmount = toNumber(data.amount);
-            const providerServiceFee = Number(order.serviceFee || 0);
-            const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount)) + (Number.isFinite(providerServiceFee) ? providerServiceFee : 0);
+            // Paycrest's serviceFee (senderFee + transactionFee) is already deducted
+            // from the cryptoAmount by Paycrest on their side. The user only needs to
+            // send exactly order.cryptoAmount to the receive address.
+            const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount));
             const transferAmountStr = transferAmount.toFixed(6);
             const transferAmountSubunits = parseUsdcSubunits(transferAmountStr);
 
@@ -722,7 +738,18 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                     }
                 }
 
+                const rpcProvider = new ethers.JsonRpcProvider(destConfig.rpcUrl);
                 const erc20Data = buildErc20TransferData(order.receiveAddress, transferAmount);
+                // Pre-flight: verify EOA USDC balance on-chain before attempting transfer.
+                const erc20BalanceAbi = ['function balanceOf(address owner) view returns (uint256)'];
+                const usdcContract = new ethers.Contract(destConfig.usdc, erc20BalanceAbi, rpcProvider);
+                const eoaUsdcBalance = await usdcContract.balanceOf(walletAddress);
+                if (eoaUsdcBalance < transferAmountSubunits) {
+                    throw new Error(
+                        `transfer amount exceeds balance: need ${transferAmountStr} USDC, EOA has ${formatUsdcFee(eoaUsdcBalance)} USDC on ${destConfig.name}`
+                    );
+                }
+
                 const directTxHash = await provider.request({
                     method: 'eth_sendTransaction',
                     params: [{
@@ -730,6 +757,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                         to: destConfig.usdc,
                         data: erc20Data,
                         chainId: destConfig.chainIdHex,
+                        value: '0x0',
                     }],
                 }) as string;
 
