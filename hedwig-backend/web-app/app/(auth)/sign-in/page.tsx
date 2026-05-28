@@ -8,7 +8,7 @@ import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
 
-type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'bank' | 'error';
+type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'target' | 'bank' | 'error';
 const RESEND_COOLDOWN_SECONDS = 30;
 
 function getIdentityDetails(user: any) {
@@ -59,6 +59,10 @@ export default function SignInPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Target
+  const [monthlyTarget, setMonthlyTarget] = useState(10000);
+  const [isSavingTarget, setIsSavingTarget] = useState(false);
 
   const identity = useMemo(() => getIdentityDetails(user), [user]);
 
@@ -184,12 +188,31 @@ export default function SignInPage() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), firstName: firstName.trim(), lastName: lastName.trim() }),
       });
       if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your profile.'); }
-      setStage('bank');
+      setStage('target');
     } catch (err: any) {
       setErrorMessage(err?.message || 'Could not save your profile.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSaveTarget = async () => {
+    if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
+    setIsSavingTarget(true); setErrorMessage('');
+    try {
+      const res = await fetch(`${backendConfig.apiBaseUrl}/api/users/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ monthlyTarget }),
+      });
+      if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your target.'); }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Could not save your target.');
+      setIsSavingTarget(false);
+      return;
+    }
+    setIsSavingTarget(false);
+    setStage('bank');
   };
 
   /* ── layout shell ── */
@@ -426,8 +449,106 @@ export default function SignInPage() {
                 {isSubmitting ? 'Saving…' : 'Continue'}
               </button>
 
-              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 2</p>
+              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 3</p>
             </div>
+          </div>
+        )}
+
+        {/* ── Target ── */}
+        {stage === 'target' && (
+          <div>
+            <button
+              type="button"
+              onClick={() => { setStage('profile'); setErrorMessage(''); }}
+              className="mb-6 flex items-center gap-1.5 text-[13px] text-[#a4a7ae] transition hover:text-[#717680]"
+            >
+              <CaretLeft className="h-3.5 w-3.5" weight="bold" />
+              Back
+            </button>
+
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Set a monthly goal</h1>
+            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">
+              This helps you track your earnings. You can always change it later.
+            </p>
+
+            <div className="mt-8 space-y-4">
+              <div className="rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                  Monthly target (USD)
+                </p>
+                <div className="mt-3 flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMonthlyTarget((p) => Math.max(0, p - 500))}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8]"
+                  >
+                    <svg width="16" height="2" viewBox="0 0 16 2" fill="none">
+                      <path d="M1 1h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  <div className="min-w-[140px] text-center">
+                    <p className="text-[36px] font-light leading-none tracking-[-0.03em] text-[#181d27]">
+                      {monthlyTarget.toLocaleString('en-US')}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">USD/month</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMonthlyTarget((p) => p + 500)}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8]"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="mt-4 flex justify-center gap-2">
+                  {[
+                    { label: 'Starter', value: 1000 },
+                    { label: 'Growing', value: 5000 },
+                    { label: 'Established', value: 10000 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setMonthlyTarget(preset.value)}
+                      className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition ${
+                        monthlyTarget === preset.value
+                          ? 'bg-[#2563eb] text-white'
+                          : 'bg-[#f5f5f5] text-[#414651] hover:bg-[#e9eaeb]'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {errorMessage && (
+                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                  {errorMessage}
+                </p>
+              )}
+
+              <button
+                type="button"
+                disabled={isSavingTarget}
+                onClick={handleSaveTarget}
+                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingTarget ? 'Saving…' : 'Continue'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setErrorMessage(''); setStage('bank'); }}
+                className="flex h-10 w-full items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
+              >
+                Skip for now
+              </button>
+            </div>
+
+            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 2 of 3</p>
           </div>
         )}
 
@@ -480,7 +601,7 @@ export default function SignInPage() {
               </button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 2 of 2</p>
+            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 3 of 3</p>
           </div>
         )}
 

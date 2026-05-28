@@ -429,6 +429,10 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
         setClients((current) => [createdClient, ...current]);
       }
 
+      if (createdClient) {
+        window.dispatchEvent(new CustomEvent('hedwig:client-created', { detail: createdClient }));
+      }
+
       toast({ type: 'success', ...formatCreatedMessage('client') });
       closeAndReset();
       router.refresh();

@@ -48,6 +48,45 @@ interface WithdrawResponse {
   fee: string;
 }
 
+interface VirtualAccountParams {
+  firstname: string;
+  lastname: string;
+  email: string;
+  bvn: string;
+  dateOfBirth: string;
+  phone?: string;
+}
+
+interface VirtualAccountResponse {
+  id: string;
+  accountNumber: string;
+  accountName: string;
+  bankName: string;
+  bankCode: string;
+  type: string;
+  status: string;
+  createdAt: string;
+}
+
+interface AutoSettlementRuleParams {
+  addressId: string;
+  sourceAssets: string[];
+  destinationAssetId: string;
+  destinationAddress: string;
+  destinationChain: string;
+  orderType?: 'FASTEST' | 'CHEAPEST' | 'RECOMMENDED' | 'NO_SLIPPAGE';
+}
+
+interface AutoSettlementRuleResponse {
+  id: string;
+  status: string;
+  sourceAssets: string[];
+  destinationAssetId: string;
+  destinationAddress: string;
+  orderType: string;
+  createdAt: string;
+}
+
 class BlockradarService {
   private api: AxiosInstance;
   private baseWalletId: string;

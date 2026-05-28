@@ -29,7 +29,7 @@ export default function GoalScreen() {
     const [selectedPreset, setSelectedPreset] = useState<string | null>('Growing');
     const [loading, setLoading] = useState(false);
 
-    // Redirect to biometrics — target setting is no longer part of onboarding
+    // Redirect to biometrics — target setting is not part of mobile onboarding
     useEffect(() => {
         router.replace('/auth/biometrics');
     }, [router]);

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Envelope, Plus, Trash } from '@/components/ui/lucide-icons';
 import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
@@ -53,6 +53,14 @@ export function ClientsClient({
   const [filter, setFilter] = useState<FilterKey>('all');
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: CustomEvent<Client>) => {
+      setClients((prev) => [e.detail, ...prev]);
+    };
+    window.addEventListener('hedwig:client-created', handler as EventListener);
+    return () => window.removeEventListener('hedwig:client-created', handler as EventListener);
+  }, []);
 
   const segmentCounts = useMemo(() => {
     const counts: Record<ClientSegment, number> = { new: 0, active: 0, lapsing: 0, dormant: 0 };

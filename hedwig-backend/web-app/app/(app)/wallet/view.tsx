@@ -1,13 +1,14 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ArrowsLeftRight, ArrowDown, Bank, Info, Wallet, X } from '@/components/ui/lucide-icons';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { hedwigApi } from '@/lib/api/client';
 import type { AccountTransaction, GatewayBalance, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatShortDate } from '@/lib/utils';
 
@@ -69,6 +70,7 @@ export function WalletView({
   usdAccountsEnabled = false,
   isUsdAccountPaywalled = false,
   isUsdAccountRegionLocked = false,
+  accessToken,
 }: {
   initialWalletData: WalletData;
   initialAccountsData: AccountsData;
@@ -84,6 +86,8 @@ export function WalletView({
   const { formatAmount } = useCurrency();
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<WalletTransaction | AccountTransaction | null>(null);
+  const [usdSetupState, setUsdSetupState] = useState<'idle' | 'enrolling' | 'kyc_loading' | 'error'>('idle');
+  const [usdSetupError, setUsdSetupError] = useState('');
   const usdAccount = initialAccountsData.usdAccount;
   const accountTransactions = initialAccountsData.accountTransactions;
   const { walletAccounts, walletAssets, walletTransactions } = initialWalletData;
@@ -111,6 +115,33 @@ export function WalletView({
   const hasAssignedAccount = Boolean(usdAccount.hasAssignedAccount || usdAccount.accountNumberMasked || usdAccount.routingNumberMasked);
   const hasBridgeEnrollment = Boolean(usdAccount.bridgeCustomerId || hasAssignedAccount);
   const effectiveUsdStatus = hasBridgeEnrollment ? usdAccount.status : 'not_started';
+
+  const shouldShowUsdSetupCard = usdAccountsEnabled && !isUsdAccountPaywalled && !isUsdAccountRegionLocked && (effectiveUsdStatus === 'not_started' || effectiveUsdStatus === 'pending_kyc');
+
+  const handleUsdSetup = useCallback(async () => {
+    if (!accessToken) return;
+    setUsdSetupState('enrolling');
+    setUsdSetupError('');
+    try {
+      const enrollResult = await hedwigApi.enrollUsdAccount({ accessToken, disableMockFallback: true });
+      if (enrollResult.nextAction === 'complete_bridge_kyc') {
+        setUsdSetupState('kyc_loading');
+        const kycResult = await hedwigApi.createUsdAccountKycLink({ accessToken, disableMockFallback: true });
+        window.open(kycResult.url, '_blank');
+        setUsdSetupState('idle');
+      } else {
+        window.location.reload();
+      }
+    } catch (err: any) {
+      setUsdSetupState('error');
+      setUsdSetupError(err?.message || 'Something went wrong. Please try again.');
+    }
+  }, [accessToken]);
+
+  const handleRetryUsdSetup = useCallback(() => {
+    setUsdSetupState('idle');
+    setUsdSetupError('');
+  }, []);
 
   const usdStatusLabel = isUsdAccountPaywalled
     ? 'Pro'
@@ -197,6 +228,56 @@ export function WalletView({
         ]}
         className={usdAccountsEnabled ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'}
       />
+
+      {shouldShowUsdSetupCard ? (
+        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
+          <div className="flex items-start gap-5 px-5 py-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eff4ff]">
+              <Bank className="h-5 w-5 text-[#2563eb]" weight="bold" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold text-[#181d27]">Set up your USD account</p>
+              <p className="mt-1 text-[13px] leading-5 text-[#717680]">
+                Get a US bank account number and routing number. Clients can pay you directly by ACH
+                or wire — the funds settle as USDC in your wallet automatically.
+              </p>
+              {usdSetupError ? (
+                <p className="mt-2 text-[12px] text-[#b42318]">{usdSetupError}</p>
+              ) : null}
+              <div className="mt-4 flex items-center gap-3">
+                {usdSetupState === 'idle' || usdSetupState === 'error' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleUsdSetup}
+                      className="flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {usdSetupState === 'error' ? 'Try again' : 'Get started'}
+                    </button>
+                    {usdSetupState === 'error' ? (
+                      <button
+                        type="button"
+                        onClick={handleRetryUsdSetup}
+                        className="text-[12px] font-medium text-[#717680] underline transition hover:text-[#414651]"
+                      >
+                        Dismiss
+                      </button>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-[13px] text-[#717680]">
+                    <svg className="h-4 w-4 animate-spin text-[#2563eb]" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                    </svg>
+                    {usdSetupState === 'enrolling' ? 'Setting up your account…' : 'Preparing KYC verification…'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <WalletAssetsTable
         assetsByChain={assetsByChain}
