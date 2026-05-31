@@ -7,6 +7,7 @@ import { getUserback } from '@userback/widget';
 import { Question, SidebarSimple } from '@/components/ui/lucide-icons';
 import { navigationGroups } from '@/lib/utils/navigation';
 import { cn } from '@/lib/utils';
+import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 
 export function AppSidebar({
   collapsed,
@@ -55,22 +56,11 @@ export function AppSidebar({
       {/* Workspace header */}
       <div className={cn(
         'flex h-12 shrink-0 items-center border-b border-[#f3f4f6]',
-        effectiveCollapsed ? 'justify-center px-0' : 'justify-between px-4'
+        effectiveCollapsed ? 'justify-center px-0' : 'justify-between px-3'
       )}>
-        <div className={cn('flex min-w-0 items-center gap-2', effectiveCollapsed && 'justify-center')}>
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-[#eef0f3]">
-            <Image
-              src="/hedwig-logo.png"
-              alt="Hedwig"
-              width={24}
-              height={24}
-              className="h-full w-full object-cover"
-            />
-          </div>
-          {!effectiveCollapsed && (
-            <span className="truncate text-[13px] font-semibold text-[#181d27]">Hedwig</span>
-          )}
-        </div>
+        <WorkspaceSwitcher collapsed={effectiveCollapsed} onOpenCreate={() => {
+          window.dispatchEvent(new CustomEvent('hedwig:open-create-workspace'));
+        }} />
         {!effectiveCollapsed && (
           <button
             type="button"

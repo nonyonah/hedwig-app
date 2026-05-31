@@ -30,6 +30,7 @@ import {
 } from 'recharts';
 import { ExportDialog } from '@/components/export/export-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import {
   Dialog,
@@ -213,14 +214,14 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
           <label className="block text-[13px] font-medium text-[#414651]">Monthly target</label>
           <div className="mt-1.5 flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition duration-100 focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
             <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[14px] font-semibold text-[#a4a7ae]">$</span>
-            <input
+            <Input
               type="number"
               min="1"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               placeholder="10000"
-              className="flex-1 bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
+              className="flex-1 bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none border-0 shadow-none focus-visible:ring-0"
             />
           </div>
           <p className="mt-2 text-[12px] text-[#a4a7ae]">Enter the USD amount you aim to earn this month.</p>
@@ -380,9 +381,10 @@ export function InsightsClient({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {RANGES.map((r) => (
-            <button
+            <Button
               key={r}
               type="button"
+              variant="outline"
               onClick={() => handleRangeChange(r)}
               className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-100 ease-linear ${
                 range === r
@@ -391,7 +393,7 @@ export function InsightsClient({
               }`}
             >
               {RANGE_LABELS[r]}
-            </button>
+            </Button>
           ))}
         </div>
         <p className="text-[12px] text-[#a4a7ae]">{formatTimeAgo(data?.lastUpdatedAt ?? null)}</p>
@@ -623,14 +625,15 @@ export function InsightsClient({
                   {earningsTrend === 'neutral' && <Minus className="h-3 w-3" weight="bold" />}
                   {earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs previous period
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setShowTargetDialog(true)}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-[#d5d7da] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
                 >
                   <Target className="h-3.5 w-3.5" weight="bold" />
                   Set target
-                </button>
+                </Button>
               </div>
             </article>
 

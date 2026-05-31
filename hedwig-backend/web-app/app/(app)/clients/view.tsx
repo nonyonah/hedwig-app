@@ -145,18 +145,19 @@ export function ClientsClient({
           </div>
           <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end">
             {ALL_FILTERS.map((s) => (
-              <button
+              <Button
                 key={s}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setFilter(s)}
-                className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
                   filter === s
                     ? 'bg-[#f5f5f5] text-[#181d27]'
                     : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
                 }`}
               >
                 {FILTER_LABELS[s]}
-              </button>
+              </Button>
             ))}
             <div className="mx-1 h-4 w-px bg-[#f2f4f7]" />
             <Button
@@ -223,15 +224,16 @@ export function ClientsClient({
                   <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(client.lastActivityAt)}</p>
                   <div className="flex justify-end">
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setClientToDelete(client)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-[#d0d5dd] transition-all hover:bg-[#fef3f2] hover:text-[#b42318]"
+                        className="h-7 w-7 rounded-md text-[#d0d5dd] hover:bg-[#fef3f2] hover:text-[#b42318]"
                         aria-label={`Delete ${client.name}`}
                         title="Delete client"
                       >
                         <Trash className="h-3.5 w-3.5" weight="bold" />
-                      </button>
+                      </Button>
                       {client.email && (
                         <Link
                           href={`/clients/${client.id}`}

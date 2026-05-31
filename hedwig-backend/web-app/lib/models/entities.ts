@@ -26,7 +26,23 @@ export interface WorkspaceMember {
   id: EntityId;
   workspaceId: EntityId;
   userId: EntityId;
-  role: 'owner' | 'finance' | 'ops';
+  role: 'owner' | 'admin' | 'member';
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+  joinedAt?: string;
+}
+
+export interface WorkspaceInvitation {
+  id: EntityId;
+  workspaceId: EntityId;
+  email: string;
+  role: 'admin' | 'member';
+  token: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  createdAt: string;
+  expiresAt: string;
 }
 
 export type ClientSegment = 'new' | 'active' | 'lapsing' | 'dormant';

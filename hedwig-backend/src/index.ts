@@ -56,6 +56,7 @@ import revenueRoutes from './routes/revenue';
 import currencyRoutes from './routes/currency';
 import assistantRoutes from './routes/assistant';
 import bankAccountRoutes from './routes/bankAccount';
+import workspaceRoutes from './routes/workspaces';
 import { warmRateSnapshot } from './services/currency';
 
 // Import middleware
@@ -416,6 +417,26 @@ schedulerRouter.post('/gmail-import-sync', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.syncConnectedGmailInboxes();
 });
+schedulerRouter.post('/viewed-followup-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendViewedDocumentFollowUpNudges();
+});
+schedulerRouter.post('/client-reactivation-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendClientReactivationNudges();
+});
+schedulerRouter.post('/recurring-upsell-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendRecurringInvoiceUpsellNudges();
+});
+schedulerRouter.post('/integration-teaser-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendIntegrationTeaserNudges();
+});
+schedulerRouter.post('/payment-link-boost-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendPaymentLinkBoostNudges();
+});
 
 app.use('/internal/scheduler', schedulerRouter);
 
@@ -503,6 +524,7 @@ app.use('/api/revenue', insightsLimiter, revenueRoutes);
 app.use('/api/currency', currencyRoutes);
 app.use('/api/assistant', insightsLimiter, assistantRoutes);
 app.use('/api/bank-account', financialLimiter, bankAccountRoutes);
+app.use('/api/workspaces', workspaceRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

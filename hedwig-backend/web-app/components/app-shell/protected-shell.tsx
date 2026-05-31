@@ -23,6 +23,14 @@ export async function ProtectedShell({ children }: { children: ReactNode }) {
   const fallbackEmail = shellUser?.email ?? 'account@hedwig.local';
   const fallbackFullName = `${shellUser?.firstName ?? ''} ${shellUser?.lastName ?? ''}`.trim() || fallbackEmail;
 
+  const fallbackWorkspace = {
+    id: shellUser?.id ? `ws_personal_${shellUser.id}` : 'ws_personal',
+    name: fallbackFullName,
+    slug: fallbackFullName.toLowerCase().replace(/\s+/g, '-'),
+    plan: 'beta' as const,
+    timezone: 'UTC',
+  };
+
   return (
     <ShellLayout
       unreadCount={unreadCount}
@@ -34,6 +42,7 @@ export async function ProtectedShell({ children }: { children: ReactNode }) {
         email: fallbackEmail,
         fullName: fallbackFullName
       }}
+      fallbackWorkspace={fallbackWorkspace}
     >
       {children}
     </ShellLayout>

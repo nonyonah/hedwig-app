@@ -718,11 +718,22 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
 const shouldUseMockFallback = (options?: ApiOptions) =>
   options?.accessToken === 'demo' && !options?.disableMockFallback;
 
-const authHeaders = (accessToken: string) => ({
-  Authorization: `Bearer ${accessToken}`,
-  'Content-Type': 'application/json',
-  'x-hedwig-shared-backend': backendConfig.apiBaseUrl
-});
+const AUTH_HEADER = 'Authorization';
+const WORKSPACE_HEADER = 'x-workspace-id';
+const WS_STORAGE_KEY = 'hedwig-web-active-workspace';
+
+const authHeaders = (accessToken: string) => {
+  const headers: Record<string, string> = {
+    [AUTH_HEADER]: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    'x-hedwig-shared-backend': backendConfig.apiBaseUrl,
+  };
+  if (typeof window !== 'undefined') {
+    const wsId = window.localStorage.getItem(WS_STORAGE_KEY);
+    if (wsId) headers[WORKSPACE_HEADER] = wsId;
+  }
+  return headers;
+};
 
 function capturePostHogEvent(event: string, properties: Record<string, unknown>): void {
   if (typeof window === 'undefined') return;
@@ -2146,6 +2157,72 @@ export const hedwigApi = {
       () => request<any[]>('/api/revenue/activity', options),
       () => mockActivityFeed,
       options,
+    );
+  },
+
+  // ── Workspaces ──────────────────────────────────────────────────────────────
+
+  async workspaces(options?: ApiOptions): Promise<{ workspaces: any[] }> {
+    return request<{ workspaces: any[] }>('/api/workspaces', options);
+  },
+
+  async workspace(id: string, options?: ApiOptions): Promise<{ workspace: any }> {
+    return request<{ workspace: any }>(`/api/workspaces/${id}`, options);
+  },
+
+  async createWorkspace(name: string, options?: ApiOptions): Promise<{ workspace: any }> {
+    return request<{ workspace: any }>('/api/workspaces', options, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  async updateWorkspace(id: string, data: { name?: string }, options?: ApiOptions): Promise<{ workspace: any }> {
+    return request<{ workspace: any }>(`/api/workspaces/${id}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteWorkspace(id: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}`, options, { method: 'DELETE' });
+  },
+
+  async workspaceMembers(id: string, options?: ApiOptions): Promise<{ members: any[] }> {
+    return request<{ members: any[] }>(`/api/workspaces/${id}/members`, options);
+  },
+
+  async updateWorkspaceMemberRole(id: string, userId: string, role: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}/members/${userId}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  },
+
+  async removeWorkspaceMember(id: string, userId: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}/members/${userId}`, options, { method: 'DELETE' });
+  },
+
+  async workspaceInvitations(id: string, options?: ApiOptions): Promise<{ invitations: any[] }> {
+    return request<{ invitations: any[] }>(`/api/workspaces/${id}/invitations`, options);
+  },
+
+  async inviteWorkspaceMember(id: string, email: string, role: string = 'member', options?: ApiOptions): Promise<{ invitation: any }> {
+    return request<{ invitation: any }>(`/api/workspaces/${id}/invitations`, options, {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    });
+  },
+
+  async cancelWorkspaceInvitation(id: string, invitationId: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}/invitations/${invitationId}`, options, { method: 'DELETE' });
+  },
+
+  async acceptWorkspaceInvitation(token: string, options?: ApiOptions): Promise<{ workspaceId: string; workspaceName: string; role: string }> {
+    return request<{ workspaceId: string; workspaceName: string; role: string }>(
+      `/api/workspaces/invitations/${token}/accept`,
+      options,
+      { method: 'POST' }
     );
   },
 

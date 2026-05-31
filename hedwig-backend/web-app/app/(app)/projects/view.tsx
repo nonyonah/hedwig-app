@@ -125,18 +125,19 @@ export function ProjectsClient({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {STATUS_FILTERS.map((s) => (
-              <button
+              <Button
                 key={s}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setFilter(s)}
-                className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
                   filter === s
                     ? 'bg-[#f5f5f5] text-[#181d27]'
                     : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
                 }`}
               >
                 {s === 'all' ? 'All' : PROJECT_STATUS[s as keyof typeof PROJECT_STATUS]?.label ?? s}
-              </button>
+              </Button>
             ))}
             <div className="mx-1 h-4 w-px bg-[#f2f4f7]" />
             <ExportMenu onCsv={downloadCsv} onPdf={downloadPdf} />
@@ -211,13 +212,14 @@ export function ProjectsClient({
                   </p>
                   <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(project.nextDeadlineAt)}</p>
                   <div className="flex justify-end">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setProjectToDelete(project)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-[#d0d5dd] opacity-0 transition-all hover:bg-[#fff1f0] hover:text-[#f04438] group-hover:opacity-100"
+                      className="h-7 w-7 rounded-md text-[#d0d5dd] opacity-0 hover:bg-[#fff1f0] hover:text-[#f04438] group-hover:opacity-100"
                     >
                       <Trash className="h-3.5 w-3.5" weight="regular" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -259,32 +261,34 @@ function ExportMenu({ onCsv, onPdf }: { onCsv: () => void; onPdf: () => void }) 
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-medium text-[#414651] shadow-xs transition hover:bg-[#f9fafb]"
       >
         <DownloadSimple className="h-3.5 w-3.5" weight="bold" />
         Export
-      </button>
+      </Button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-lg">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
               onClick={() => { onCsv(); setOpen(false); }}
             >
               Download CSV
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
               onClick={() => { onPdf(); setOpen(false); }}
             >
               Download PDF
-            </button>
+            </Button>
           </div>
         </>
       )}

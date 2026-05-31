@@ -1,4 +1,5 @@
 import {
+  Buildings,
   CalendarDots,
   Cards,
   ChartBar,
@@ -39,7 +40,8 @@ export const navigationGroups = [
   {
     label: 'System',
     items: [
-      { title: 'Settings', href: '/settings', icon: Faders, count: null, muted: false }
+      { title: 'Workspace', href: '/workspace/settings', icon: Buildings, count: null, muted: false },
+      { title: 'Settings', href: '/settings', icon: Faders, count: null, muted: false },
     ]
   }
 ] as const;

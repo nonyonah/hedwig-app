@@ -20,6 +20,7 @@ import {
   Warning,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import {
   Dialog,
@@ -250,14 +251,14 @@ function ExpenseDialog({
                 <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[13px] font-semibold text-[#a4a7ae]">
                   {selectedCurrency.symbol}
                 </span>
-                <input
+                <Input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.amount}
                   onChange={(e) => set('amount', e.target.value)}
                   placeholder="0.00"
-                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
+                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none border-0 shadow-none focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -289,7 +290,7 @@ function ExpenseDialog({
             </div>
             <div>
               <label className={labelCls}>Date</label>
-              <input
+              <Input
                 type="date"
                 value={form.date}
                 max={new Date().toISOString().slice(0, 10)}
@@ -302,7 +303,7 @@ function ExpenseDialog({
           {/* Note */}
           <div>
             <label className={labelCls}>Note <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
-            <input
+            <Input
               type="text"
               value={form.note}
               onChange={(e) => set('note', e.target.value)}
@@ -397,14 +398,14 @@ function CreditDialog({
                 <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[13px] font-semibold text-[#a4a7ae]">
                   {selectedCurrency.symbol}
                 </span>
-                <input
+                <Input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.amount}
                   onChange={(e) => set('amount', e.target.value)}
                   placeholder="0.00"
-                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
+                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none border-0 shadow-none focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -423,7 +424,7 @@ function CreditDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Title</label>
-              <input
+              <Input
                 type="text"
                 value={form.title}
                 onChange={(e) => set('title', e.target.value)}
@@ -433,7 +434,7 @@ function CreditDialog({
             </div>
             <div>
               <label className={labelCls}>Date</label>
-              <input
+              <Input
                 type="date"
                 value={form.date}
                 max={new Date().toISOString().slice(0, 10)}
@@ -445,7 +446,7 @@ function CreditDialog({
 
           <div>
             <label className={labelCls}>Note <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
-            <input
+            <Input
               type="text"
               value={form.note}
               onChange={(e) => set('note', e.target.value)}
@@ -756,9 +757,10 @@ export function RevenueClient({
       {/* ── Range filter ── */}
       <div className="flex items-center gap-1.5">
         {RANGES.map((r) => (
-          <button
+          <Button
             key={r}
             type="button"
+            variant="outline"
             onClick={() => refreshRangeData(r)}
             disabled={isRefreshingRange && range === r}
             className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-100 ease-linear ${
@@ -768,7 +770,7 @@ export function RevenueClient({
             }`}
           >
             {RANGE_LABELS[r]}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -1024,13 +1026,14 @@ export function RevenueClient({
               <Plus className="h-4 w-4" weight="bold" />
               Import
             </Button>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={openAddExpense}
               className="text-[12px] font-semibold text-[#717680] hover:text-[#414651] transition"
             >
               Add manually
-            </button>
+            </Button>
           </div>
         </div>
 

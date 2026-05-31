@@ -4,8 +4,12 @@ import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
 import { GeminiService } from '../services/gemini';
-
 const router = Router();
+
+function getWorkspaceScope(req: Request): { workspaceId: string | null; useWorkspace: boolean } {
+  const workspaceId = (req.headers['x-workspace-id'] as string) || req.body?.workspace_id || null;
+  return { workspaceId, useWorkspace: !!workspaceId };
+}
 
 type ClientStats = {
     totalEarnings: number;
@@ -110,11 +114,15 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        const { data: clients, error } = await supabase
-            .from('clients')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+        const { workspaceId, useWorkspace } = getWorkspaceScope(req);
+
+        let query = supabase.from('clients').select('*').eq('user_id', user.id);
+
+        if (useWorkspace && workspaceId) {
+            query = query.eq('workspace_id', workspaceId);
+        }
+
+        const { data: clients, error } = await query.order('created_at', { ascending: false });
 
         if (error) {
             throw new Error(`Failed to fetch clients: ${error.message}`);
@@ -310,18 +318,26 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        const { workspaceId, useWorkspace } = getWorkspaceScope(req);
+
+        const insertData: any = {
+            user_id: user.id,
+            name,
+            email,
+            phone,
+            company,
+            address,
+            wallet_address: walletAddress,
+            notes: notes || null,
+        };
+
+        if (useWorkspace && workspaceId) {
+            insertData.workspace_id = workspaceId;
+        }
+
         const { data: client, error } = await supabase
             .from('clients')
-            .insert({
-                user_id: user.id,
-                name,
-                email,
-                phone,
-                company,
-                address,
-                wallet_address: walletAddress,
-                notes: notes || null,
-            })
+            .insert(insertData)
             .select()
             .single();
 
