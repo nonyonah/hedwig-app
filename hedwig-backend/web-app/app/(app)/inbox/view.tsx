@@ -31,6 +31,7 @@ import {
   XCircle,
 } from '@/components/ui/lucide-icons';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
 import type {
   EmailThread,
@@ -242,30 +243,33 @@ function ThreadCard({
       {/* Actions — visible on hover/selection */}
       {(thread.status === 'needs_review' || isSelected) && (
         <div className="mt-3 flex items-center gap-2 border-t border-[#f2f4f7] pt-3 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            type="button"
+          <Button
+            variant="default"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onConfirm(); }}
-            className="inline-flex items-center gap-1 rounded-full bg-[#2563eb] px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+            className="rounded-full px-3 py-1 text-[11px] font-semibold bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
           >
             <Check className="h-3 w-3" />
             Confirm match
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onIgnore(); }}
-            className="inline-flex items-center gap-1 rounded-full border border-[#e9eaeb] bg-white px-3 py-1 text-[11px] font-semibold text-[#414651] transition hover:bg-[#f9fafb]"
+            className="rounded-full px-3 py-1 text-[11px] font-semibold"
           >
             <X className="h-3 w-3" />
             Ignore
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
-            className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-[#717680] transition hover:text-[#181d27]"
+            className="ml-auto text-[11px] font-medium text-[#717680] hover:text-[#181d27]"
           >
             View thread
             <CaretRight className="h-3 w-3" />
-          </button>
+          </Button>
         </div>
       )}
     </button>
@@ -418,34 +422,37 @@ export function MagicInboxClient({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => void handleSync()}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#f9fafb] disabled:opacity-60"
+            className="rounded-full px-3 py-1.5 text-[12px] font-semibold"
           >
             <ArrowsClockwise className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             {isLoading ? 'Syncing…' : 'Sync'}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
             onClick={() => setShowImportModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+            className="rounded-full px-3 py-1.5 text-[12px] font-semibold bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
           >
             <Plus className="h-3.5 w-3.5" />
             Import invoice
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* ── Tabs ── */}
       <div className="flex items-center gap-0.5 overflow-x-auto border-b border-[#f2f4f7] px-6 pt-1">
         {TABS.map(({ id, label }) => (
-          <button
+          <Button
             key={id}
-            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab(id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-[12px] font-semibold transition ${
+            className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-[12px] font-semibold ${
               activeTab === id
                 ? 'border-b-2 border-[#2563eb] text-[#2563eb]'
                 : 'text-[#717680] hover:text-[#414651]'
@@ -459,7 +466,7 @@ export function MagicInboxClient({
                 {counts[id]}
               </span>
             )}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -479,9 +486,9 @@ export function MagicInboxClient({
                 className="flex-1 bg-transparent text-[12px] text-[#181d27] placeholder-[#a4a7ae] outline-none"
               />
               {search && (
-                <button type="button" onClick={() => setSearch('')}>
+                <Button variant="ghost" size="sm" onClick={() => setSearch('')} className="h-5 w-5 p-0">
                   <X className="h-3 w-3 text-[#a4a7ae] hover:text-[#414651]" />
-                </button>
+                </Button>
               )}
             </div>
           </div>
