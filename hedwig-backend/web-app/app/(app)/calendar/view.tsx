@@ -359,15 +359,16 @@ export function CalendarClient({
                   <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
                   Google Calendar connected
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={syncCalendar}
                   disabled={isSyncing}
                   title="Sync Google Calendar"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e9eaeb] bg-white text-[#717680] shadow-xs transition hover:bg-[#f9fafb] disabled:opacity-50"
+                  className="h-8 w-8 rounded-full"
                 >
                   <ArrowsClockwise className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                </button>
+                </Button>
               </>
             ) : (
               <a
@@ -380,22 +381,23 @@ export function CalendarClient({
           {/* View switcher */}
           <div className="flex rounded-full border border-[#e9eaeb] bg-[#f9fafb] p-0.5">
             {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
-              <button
+              <Button
                 key={v}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setView(v);
                   setSelectedDate(null);
                 }}
                 className={cn(
-                  'rounded-full px-3.5 py-1.5 text-[12px] font-semibold capitalize transition',
+                  'rounded-full px-3.5 py-1.5 text-[12px] font-semibold capitalize',
                   view === v
                     ? 'bg-white text-[#181d27] shadow-xs'
                     : 'text-[#717680] hover:text-[#414651]'
                 )}
               >
                 {v}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -406,43 +408,47 @@ export function CalendarClient({
         <div className="flex items-center justify-between gap-4 border-b border-[#f2f4f7] px-6 py-3.5">
           <div className="flex items-center gap-1 overflow-x-auto">
             {FILTERS.map((f) => (
-              <button
+              <Button
                 key={f.value}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setActiveFilter(f.value)}
                 className={cn(
-                  'shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition',
+                  'shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold',
                   activeFilter === f.value
                     ? 'bg-[#ececec] text-[#181d27]'
                     : 'text-[#717680] hover:bg-[#f4f4f5]'
                 )}
               >
                 {f.label}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate(-1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#717680] transition hover:bg-[#f4f4f5]"
+              className="h-8 w-8 rounded-full text-[#717680] hover:bg-[#f4f4f5]"
             >
               <CaretLeft className="h-4 w-4" weight="bold" />
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={goToday}
-              className="h-8 rounded-full border border-[#e9eaeb] px-3 text-[12px] font-semibold text-[#414651] transition hover:bg-[#f9fafb]"
+              className="h-8 rounded-full px-3 text-[12px] font-semibold"
             >
               Today
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate(1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#717680] transition hover:bg-[#f4f4f5]"
+              className="h-8 w-8 rounded-full text-[#717680] hover:bg-[#f4f4f5]"
             >
               <CaretRight className="h-4 w-4" weight="bold" />
-            </button>
+            </Button>
             <span className="ml-2 text-[13px] font-semibold text-[#181d27]">{headingText}</span>
           </div>
         </div>
@@ -634,13 +640,14 @@ function WeekView({
                 day: 'numeric',
               })}
             </p>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClearDate}
-              className="text-[12px] font-semibold text-[#717680] transition hover:text-[#414651]"
+              className="text-[12px] font-semibold text-[#717680] hover:text-[#414651]"
             >
               Show week
-            </button>
+            </Button>
           </div>
         )}
 
@@ -965,13 +972,14 @@ function ReminderPanel({
           </p>
           <h3 className="mt-1.5 text-[15px] font-semibold text-[#181d27]">{reminder.title}</h3>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onClear}
-          className="inline-flex h-7 items-center rounded-full border border-[#d5d7da] bg-white px-2.5 text-[11px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+          className="h-7 rounded-full px-2.5 text-[11px] font-semibold"
         >
           Clear
-        </button>
+        </Button>
       </div>
 
       <div className="mt-4 space-y-3 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4">
@@ -1196,13 +1204,14 @@ function ItemDetailDialog({
               </p>
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f4f4f5] hover:text-[#717680]"
+            className="h-8 w-8 shrink-0 rounded-full text-[#a4a7ae] hover:bg-[#f4f4f5] hover:text-[#717680]"
           >
             <X className="h-4 w-4" weight="bold" />
-          </button>
+          </Button>
         </div>
 
         {/* Body */}
@@ -1298,13 +1307,14 @@ function ItemDetailDialog({
             </div>
           )}
           {!isEditing && isReminder && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClose}
-              className="text-[12px] font-semibold text-[#717680] transition hover:text-[#414651]"
+              className="text-[12px] font-semibold text-[#717680] hover:text-[#414651]"
             >
               Clear
-            </button>
+            </Button>
           )}
         </div>
       </div>
