@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { Button } from '@/components/ui/button';
 import { formatShortDate } from '@/lib/utils';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { canUseFeature } from '@/lib/billing/feature-gates';
@@ -436,13 +437,14 @@ export function DashboardClient({
               <p className="mt-1 text-[13px] text-[#a4a7ae]">You are caught up for now.</p>
             </>
           )}
-          {/* UUI secondary button */}
-          <Link
-            className="mt-4 inline-flex h-8 select-none items-center rounded-lg border border-[#d5d7da] bg-white px-3 text-[13px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
-            href="/calendar"
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-4 rounded-lg"
+            asChild
           >
-            View calendar
-          </Link>
+            <Link href="/calendar">View calendar</Link>
+          </Button>
         </article>
       </div>
     </div>
@@ -505,14 +507,15 @@ function CoreFeaturesIntro({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#181d27]/30 px-4 backdrop-blur-[2px]">
       <div className="relative w-full max-w-[440px] overflow-hidden rounded-[28px] bg-white shadow-[0_28px_100px_rgba(24,29,39,0.24)] ring-1 ring-black/5">
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Close intro"
-          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/75 text-[#a4a7ae] shadow-sm ring-1 ring-[#e9eaeb] transition hover:bg-white hover:text-[#414651]"
-        >
-          <X className="h-3.5 w-3.5" weight="bold" />
-        </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDismiss}
+            aria-label="Close intro"
+            className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-white/75 text-[#a4a7ae] shadow-sm ring-1 ring-[#e9eaeb] hover:bg-white hover:text-[#414651]"
+          >
+            <X className="h-3.5 w-3.5" weight="bold" />
+          </Button>
 
         <div className="relative flex h-[244px] items-center justify-center overflow-hidden bg-[#f4f7fb]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(37,99,235,0.16),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(22,163,74,0.12),transparent_28%)]" />
@@ -560,8 +563,9 @@ function CoreFeaturesIntro({
             ))}
           </div>
 
-          <button
-            type="button"
+          <Button
+            variant="default"
+            size="lg"
             onClick={() => {
               if (isLast) {
                 onStart();
@@ -569,10 +573,10 @@ function CoreFeaturesIntro({
               }
               onStepChange(activeStep + 1);
             }}
-            className="mt-7 flex h-11 w-full items-center justify-center rounded-xl bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+            className="mt-7 w-full rounded-xl"
           >
             {isLast ? 'Create first invoice' : 'Next'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -591,13 +595,14 @@ function FirstInvoiceCard({ onStart }: { onStart: () => void }) {
           <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#cbd5e1]">
             Start with one client, an amount, and a due date. Hedwig will turn it into a client-ready invoice you can share.
           </p>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="lg"
             onClick={onStart}
-            className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-[14px] font-semibold text-[#181d27] transition hover:bg-[#f1f5ff]"
+            className="mt-5 bg-white text-[#181d27] hover:bg-[#f1f5ff]"
           >
             Create your first invoice →
-          </button>
+          </Button>
         </div>
         <div className="bg-[#202636] p-6">
           <p className="text-[13px] font-semibold text-white">What happens next</p>
@@ -649,20 +654,20 @@ function OnboardingChecklist({
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
+          <Button
+            variant="default"
+            size="sm"
             onClick={onCreatePaymentLink}
-            className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8]"
           >
             New payment link
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onCreateInvoice}
-            className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] px-4 text-[13px] font-semibold text-[#414651] transition hover:bg-[#fafafa]"
           >
             New invoice
-          </button>
+          </Button>
         </div>
       </div>
       <div className="mt-4 grid gap-px overflow-hidden rounded-xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] md:grid-cols-3">

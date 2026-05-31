@@ -1,61 +1,101 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Untitled UI design token palette — exact hex values from theme.css */
-:root {
-  /* Semantic color tokens mapped to UUI gray scale */
-  --background: 0 0% 98%;          /* gray-50  #fafafa  — page canvas  */
-  --foreground: 222 24% 12%;       /* gray-900 #181d27  — text-primary  */
-  --card: 0 0% 100%;               /* white    #ffffff  — bg-primary    */
-  --card-foreground: 222 24% 12%;
-  --primary: 221 83% 53%;          /* brand blue #2563eb                */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 96%;           /* gray-100 #f5f5f5  — bg-tertiary   */
-  --secondary-foreground: 225 8% 27%;  /* gray-700 #414651               */
-  --muted: 0 0% 96%;               /* gray-100 #f5f5f5                  */
-  --muted-foreground: 222 8% 36%;  /* gray-600 #535862  — text-tertiary  */
-  --accent: 214 95% 93%;
-  --accent-foreground: 221 83% 42%;
-  --border: 210 5% 91%;            /* gray-200 #e9eaeb  — border-secondary */
-  --input: 210 5% 91%;
-  --ring: 221 83% 53%;
-  --success: 150 91% 37%;          /* success-600 #079455               */
-  --warning: 34 96% 44%;           /* warning-600 #DC6803               */
+/* ── Hedwig Design Tokens ────────────────────────────────────────────────
+   Mapped to Tailwind v4 @theme so HeroUI and Tailwind utilities share them  */
+
+@theme {
+  /* Brand colors */
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-light: #dbeafe;
+
+  /* Semantic surfaces */
+  --color-background: #fafafa;
+  --color-foreground: #181d27;
+
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f5f5f5;
+  --color-surface-tertiary: #f4f5f7;
+
+  /* Text */
+  --color-text-primary: #181d27;
+  --color-text-secondary: #414651;
+  --color-text-tertiary: #717680;
+  --color-text-muted: #a4a7ae;
+  --color-text-placeholder: #a4a7ae;
+
+  /* Borders */
+  --color-border: #e9eaeb;
+  --color-border-light: #f3f4f6;
+  --color-border-input: #d5d7da;
+
+  /* Status */
+  --color-success: #079455;
+  --color-success-soft: #ecfdf3;
+  --color-warning: #dc6803;
+  --color-warning-soft: #fffaeb;
+  --color-danger: #d92d20;
+  --color-danger-soft: #fef3f2;
+
+  /* Accent (used by HeroUI for highlights) */
+  --color-accent: #2563eb;
+  --color-accent-soft: #eff4ff;
+
+  /* Font */
+  --font-sans: 'Google Sans Flex', 'Google Sans Text', 'Google Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Roboto Mono', SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* Shadows (Hedwig's Untitled UI scale) */
+  --shadow-xs: 0px 1px 2px rgba(10, 13, 18, 0.05);
+  --shadow-sm: 0px 1px 3px rgba(10, 13, 18, 0.1), 0px 1px 2px -1px rgba(10, 13, 18, 0.1);
+  --shadow-md: 0px 4px 6px -1px rgba(10, 13, 18, 0.1), 0px 2px 4px -2px rgba(10, 13, 18, 0.06);
+  --shadow-lg: 0px 12px 16px -4px rgba(10, 13, 18, 0.08), 0px 4px 6px -2px rgba(10, 13, 18, 0.03);
+  --shadow-xl: 0px 20px 24px -4px rgba(10, 13, 18, 0.08), 0px 8px 8px -4px rgba(10, 13, 18, 0.03);
+  --shadow-2xl: 0px 24px 48px -12px rgba(10, 13, 18, 0.18);
+  --shadow-panel: 0px 12px 16px -4px rgba(10, 13, 18, 0.08);
+  --shadow-soft: 0px 1px 2px rgba(10, 13, 18, 0.05);
+
+  /* Border radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+  --radius-full: 9999px;
 }
+
+/* ── Base styles ───────────────────────────────────────────────────────── */
 
 @layer base {
-  * {
-    border-color: hsl(var(--border));
+  html {
+    scroll-behavior: smooth;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-}
 
-html {
-  scroll-behavior: smooth;
-  font-size: 14px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  body {
+    min-height: 100vh;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
 
-body {
-  min-height: 100vh;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: 'Google Sans Flex', 'Google Sans Text', 'Google Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-}
-
-code,
-pre,
-.font-mono {
-  font-family: ui-monospace, 'Roboto Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  code,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+  }
 }
 
 ::selection {
   background: rgba(37, 99, 235, 0.15);
 }
 
-/* Landing page entrance animation */
+/* ── Animations ──────────────────────────────────────────────────────── */
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(28px); }
   to   { opacity: 1; transform: translateY(0); }

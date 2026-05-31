@@ -1,49 +1,112 @@
+'use client';
+
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
-import { cva, type VariantProps } from 'class-variance-authority';
+import { Button as HeroUIButton } from '@heroui/react';
 import { cn } from '@/lib/utils';
+import { cva, type VariantProps } from 'class-variance-authority';
 
-/* Untitled UI button variants — rounded-full pill style, Inter font-semibold, UUI shadow-xs */
+/* --------------------------------------------------------------------------
+   Hedwig Button — powered by HeroUI
+   Maintains the same API as the previous CVA-based button so every consumer
+   keeps working without changes.
+   -------------------------------------------------------------------------- */
+
 const buttonVariants = cva(
-  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold transition duration-100 ease-linear focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'rounded-full font-semibold',
   {
     variants: {
       variant: {
-        /* UUI primary: bg-brand-600, shadow-xs */
-        default: 'bg-[#2563eb] text-white shadow-xs hover:bg-[#1d4ed8]',
-        /* UUI secondary: white bg, border border-[#d5d7da], shadow-xs */
-        secondary: 'border border-[#d5d7da] bg-white text-[#414651] shadow-xs hover:bg-[#fafafa] hover:text-[#252b37]',
-        /* UUI tertiary/ghost: no border, no bg, just text */
-        ghost: 'text-[#414651] hover:bg-[#fafafa] hover:text-[#252b37]',
-        /* UUI tertiary with border */
-        outline: 'border border-[#d5d7da] bg-white text-[#414651] shadow-xs hover:bg-[#fafafa]',
-        /* UUI destructive */
-        destructive: 'bg-[#d92d20] text-white shadow-xs hover:bg-[#b42318]'
+        default: '',
+        secondary: '',
+        ghost: '',
+        outline: '',
+        destructive: '',
       },
       size: {
-        default: 'h-10 px-4',
-        sm: 'h-9 px-3.5 text-[13px]',
-        lg: 'h-11 px-5',
-        icon: 'h-9 w-9'
-      }
+        default: '',
+        sm: '',
+        lg: '',
+        icon: '',
+      },
     },
     defaultVariants: {
       variant: 'default',
-      size: 'default'
-    }
+      size: 'default',
+    },
   }
 );
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+/* Map Hedwig variants → HeroUI variants */
+const variantMap: Record<string, 'primary' | 'secondary' | 'tertiary' | 'outline' | 'ghost' | 'danger' | 'danger-soft'> = {
+  default: 'primary',
+  secondary: 'secondary',
+  ghost: 'ghost',
+  outline: 'outline',
+  destructive: 'danger',
+};
+
+/* Map Hedwig sizes → HeroUI sizes */
+const sizeMap: Record<string, 'sm' | 'md' | 'lg'> = {
+  default: 'md',
+  sm: 'sm',
+  lg: 'lg',
+  icon: 'md',
+};
+
+export interface ButtonProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'>,
+    VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : 'button';
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+  ({ className, variant = 'default', size = 'default', asChild = false, onClick, disabled, children, ...props }, ref) => {
+    const heroVariant = variantMap[variant as string] ?? 'primary';
+    const heroSize = sizeMap[size as string] ?? 'md';
+    const isIconOnly = size === 'icon';
+
+    // Build the className that Hedwig consumers expect
+    const hedwigClassName = cn(buttonVariants({ variant, size }), className);
+
+    if (asChild) {
+      // When asChild is true, we use HeroUIButton's asChild support
+      // but we need to cast because the TypeScript types don't expose it.
+      return (
+        <HeroUIButton
+          ref={ref}
+          variant={heroVariant}
+          size={heroSize}
+          isIconOnly={isIconOnly}
+          isDisabled={disabled}
+          className={hedwigClassName}
+          onPress={onClick as any}
+          {...(props as any)}
+          asChild={true as any}
+        >
+          <Slot>{children}</Slot>
+        </HeroUIButton>
+      );
+    }
+
+    return (
+      <HeroUIButton
+        ref={ref}
+        variant={heroVariant}
+        size={heroSize}
+        isIconOnly={isIconOnly}
+        isDisabled={disabled}
+        className={hedwigClassName}
+        onPress={onClick as any}
+        {...(props as any)}
+      >
+        {children}
+      </HeroUIButton>
+    );
   }
 );
+
 Button.displayName = 'Button';
 
 export { Button, buttonVariants };

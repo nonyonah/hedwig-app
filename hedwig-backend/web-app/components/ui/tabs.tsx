@@ -1,21 +1,88 @@
 'use client';
 
-import * as TabsPrimitive from '@radix-ui/react-tabs';
+import * as React from 'react';
+import { Tabs as HeroUITabs } from '@heroui/react';
 import { cn } from '@/lib/utils';
 
-export const Tabs = TabsPrimitive.Root;
+/* --------------------------------------------------------------------------
+   Hedwig Tabs — powered by HeroUI
+   Keeps the same Tabs / TabsList / TabsTrigger / TabsContent API.
+   -------------------------------------------------------------------------- */
 
-export function TabsList({ className, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>) {
-  return <TabsPrimitive.List className={cn('inline-flex rounded-[15px] border border-border/80 bg-white p-1 shadow-soft', className)} {...props} />;
-}
+export function Tabs({ children, defaultValue, value, onValueChange, className, ...props }: {
+  children: React.ReactNode;
+  defaultValue?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  className?: string;
+}) {
+  const [internalValue, setInternalValue] = React.useState(defaultValue ?? '');
+  const isControlled = value !== undefined;
+  const activeValue = isControlled ? value : internalValue;
 
-export function TabsTrigger({ className, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>) {
+  const handleChange = (key: React.Key) => {
+    const str = String(key);
+    if (!isControlled) setInternalValue(str);
+    onValueChange?.(str);
+  };
+
   return (
-    <TabsPrimitive.Trigger
-      className={cn('rounded-[15px] px-4 py-2 text-sm font-semibold text-muted-foreground transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground', className)}
+    <HeroUITabs
+      selectedKey={activeValue}
+      onSelectionChange={handleChange}
+      className={cn('w-full', className)}
       {...props}
-    />
+    >
+      {children}
+    </HeroUITabs>
   );
 }
 
-export const TabsContent = TabsPrimitive.Content;
+export function TabsList({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <HeroUITabs.ListContainer className={cn('w-full', className)} {...props}>
+      <HeroUITabs.List
+        aria-label="Tabs"
+        className={cn(
+          'inline-flex rounded-[15px] border border-[#e9eaeb]/80 bg-white p-1 shadow-soft'
+        )}
+      >
+        {children}
+      </HeroUITabs.List>
+    </HeroUITabs.ListContainer>
+  );
+}
+
+export function TabsTrigger({ value, children, className, disabled }: {
+  value: string;
+  children: React.ReactNode;
+  className?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <HeroUITabs.Tab
+      id={value}
+      isDisabled={disabled}
+      className={cn(
+        'rounded-[15px] px-4 py-2 text-sm font-semibold text-[#a4a7ae] transition',
+        'data-[selected=true]:bg-[#2563eb] data-[selected=true]:text-white',
+        className
+      )}
+    >
+      {children}
+      <HeroUITabs.Indicator />
+    </HeroUITabs.Tab>
+  );
+}
+
+export function TabsContent({ value, children, className, ...props }: {
+  value: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <HeroUITabs.Panel id={value} className={cn('pt-4', className)} {...props}>
+      {children}
+    </HeroUITabs.Panel>
+  );
+}
