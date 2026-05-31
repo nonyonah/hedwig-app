@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* ── Override HeroUI's accent (primary) color to Hedwig blue ──────────── */
+:root {
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+}
+
 /* ── Hedwig Design Tokens ────────────────────────────────────────────────
    Mapped to Tailwind v4 @theme so HeroUI and Tailwind utilities share them  */
 
