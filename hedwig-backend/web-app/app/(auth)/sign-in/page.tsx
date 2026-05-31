@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
@@ -235,10 +237,11 @@ export default function SignInPage() {
 
             <div className="mt-8 space-y-3">
               {/* Google */}
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={() => handleOAuth('google')}
-                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e9eaeb] bg-white px-4 py-2.5 text-[14px] font-medium text-[#181d27] transition hover:bg-[#fafafa]"
+                className="w-full rounded-full"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                   <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
@@ -247,17 +250,18 @@ export default function SignInPage() {
                   <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
                 </svg>
                 Continue with Google
-              </button>
+              </Button>
 
               {/* Apple */}
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={() => handleOAuth('apple')}
-                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e9eaeb] bg-white px-4 py-2.5 text-[14px] font-medium text-[#181d27] transition hover:bg-[#fafafa]"
+                className="w-full rounded-full"
               >
                 <Image src="/icons/apple-logo.svg" alt="Apple" width={18} height={18} />
                 Continue with Apple
-              </button>
+              </Button>
 
             </div>
 
@@ -272,14 +276,14 @@ export default function SignInPage() {
             <div className="space-y-3">
               <div>
                 <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Email</label>
-                <input
+                <Input
                   type="email"
                   autoComplete="email"
                   placeholder="you@example.com"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
-                  className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                  className="h-10 rounded-xl"
                 />
               </div>
 
@@ -289,14 +293,15 @@ export default function SignInPage() {
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isSendingCode || !emailInput.trim()}
                 onClick={handleSendCode}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full"
               >
                 {isSendingCode ? 'Sending…' : 'Continue'}
-              </button>
+              </Button>
             </div>
 
             <p className="mt-6 text-center text-[12px] text-[#c1c5cd]">
@@ -311,14 +316,15 @@ export default function SignInPage() {
         {/* ── OTP ── */}
         {stage === 'otp' && (
           <div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => { setStage('landing'); setOtp(''); setErrorMessage(''); }}
-              className="mb-6 flex items-center gap-1.5 text-[13px] text-[#a4a7ae] transition hover:text-[#717680]"
+              className="mb-6"
             >
               <CaretLeft className="h-3.5 w-3.5" weight="bold" />
               Back
-            </button>
+            </Button>
 
             <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Check your inbox</h1>
             <p className="mt-1.5 text-[14px] text-[#a4a7ae]">
@@ -329,7 +335,7 @@ export default function SignInPage() {
             <div className="mt-8 space-y-3">
               <div>
                 <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Verification code</label>
-                <input
+                <Input
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -339,7 +345,7 @@ export default function SignInPage() {
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
                   autoFocus
-                  className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-center text-[18px] font-semibold tracking-[0.2em] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                  className="h-10 text-center text-[18px] font-semibold tracking-[0.2em] rounded-xl"
                 />
               </div>
 
@@ -349,27 +355,29 @@ export default function SignInPage() {
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isVerifying || otp.length < 6}
                 onClick={handleVerifyOtp}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full"
               >
                 {isVerifying ? 'Verifying…' : 'Continue'}
-              </button>
+              </Button>
 
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={handleSendCode}
                 disabled={isSendingCode || resendSecondsLeft > 0}
-                className="flex h-10 w-full items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa] disabled:opacity-50"
+                className="w-full rounded-full"
               >
                 {isSendingCode
                   ? 'Sending…'
                   : resendSecondsLeft > 0
                     ? `Resend code in ${resendSecondsLeft}s`
                     : 'Resend code'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -387,13 +395,14 @@ export default function SignInPage() {
           <div>
             <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Something went wrong</h1>
             <p className="mt-1.5 text-[14px] text-[#a4a7ae]">{errorMessage || 'Please try again.'}</p>
-            <button
-              type="button"
+            <Button
+              variant="default"
+              size="default"
               onClick={() => { setStage('landing'); setErrorMessage(''); }}
-              className="mt-8 flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+              className="mt-8 w-full rounded-full"
             >
               Try again
-            </button>
+            </Button>
           </div>
         )}
 
@@ -407,30 +416,30 @@ export default function SignInPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">First name</label>
-                  <input
+                  <Input
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="First"
-                    className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                    className="h-10 rounded-xl"
                   />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Last name</label>
-                  <input
+                  <Input
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Last"
-                    className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                    className="h-10 rounded-xl"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Email</label>
-                <input
+                <Input
                   value={email}
                   disabled
-                  className="h-10 w-full rounded-xl border border-[#f2f4f7] bg-[#fafafa] px-3.5 text-[14px] text-[#a4a7ae]"
+                  className="h-10 rounded-xl bg-[#fafafa] text-[#a4a7ae]"
                 />
               </div>
 
@@ -440,14 +449,15 @@ export default function SignInPage() {
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isSubmitting}
                 onClick={submitProfile}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full"
               >
                 {isSubmitting ? 'Saving…' : 'Continue'}
-              </button>
+              </Button>
 
               <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 3</p>
             </div>
@@ -457,14 +467,15 @@ export default function SignInPage() {
         {/* ── Target ── */}
         {stage === 'target' && (
           <div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => { setStage('profile'); setErrorMessage(''); }}
-              className="mb-6 flex items-center gap-1.5 text-[13px] text-[#a4a7ae] transition hover:text-[#717680]"
+              className="mb-6"
             >
               <CaretLeft className="h-3.5 w-3.5" weight="bold" />
               Back
-            </button>
+            </Button>
 
             <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Set a monthly goal</h1>
             <p className="mt-1.5 text-[14px] text-[#a4a7ae]">
@@ -477,30 +488,32 @@ export default function SignInPage() {
                   Monthly target (USD)
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="default"
+                    size="sm"
                     onClick={() => setMonthlyTarget((p) => Math.max(0, p - 500))}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8]"
+                    className="h-10 w-10 rounded-full p-0"
                   >
                     <svg width="16" height="2" viewBox="0 0 16 2" fill="none">
                       <path d="M1 1h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                  </button>
+                  </Button>
                   <div className="min-w-[140px] text-center">
                     <p className="text-[36px] font-light leading-none tracking-[-0.03em] text-[#181d27]">
                       {monthlyTarget.toLocaleString('en-US')}
                     </p>
                     <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">USD/month</p>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="default"
+                    size="sm"
                     onClick={() => setMonthlyTarget((p) => p + 500)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8]"
+                    className="h-10 w-10 rounded-full p-0"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                  </button>
+                  </Button>
                 </div>
                 <div className="mt-4 flex justify-center gap-2">
                   {[
@@ -508,18 +521,15 @@ export default function SignInPage() {
                     { label: 'Growing', value: 5000 },
                     { label: 'Established', value: 10000 },
                   ].map((preset) => (
-                    <button
+                    <Button
                       key={preset.label}
-                      type="button"
+                      variant={monthlyTarget === preset.value ? 'default' : 'secondary'}
+                      size="sm"
                       onClick={() => setMonthlyTarget(preset.value)}
-                      className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition ${
-                        monthlyTarget === preset.value
-                          ? 'bg-[#2563eb] text-white'
-                          : 'bg-[#f5f5f5] text-[#414651] hover:bg-[#e9eaeb]'
-                      }`}
+                      className="rounded-full"
                     >
                       {preset.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -530,22 +540,24 @@ export default function SignInPage() {
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isSavingTarget}
                 onClick={handleSaveTarget}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full"
               >
                 {isSavingTarget ? 'Saving…' : 'Continue'}
-              </button>
+              </Button>
 
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={() => { setErrorMessage(''); setStage('bank'); }}
-                className="flex h-10 w-full items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
+                className="w-full rounded-full"
               >
                 Skip for now
-              </button>
+              </Button>
             </div>
 
             <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 2 of 3</p>
@@ -582,23 +594,23 @@ export default function SignInPage() {
             </div>
 
             <div className="mt-4 flex items-center justify-between gap-3">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={() => setStage('profile')}
-                className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#e9eaeb] px-4 text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
               >
                 <CaretLeft className="h-3.5 w-3.5" weight="bold" />
                 Back
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="default"
                 onClick={() => {
                   if (token) void finalizeSession(token);
                 }}
-                className="flex h-10 items-center justify-center rounded-full px-4 text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
               >
                 Skip for now
-              </button>
+              </Button>
             </div>
 
             <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 3 of 3</p>
