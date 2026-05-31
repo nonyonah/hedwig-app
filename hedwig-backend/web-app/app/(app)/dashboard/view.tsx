@@ -23,6 +23,7 @@ import { formatShortDate } from '@/lib/utils';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
 
 type DashboardData = {
@@ -84,6 +85,12 @@ export function DashboardClient({
   isDemo?: boolean;
 }) {
   const { currency, formatAmount } = useCurrency();
+  useAssistantPageContext('Dashboard', {
+    inflow: data?.totals?.inflowUsd,
+    outstanding: data?.totals?.outstandingUsd,
+    projectCount: data?.projects?.length,
+    invoiceCount: data?.invoices?.length,
+  });
   const [hour, setHour] = useState(() => new Date().getHours());
   const [showCoreIntro, setShowCoreIntro] = useState(false);
   const [coreIntroStep, setCoreIntroStep] = useState(0);

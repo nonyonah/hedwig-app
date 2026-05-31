@@ -8,12 +8,14 @@ import {
   CaretDown,
   Plus,
   SidebarSimple,
+  Sparkle,
   User,
 } from '@/components/ui/lucide-icons';
 import { AccountMenu } from '@/components/app-shell/account-menu';
 import { NotificationBell } from '@/components/app-shell/notification-bell';
 import { TopbarTitle } from '@/components/app-shell/topbar-title';
 import { GlobalSearch } from '@/components/app-shell/global-search';
+import { useAssistantSidebar } from '@/components/providers/assistant-sidebar-provider';
 import { cn } from '@/lib/utils';
 
 type AppTopbarProps = {
@@ -32,6 +34,7 @@ type AppTopbarProps = {
 export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const createRef = useRef<HTMLDivElement | null>(null);
+  const { open: assistantOpen, toggle: toggleAssistant } = useAssistantSidebar();
 
   useEffect(() => {
     if (!createOpen) return;
@@ -117,6 +120,20 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
         </div>
 
         <GlobalSearch accessToken={accessToken} />
+        <button
+          type="button"
+          onClick={toggleAssistant}
+          title="Ask Hedwig"
+          aria-label="Toggle Hedwig assistant"
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-full transition',
+            assistantOpen
+              ? 'bg-[#eff4ff] text-[#2563eb] ring-1 ring-[#2563eb]/20'
+              : 'text-[#8d9096] hover:bg-[#f4f5f7] hover:text-[#414651]'
+          )}
+        >
+          <Sparkle className="h-4 w-4" weight="bold" />
+        </button>
         <NotificationBell unreadCount={unreadCount} accessToken={accessToken ?? null} />
         <AccountMenu
           avatarUrl={user.avatarUrl}
