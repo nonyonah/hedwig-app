@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Bank, Check, Copy, ShareNetwork } from '@/components/ui/lucide-icons';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 import type { UsdAccount } from '@/lib/models/entities';
 
@@ -67,14 +68,14 @@ export function ShareWalletDialog({
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-4 py-2 text-[13px] font-semibold text-[#414651] shadow-xs transition duration-100 hover:bg-[#fafafa]"
       >
         <ShareNetwork className="h-4 w-4" weight="bold" />
         Receive
-      </button>
+      </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[420px]">
@@ -89,9 +90,10 @@ export function ShareWalletDialog({
                   const isActive = activeMode === mode;
                   const isUsd = mode === 'USD account';
                   return (
-                    <button
+                    <Button
                       key={mode}
-                      type="button"
+                      variant={isActive ? 'secondary' : 'ghost'}
+                      size="sm"
                       onClick={() => setActiveMode(mode)}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-[13px] font-semibold transition duration-100 ${
                         isActive
@@ -105,7 +107,7 @@ export function ShareWalletDialog({
                         <Image src={chainMeta[mode as Chain].icon} alt={mode} width={16} height={16} className="rounded-full" />
                       )}
                       {mode}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -155,14 +157,15 @@ export function ShareWalletDialog({
                     ) : null}
                   </div>
                   {hasAssignedUsdAccount ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={handleCopy}
                       className="flex w-full items-center justify-center gap-2 border-t border-[#e9eaeb] bg-[#fafafa] px-4 py-3 text-[13px] font-semibold text-[#414651] transition hover:bg-[#f5f5f5]"
                     >
                       {copied ? <Check className="h-3.5 w-3.5" weight="bold" /> : <Copy className="h-3.5 w-3.5" weight="bold" />}
                       {copied ? 'Copied' : 'Copy details'}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </>
@@ -202,18 +205,19 @@ export function ShareWalletDialog({
                     <p className="flex-1 break-all font-mono text-[12px] leading-relaxed text-[#414651]">
                       {address ?? 'Not connected'}
                     </p>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={handleCopy}
                       disabled={!address}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] bg-white shadow-xs transition duration-100 hover:bg-[#f5f5f5] disabled:opacity-40"
+                      className="h-8 w-8 rounded-full"
                     >
                       {copied ? (
                         <Check className="h-3.5 w-3.5 text-[#717680]" weight="bold" />
                       ) : (
                         <Copy className="h-3.5 w-3.5 text-[#717680]" weight="bold" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 

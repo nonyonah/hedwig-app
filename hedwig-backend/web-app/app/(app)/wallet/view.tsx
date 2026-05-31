@@ -8,6 +8,7 @@ import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { Button } from '@/components/ui/button';
 import { hedwigApi } from '@/lib/api/client';
 import type { AccountTransaction, GatewayBalance, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatShortDate } from '@/lib/utils';
@@ -247,21 +248,22 @@ export function WalletView({
               <div className="mt-4 flex items-center gap-3">
                 {usdSetupState === 'idle' || usdSetupState === 'error' ? (
                   <>
-                    <button
-                      type="button"
+                    <Button
+                      variant="default"
+                      size="sm"
                       onClick={handleUsdSetup}
-                      className="flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {usdSetupState === 'error' ? 'Try again' : 'Get started'}
-                    </button>
+                    </Button>
                     {usdSetupState === 'error' ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={handleRetryUsdSetup}
-                        className="text-[12px] font-medium text-[#717680] underline transition hover:text-[#414651]"
+                        className="text-[#717680] hover:text-[#414651]"
                       >
                         Dismiss
-                      </button>
+                      </Button>
                     ) : null}
                   </>
                 ) : (
@@ -297,13 +299,13 @@ export function WalletView({
               </p>
             </div>
             {canToggleActivity ? (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => setShowAllActivity((value) => !value)}
-                className="shrink-0 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa]"
               >
                 {showAllActivity ? 'Show recent' : 'View all'}
-              </button>
+              </Button>
             ) : null}
           </div>
 
@@ -446,14 +448,15 @@ function ActivityDetailPanel({
               <span className="truncate text-[12px] text-[#a4a7ae]">{chain}</span>
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#717680] transition hover:bg-[#f5f5f5]"
             aria-label="Close activity details"
+            className="h-8 w-8 rounded-full"
           >
             <X className="h-4 w-4" weight="bold" />
-          </button>
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
