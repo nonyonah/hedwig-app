@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { ArrowsDownUp, Bank, CaretRight, Check, CheckCircle, ClockCountdown, Copy, SpinnerGap, Warning, X } from '@/components/ui/lucide-icons';
+import { Button } from '@/components/ui/button';
 import { ClientPortal } from '@/components/ui/client-portal';
 import type { OfframpTransaction } from '@/lib/models/entities';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
@@ -131,13 +132,14 @@ const OFFRAMP_STATUS = {
 function CopyInline({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={() => { navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }); }}
-      className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#e9eaeb] text-[#a4a7ae] transition hover:text-[#717680]"
+      className="ml-1.5 h-5 w-5 rounded-full border border-[#e9eaeb] text-[#a4a7ae] hover:text-[#717680]"
     >
       {copied ? <Check className="h-2.5 w-2.5 text-[#717680]" weight="bold" /> : <Copy className="h-2.5 w-2.5" weight="bold" />}
-    </button>
+    </Button>
   );
 }
 
@@ -172,10 +174,10 @@ function OfframpDetailPanel({ tx, onClose }: { tx: OfframpTransaction; onClose: 
             <p className="text-[15px] font-bold text-[#181d27]">Offramp details</p>
             <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Transaction breakdown</p>
           </div>
-          <button type="button" onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e9eaeb] text-[#717680] transition hover:bg-[#f5f5f5]">
+          <Button variant="ghost" size="sm" onClick={onClose}
+            className="h-8 w-8 rounded-full border border-[#e9eaeb] text-[#717680] hover:bg-[#f5f5f5]">
             <X className="h-4 w-4" weight="bold" />
-          </button>
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
