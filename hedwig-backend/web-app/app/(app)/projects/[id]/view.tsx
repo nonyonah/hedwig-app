@@ -307,23 +307,26 @@ export function ProjectDetailClient({
                         <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{m.amountUsd ? formatAmount(m.amountUsd, { compact: true }) : '—'}</td>
                         <td className="px-5 py-2.5 text-right">
                           {canComplete && (
-                            <button
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => completeMilestone(m.id)}
                               disabled={isCompleting}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1 text-[11px] font-semibold text-[#414651] transition-colors hover:bg-[#f9fafb] disabled:opacity-50"
+                              className="rounded-full px-3 py-1 text-[11px] font-semibold"
                             >
                               <CheckCircle className={cn('h-3.5 w-3.5', isCompleting ? 'text-[#c1c5cd]' : 'text-[#12b76a]')} weight="fill" />
                               {isCompleting ? 'Sending…' : 'Mark complete'}
-                            </button>
+                            </Button>
                           )}
                           {m.status === 'done' && m.invoiceId && (
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => openPaymentDetail('invoice', m.invoiceId!)}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#2563eb] hover:underline"
+                              className="text-[11px] font-medium text-[#2563eb] hover:underline"
                             >
                               View invoice
-                            </button>
+                            </Button>
                           )}
                         </td>
                       </tr>

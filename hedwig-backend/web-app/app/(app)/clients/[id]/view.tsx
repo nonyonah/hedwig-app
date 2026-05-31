@@ -386,13 +386,14 @@ export function ClientDetailClient({
                     return (
                       <tr key={inv.id} className="transition-colors hover:bg-[#fafafa]">
                         <td className="px-5 py-2.5">
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => openPaymentDetail('invoice', inv.id)}
-                            className="text-[13px] font-medium text-[#252b37] transition-colors hover:text-[#2563eb]"
+                            className="text-[13px] font-medium text-[#252b37] hover:text-[#2563eb]"
                           >
                             {inv.number}
-                          </button>
+                          </Button>
                         </td>
                         <td className="px-5 py-2.5"><Pill bg={is.bg} text={is.text} label={is.label} /></td>
                         <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[#252b37]">{formatAmount(inv.amountUsd, { compact: true })}</td>
