@@ -863,18 +863,19 @@ export function PaymentsClient({
                   { code: 'cash',          label: 'Cash' },
                   { code: 'other',         label: 'Other' },
                 ] as const).map((opt) => (
-                  <button
+                  <Button
                     key={opt.code}
-                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => setMarkPaidVia(opt.code)}
-                    className={`rounded-xl border px-3 py-2 text-left text-[12px] transition-colors ${
+                    className={`rounded-xl px-3 py-2 text-left text-[12px] ${
                       markPaidVia === opt.code
                         ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb] font-semibold'
                         : 'border-[#e9eaeb] bg-white text-[#414651] hover:border-[#d0d5dd]'
                     }`}
                   >
                     {opt.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -920,12 +921,14 @@ export function PaymentsClient({
                   </p>
                 </div>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setEmailTarget(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[#a4a7ae] hover:bg-[#f2f4f7] transition-colors"
+                className="h-8 w-8 rounded-full text-[#a4a7ae] hover:bg-[#f2f4f7]"
               >
                 <X className="h-4 w-4" weight="bold" />
-              </button>
+              </Button>
             </div>
             <div className="px-5 py-4">
               <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">
@@ -1178,13 +1181,14 @@ function PanelHeader({ label, id, onClose }: { label: string; id: string; onClos
         <p className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">{label}</p>
         <p className="mt-0.5 text-[16px] font-bold text-[#181d27] leading-tight truncate max-w-[320px]">{id}</p>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={onClose}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#717680] transition-colors hover:bg-[#f2f4f7] hover:text-[#344054]"
+        className="h-8 w-8 rounded-lg text-[#717680] hover:bg-[#f2f4f7] hover:text-[#344054]"
       >
         <X className="h-4 w-4" weight="bold" />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1220,17 +1224,18 @@ function PanelCustomRow({ label, value }: { label: string; value: React.ReactNod
 /* ─── misc small components ─── */
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={onClick}
-      className={`flex items-center gap-2 border-b-2 px-1 py-3 text-[13px] font-medium transition-colors mr-5 ${
+      className={`flex items-center gap-2 border-b-2 px-1 py-3 text-[13px] font-medium mr-5 ${
         active
           ? 'border-[#2563eb] text-[#181d27]'
           : 'border-transparent text-[#a4a7ae] hover:text-[#535862]'
       }`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -1244,17 +1249,18 @@ function CountBadge({ n }: { n: number }) {
 
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={onClick}
-      className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+      className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
         active
           ? 'bg-[#f5f5f5] text-[#181d27]'
           : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
       }`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

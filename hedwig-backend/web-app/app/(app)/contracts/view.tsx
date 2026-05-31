@@ -9,6 +9,7 @@ import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
 import { backendConfig } from '@/lib/auth/config';
 
@@ -163,18 +164,19 @@ export function ContractsClient({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {STATUS_FILTERS.map((s) => (
-              <button
+              <Button
                 key={s}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setFilter(s)}
-                className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
                   filter === s
                     ? 'bg-[#f5f5f5] text-[#181d27]'
                     : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
                 }`}
               >
                 {s === 'all' ? 'All' : CONTRACT_STATUS[s as keyof typeof CONTRACT_STATUS]?.label ?? s}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
