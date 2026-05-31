@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { CaretDown, Check, X } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
@@ -146,13 +147,14 @@ export default function WorkspaceSettingsPage() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-[#181d27]">Members</h2>
           {(activeWorkspace.role === 'owner' || activeWorkspace.role === 'admin') && (
-            <button
-              type="button"
+            <Button
+              variant="default"
+              size="sm"
               onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-invite-member'))}
-              className="rounded-lg bg-[#2563eb] px-3.5 py-1.5 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+              className="rounded-lg px-3.5 py-1.5 text-[13px] font-semibold bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
             >
               Invite member
-            </button>
+            </Button>
           )}
         </div>
 
@@ -203,13 +205,14 @@ export default function WorkspaceSettingsPage() {
                     </span>
                   )}
                   {member.role !== 'owner' && (activeWorkspace.role === 'owner' || activeWorkspace.role === 'admin') && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleRemoveMember(member.userId)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-red-50 hover:text-red-500"
+                      className="h-7 w-7 rounded-md text-[#c1c5cd] hover:bg-red-50 hover:text-red-500"
                     >
                       <X className="h-3.5 w-3.5" weight="bold" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -241,14 +244,15 @@ export default function WorkspaceSettingsPage() {
                   </p>
                 </div>
                 {(activeWorkspace.role === 'owner' || activeWorkspace.role === 'admin') && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleCancelInvitation(inv.id)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-red-50 hover:text-red-500"
+                    className="h-7 w-7 rounded-md text-[#c1c5cd] hover:bg-red-50 hover:text-red-500"
                     title="Cancel invitation"
                   >
                     <X className="h-3.5 w-3.5" weight="bold" />
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -268,28 +272,30 @@ function RoleDropdown({ currentRole, onChange }: { currentRole: string; onChange
 
   return (
     <div className="relative">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => setOpen((p) => !p)}
-        className="flex items-center gap-1 rounded-md bg-[#f4f5f7] px-2 py-0.5 text-[11px] font-semibold text-[#525866] transition hover:bg-[#eef0f3]"
+        className="rounded-md px-2 py-0.5 text-[11px] font-semibold"
       >
         {currentRole === 'admin' ? 'Admin' : 'Member'}
         <CaretDown className="h-3 w-3" weight="bold" />
-      </button>
+      </Button>
       {open && (
         <div className="absolute right-0 top-6 z-50 w-32 overflow-hidden rounded-lg border border-[#f3f4f6] bg-white py-1 shadow-lg shadow-black/5">
           {roles.map((r) => (
-            <button
+            <Button
               key={r.value}
-              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => { onChange(r.value); setOpen(false); }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] font-medium text-[#414651] transition hover:bg-[#f8f9fb]"
+              className="w-full justify-start rounded-none px-3 py-1.5 text-left text-[13px] font-medium text-[#414651] hover:bg-[#f8f9fb]"
             >
               <span className="flex-1">{r.label}</span>
               {r.value === currentRole && (
                 <Check className="h-3.5 w-3.5 text-[#2563eb]" weight="bold" />
               )}
-            </button>
+            </Button>
           ))}
         </div>
       )}
