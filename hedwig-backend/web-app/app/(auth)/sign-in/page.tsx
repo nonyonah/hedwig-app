@@ -4,6 +4,9 @@ import Image from 'next/image';
 import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
+import { Input } from '@/components/ui/input';
 import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
@@ -217,93 +220,106 @@ export default function SignInPage() {
 
   /* ── layout shell ── */
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 py-16">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-surface)] px-6 py-16">
       <div className={`w-full ${stage === 'bank' ? 'max-w-[620px]' : 'max-w-[340px]'}`}>
 
         {/* Logo mark */}
-        <div className="mb-8">
-          <Image src="/hedwig-logo.png" alt="Hedwig" width={32} height={32} priority />
+        <div className="mb-5">
+          <HedwigLogo width={32} height={32} priority />
         </div>
 
         {/* ── Landing ── */}
         {stage === 'landing' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Try Hedwig yourself</h1>
-            <p className="mt-2 text-[13px] text-[#717680]">
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Try Hedwig yourself</h1>
+            <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
               Create a professional invoice for your next client. No card required.
             </p>
 
             <div className="mt-8 space-y-3">
               {/* Google */}
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="default"
                 onClick={() => handleOAuth('google')}
-                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e9eaeb] bg-white px-4 py-2.5 text-[14px] font-medium text-[#181d27] transition hover:bg-[#fafafa]"
+                className="w-full rounded-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
               >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
-                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
-                  <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/>
-                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
-                </svg>
-                Continue with Google
-              </button>
+                <span className="flex w-full items-center">
+                  <span className="flex w-11 justify-start pl-3">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">
+                      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
+                      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
+                      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/>
+                      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
+                    </svg>
+                  </span>
+                  <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Google</span>
+                  <span className="w-11" />
+                </span>
+              </Button>
 
               {/* Apple */}
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="default"
                 onClick={() => handleOAuth('apple')}
-                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e9eaeb] bg-white px-4 py-2.5 text-[14px] font-medium text-[#181d27] transition hover:bg-[#fafafa]"
+                className="w-full rounded-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
               >
-                <Image src="/icons/apple-logo.svg" alt="Apple" width={18} height={18} />
-                Continue with Apple
-              </button>
+                <span className="flex w-full items-center">
+                  <span className="flex w-11 justify-start pl-3">
+                    <Image src="/icons/apple-logo.svg" alt="Apple" width={18} height={18} className="shrink-0" />
+                  </span>
+                  <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Apple</span>
+                  <span className="w-11" />
+                </span>
+              </Button>
 
             </div>
 
             {/* Divider */}
             <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-[#f2f4f7]" />
-              <span className="text-[12px] text-[#c1c5cd]">or</span>
-              <div className="h-px flex-1 bg-[#f2f4f7]" />
+              <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
+              <span className="text-[12px] text-[var(--color-text-placeholder)]">or</span>
+              <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
             </div>
 
             {/* Email */}
             <div className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Email</label>
-                <input
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email</label>
+                <Input
                   type="email"
                   autoComplete="email"
                   placeholder="you@example.com"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
-                  className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                  className="h-10 rounded-xl"
                 />
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isSendingCode || !emailInput.trim()}
                 onClick={handleSendCode}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSendingCode ? 'Sending…' : 'Continue'}
-              </button>
+              </Button>
             </div>
 
-            <p className="mt-6 text-center text-[12px] text-[#c1c5cd]">
+            <p className="mt-6 text-center text-[12px] text-[var(--color-text-placeholder)]">
               By continuing, you agree to our{' '}
-              <a href="/terms" className="underline hover:text-[#717680]">Terms</a>
+              <a href="/terms" className="underline hover:text-[var(--color-text-tertiary)]">Terms</a>
               {' & '}
-              <a href="/privacy" className="underline hover:text-[#717680]">Privacy</a>.
+              <a href="/privacy" className="underline hover:text-[var(--color-text-tertiary)]">Privacy</a>.
             </p>
           </div>
         )}
@@ -311,25 +327,26 @@ export default function SignInPage() {
         {/* ── OTP ── */}
         {stage === 'otp' && (
           <div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => { setStage('landing'); setOtp(''); setErrorMessage(''); }}
-              className="mb-6 flex items-center gap-1.5 text-[13px] text-[#a4a7ae] transition hover:text-[#717680]"
+              className="mb-6"
             >
               <CaretLeft className="h-3.5 w-3.5" weight="bold" />
               Back
-            </button>
+            </Button>
 
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Check your inbox</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Check your inbox</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
               We sent a 6-digit code to{' '}
-              <span className="font-medium text-[#535862]">{emailInput}</span>.
+              <span className="font-medium text-[var(--color-text-secondary)]">{emailInput}</span>.
             </p>
 
             <div className="mt-8 space-y-3">
               <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Verification code</label>
-                <input
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Verification code</label>
+                <Input
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -339,37 +356,39 @@ export default function SignInPage() {
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
                   autoFocus
-                  className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-center text-[18px] font-semibold tracking-[0.2em] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                  className="h-10 text-center text-[18px] font-semibold tracking-[0.2em] rounded-xl"
                 />
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isVerifying || otp.length < 6}
                 onClick={handleVerifyOtp}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isVerifying ? 'Verifying…' : 'Continue'}
-              </button>
+              </Button>
 
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={handleSendCode}
                 disabled={isSendingCode || resendSecondsLeft > 0}
-                className="flex h-10 w-full items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa] disabled:opacity-50"
+                className="w-full rounded-full"
               >
                 {isSendingCode
                   ? 'Sending…'
                   : resendSecondsLeft > 0
                     ? `Resend code in ${resendSecondsLeft}s`
                     : 'Resend code'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -377,79 +396,81 @@ export default function SignInPage() {
         {/* ── Loading ── */}
         {stage === 'loading' && (
           <div className="py-12 text-center">
-            <SpinnerGap className="mx-auto h-6 w-6 animate-spin text-[#2563eb]" weight="bold" />
-            <p className="mt-4 text-[14px] text-[#a4a7ae]">{loadingLabel}</p>
+            <SpinnerGap className="mx-auto h-6 w-6 animate-spin text-[var(--color-primary)]" weight="bold" />
+            <p className="mt-4 text-[14px] text-[var(--color-text-muted)]">{loadingLabel}</p>
           </div>
         )}
 
         {/* ── Error ── */}
         {stage === 'error' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Something went wrong</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">{errorMessage || 'Please try again.'}</p>
-            <button
-              type="button"
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Something went wrong</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">{errorMessage || 'Please try again.'}</p>
+            <Button
+              variant="default"
+              size="default"
               onClick={() => { setStage('landing'); setErrorMessage(''); }}
-              className="mt-8 flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+              className="mt-8 w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
             >
               Try again
-            </button>
+            </Button>
           </div>
         )}
 
         {/* ── Profile ── */}
         {stage === 'profile' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Tell us about yourself</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">This helps Hedwig prepare client-ready documents with your name.</p>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Tell us about yourself</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">This helps Hedwig prepare client-ready documents with your name.</p>
 
             <div className="mt-8 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">First name</label>
-                  <input
+                  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">First name</label>
+                  <Input
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="First"
-                    className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                    className="h-10 rounded-xl"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Last name</label>
-                  <input
+                  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Last name</label>
+                  <Input
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Last"
-                    className="h-10 w-full rounded-xl border border-[#e9eaeb] bg-white px-3.5 text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] outline-none transition focus:border-[#2563eb] focus:ring-3 focus:ring-[#2563eb]/10"
+                    className="h-10 rounded-xl"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Email</label>
-                <input
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email</label>
+                <Input
                   value={email}
                   disabled
-                  className="h-10 w-full rounded-xl border border-[#f2f4f7] bg-[#fafafa] px-3.5 text-[14px] text-[#a4a7ae]"
+                  className="h-10 rounded-xl bg-[var(--color-background)] text-[var(--color-text-muted)]"
                 />
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isSubmitting}
                 onClick={submitProfile}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSubmitting ? 'Saving…' : 'Continue'}
-              </button>
+              </Button>
 
-              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 3</p>
+              <p className="text-center text-[12px] text-[var(--color-text-placeholder)]">Step 1 of 3</p>
             </div>
           </div>
         )}
@@ -457,50 +478,53 @@ export default function SignInPage() {
         {/* ── Target ── */}
         {stage === 'target' && (
           <div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => { setStage('profile'); setErrorMessage(''); }}
-              className="mb-6 flex items-center gap-1.5 text-[13px] text-[#a4a7ae] transition hover:text-[#717680]"
+              className="mb-6"
             >
               <CaretLeft className="h-3.5 w-3.5" weight="bold" />
               Back
-            </button>
+            </Button>
 
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Set a monthly goal</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Set a monthly goal</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
               This helps you track your earnings. You can always change it later.
             </p>
 
             <div className="mt-8 space-y-4">
-              <div className="rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                   Monthly target (USD)
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="default"
+                    size="sm"
                     onClick={() => setMonthlyTarget((p) => Math.max(0, p - 500))}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8]"
+                    className="h-10 w-10 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
                   >
                     <svg width="16" height="2" viewBox="0 0 16 2" fill="none">
                       <path d="M1 1h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                  </button>
+                  </Button>
                   <div className="min-w-[140px] text-center">
-                    <p className="text-[36px] font-light leading-none tracking-[-0.03em] text-[#181d27]">
+                    <p className="text-[36px] font-light leading-none tracking-[-0.03em] text-[var(--color-foreground)]">
                       {monthlyTarget.toLocaleString('en-US')}
                     </p>
-                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">USD/month</p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">USD/month</p>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="default"
+                    size="sm"
                     onClick={() => setMonthlyTarget((p) => p + 500)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8]"
+                    className="h-10 w-10 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                  </button>
+                  </Button>
                 </div>
                 <div className="mt-4 flex justify-center gap-2">
                   {[
@@ -508,47 +532,46 @@ export default function SignInPage() {
                     { label: 'Growing', value: 5000 },
                     { label: 'Established', value: 10000 },
                   ].map((preset) => (
-                    <button
+                    <Button
                       key={preset.label}
-                      type="button"
+                      variant={monthlyTarget === preset.value ? 'default' : 'secondary'}
+                      size="sm"
                       onClick={() => setMonthlyTarget(preset.value)}
-                      className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition ${
-                        monthlyTarget === preset.value
-                          ? 'bg-[#2563eb] text-white'
-                          : 'bg-[#f5f5f5] text-[#414651] hover:bg-[#e9eaeb]'
-                      }`}
+                      className="rounded-full"
                     >
                       {preset.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="default"
                 disabled={isSavingTarget}
                 onClick={handleSaveTarget}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSavingTarget ? 'Saving…' : 'Continue'}
-              </button>
+              </Button>
 
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={() => { setErrorMessage(''); setStage('bank'); }}
-                className="flex h-10 w-full items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
+                className="w-full rounded-full"
               >
                 Skip for now
-              </button>
+              </Button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 2 of 3</p>
+            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 2 of 3</p>
           </div>
         )}
 
@@ -556,19 +579,19 @@ export default function SignInPage() {
         {stage === 'bank' && (
           <div>
             <div className="mb-6 text-center">
-              <span className="inline-flex rounded-full bg-[#eff4ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">
+              <span className="inline-flex rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">
                 Final step
               </span>
-              <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[#181d27]">
+              <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">
                 Add your payout bank
               </h1>
-              <p className="mt-2 text-[13px] leading-5 text-[#717680]">
+              <p className="mt-2 text-[13px] leading-5 text-[var(--color-text-tertiary)]">
                 This lets clients see exactly where to pay you by bank transfer. You can skip this for now,
                 but adding it now makes your first invoice ready to send.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
               <BankAccountForm
                 accessToken={token}
                 initial={null}
@@ -582,26 +605,26 @@ export default function SignInPage() {
             </div>
 
             <div className="mt-4 flex items-center justify-between gap-3">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="default"
                 onClick={() => setStage('profile')}
-                className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#e9eaeb] px-4 text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
               >
                 <CaretLeft className="h-3.5 w-3.5" weight="bold" />
                 Back
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="default"
                 onClick={() => {
                   if (token) void finalizeSession(token);
                 }}
-                className="flex h-10 items-center justify-center rounded-full px-4 text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
               >
                 Skip for now
-              </button>
+              </Button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 3 of 3</p>
+            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 3 of 3</p>
           </div>
         )}
 

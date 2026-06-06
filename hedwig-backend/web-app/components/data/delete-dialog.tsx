@@ -37,7 +37,7 @@ export function DeleteDialog({
         </DialogHeader>
         {itemLabel ? (
           <DialogBody>
-            <div className="rounded-[15px] border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-sm font-medium text-[#717680]">
+            <div className="rounded-[15px] border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm font-medium text-[var(--color-text-tertiary)]">
               {itemLabel}
             </div>
           </DialogBody>
@@ -49,7 +49,7 @@ export function DeleteDialog({
           <Button
             onClick={onConfirm}
             disabled={isDeleting}
-            className="bg-[#f04438] text-white hover:bg-[#d92d20]"
+            className="bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger)]"
           >
             {isDeleting ? 'Deleting…' : 'Delete'}
           </Button>

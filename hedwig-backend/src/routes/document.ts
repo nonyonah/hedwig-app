@@ -11,11 +11,22 @@ import { createLogger } from '../utils/logger';
 import { buildIncomingPaymentCopy } from '../utils/notificationCopy';
 import { anchorDocumentPaidProof } from '../services/celoProofRegistry';
 import { checkDocumentCreationLimit } from '../services/billingRules';
+import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
+import { getEffectiveWorkspaceId } from '../utils/workspace';
 // import BlockradarService from '../services/blockradar'; // REMOVED: Reverting to direct wallet-to-wallet payments
 
 const logger = createLogger('Documents');
 
 const router = Router();
+
+async function guardOwnerOrAdmin(req: Request, res: Response, userId: string): Promise<boolean> {
+  const role = await getWorkspaceRole(req, userId);
+  if (!isOwnerOrAdmin(role)) {
+    res.status(403).json({ success: false, error: { message: 'Only owners and admins can create documents' } });
+    return false;
+  }
+  return true;
+}
 
 // Canonical public web URL for invoice and payment link pages.
 const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
@@ -125,12 +136,14 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
         // Get internal user ID
         const user = await getOrCreateUser(privyId);
 
-        if (!user) {
-            res.status(404).json({ success: false, error: { message: 'User not found' } });
-            return;
-        }
+            if (!user) {
+                res.status(404).json({ success: false, error: { message: 'User not found' } });
+                return;
+            }
 
-        const invoiceLimit = await checkDocumentCreationLimit({ user, type: 'INVOICE' });
+            if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+            const invoiceLimit = await checkDocumentCreationLimit({ user, type: 'INVOICE' });
         if (!invoiceLimit.allowed) {
             res.status(403).json({
                 success: false,
@@ -138,6 +151,8 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             });
             return;
         }
+
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
 
         // Unique Client Check & Creation via centralized service
         let clientId: string | null = clientIdParam || null;
@@ -155,7 +170,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 user.id,
                 clientName,
                 recipientEmail,
-                { createdFrom: 'invoice_creation' }
+                { createdFrom: 'invoice_creation', workspaceId: await getEffectiveWorkspaceId(req, user.id) }
             );
             clientId = id;
             // Use client's saved email if none was explicitly provided
@@ -169,6 +184,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 user_id: user.id,
                 client_id: clientId,
                 project_id: projectId || null,
+                workspace_id: await getEffectiveWorkspaceId(req, user.id),
                 type: 'INVOICE',
                 title: providedTitle || `Invoice for ${clientName || 'Services'}`,
                 amount: parseFloat(amount),
@@ -288,6 +304,8 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
         let clientId: string | null = clientIdParam || null;
         let resolvedEmail = recipientEmail || null;
         if (clientId) {
@@ -302,7 +320,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 user.id,
                 clientName,
                 recipientEmail,
-                { createdFrom: 'payment_link_creation' }
+                { createdFrom: 'payment_link_creation', workspaceId: await getEffectiveWorkspaceId(req, user.id) }
             );
             clientId = id;
             // Use client's saved email if none was explicitly provided
@@ -315,6 +333,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             .insert({
                 user_id: user.id,
                 client_id: clientId,
+                workspace_id: await getEffectiveWorkspaceId(req, user.id),
                 type: 'PAYMENT_LINK',
                 title: providedTitle || (clientName ? `Payment Link for ${clientName}` : null) || (resolvedEmail ? `Payment Link for ${resolvedEmail.split('@')[0]}` : null) || 'Payment Link',
                 amount: parseFloat(amount),
@@ -461,7 +480,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     user.id,
                     clientName,
                     recipientEmail,
-                    { createdFrom: 'invoice_creation' }
+                    { createdFrom: 'invoice_creation', workspaceId: await getEffectiveWorkspaceId(req, user.id) }
                 );
                 clientId = id;
                 if (!resolvedEmailInv && client?.email) resolvedEmailInv = client.email;
@@ -473,6 +492,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     user_id: user.id,
                     client_id: clientId,
                     project_id: projectId || null,
+                    workspace_id: await getEffectiveWorkspaceId(req, user.id),
                     type: 'INVOICE',
                     title: title || `Invoice for ${clientName || 'Services'}`,
                     amount: parseFloat(amount),
@@ -553,6 +573,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
+            if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
             let clientId: string | null = clientIdParam || null;
             let resolvedEmailPl = recipientEmail || null;
             if (clientId) {
@@ -567,7 +589,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     user.id,
                     clientName,
                     recipientEmail,
-                    { createdFrom: 'payment_link_creation' }
+                    { createdFrom: 'payment_link_creation', workspaceId: await getEffectiveWorkspaceId(req, user.id) }
                 );
                 clientId = id;
                 if (!resolvedEmailPl && client?.email) resolvedEmailPl = client.email;
@@ -578,6 +600,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 .insert({
                     user_id: user.id,
                     client_id: clientId,
+                    workspace_id: await getEffectiveWorkspaceId(req, user.id),
                     type: 'PAYMENT_LINK',
                     title: title || (clientName ? `Payment Link for ${clientName}` : null) || (resolvedEmailPl ? `Payment Link for ${resolvedEmailPl.split('@')[0]}` : null) || 'Payment Link',
                     amount: parseFloat(amount),
@@ -650,6 +673,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
+            if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
             let clientId: string | null = clientIdParam || null;
             let resolvedContractEmail = recipientEmail || null;
             if (clientId) {
@@ -664,7 +689,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     user.id,
                     clientName,
                     recipientEmail,
-                    { createdFrom: 'contract_creation' }
+                    { createdFrom: 'contract_creation', workspaceId: await getEffectiveWorkspaceId(req, user.id) }
                 );
                 clientId = id;
             }
@@ -677,57 +702,34 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 try {
                     logger.info('Generating AI contract content', { projectId, clientName });
                     
-                    // Import Gemini service for contract generation
-                    const { GeminiService } = await import('../services/gemini');
-                    const { ClientService } = await import('../services/clientService');
+                    // Import DeepSeek service for contract generation
 
-                    // 1. Fetch User Details (Freelancer)
+                    const { DeepSeekService } = await import('../services/deepseek');
+
                     const { data: fullUser } = await supabase
                         .from('users')
                         .select('first_name, last_name, email')
                         .eq('id', user.id)
                         .single();
 
-                    const freelancerName = fullUser ? 
-                        (fullUser.first_name ? `${fullUser.first_name} ${fullUser.last_name || ''}`.trim() : fullUser.email) 
+                    const freelancerName = fullUser
+                        ? (fullUser.first_name
+                            ? `${fullUser.first_name} ${fullUser.last_name || ''}`.trim()
+                            : fullUser.email)
                         : 'Freelancer';
                     const freelancerEmail = fullUser?.email || '';
 
-                    // 2. Fetch Client Details
-                    // We already have clientName, but let's see if we have more info in DB if client exists
                     let clientCompany = '';
-                    let clientEmail = resolvedContractEmail || recipientEmail || '';
-
-                    try {
-                        if (clientId) {
-                            const { data: existingClient } = await supabase
-                                .from('clients').select('email, company').eq('id', clientId).single();
-                            if (existingClient) {
-                                clientCompany = existingClient.company || '';
-                                if (!clientEmail && existingClient.email) clientEmail = existingClient.email;
-                            }
-                        } else {
-                            const { client } = await ClientService.getOrCreateClient(user.id, clientName, recipientEmail);
-                            if (client) {
-                                clientCompany = client.company || '';
-                                if (!clientEmail && client.email) clientEmail = client.email;
-                            }
-                        }
-                    } catch (e) {
-                        logger.warn('Could not fetch full client details for contract', { error: e });
+                    if (clientId) {
+                        const { data: clientData } = await supabase
+                            .from('clients').select('company').eq('id', clientId).single();
+                        clientCompany = clientData?.company || '';
                     }
-                    
-                    // Prepare contract details
-                    const scopeOfWork = description || title || 'Project deliverables as outlined';
-                    const milestones = items.map((item: any, index: number) => ({
-                        title: item.description || `Milestone ${index + 1}`,
-                        amount: item.amount || 0,
-                        description: item.description || ''
-                    }));
-                    
-                    const totalAmount = milestones.reduce((sum: number, m: any) => sum + (parseFloat(m.amount) || 0), 0);
-                    
-                    // Generate contract using Gemini
+
+                    const scopeOfWork = description || '';
+                    const totalAmount = amount || '0';
+                    const milestones = items || [];
+
                     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
                     
                     const contractPrompt = `You are an expert legal contract generator.
@@ -748,7 +750,7 @@ ${milestones.map((m: any) => `- ${m.title}: $${m.amount}`).join('\n')}
 
 GENERATE THE CONTRACT NOW, starting with the title.`;
 
-                    let aiResponse = await GeminiService.generateText(contractPrompt);
+                    let aiResponse = await DeepSeekService.generateText(contractPrompt);
                     
                     // Robust cleanup
                     generatedContent = aiResponse || '';
@@ -795,6 +797,7 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                     user_id: user.id,
                     client_id: clientId,
                     project_id: projectId || null,
+                    workspace_id: await getEffectiveWorkspaceId(req, user.id),
                     type: 'CONTRACT',
                     title: title || 'Contract',
                     amount: amount ? parseFloat(amount) : 0,
@@ -924,6 +927,9 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
         if (type) {
             query = query.eq('type', type);
         }
+
+        const workspaceId = await getEffectiveWorkspaceId(req, user.id);
+        query = query.eq('workspace_id', workspaceId);
 
         const { data: documents, error } = await query;
 
@@ -1411,7 +1417,7 @@ router.patch('/:id/status', authenticate, async (req: Request, res: Response, ne
                         userData.id,
                         candidateName || null,
                         candidateEmail || null,
-                        { createdFrom: 'mark_paid_resolve' }
+                        { createdFrom: 'mark_paid_resolve', workspaceId: await getEffectiveWorkspaceId(req, userData.id) }
                     );
                     resolvedClientId = resolved.id;
                 } catch (resolveErr) {

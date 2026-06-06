@@ -1,11 +1,12 @@
 import { getCurrentSession } from '@/lib/auth/session';
 import { hedwigApi } from '@/lib/api/client';
+import { workspaceApiOptions } from '@/lib/workspace/server';
 import { RevenueClient } from './view';
 import { normalizeExpenseRecords } from '@/lib/revenue-analytics';
 
 export default async function RevenuePage() {
   const session = await getCurrentSession();
-  const opts = { accessToken: session.accessToken };
+  const opts = await workspaceApiOptions(session.accessToken);
 
   const [summary, expensesData, breakdown, activity, paymentSources, paymentsData, clients] = await Promise.all([
     hedwigApi.revenueSummary('30d', opts).catch(() => ({

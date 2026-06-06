@@ -1,7 +1,11 @@
 'use client';
 
-import * as AvatarPrimitive from '@radix-ui/react-avatar';
+import { Avatar as HeroUIAvatar } from '@heroui/react';
 import { cn, initials } from '@/lib/utils';
+
+/* --------------------------------------------------------------------------
+   Hedwig Avatar — powered by HeroUI
+   -------------------------------------------------------------------------- */
 
 export function Avatar({
   className,
@@ -13,16 +17,20 @@ export function Avatar({
   src?: string | null;
 }) {
   return (
-    <AvatarPrimitive.Root className={cn('relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#e9eaeb] text-[12px] font-semibold text-[#414651]', className)}>
+    <HeroUIAvatar
+      className={cn(
+        'h-8 w-8 rounded-full bg-[var(--color-border)] text-[12px] font-semibold text-[var(--color-text-secondary)]',
+        className
+      )}
+    >
       {src ? (
-        <AvatarPrimitive.Image
+        <HeroUIAvatar.Image
           alt={label}
-          className="h-full w-full object-cover"
-          referrerPolicy="no-referrer"
           src={src}
+          referrerPolicy="no-referrer"
         />
       ) : null}
-      <AvatarPrimitive.Fallback>{initials(label)}</AvatarPrimitive.Fallback>
-    </AvatarPrimitive.Root>
+      <HeroUIAvatar.Fallback>{initials(label)}</HeroUIAvatar.Fallback>
+    </HeroUIAvatar>
   );
 }

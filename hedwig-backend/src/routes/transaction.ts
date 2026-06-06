@@ -5,10 +5,12 @@ import { Network, Alchemy, AssetTransfersCategory, SortingOrder } from 'alchemy-
 import { Connection, PublicKey } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
+import { getEffectiveWorkspaceId } from '../utils/workspace';
 
 const logger = createLogger('Transactions');
 
 const router = Router();
+
 const IS_TESTNET = process.env.NETWORK_MODE === 'testnet' || process.env.SOLANA_NETWORK === 'testnet' || process.env.BASE_RPC_URL?.includes('sepolia');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || '';
@@ -80,6 +82,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, error: 'User not found' });
         }
         const userId = user.id;
+        const workspaceId = await getEffectiveWorkspaceId(req, userId);
 
         const ethAddress = user.ethereum_wallet_address;
         const solAddress = user.solana_wallet_address;
@@ -89,11 +92,13 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         const allTransactions: TransactionItem[] = [];
 
         // 0. Fetch Local DB Transactions (Source of truth for app actions)
-        const { data: dbTransactions } = await supabase
+        let txQuery = supabase
             .from('transactions')
             .select('*')
             .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+            .eq('workspace_id', workspaceId);
+
+        const { data: dbTransactions } = await txQuery.order('created_at', { ascending: false });
 
         if (dbTransactions) {
             dbTransactions.forEach(tx => {
@@ -385,6 +390,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
             .insert({
                 user_id: userId,
                 document_id: documentId || null,
+                workspace_id: await getEffectiveWorkspaceId(req, user.id),
                 type: type,
                 status: status,
                 chain: chain,

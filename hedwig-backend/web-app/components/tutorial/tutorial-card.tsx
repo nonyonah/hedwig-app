@@ -49,37 +49,37 @@ export function TutorialCard() {
           transition: 'opacity 220ms ease, transform 220ms ease',
         }}
       >
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_16px_48px_rgba(0,0,0,0.18)] ring-1 ring-[#e9eaeb]">
+        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_16px_48px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]">
           {/* Brand accent bar */}
-          <div className="h-[3px] w-full bg-[#2563eb]" />
-
+          <div className="h-[3px] w-full bg-[var(--color-primary)]" />
+ 
           {/* Step indicator + Skip */}
           <div className="flex items-center justify-between px-5 pt-4">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
               {step} of {totalSteps}
             </span>
             <button
               onClick={skipTutorial}
-              className="text-[13px] font-medium text-[#717680] transition-colors hover:text-[#181d27]"
+              className="text-[13px] font-medium text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)]"
             >
               Skip
             </button>
           </div>
 
           {/* Progress bar */}
-          <div className="mx-5 mt-3 h-1 overflow-hidden rounded-full bg-[#f2f4f7]">
+          <div className="mx-5 mt-3 h-1 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
             <div
-              className="h-full rounded-full bg-[#2563eb] transition-all duration-300"
+              className="h-full rounded-full bg-[var(--color-primary)] transition-all duration-300"
               style={{ width: `${(step / totalSteps) * 100}%` }}
             />
           </div>
 
           {/* Content */}
           <div className="px-5 pb-2 pt-4">
-            <h3 className="text-[17px] font-bold tracking-[-0.03em] text-[#181d27]">
+            <h3 className="text-[17px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">
               {activeStep?.title}
             </h3>
-            <p className="mt-2 text-[14px] leading-[1.7] text-[#717680]">
+            <p className="mt-2 text-[14px] leading-[1.7] text-[var(--color-text-tertiary)]">
               {activeStep?.body}
             </p>
           </div>
@@ -89,13 +89,13 @@ export function TutorialCard() {
             <button
               onClick={prevStep}
               disabled={isFirst}
-              className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] px-5 text-[13px] font-semibold text-[#344054] transition-all hover:border-[#c0c3c9] hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-30"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-[var(--color-border-input)] px-5 text-[13px] font-semibold text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-text-placeholder)] hover:bg-[var(--color-background)] disabled:cursor-not-allowed disabled:opacity-30"
             >
               Back
             </button>
             <button
               onClick={nextStep}
-              className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-6 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(37,99,235,0.22)] transition-all hover:bg-[#1d4ed8] hover:shadow-[0_6px_16px_rgba(37,99,235,0.3)]"
+              className="inline-flex h-9 items-center justify-center rounded-full bg-[var(--color-primary)] px-6 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(37,99,235,0.22)] transition-all hover:bg-[var(--color-primary-dark)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.3)]"
             >
               {isLast ? 'Done' : 'Next'}
             </button>

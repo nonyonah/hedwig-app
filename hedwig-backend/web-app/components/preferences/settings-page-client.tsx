@@ -65,12 +65,12 @@ function SettingsSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-      <div className="border-b border-[#f2f4f7] px-5 py-4">
-        <h2 className="text-[16px] font-semibold text-[#181d27]">{title}</h2>
-        {description ? <p className="mt-0.5 text-[13px] text-[#717680]">{description}</p> : null}
+    <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+      <div className="border-b border-[var(--color-surface-tertiary)] px-5 py-4">
+        <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">{title}</h2>
+        {description ? <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">{description}</p> : null}
       </div>
-      <div className="divide-y divide-[#f2f4f7]">{children}</div>
+      <div className="divide-y divide-[var(--color-surface-tertiary)]">{children}</div>
     </section>
   );
 }
@@ -87,8 +87,8 @@ function SettingsRow({
   return (
     <div className="flex items-center justify-between gap-4 px-5 py-3.5">
       <div className="min-w-0">
-        <p className="text-[14px] font-semibold text-[#181d27]">{label}</p>
-        {description ? <p className="mt-0.5 text-[12px] text-[#717680]">{description}</p> : null}
+        <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{label}</p>
+        {description ? <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{description}</p> : null}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -423,36 +423,36 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     <>
       <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-5">
         <div>
-          <h1 className="text-[18px] font-semibold text-[#181d27]">Settings</h1>
-          <p className="mt-1 text-[13px] text-[#717680]">Manage your workspace preferences and security controls.</p>
+          <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Settings</h1>
+          <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Manage your workspace preferences and security controls.</p>
         </div>
 
-        <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="flex items-center gap-4 border-b border-[#f2f4f7] px-5 py-4">
+        <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="flex items-center gap-4 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
             <Avatar className="h-12 w-12 text-[14px]" label={fullName} src={avatarUrl} />
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-[16px] font-semibold text-[#181d27]">{fullName}</p>
+                <p className="text-[16px] font-semibold text-[var(--color-foreground)]">{fullName}</p>
                 {isProUser ? <Badge variant="success">{planLabel(billingStatus?.plan)}</Badge> : null}
               </div>
-              <p className="text-[13px] text-[#717680]">{email}</p>
+              <p className="text-[13px] text-[var(--color-text-tertiary)]">{email}</p>
             </div>
           </div>
           <div className="grid gap-3 p-5 md:grid-cols-3">
             <label className="md:col-span-1">
-              <span className="mb-1 block text-[12px] font-semibold text-[#525866]">First name</span>
+              <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">First name</span>
               <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="First name" />
             </label>
             <label className="md:col-span-1">
-              <span className="mb-1 block text-[12px] font-semibold text-[#525866]">Last name</span>
+              <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Last name</span>
               <Input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" />
             </label>
             <label className="md:col-span-1">
-              <span className="mb-1 block text-[12px] font-semibold text-[#525866]">Email</span>
+              <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Email</span>
               <Input value={email} disabled />
             </label>
           </div>
-          <div className="border-t border-[#f2f4f7] px-5 py-4">
+          <div className="border-t border-[var(--color-surface-tertiary)] px-5 py-4">
             <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
               {isSavingProfile ? 'Saving profile…' : 'Save profile'}
             </Button>
@@ -467,7 +467,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             <select
               value={displayCurrency}
               onChange={(event) => setDisplayCurrency(event.target.value)}
-              className="rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa] focus:border-[#2563eb] focus:outline-none"
+              className="rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition hover:bg-[var(--color-background)] focus:border-[var(--color-accent)] focus:outline-none"
             >
               {currencyOptions.map((option) => (
                 <option key={option.code} value={option.code}>
@@ -482,7 +482,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               type="button"
               onClick={handleConnectionDiagnostics}
               disabled={isCheckingConnection}
-              className="rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition hover:bg-[var(--color-background)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isCheckingConnection
                 ? 'Checking…'
@@ -498,10 +498,10 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             <button
               type="button"
               onClick={handleReplayTutorial}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#414651] transition hover:text-[#181d27]"
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-text-secondary)] transition hover:text-[var(--color-foreground)]"
             >
               Replay
-              <CaretRight className="h-4 w-4 text-[#a4a7ae]" />
+              <CaretRight className="h-4 w-4 text-[var(--color-text-muted)]" />
             </button>
           </SettingsRow>
 
@@ -516,11 +516,11 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               disabled={isSavingReminders}
               onClick={() => void handleToggleReminders(!clientRemindersEnabled)}
               className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
-                clientRemindersEnabled ? 'bg-[#2563eb]' : 'bg-[#d5d7da]'
+                clientRemindersEnabled ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
               }`}
             >
               <span
-                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[var(--color-surface)] shadow-xs transition-transform ${
                   clientRemindersEnabled ? 'translate-x-4' : 'translate-x-0.5'
                 }`}
               />
@@ -552,11 +552,11 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                   disabled={isSavingAsstPref === key}
                   onClick={() => void handleAsstPrefToggle(key, !asstPrefs[key])}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
-                    asstPrefs[key] ? 'bg-[#2563eb]' : 'bg-[#d5d7da]'
+                    asstPrefs[key] ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
                   }`}
                 >
                   <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[var(--color-surface)] shadow-xs transition-transform ${
                       asstPrefs[key] ? 'translate-x-4' : 'translate-x-0.5'
                     }`}
                   />
@@ -576,7 +576,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           >
             <div className="flex items-center gap-2">
               {billingInterval ? (
-                <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">
+                <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent)]">
                   {billingInterval === 'annual' ? 'Yearly' : 'Monthly'}
                 </span>
               ) : null}
@@ -595,7 +595,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                   : 'Upgrade to yearly billing to lock in the annual discount.'
               }
             >
-              <div className="flex items-center rounded-full border border-[#d5d7da] bg-white p-1">
+              <div className="flex items-center rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] p-1">
                 {(['monthly', 'annual'] as const).map((interval) => {
                   const active = billingInterval === interval;
                   const busy = switchingBillingInterval === interval;
@@ -607,8 +607,8 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                       disabled={active || switchingBillingInterval !== null}
                       className={`rounded-full px-3 py-1 text-[12px] font-semibold transition disabled:cursor-not-allowed ${
                         active
-                          ? 'bg-[#2563eb] text-white'
-                          : 'text-[#414651] hover:bg-[#eff4ff] hover:text-[#2563eb] disabled:opacity-60'
+                          ? 'bg-[var(--color-accent)] text-white'
+                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)] disabled:opacity-60'
                       }`}
                     >
                       {busy ? 'Opening…' : interval === 'annual' ? 'Yearly' : 'Monthly'}
@@ -633,12 +633,12 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 void openSubscriptionManagement();
               }}
               disabled={isOpeningSubscriptionManagement}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isOpeningSubscriptionManagement
                 ? 'Opening…'
                 : 'Manage'}
-              <CaretRight className="h-3.5 w-3.5 text-[#a4a7ae]" />
+              <CaretRight className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
             </button>
           </SettingsRow>
         </SettingsSection>
@@ -650,19 +650,19 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           >
             <Link
               href="/export-wallet"
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]"
             >
               <Key className="h-3.5 w-3.5" weight="bold" />
               Export
-              <CaretRight className="h-3.5 w-3.5 text-[#a4a7ae]" />
+              <CaretRight className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
             </Link>
           </SettingsRow>
         </SettingsSection>
 
-        <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="border-b border-[#f2f4f7] px-5 py-4">
-            <h2 className="text-[16px] font-semibold text-[#181d27]">Account</h2>
-            <p className="mt-0.5 text-[13px] text-[#717680]">Session and account lifecycle actions.</p>
+        <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="border-b border-[var(--color-surface-tertiary)] px-5 py-4">
+            <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">Account</h2>
+            <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Session and account lifecycle actions.</p>
           </div>
           <div className="flex flex-wrap gap-3 px-5 py-4">
             <Button asChild size="sm" variant="secondary">
@@ -691,11 +691,11 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 </DialogDescription>
               </DialogHeader>
               <DialogBody className="space-y-4">
-                <div className="flex items-start gap-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
-                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#92400e]" weight="fill" />
+                <div className="flex items-start gap-3 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
+                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
                   <div>
-                    <p className="text-[13px] font-semibold text-[#92400e]">You will lose access to your funds</p>
-                    <p className="mt-0.5 text-[12px] leading-5 text-[#b45309]">
+                    <p className="text-[13px] font-semibold text-[var(--color-warning)]">You will lose access to your funds</p>
+                    <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-warning)]">
                       If you have USDC or other tokens in your Hedwig wallet, export your private key now so you can access them later. Hedwig cannot recover this key for you.
                     </p>
                   </div>
@@ -723,11 +723,11 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 <DialogDescription>This action is permanent and cannot be undone.</DialogDescription>
               </DialogHeader>
               <DialogBody className="space-y-4">
-                <div className="flex items-start gap-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
-                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#92400e]" weight="fill" />
+                <div className="flex items-start gap-3 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
+                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
                   <div>
-                    <p className="text-[13px] font-semibold text-[#92400e]">Final confirmation</p>
-                    <p className="mt-0.5 text-[12px] leading-5 text-[#b45309]">
+                    <p className="text-[13px] font-semibold text-[var(--color-warning)]">Final confirmation</p>
+                    <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-warning)]">
                       Deleting your account permanently removes your web workspace, invoices, payment links, projects, and contracts.
                     </p>
                   </div>

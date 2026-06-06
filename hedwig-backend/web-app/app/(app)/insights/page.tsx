@@ -1,11 +1,12 @@
 import { hedwigApi } from '@/lib/api/client';
 import { getCurrentSession } from '@/lib/auth/session';
+import { workspaceApiOptions } from '@/lib/workspace/server';
 import { normalizeExpenseRecords } from '@/lib/revenue-analytics';
 import { InsightsClient } from './view';
 
 export default async function InsightsPage() {
   const session = await getCurrentSession();
-  const opts = { accessToken: session.accessToken };
+  const opts = await workspaceApiOptions(session.accessToken);
 
   const [insightsData, profileData, billing, expensesData, breakdown, paymentsData] = await Promise.all([
     hedwigApi.insights('30d', opts).catch(() => null),

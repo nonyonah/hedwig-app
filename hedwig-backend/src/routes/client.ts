@@ -3,9 +3,15 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
-import { GeminiService } from '../services/gemini';
+import { DeepSeekService } from '../services/deepseek';
+import { getWorkspaceRole, isOwnerOrAdmin, getMemberAssignedProjectIds } from '../middleware/workspaceRole';
 
 const router = Router();
+
+function getEffectiveWorkspaceId(req: Request, userId: string): string {
+  const wsId = req.headers['x-workspace-id'] as string;
+  return wsId || `ws_personal_${userId}`;
+}
 
 type ClientStats = {
     totalEarnings: number;
@@ -60,8 +66,8 @@ async function fetchClientStats(userId: string, clientIds: string[]): Promise<Ma
     return accumulateClientStats(data || []);
 }
 
-function formatClient(client: any, stats?: ClientStats) {
-    return {
+function formatClient(client: any, stats?: ClientStats, isMemberView = false) {
+    const base = {
         id: client.id,
         userId: client.user_id,
         name: client.name,
@@ -70,13 +76,21 @@ function formatClient(client: any, stats?: ClientStats) {
         company: client.company,
         address: client.address,
         walletAddress: client.wallet_address,
-        totalEarnings: Number(((stats?.totalEarnings ?? parseFloat(client.total_earnings ?? '0')) || 0).toFixed(2)),
-        outstandingBalance: Number(((stats?.outstandingBalance ?? parseFloat(client.outstanding_balance ?? '0')) || 0).toFixed(2)),
         segment: (client.segment as string) || 'new',
         lastActivityAt: client.last_activity_at ?? null,
         notes: client.notes ?? null,
         createdAt: client.created_at,
         updatedAt: client.updated_at,
+    };
+
+    if (isMemberView) {
+        return { ...base, totalEarnings: 0, outstandingBalance: 0 };
+    }
+
+    return {
+        ...base,
+        totalEarnings: Number(((stats?.totalEarnings ?? parseFloat(client.total_earnings ?? '0')) || 0).toFixed(2)),
+        outstandingBalance: Number(((stats?.outstandingBalance ?? parseFloat(client.outstanding_balance ?? '0')) || 0).toFixed(2)),
     };
 }
 
@@ -110,18 +124,40 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        const { data: clients, error } = await supabase
-            .from('clients')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+        const role = await getWorkspaceRole(req, user.id);
+
+        let query = supabase.from('clients').select('*').eq('user_id', user.id).eq('workspace_id', effectiveWsId);
+
+        // Member: only show clients linked to assigned projects
+        if (role === 'member') {
+          const assignedProjectIds = await getMemberAssignedProjectIds(user.id, role, effectiveWsId);
+          if (!assignedProjectIds || assignedProjectIds.length === 0) {
+            res.json({ success: true, data: { clients: [] } });
+            return;
+          }
+          const { data: projectClientIds } = await supabase
+            .from('projects')
+            .select('client_id')
+            .in('id', assignedProjectIds)
+            .eq('workspace_id', effectiveWsId);
+          const clientIds = [...new Set((projectClientIds || []).map((p: any) => p.client_id).filter(Boolean))];
+          if (clientIds.length === 0) {
+            res.json({ success: true, data: { clients: [] } });
+            return;
+          }
+          query = query.in('id', clientIds);
+        }
+
+        const { data: clients, error } = await query.order('created_at', { ascending: false });
 
         if (error) {
             throw new Error(`Failed to fetch clients: ${error.message}`);
         }
 
-        const stats = await fetchClientStats(user.id, (clients || []).map((client) => String(client.id)));
-        const formattedClients = clients.map((client) => formatClient(client, stats.get(String(client.id))));
+        const isMemberView = role === 'member';
+        const stats = isMemberView ? new Map() : await fetchClientStats(user.id, (clients || []).map((client) => String(client.id)));
+        const formattedClients = (clients || []).map((client) => formatClient(client, stats.get(String(client.id)), isMemberView));
 
         res.json({
             success: true,
@@ -199,7 +235,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
 
 /**
  * POST /api/clients/:id/message/draft
- * Draft a client email with Gemini.
+ * Draft a client email with DeepSeek.
  */
 router.post('/:id/message/draft', authenticate, async (req: Request, res: Response, next) => {
     try {
@@ -219,7 +255,7 @@ router.post('/:id/message/draft', authenticate, async (req: Request, res: Respon
             return;
         }
 
-        const draft = await GeminiService.generateClientEmailDraft({
+        const draft = await DeepSeekService.generateClientEmailDraft({
             senderName: senderNameFromUser(user),
             clientName: client.name || 'there',
             clientCompany: client.company || null,
@@ -310,18 +346,29 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        const role = await getWorkspaceRole(req, user.id);
+        if (!isOwnerOrAdmin(role)) {
+            res.status(403).json({ success: false, error: { message: 'Only owners and admins can create clients' } });
+            return;
+        }
+
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+
+        const insertData: any = {
+            user_id: user.id,
+            workspace_id: effectiveWsId,
+            name,
+            email,
+            phone,
+            company,
+            address,
+            wallet_address: walletAddress,
+            notes: notes || null,
+        };
+
         const { data: client, error } = await supabase
             .from('clients')
-            .insert({
-                user_id: user.id,
-                name,
-                email,
-                phone,
-                company,
-                address,
-                wallet_address: walletAddress,
-                notes: notes || null,
-            })
+            .insert(insertData)
             .select()
             .single();
 
@@ -355,6 +402,12 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
         const user = await getOrCreateUser(privyId);
         if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const role = await getWorkspaceRole(req, user.id);
+        if (!isOwnerOrAdmin(role)) {
+            res.status(403).json({ success: false, error: { message: 'Only owners and admins can modify clients' } });
             return;
         }
 
@@ -417,6 +470,12 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
         const user = await getOrCreateUser(privyId);
         if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const role = await getWorkspaceRole(req, user.id);
+        if (!isOwnerOrAdmin(role)) {
+            res.status(403).json({ success: false, error: { message: 'Only owners and admins can delete clients' } });
             return;
         }
 

@@ -195,7 +195,6 @@ async function generateWithLLM(systemPrompt: string, userPrompt: string, purpose
         purpose,
         temperature: 0.7,
         maxOutputTokens: 2000,
-        useFallbacks: true,
     });
 }
 

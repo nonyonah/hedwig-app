@@ -553,6 +553,147 @@ export function getHedwigNativeTools(): AgentToolDefinition[] {
         };
       },
     },
+    {
+      name: 'time_tracker',
+      description: 'Query time tracking data, log manual time entries, or stage an invoice from unbilled hours. Use when the user asks about hours worked, time summary, or wants to bill tracked time.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'What to do: "summary" to get totals, "query" to search entries, "log" to record a manual entry, or "invoice" to stage an invoice from unbilled hours.',
+            enum: ['summary', 'query', 'log', 'invoice'],
+          },
+          projectName: { type: 'string', description: 'Filter by project name (for query/summary).' },
+          clientName: { type: 'string', description: 'Filter by client name.' },
+          dateFrom: { type: 'string', description: 'ISO date start (YYYY-MM-DD).' },
+          dateTo: { type: 'string', description: 'ISO date end (YYYY-MM-DD).' },
+          description: { type: 'string', description: 'Description of work done (for "log" action).' },
+          hours: { type: 'number', description: 'Hours to log (for "log" action).' },
+          hourlyRate: { type: 'number', description: 'Hourly rate in USD (for "log" action).' },
+        },
+        required: ['action'],
+      },
+      execute: async (args, context) => {
+        const { TimeEntriesService } = await import('../timeEntries');
+        const workspaceId = await (async () => {
+          const { data } = await supabase
+            .from('workspaces')
+            .select('id')
+            .eq('owner_id', context.userId)
+            .eq('type', 'personal')
+            .single();
+          return data?.id || null;
+        })();
+
+        if (!workspaceId) {
+          return { reply: 'Time tracking is available in your personal workspace.' };
+        }
+
+        const action = String(args.action || 'summary');
+
+        if (action === 'summary') {
+          const summary = await TimeEntriesService.getSummary(context.userId, workspaceId);
+          return {
+            reply: [
+              `Time summary:`,
+              `Today: ${(summary.hoursToday).toFixed(1)}h`,
+              `This week: ${(summary.hoursThisWeek).toFixed(1)}h`,
+              `This month: ${(summary.hoursThisMonth).toFixed(1)}h`,
+              `Billable: $${summary.billableAmount.toLocaleString()}`,
+              summary.topClient ? `Top client: ${summary.topClient.name} (${summary.topClient.hours.toFixed(1)}h)` : null,
+              summary.topProject ? `Top project: ${summary.topProject.name} (${summary.topProject.hours.toFixed(1)}h)` : null,
+            ].filter(Boolean).join('\n'),
+          };
+        }
+
+        if (action === 'query') {
+          const entries = await TimeEntriesService.list(context.userId, workspaceId, {
+            from: args.dateFrom,
+            to: args.dateTo,
+          });
+          const total = entries.reduce((s, e) => s + (e.durationSeconds || 0), 0) / 3600;
+          const billable = entries.reduce((s, e) => s + (e.billableAmount || 0), 0);
+          return {
+            reply: `Found ${entries.length} time entries (${total.toFixed(1)}h total, $${billable.toLocaleString()} billable).`,
+          };
+        }
+
+        if (action === 'log') {
+          if (!args.hours || !args.description) {
+            return { reply: 'I need both hours and description to log a time entry.' };
+          }
+          const durationSec = Math.round(Number(args.hours) * 3600);
+          await TimeEntriesService.create(context.userId, workspaceId, {
+            description: String(args.description),
+            durationSeconds: durationSec,
+            hourlyRate: typeof args.hourlyRate === 'number' ? args.hourlyRate : undefined,
+            startTime: new Date().toISOString(),
+            status: 'manual',
+          });
+          return { reply: `Logged ${args.hours}h — "${args.description}".` };
+        }
+
+        if (action === 'invoice') {
+          const entries = await TimeEntriesService.list(context.userId, workspaceId, { status: 'stopped' });
+          const unbilled = entries.filter(e => e.status !== 'billed');
+
+          if (unbilled.length === 0) {
+            return { reply: 'No unbilled time entries found.' };
+          }
+
+          const total = unbilled.reduce((s, e) => s + (e.billableAmount || 0), 0);
+          const draftKey = 'invoice_from_time';
+          const editedData = {
+            default_action: draftKey,
+            drafts: {
+              [draftKey]: {
+                title: 'Invoice for tracked time',
+                amount: total,
+                type: 'INVOICE',
+                time_entry_ids: unbilled.map(e => e.id),
+                entries: unbilled.map(e => ({
+                  id: e.id,
+                  description: e.description,
+                  durationSeconds: e.durationSeconds,
+                  hourlyRate: e.hourlyRate,
+                  billableAmount: e.billableAmount,
+                  projectName: e.project?.name,
+                })),
+              },
+            },
+          };
+
+          const { data, error } = await supabase
+            .from('assistant_suggestions')
+            .insert({
+              user_id: context.userId,
+              type: 'time_invoice',
+              title: `Invoice from ${unbilled.length} time entries`,
+              description: `${unbilled.length} unbilled entries · $${total.toLocaleString()}`,
+              priority: 'medium',
+              confidence_score: 0.9,
+              status: 'active',
+              reason: 'Hedwig agent prepared an invoice from unbilled time — pending your approval.',
+              surface: 'assistant_panel',
+              actions: [{ label: 'Generate invoice', type: draftKey, requires_approval: true }],
+              related_entities: { source: 'agent_chat' },
+              edited_data: editedData,
+            })
+            .select('id')
+            .single();
+
+          if (error || !data) throw new Error(error?.message || 'Could not stage invoice');
+          return {
+            staged: true,
+            suggestionId: data.id,
+            message: `Prepared invoice from ${unbilled.length} unbilled time entries ($${total.toLocaleString()}). Approve to create it.`,
+          };
+        }
+
+        return { reply: 'Unknown time tracker action.' };
+      },
+    },
   ];
 }
 

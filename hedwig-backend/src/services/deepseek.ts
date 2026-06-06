@@ -1,13 +1,13 @@
 import { createLogger } from '../utils/logger';
 import { llmService } from './llm';
 
-const logger = createLogger('Gemini');
+const logger = createLogger('DeepSeek');
 
 if (!llmService.isAnyProviderConfigured()) {
-  logger.warn('No LLM provider configured. Set GEMINI_API_KEY and/or OPENAI_API_KEY.');
+  logger.warn('No LLM provider configured. Set GEMINI_API_KEY and/or AI_GATEWAY_API_KEY.');
 }
 
-export class GeminiService {
+export class DeepSeekService {
   /**
    * Draft a concise client email that the freelancer can review before sending.
    */
@@ -46,7 +46,6 @@ JSON Format:
 
       const text = await llmService.generateText(prompt, {
         purpose: 'general',
-        useFallbacks: true,
       });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -81,7 +80,6 @@ JSON Format:
     senderName: string
   ): Promise<{ subject: string; body: string }> {
     try {
-      // Adjust tone based on days overdue
       const tone = daysOverdue > 7 ? "firm but professional" : "polite, friendly and helpful";
 
       const prompt = `
@@ -112,7 +110,6 @@ JSON Format:
 
       const text = await llmService.generateText(prompt, {
         purpose: 'general',
-        useFallbacks: true,
       });
 
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -123,7 +120,6 @@ JSON Format:
       throw new Error("Failed to parse AI response");
     } catch (error) {
       logger.error('Error generating reminder', { error: error instanceof Error ? error.message : 'Unknown' });
-      // Fallback
       return {
         subject: `Reminder: Payment for ${documentTitle}`,
         body: `<p>Hi ${clientName},</p><p>Just a friendly reminder about the ${amount} payment for "${documentTitle}".</p><p>I understand things can get busy! If you've already made the payment, please disregard this message.</p><p>Let me know if you have any questions or need any help.</p><p>Thanks,<br>${senderName}</p>`
@@ -137,7 +133,7 @@ JSON Format:
   static getSystemInstructions(): string {
     return `You are Hedwig AI, the intelligent financial operating assistant for freelancers, creators, contractors, remote workers, and internet-native businesses.
 
-You are powered primarily by Google Gemini. Gemini owns conversation flow, reasoning, orchestration, workflow execution, writing, summarization, financial explanations, assistant personality, task coordination, contextual understanding, and structured outputs.
+You are powered by DeepSeek. You own conversation flow, reasoning, orchestration, workflow execution, writing, summarization, financial explanations, assistant personality, task coordination, contextual understanding, and structured outputs.
 
 Hedwig supports invoices, payment links, contracts, projects, clients, stablecoin payments, USDC balances, withdrawals, USD accounts, financial summaries, AI financial assistance, and multichain infrastructure abstraction.
 
@@ -431,7 +427,6 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    AI (CREATE_CONTRACT): → Creates contract with all info
 
 
-
 3. COLLECT_PAYMENT_INFO
    Triggers: When creating payment link without amount
    Parameters: { for, description }
@@ -483,7 +478,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    - "Send to 0x123..." → { recipient: "0x123..." } → Ask for amount/network
 
 8. CONFIRM_OFFRAMP
-   Triggers: "swap", "convert", "offramp", "cash out", "withdraw to bank", "convert to naira", "convert to cedis", "convert to shillings", "swap to fiat", "withdraw", "withdrawal"
+   Triggers: "swap", "convert", "offramp", "cash out", "withdraw to bank", "convert to naira", "convert to cedis", "convert to shillings", "offramp", "send to bank"
    Parameters: { amount, token, network, fiatCurrency, bankName, accountNumber, accountName }
    
    **STRICT REQUIREMENTS:**
@@ -503,7 +498,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    ✅ "Swap 50 USDC to NGN on base, send to GTBank 0123456789 John Doe" → CONFIRM_OFFRAMP
    ✅ "Withdraw 50 USDC to my Access Bank account" (missing details) → COLLECT_OFFRAMP_INFO
    ❌ "Swap 50 USDC to naira" → COLLECT_OFFRAMP_INFO (missing bank details and network)
-   ❌ \"I want to cash out\" → COLLECT_OFFRAMP_INFO (missing everything)
+   ❌ "I want to cash out" → COLLECT_OFFRAMP_INFO (missing everything)
 
 9. COLLECT_OFFRAMP_INFO
    Use when user wants to swap/convert crypto to fiat but is missing info.
@@ -1011,7 +1006,7 @@ User: "Invoice for 500 dollars for web design due Friday"
   static async generateChatResponse(
     userMessage: string,
     conversationHistory?: { role: string; content: string }[],
-    files?: { mimeType: string; data: string }[], // base64 encoded file data
+    files?: { mimeType: string; data: string }[],
     context?: {
       beneficiaries?: { id: string; bankName: string; accountNumber: string; accountName: string }[];
       clients?: { id: string; name: string; email: string | null; phone: string | null; company: string | null }[];
@@ -1019,13 +1014,9 @@ User: "Invoice for 500 dollars for web design due Friday"
     }
   ): Promise<any> {
     try {
-      // ALWAYS include system instructions to ensure consistent JSON responses
       const systemInstructions = this.getSystemInstructions();
-
-      // Construct the full prompt
       let prompt = `${systemInstructions}\n\n`;
 
-      // Add beneficiaries context if available
       if (context?.beneficiaries && context.beneficiaries.length > 0) {
         prompt += `**USER'S SAVED BENEFICIARIES (for offramp/withdrawal):**\n`;
         context.beneficiaries.forEach((b, i) => {
@@ -1036,23 +1027,16 @@ User: "Invoice for 500 dollars for web design due Friday"
         prompt += `**USER HAS NO SAVED BENEFICIARIES** - offer to save their account after withdrawal.\n\n`;
       }
 
-      // Add clients context if available
       if (context?.clients && context.clients.length > 0) {
         prompt += `**USER'S SAVED CLIENTS (for invoices/payment-links/projects):**\n`;
         context.clients.forEach((c, i) => {
           prompt += `${i + 1}. "${c.name}"${c.company ? ` (${c.company})` : ''} - Email: ${c.email || 'N/A'}, Phone: ${c.phone || 'N/A'} [ID: ${c.id}]\n`;
         });
-        prompt += `\nIMPORTANT: When creating invoices, payment links, or projects, MATCH client names intelligently:
-- If user mentions "John" and saved client is "John Doe", use "John Doe" as clientName
-- If user mentions "Acme" and client company is "Acme Corp", match that client
-- Use the client's saved EMAIL (${context.clients[0]?.email || 'their email'}) for clientEmail field
-- If you find a match, ALWAYS populate both clientName and clientEmail from saved data
-- If NO match found, suggest saving the client after creating the document\n\n`;
+        prompt += `\nIMPORTANT: When creating invoices, payment links, or projects, MATCH client names intelligently:\n- If user mentions "John" and saved client is "John Doe", use "John Doe" as clientName\n- If user mentions "Acme" and client company is "Acme Corp", match that client\n- Use the client's saved EMAIL (${context.clients[0]?.email || 'their email'}) for clientEmail field\n- If you find a match, ALWAYS populate both clientName and clientEmail from saved data\n- If NO match found, suggest saving the client after creating the document\n\n`;
       } else {
         prompt += `**USER HAS NO SAVED CLIENTS** - after creating invoice/payment-link/project, suggest saving the client for future use.\n\n`;
       }
 
-      // Add projects context if available
       if (context?.projects && context.projects.length > 0) {
         prompt += `**USER'S PROJECTS (for milestone management):**\n`;
         context.projects.forEach((p, i) => {
@@ -1090,14 +1074,11 @@ User: "Invoice for 500 dollars for web design due Friday"
       const text = await llmService.generateText(prompt, {
         purpose: 'chat',
         files,
-        useFallbacks: true,
       });
 
       logger.debug('Response received', { length: text.length });
 
       try {
-        // Try to parse as JSON first
-        // Clean the text to ensure it's valid JSON (remove markdown code blocks if present)
         const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
         const parsed = JSON.parse(cleanText);
 
@@ -1105,7 +1086,6 @@ User: "Invoice for 500 dollars for web design due Friday"
         return parsed;
       } catch {
         logger.debug('Failed to parse JSON, returning raw text');
-        // If parsing fails, return a default structure
         return {
           intent: 'general_chat',
           parameters: {},
@@ -1123,7 +1103,7 @@ User: "Invoice for 500 dollars for web design due Friday"
   }
 
   /**
-   * Detect user intent (what document they want to create)
+   * Detect user intent
    */
   static async detectIntent(
     userMessage: string
@@ -1151,10 +1131,8 @@ Respond in JSON format:
 
       const text = await llmService.generateText(prompt, {
         purpose: 'general',
-        useFallbacks: true,
       });
 
-      // Parse JSON response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
@@ -1203,10 +1181,8 @@ If certain fields are not mentioned, set them to null or empty array.
 
       const text = await llmService.generateText(prompt, {
         purpose: 'general',
-        useFallbacks: true,
       });
 
-      // Parse JSON response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
@@ -1226,7 +1202,6 @@ If certain fields are not mentioned, set them to null or empty array.
     try {
       return await llmService.generateText(prompt, {
         purpose: 'general',
-        useFallbacks: true,
       });
     } catch (error) {
       console.error('Error generating text:', error);
@@ -1236,7 +1211,7 @@ If certain fields are not mentioned, set them to null or empty array.
 
   /**
    * Generate creative re-engagement nudge copy for push + email channels.
-   * Falls back to deterministic copy if Gemini is unavailable.
+   * Falls back to deterministic copy if the LLM is unavailable.
    */
   static async generateReengagementNudge(input: {
     kind: 'dormant_3day' | 'kyc_24h' | 'feature_highlight' | 'invoice_followup' | 'client_reactivation' | 'payment_link_boost' | 'integration_teaser' | 'recurring_setup' | 'project_milestone';
@@ -1413,7 +1388,6 @@ Return ONLY valid JSON with this exact shape:
 
       const text = await llmService.generateText(prompt, {
         purpose: 'general',
-        useFallbacks: true,
       });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return fallback;
@@ -1568,10 +1542,8 @@ If all critical data is present, return an empty array.
 
       const text = await llmService.generateText(prompt, {
         purpose: 'general',
-        useFallbacks: true,
       });
 
-      // Parse JSON response
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
@@ -1585,4 +1557,4 @@ If all critical data is present, return an empty array.
   }
 }
 
-export default GeminiService;
+export default DeepSeekService;

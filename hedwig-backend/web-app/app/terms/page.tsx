@@ -39,56 +39,56 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-24 space-y-3">
-      <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">{title}</h2>
-      <div className="space-y-3 text-[14px] leading-7 text-[#535862]">{children}</div>
+      <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">{title}</h2>
+      <div className="space-y-3 text-[14px] leading-7 text-[var(--color-text-secondary)]">{children}</div>
     </section>
   );
 }
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-[#fafafa]">
+    <main className="min-h-screen bg-[var(--color-background)]">
       <div className="mx-auto w-full max-w-[980px] px-5 pb-16 pt-14 md:px-8">
-        <header className="space-y-3 border-b border-[#e9eaeb] pb-8">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">Legal</p>
-          <h1 className="text-[32px] font-bold tracking-[-0.03em] text-[#181d27]">Terms Of Service</h1>
-          <p className="text-[14px] text-[#717680]">Last updated April 12, 2026</p>
-          <p className="text-[14px] leading-7 text-[#535862]">
+        <header className="space-y-3 border-b border-[var(--color-border)] pb-8">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">Legal</p>
+          <h1 className="text-[32px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">Terms Of Service</h1>
+          <p className="text-[14px] text-[var(--color-text-tertiary)]">Last updated April 12, 2026</p>
+          <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
             These Legal Terms form a legally binding agreement between you and <strong>Rift Labs LTD</strong> concerning your use
             of Hedwig web and mobile services.
           </p>
-          <p className="text-[14px] leading-7 text-[#535862]">
+          <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
             Company details: Rift Labs LTD, No 10b press lane achara layout enugu, Enugu, Enugu 400105, Nigeria.
           </p>
-          <p className="text-[14px] leading-7 text-[#535862]">
+          <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
             Contact:
-            <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="mailto:nonso@hedwigbot.xyz">
+            <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
               nonso@hedwigbot.xyz
             </a>
             · 09114109308
           </p>
-          <p className="text-[14px] leading-7 text-[#535862]">
+          <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
             The Services are intended for users who are at least 18 years old. If you do not agree with these terms,
             you must discontinue use immediately.
           </p>
         </header>
 
-        <section className="mt-8 space-y-2 rounded-2xl border border-[#e9eaeb] bg-white p-6">
-          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">Table Of Contents</h2>
+        <section className="mt-8 space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">Table Of Contents</h2>
           <div className="flex flex-col gap-1">
             {TOC.map((entry) => (
-              <a key={entry.id} href={`#${entry.id}`} className="text-[14px] text-[#2563eb] hover:text-[#1d4ed8]">
+              <a key={entry.id} href={`#${entry.id}`} className="text-[14px] text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]">
                 {entry.title}
               </a>
             ))}
           </div>
         </section>
 
-        <div className="mt-10 space-y-10 rounded-2xl border border-[#e9eaeb] bg-white p-6 md:p-8">
+        <div className="mt-10 space-y-10 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 md:p-8">
           <Section id="services" title="1. OUR SERVICES">
             <p>
               We operate the website
-              <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">
+              <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">
                 www.hedwigbot.xyz
               </a>
               and the Hedwig mobile app, plus related services.
@@ -100,12 +100,12 @@ export default function TermsPage() {
           </Section>
 
           <Section id="ip" title="2. INTELLECTUAL PROPERTY RIGHTS">
-            <h3 className="text-[16px] font-semibold text-[#181d27]">Our intellectual property</h3>
+            <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">Our intellectual property</h3>
             <p>
               We own or license all intellectual property in the Services, including code, designs, databases, text, graphics,
               and trademarks. Content is protected by copyright and trademark law.
             </p>
-            <h3 className="text-[16px] font-semibold text-[#181d27]">Your use of our Services</h3>
+            <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">Your use of our Services</h3>
             <p>
               Subject to these terms, we grant a limited, revocable, non-exclusive, non-transferable license to access and use
               the Services for internal business or personal non-commercial use.
@@ -135,11 +135,11 @@ export default function TermsPage() {
           </Section>
 
           <Section id="subscriptions" title="6. SUBSCRIPTIONS">
-            <h3 className="text-[16px] font-semibold text-[#181d27]">Billing and renewal</h3>
+            <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">Billing and renewal</h3>
             <p>Subscriptions renew automatically unless canceled. Billing cadence depends on your selected plan.</p>
-            <h3 className="text-[16px] font-semibold text-[#181d27]">Free trial</h3>
+            <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">Free trial</h3>
             <p>We offer a 14-day free trial for eligible new users. At the end of trial, selected subscription charges apply.</p>
-            <h3 className="text-[16px] font-semibold text-[#181d27]">Cancellation and fee changes</h3>
+            <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">Cancellation and fee changes</h3>
             <p>
               You can cancel from your account settings. Cancellation takes effect at end of current paid term.
               We may adjust subscription fees and will notify you in line with applicable law.
@@ -181,7 +181,7 @@ export default function TermsPage() {
           <Section id="privacy" title="12. PRIVACY POLICY">
             <p>
               Your use of Services is governed by our
-              <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="/privacy">Privacy Policy</a>,
+              <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="/privacy">Privacy Policy</a>,
               which is incorporated into these terms.
             </p>
           </Section>
@@ -264,17 +264,17 @@ export default function TermsPage() {
             <p>Phone: 09114109308</p>
             <p>
               Email:
-              <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="mailto:nonso@hedwigbot.xyz">
+              <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
                 nonso@hedwigbot.xyz
               </a>
             </p>
           </Section>
         </div>
 
-        <footer className="mt-8 text-[13px] text-[#717680]">
+        <footer className="mt-8 text-[13px] text-[var(--color-text-tertiary)]">
           This Terms and Conditions was created using Termly&apos;s
           <a
-            className="ml-1 text-[#2563eb] hover:text-[#1d4ed8]"
+            className="ml-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
             href="https://termly.io/products/terms-and-conditions-generator/"
             target="_blank"
             rel="noopener noreferrer"

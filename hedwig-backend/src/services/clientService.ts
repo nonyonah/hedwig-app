@@ -16,6 +16,7 @@ export class ClientService {
             company?: string;
             phone?: string;
             createdFrom?: string;
+            workspaceId?: string;
         }
     ): Promise<{ id: string; isNew: boolean; client: any }> {
         // 1. Normalize inputs
@@ -26,12 +27,17 @@ export class ClientService {
             throw new Error('Cannot create client: Name or Email is required');
         }
 
-        // 2. Build flexible query to find existing client
-        // We want to match if EITHER email matches OR name matches (case-insensitive)
+        // 2. Build query to find existing client within this workspace
         let query = supabase
             .from('clients')
             .select('*')
             .eq('user_id', userId);
+
+        if (additionalInfo?.workspaceId) {
+            query = query.eq('workspace_id', additionalInfo.workspaceId);
+        } else {
+            query = query.is('workspace_id', null);
+        }
 
         const conditions = [];
         if (safeEmail) conditions.push(`email.ilike.${safeEmail}`);
@@ -88,15 +94,16 @@ export class ClientService {
         // 4. Create new client if no match found
         logger.info('Creating new client', { name: safeName, email: safeEmail });
         
-        const newClientData = {
+        const newClientData: Record<string, any> = {
             user_id: userId,
             name: safeName || safeEmail?.split('@')[0] || 'Unknown Client',
             email: safeEmail, // can be null
             company: additionalInfo?.company || null,
             phone: additionalInfo?.phone || null,
-            // Assuming 'created_from' might be a metadata field or handled differently in schema
-            // If schema doesn't have it, it will be ignored or cause error depending on strictness
         };
+        if (additionalInfo?.workspaceId) {
+            newClientData.workspace_id = additionalInfo.workspaceId;
+        }
 
         const { data: newClient, error: createError } = await supabase
             .from('clients')

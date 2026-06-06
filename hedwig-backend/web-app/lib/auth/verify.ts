@@ -1,6 +1,6 @@
 import type { User } from '@/lib/models/entities';
 
-const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwigbot.xyz';
+const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwigbot.xyz';
 
 interface AuthMeResponse {
   success?: boolean;

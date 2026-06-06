@@ -220,7 +220,7 @@ export function NotificationBell({
         aria-label="Notifications"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 ease-linear hover:bg-[#fafafa] hover:text-[#717680]"
+        className="relative flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-text-muted)] transition duration-100 ease-linear hover:bg-[var(--color-background)] hover:text-[var(--color-text-tertiary)]"
       >
         {localUnread > 0 ? (
           <BellRinging className="h-5 w-5" weight="regular" />
@@ -228,18 +228,18 @@ export function NotificationBell({
           <Bell className="h-5 w-5" weight="regular" />
         )}
         {localUnread > 0 ? (
-          <span className="absolute right-[9px] top-[9px] flex h-[7px] w-[7px] items-center justify-center rounded-full bg-[#2563eb]" />
+          <span className="absolute right-[9px] top-[9px] flex h-[7px] w-[7px] items-center justify-center rounded-full bg-[var(--color-accent)]" />
         ) : null}
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[360px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb]">
+        <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[360px] overflow-hidden rounded-xl bg-[var(--color-surface)] shadow-lg ring-1 ring-[var(--color-border)]">
           {/* Panel header */}
-          <div className="flex items-center justify-between border-b border-[#e9eaeb] px-4 py-3.5">
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3.5">
             <div className="flex items-center gap-2">
-              <p className="text-[14px] font-semibold text-[#181d27]">Notifications</p>
+              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Notifications</p>
               {localUnread > 0 ? (
-                <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] font-semibold text-[#717680]">
+                <span className="rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
                   {localUnread} new
                 </span>
               ) : null}
@@ -247,7 +247,7 @@ export function NotificationBell({
             {localUnread > 0 ? (
               <button
                 onClick={markAllRead}
-                className="text-[12px] font-semibold text-[#717680] transition hover:text-[#717680]"
+                className="text-[12px] font-semibold text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-tertiary)]"
               >
                 Mark all read
               </button>
@@ -258,32 +258,32 @@ export function NotificationBell({
           <div className="max-h-[400px] overflow-y-auto">
             {isLoading ? (
               <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#e9eaeb] border-t-[#2563eb]" />
-                <p className="text-[13px] text-[#717680]">Loading notifications…</p>
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
+                <p className="text-[13px] text-[var(--color-text-tertiary)]">Loading notifications…</p>
               </div>
             ) : errorMessage ? (
               <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-                <p className="text-[13px] text-[#717680]">{errorMessage}</p>
+                <p className="text-[13px] text-[var(--color-text-tertiary)]">{errorMessage}</p>
                 <button
                   type="button"
                   onClick={() => void loadNotifications()}
-                  className="rounded-full border border-[#d5d7da] bg-white px-3 py-1 text-[12px] font-semibold text-[#414651] transition hover:bg-[#f9fafb]"
+                  className="rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1 text-[12px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]"
                 >
                   Retry
                 </button>
               </div>
             ) : items.length === 0 ? (
               <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f5]">
-                  <CheckCircle className="h-5 w-5 text-[#a4a7ae]" weight="regular" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-secondary)]">
+                  <CheckCircle className="h-5 w-5 text-[var(--color-text-muted)]" weight="regular" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-semibold text-[#414651]">You're all caught up</p>
-                  <p className="mt-0.5 text-[13px] text-[#717680]">No new notifications right now</p>
+                  <p className="text-[14px] font-semibold text-[var(--color-text-secondary)]">You're all caught up</p>
+                  <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">No new notifications right now</p>
                 </div>
               </div>
             ) : (
-              <ul className="divide-y divide-[#f5f5f5]">
+              <ul className="divide-y divide-[var(--color-surface-secondary)]">
                 {items.map((n) => (
                   <li
                     key={n.id}
@@ -291,26 +291,26 @@ export function NotificationBell({
                       void handleNotificationClick(n);
                     }}
                     className={cn(
-                      'relative flex cursor-pointer items-start gap-3 px-4 py-3.5 transition hover:bg-[#fafafa]',
-                      !n.read && 'bg-[#eff6ff]/40'
+                      'relative flex cursor-pointer items-start gap-3 px-4 py-3.5 transition hover:bg-[var(--color-background)]',
+                      !n.read && 'bg-[var(--color-accent-soft)]/40'
                     )}
                   >
                     {!n.read ? (
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563eb]" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
                     ) : (
                       <span className="mt-2 h-1.5 w-1.5 shrink-0" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-[#252b37]">{n.title}</p>
-                      <p className="mt-0.5 text-[13px] leading-5 text-[#717680]">{n.body}</p>
-                      <p className="mt-1 text-[11px] text-[#a4a7ae]">{formatTimestamp(n.createdAt)}</p>
+                      <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{n.title}</p>
+                      <p className="mt-0.5 text-[13px] leading-5 text-[var(--color-text-tertiary)]">{n.body}</p>
+                      <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">{formatTimestamp(n.createdAt)}</p>
                     </div>
                     <button
                       onClick={(event) => {
                         event.stopPropagation();
                         void dismiss(n.id);
                       }}
-                      className="ml-1 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#a4a7ae] transition hover:bg-[#f5f5f5] hover:text-[#717680]"
+                      className="ml-1 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]"
                       aria-label="Dismiss"
                     >
                       <X className="h-3 w-3" weight="bold" />

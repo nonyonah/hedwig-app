@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
+import { ThemeProvider } from '@/components/providers/theme-provider';
 import { HedwigPrivyProvider } from '@/components/providers/privy-provider';
 import { AuthGate } from '@/components/providers/auth-gate';
 import { CurrencyProvider } from '@/components/providers/currency-provider';
@@ -37,6 +38,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         ) : null}
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
+        <ThemeProvider
+          attribute={['class', 'data-theme']}
+          defaultTheme="system"
+          enableSystem
+          enableColorScheme
+          storageKey="hedwig-theme"
+          disableTransitionOnChange
+        >
         <HedwigPrivyProvider>
           <HedwigPostHogProvider>
             <Suspense fallback={null}>
@@ -50,6 +59,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Analytics />
           </HedwigPostHogProvider>
         </HedwigPrivyProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

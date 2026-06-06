@@ -26,25 +26,25 @@ function AttachedStatCardBody({ item }: { item: AttachedStatCardItem }) {
   return (
     <>
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[12px] font-medium text-[#717680]">{item.title}</p>
+        <p className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{item.title}</p>
         {Icon ? (
-          <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]', item.iconWrapClassName)}>
-            <Icon className={cn('h-3.5 w-3.5 text-[#717680]', item.iconClassName)} weight="regular" />
+          <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-surface-secondary)]', item.iconWrapClassName)}>
+            <Icon className={cn('h-3.5 w-3.5 text-[var(--color-text-tertiary)]', item.iconClassName)} weight="regular" />
           </div>
         ) : null}
       </div>
 
       {item.loading ? (
         <>
-          <div className="h-6 w-20 animate-pulse rounded bg-[#f2f4f7]" />
-          <div className="mt-1.5 h-3 w-24 animate-pulse rounded bg-[#f2f4f7]" />
+          <div className="h-6 w-20 animate-pulse rounded bg-[var(--color-surface-tertiary)]" />
+          <div className="mt-1.5 h-3 w-24 animate-pulse rounded bg-[var(--color-surface-tertiary)]" />
         </>
       ) : (
         <>
-          <p className={cn('text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]', item.valueClassName)}>
+          <p className={cn('text-[22px] font-bold tracking-[-0.03em] leading-none text-[var(--color-foreground)]', item.valueClassName)}>
             {item.value}
           </p>
-          {item.helper ? <div className="mt-1.5 text-[11px] text-[#a4a7ae]">{item.helper}</div> : null}
+          {item.helper ? <div className="mt-1.5 text-[11px] text-[var(--color-text-muted)]">{item.helper}</div> : null}
         </>
       )}
     </>
@@ -53,9 +53,9 @@ function AttachedStatCardBody({ item }: { item: AttachedStatCardItem }) {
 
 function AttachedStatCard({ item }: { item: AttachedStatCardItem }) {
   const baseClassName = cn(
-    'bg-white px-5 py-4 text-left transition duration-100 ease-linear',
-    item.active ? 'bg-[#f5f8ff]' : '',
-    (item.href || item.onClick) && !item.active ? 'hover:bg-[#fafafa]' : '',
+    'bg-[var(--color-surface)] px-5 py-4 text-left transition duration-100 ease-linear',
+    item.active ? 'bg-[var(--color-accent-soft)]' : '',
+    (item.href || item.onClick) && !item.active ? 'hover:bg-[var(--color-background)]' : '',
     item.className,
   );
 
@@ -90,7 +90,7 @@ export function AttachedStatGrid({
   className?: string;
 }) {
   return (
-    <div className={cn('grid gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]', className)}>
+    <div className={cn('grid gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]', className)}>
       {items.map((item) => (
         <AttachedStatCard key={item.id} item={item} />
       ))}

@@ -33,9 +33,9 @@ export function OnboardingBankAccountClient({
   return (
     <div className="space-y-4">
       {records.length > 0 && !adding && (
-        <div className="rounded-2xl border border-[#e9eaeb] bg-[#fafafa] px-4 py-3">
-          <p className="text-[13px] font-semibold text-[#181d27]">{records.length} bank account{records.length === 1 ? '' : 's'} added</p>
-          <p className="mt-1 text-[12px] text-[#717680]">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3">
+          <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{records.length} bank account{records.length === 1 ? '' : 's'} added</p>
+          <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
             Clients will see all of these on every invoice and payment link with a currency dropdown to switch.
           </p>
           <div className="mt-3 flex gap-2">

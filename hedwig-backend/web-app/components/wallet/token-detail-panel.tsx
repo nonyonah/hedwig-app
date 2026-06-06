@@ -82,9 +82,9 @@ function CustomTooltip({ active, payload, timeframe }: any) {
   if (!active || !payload?.length) return null;
   const { t, p } = payload[0].payload as ChartPoint;
   return (
-    <div className="rounded-xl border border-[#e9eaeb] bg-white px-3 py-2 shadow-lg">
-      <p className="text-[11px] text-[#a4a7ae]">{fmtTime(t, timeframe)}</p>
-      <p className="text-[14px] font-bold text-[#181d27]">{fmtUsd(p)}</p>
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 shadow-lg">
+      <p className="text-[11px] text-[var(--color-text-muted)]">{fmtTime(t, timeframe)}</p>
+      <p className="text-[14px] font-bold text-[var(--color-foreground)]">{fmtUsd(p)}</p>
     </div>
   );
 }
@@ -100,10 +100,10 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1800);
         });
       }}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#a4a7ae] transition hover:border-[#d0d5dd] hover:text-[#717680]"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:text-[var(--color-text-tertiary)]"
     >
       {copied
-        ? <Check className="h-3 w-3 text-[#717680]" weight="bold" />
+        ? <Check className="h-3 w-3 text-[var(--color-text-tertiary)]" weight="bold" />
         : <Copy className="h-3 w-3" weight="bold" />
       }
     </button>
@@ -116,7 +116,7 @@ function LinkPill({ href, icon, label }: { href: string; icon: React.ReactNode; 
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-medium text-[#414651] transition hover:bg-[#f5f5f5]"
+      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)]"
     >
       {icon}
       {label}
@@ -155,7 +155,7 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
   const displayPrice = hoverPrice ?? market?.currentPrice ?? null;
   const change       = market?.change24h ?? asset.changePct24h ?? 0;
   const isPositive   = change >= 0;
-  const chartColor   = loading ? '#e9eaeb' : isPositive ? '#12b76a' : '#f04438';
+  const chartColor   = loading ? 'var(--color-border)' : isPositive ? 'var(--color-success)' : 'var(--color-danger)';
   const priceDecimals = 4;
 
   const contractAddr = market?.contractAddress ?? null;
@@ -172,14 +172,14 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
 
       {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-white shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-[var(--color-surface)] shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
 
         {/* ── Header ── */}
-        <div className="flex items-center gap-4 border-b border-[#e9eaeb] px-5 py-4">
+        <div className="flex items-center gap-4 border-b border-[var(--color-border)] px-5 py-4">
           <div className="relative shrink-0">
             {tokenIcon
               ? <Image src={tokenIcon} alt={asset.name} width={44} height={44} className="rounded-full" />
-              : <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f2f4f7] text-[13px] font-bold text-[#667085]">{asset.symbol.slice(0, 3)}</div>
+              : <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[13px] font-bold text-[var(--color-text-muted)]">{asset.symbol.slice(0, 3)}</div>
             }
             {chainIcon && (
               <Image src={chainIcon} alt={asset.chain} width={18} height={18}
@@ -188,21 +188,21 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="text-[16px] font-bold text-[#181d27]">{asset.name}</p>
+              <p className="text-[16px] font-bold text-[var(--color-foreground)]">{asset.name}</p>
               {market?.rank && (
-                <span className="inline-flex items-center rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[11px] font-semibold text-[#717680]">
+                <span className="inline-flex items-center rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
                   #{market.rank}
                 </span>
               )}
             </div>
             <div className="mt-0.5 flex items-center gap-2">
-              <span className="text-[12px] text-[#a4a7ae]">{asset.symbol}</span>
-              <span className="text-[#e9eaeb]">·</span>
-              <span className="text-[12px] text-[#a4a7ae]">{asset.chain}</span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">{asset.symbol}</span>
+              <span className="text-[var(--color-border)]">·</span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">{asset.chain}</span>
             </div>
           </div>
           <button type="button" onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#717680] transition hover:bg-[#f5f5f5]">
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]">
             <X className="h-4 w-4" weight="bold" />
           </button>
         </div>
@@ -211,46 +211,46 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
         <div className="flex-1 overflow-y-auto">
 
           {/* Balance hero */}
-          <div className="border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Your balance</p>
-            <p className="mt-1 text-[26px] font-bold tracking-[-0.04em] leading-none text-[#181d27]">
+          <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Your balance</p>
+            <p className="mt-1 text-[26px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
               {fmtCrypto(asset.balance, asset.symbol)}
             </p>
-            <p className="mt-1.5 text-[13px] font-medium text-[#717680]">
+            <p className="mt-1.5 text-[13px] font-medium text-[var(--color-text-tertiary)]">
               {fmtUsd(asset.valueUsd)}{' '}
-              <span className="text-[11px] font-normal text-[#a4a7ae]">portfolio value</span>
+              <span className="text-[11px] font-normal text-[var(--color-text-muted)]">portfolio value</span>
             </p>
           </div>
 
           {/* Market price */}
           <div className="px-5 pt-5 pb-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
               {hoverPrice ? 'Price at cursor' : 'Market price'}
             </p>
             <div className="mt-1 flex items-end gap-3">
-              <p className="text-[30px] font-bold tracking-[-0.04em] leading-none text-[#181d27]">
+              <p className="text-[30px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
                 {loading
-                  ? <span className="inline-block h-8 w-32 animate-pulse rounded-xl bg-[#f2f4f7]" />
+                  ? <span className="inline-block h-8 w-32 animate-pulse rounded-xl bg-[var(--color-surface-tertiary)]" />
                   : fmtUsd(displayPrice, priceDecimals)
                 }
               </p>
               {!loading && change !== null && (
-                <span className={`mb-0.5 flex items-center gap-1 text-[13px] font-semibold ${isPositive ? 'text-[#717680]' : 'text-[#717680]'}`}>
+                <span className={`mb-0.5 flex items-center gap-1 text-[13px] font-semibold ${isPositive ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-tertiary)]'}`}>
                   {isPositive ? <ArrowUp className="h-3.5 w-3.5" weight="bold" /> : <ArrowDown className="h-3.5 w-3.5" weight="bold" />}
                   {Math.abs(change).toFixed(2)}%
                 </span>
               )}
             </div>
-            <p className="mt-1 text-[11px] text-[#a4a7ae]">24h change</p>
+            <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">24h change</p>
           </div>
 
           {/* Timeframe pills */}
           <div className="px-5 py-3">
-            <div className="flex items-center gap-1 rounded-full border border-[#e9eaeb] bg-[#f5f5f5] p-1">
+            <div className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-1">
               {TIMEFRAMES.map((tf) => (
                 <button key={tf} type="button" onClick={() => setTimeframe(tf)}
                   className={`flex-1 rounded-full py-1.5 text-[12px] font-semibold transition duration-100 ${
-                    timeframe === tf ? 'bg-white text-[#181d27] shadow-xs' : 'text-[#717680] hover:text-[#414651]'
+                    timeframe === tf ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                   }`}
                 >
                   {tf}
@@ -263,7 +263,7 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
           <div className="h-[200px] px-2">
             {loading ? (
               <div className="flex h-full items-center justify-center">
-                <div className="h-1 w-24 animate-pulse rounded-full bg-[#e9eaeb]" />
+                <div className="h-1 w-24 animate-pulse rounded-full bg-[var(--color-border)]" />
               </div>
             ) : market?.prices?.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -275,11 +275,11 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
                       <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid vertical={false} stroke="#f2f4f7" />
+                  <CartesianGrid vertical={false} stroke="var(--color-surface-tertiary)" />
                   <XAxis dataKey="t" tickFormatter={(v) => fmtTime(v, timeframe)}
-                    tick={{ fontSize: 10, fill: '#a4a7ae' }} axisLine={false} tickLine={false}
+                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false}
                     interval="preserveStartEnd" minTickGap={60} />
-                  <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#a4a7ae' }}
+                  <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
                     axisLine={false} tickLine={false} width={46}
                     tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${Number(v).toFixed(0)}`} />
                   <Tooltip content={<CustomTooltip timeframe={timeframe} />}
@@ -295,7 +295,7 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
               </ResponsiveContainer>
             ) : (
               <div className="flex h-full items-center justify-center">
-                <p className="text-[12px] text-[#a4a7ae]">No price data</p>
+                <p className="text-[12px] text-[var(--color-text-muted)]">No price data</p>
               </div>
             )}
           </div>
@@ -314,19 +314,19 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
           {/* Links: website + X */}
           {(!loading && (market?.website || market?.twitter)) && (
             <div className="mx-5 mt-4">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Links</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Links</p>
               <div className="flex flex-wrap gap-2">
                 {market.website && (
                   <LinkPill
                     href={market.website}
-                    icon={<Globe className="h-3.5 w-3.5 text-[#717680]" weight="bold" />}
+                    icon={<Globe className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />}
                     label="Website"
                   />
                 )}
                 {market.twitter && (
                   <LinkPill
                     href={market.twitter}
-                    icon={<XLogo className="h-3.5 w-3.5 text-[#717680]" weight="bold" />}
+                    icon={<XLogo className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />}
                     label="X / Twitter"
                   />
                 )}
@@ -335,19 +335,19 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
           )}
 
           {/* Contract address */}
-          <div className="mx-5 mt-4 overflow-hidden rounded-2xl border border-[#e9eaeb]">
-            <div className="border-b border-[#f2f4f7] bg-[#fafafa] px-4 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Contract address</p>
+          <div className="mx-5 mt-4 overflow-hidden rounded-2xl border border-[var(--color-border)]">
+            <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-4 py-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Contract address</p>
             </div>
             <div className="flex items-center gap-3 px-4 py-3">
               {chainIcon && (
                 <Image src={chainIcon} alt={asset.chain} width={18} height={18} className="shrink-0 rounded-full" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-[12px] text-[#414651]">
+                <p className="truncate font-mono text-[12px] text-[var(--color-text-secondary)]">
                   {shortAddr ?? 'Native asset — no contract'}
                 </p>
-                <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
+                <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
                   {contractAddr
                     ? `${asset.symbol} on ${asset.chain}`
                     : `${asset.symbol} is native to ${asset.chain}`}
@@ -358,7 +358,7 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
                 {explorerLink && (
                   <a href={explorerLink} target="_blank" rel="noreferrer"
                     title={asset.chain === 'Base' ? 'View on BaseScan' : 'View on Solscan'}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-[#e9eaeb] text-[#a4a7ae] transition hover:border-[#d0d5dd] hover:text-[#717680]">
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:text-[var(--color-text-tertiary)]">
                     <ArrowSquareOut className="h-3 w-3" weight="bold" />
                   </a>
                 )}
@@ -368,9 +368,9 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
 
           {/* About */}
           {market?.description && (
-            <div className="mx-5 mt-4 rounded-2xl border border-[#e9eaeb] px-4 py-4">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">About {asset.name}</p>
-              <p className="text-[12px] leading-[1.7] text-[#717680] line-clamp-6">{market.description}</p>
+            <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-border)] px-4 py-4">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">About {asset.name}</p>
+              <p className="text-[12px] leading-[1.7] text-[var(--color-text-tertiary)] line-clamp-6">{market.description}</p>
             </div>
           )}
 

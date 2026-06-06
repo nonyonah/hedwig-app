@@ -258,10 +258,10 @@ export function BankAccountForm({
     <div className="space-y-4">
       {showHeader && (
         <div className="flex items-center gap-2">
-          <Bank className="h-4 w-4 text-[#414651]" weight="bold" />
-          <h3 className="text-[14px] font-semibold text-[#181d27]">Payout bank account</h3>
+          <Bank className="h-4 w-4 text-[var(--color-text-secondary)]" weight="bold" />
+          <h3 className="text-[14px] font-semibold text-[var(--color-foreground)]">Payout bank account</h3>
           {initial?.isVerified && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf3] px-2 py-0.5 text-[10px] font-semibold text-[#027a48]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
               <ShieldCheck className="h-2.5 w-2.5" weight="bold" />
               Verified
             </span>
@@ -269,15 +269,15 @@ export function BankAccountForm({
         </div>
       )}
 
-      <p className="text-[12px] text-[#717680]">
+      <p className="text-[12px] text-[var(--color-text-tertiary)]">
         Shown on every invoice and payment link so clients can pay you by bank transfer in addition to crypto.
       </p>
 
       {/* Country selector */}
       <div>
-        <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Country</label>
+        <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Country</label>
         <select
-          className="h-10 w-full rounded-md border border-[#e9eaeb] bg-white px-3 text-[13px] text-[#181d27] focus:border-[#2563eb] focus:outline-none"
+          className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
           value={state.country}
           onChange={(e) => {
             const code = e.target.value as BankCountry;
@@ -300,9 +300,9 @@ export function BankAccountForm({
       {/* Bank picker / free-form bank name */}
       {state.country === 'NG' || state.country === 'GH' ? (
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Bank</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Bank</label>
           <select
-            className="h-10 w-full rounded-md border border-[#e9eaeb] bg-white px-3 text-[13px] text-[#181d27] focus:border-[#2563eb] focus:outline-none"
+            className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
             value={state.bankCode}
             onChange={(e) => {
               const code = e.target.value;
@@ -319,7 +319,7 @@ export function BankAccountForm({
         </div>
       ) : (
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Bank name</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Bank name</label>
           <Input
             placeholder="e.g. Chase Bank"
             value={state.bankName}
@@ -332,7 +332,7 @@ export function BankAccountForm({
       {(state.country === 'NG' || state.country === 'GH') && (
         <>
           <div>
-            <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Account number</label>
+            <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account number</label>
             <Input
               inputMode="numeric"
               placeholder="0123456789"
@@ -342,15 +342,15 @@ export function BankAccountForm({
             />
             {showResolved && (
               <p className={cn('mt-1.5 text-[11px]',
-                resolvedName ? 'text-[#027a48]' :
-                verifyError ? 'text-[#b42318]' :
-                verifying ? 'text-[#717680]' : 'text-transparent')}>
+                resolvedName ? 'text-[var(--color-success)]' :
+                verifyError ? 'text-[var(--color-danger)]' :
+                verifying ? 'text-[var(--color-text-tertiary)]' : 'text-transparent')}>
                 {verifying ? 'Verifying…' : resolvedName ? `✓ ${resolvedName}` : verifyError ? `Could not verify (${verifyError})` : 'placeholder'}
               </p>
             )}
           </div>
           <div>
-            <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Account holder name</label>
+            <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account holder name</label>
             <Input
               placeholder="Resolved automatically once account number is entered"
               value={state.accountHolderName}
@@ -364,7 +364,7 @@ export function BankAccountForm({
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Routing number</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Routing number</label>
               <Input
                 inputMode="numeric"
                 placeholder="9 digits"
@@ -374,7 +374,7 @@ export function BankAccountForm({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Account number</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account number</label>
               <Input
                 inputMode="numeric"
                 placeholder="4–17 digits"
@@ -386,7 +386,7 @@ export function BankAccountForm({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Account holder name</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account holder name</label>
               <Input
                 placeholder="Jane Smith"
                 value={state.accountHolderName}
@@ -394,9 +394,9 @@ export function BankAccountForm({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Account type</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account type</label>
               <select
-                className="h-10 w-full rounded-md border border-[#e9eaeb] bg-white px-3 text-[13px] text-[#181d27]"
+                className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] text-[var(--color-foreground)]"
                 value={state.accountType}
                 onChange={(e) => update('accountType', (e.target.value || '') as FormState['accountType'])}
               >
@@ -413,7 +413,7 @@ export function BankAccountForm({
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Sort code</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Sort code</label>
               <Input
                 inputMode="numeric"
                 placeholder="6 digits"
@@ -423,7 +423,7 @@ export function BankAccountForm({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Account number</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account number</label>
               <Input
                 inputMode="numeric"
                 placeholder="8 digits"
@@ -435,7 +435,7 @@ export function BankAccountForm({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Account holder name</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account holder name</label>
               <Input
                 placeholder="Jane Smith"
                 value={state.accountHolderName}
@@ -443,7 +443,7 @@ export function BankAccountForm({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">IBAN (optional)</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">IBAN (optional)</label>
               <Input
                 placeholder="GB29 NWBK 6016 1331 9268 19"
                 value={state.iban}
@@ -452,7 +452,7 @@ export function BankAccountForm({
             </div>
           </div>
           <div>
-            <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">SWIFT/BIC (optional)</label>
+            <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">SWIFT/BIC (optional)</label>
             <Input
               placeholder="NWBKGB2L"
               value={state.swiftBic}
@@ -463,10 +463,10 @@ export function BankAccountForm({
       )}
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between rounded-xl border border-[#f2f4f7] bg-[#fafafa] px-3 py-2">
+        <div className="flex items-center justify-between rounded-xl border border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-3 py-2">
           <div>
-            <p className="text-[12px] font-semibold text-[#414651]">Show on invoices &amp; payment links</p>
-            <p className="text-[11px] text-[#a4a7ae]">Toggle off to hide this account from public pages.</p>
+            <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">Show on invoices &amp; payment links</p>
+            <p className="text-[11px] text-[var(--color-text-muted)]">Toggle off to hide this account from public pages.</p>
           </div>
           <input
             type="checkbox"
@@ -476,10 +476,10 @@ export function BankAccountForm({
           />
         </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-[#f2f4f7] bg-[#fafafa] px-3 py-2">
+        <div className="flex items-center justify-between rounded-xl border border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-3 py-2">
           <div>
-            <p className="text-[12px] font-semibold text-[#414651]">Default account</p>
-            <p className="text-[11px] text-[#a4a7ae]">Preselected for clients on every invoice and payment link.</p>
+            <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">Default account</p>
+            <p className="text-[11px] text-[var(--color-text-muted)]">Preselected for clients on every invoice and payment link.</p>
           </div>
           <input
             type="checkbox"
@@ -491,7 +491,7 @@ export function BankAccountForm({
         </div>
       </div>
 
-      {serverError && <p className="text-[12px] text-[#b42318]">{serverError}</p>}
+      {serverError && <p className="text-[12px] text-[var(--color-danger)]">{serverError}</p>}
 
       <div className="flex items-center justify-end gap-2">
         {initial && (
@@ -499,7 +499,7 @@ export function BankAccountForm({
             variant="ghost"
             disabled={deleting || saving}
             onClick={() => setDeleteOpen(true)}
-            className="text-[#b42318] hover:bg-[#fef3f2]"
+            className="text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]"
           >
             Remove
           </Button>
@@ -515,11 +515,11 @@ export function BankAccountForm({
       </div>
 
       {deleteOpen && (
-        <div className="rounded-xl border border-[#fef3f2] bg-[#fff8f7] px-3 py-3">
-          <p className="text-[12px] text-[#b42318]">Remove this bank account from all future invoices?</p>
+        <div className="rounded-xl border border-[var(--color-danger-soft)] bg-[var(--color-warning-soft)] px-3 py-3">
+          <p className="text-[12px] text-[var(--color-danger)]">Remove this bank account from all future invoices?</p>
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting}>Cancel</Button>
-            <Button onClick={remove} disabled={deleting} className="bg-[#b42318] hover:bg-[#912018]">
+            <Button onClick={remove} disabled={deleting} className="bg-[var(--color-danger)] hover:bg-[var(--color-danger)]">
               {deleting ? 'Removing…' : 'Yes, remove'}
             </Button>
           </div>

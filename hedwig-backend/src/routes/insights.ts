@@ -3,10 +3,25 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
-import { GeminiService } from '../services/gemini';
+import { DeepSeekService } from '../services/deepseek';
+import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
 
 const logger = createLogger('Insights');
 const router = Router();
+
+async function guardOwnerOrAdmin(req: Request, res: Response, userId: string): Promise<boolean> {
+  const role = await getWorkspaceRole(req, userId);
+  if (!isOwnerOrAdmin(role)) {
+    res.status(403).json({ success: false, error: { message: 'Insights are restricted to owners and admins' } });
+    return false;
+  }
+  return true;
+}
+
+function getEffectiveWorkspaceId(req: Request, userId: string): string {
+  const wsId = req.headers['x-workspace-id'] as string;
+  return wsId || `ws_personal_${userId}`;
+}
 
 type RangeKey = '7d' | '30d' | '90d' | '1y' | 'ytd';
 
@@ -112,12 +127,13 @@ const getCountOrThrow = (label: string, result: { count: number | null; error: a
     return Number(result.count || 0);
 };
 
-async function sumOutstandingInvoiceUsd(userId: string): Promise<number> {
+async function sumOutstandingInvoiceUsd(userId: string, workspaceId: string): Promise<number> {
     const rows = await fetchPagedRows<{ amount: unknown }>('outstanding_invoices', (from, to) =>
         supabase
             .from('documents')
             .select('amount')
             .eq('user_id', userId)
+            .eq('workspace_id', workspaceId)
             .eq('type', 'INVOICE')
             .neq('status', 'PAID')
             .order('created_at', { ascending: false })
@@ -136,6 +152,10 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+
         const nowIso = new Date().toISOString();
 
         const [
@@ -151,6 +171,7 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
                 .from('documents')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .eq('type', 'INVOICE')
                 .in('status', ['DRAFT', 'SENT', 'VIEWED'])
                 .not('content->>due_date', 'is', null)
@@ -159,22 +180,26 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
                 .from('documents')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .eq('type', 'PAYMENT_LINK')
                 .in('status', ['DRAFT', 'SENT', 'VIEWED']),
             supabase
                 .from('projects')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .in('status', ['ACTIVE', 'ONGOING', 'ON_HOLD']),
             supabase
                 .from('offramp_orders')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .in('status', ['PENDING', 'PROCESSING']),
             supabase
                 .from('calendar_events')
                 .select('id,title,event_date,status')
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .neq('status', 'cancelled')
                 .gte('event_date', nowIso)
                 .order('event_date', { ascending: true })
@@ -183,9 +208,10 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
                 .from('notifications')
                 .select('id,title,message,created_at')
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .order('created_at', { ascending: false })
                 .limit(1),
-            sumOutstandingInvoiceUsd(user.id),
+            sumOutstandingInvoiceUsd(user.id, effectiveWsId),
         ]);
 
         const overdueInvoices = getCountOrThrow('overdue_invoices', overdueInvoicesResult);
@@ -203,7 +229,7 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
         const upcomingEvent = (calendarRes.data || [])[0] || null;
         const latestNotification = (notificationsRes.data || [])[0] || null;
 
-        const summary = await GeminiService.generateDashboardAssistantSummary({
+        const summary = await DeepSeekService.generateDashboardAssistantSummary({
             firstName: user.first_name || null,
             overdueInvoices,
             outstandingUsd,
@@ -261,12 +287,17 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+
         const [docs, txs, offramps, onramps, clientsCountRes, activeProjectsRes] = await Promise.all([
             fetchPagedRows<any>('documents_summary', (from, to) =>
                 supabase
                     .from('documents')
                     .select('id,type,status,amount,created_at,updated_at,title,content,client_id')
                     .eq('user_id', user.id)
+                    .eq('workspace_id', effectiveWsId)
                     .or(`created_at.gte.${docsSinceIso},updated_at.gte.${docsSinceIso}`)
                     .order('updated_at', { ascending: false })
                     .range(from, to)
@@ -276,6 +307,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                     .from('transactions')
                     .select('id,type,status,amount,created_at,timestamp')
                     .eq('user_id', user.id)
+                    .eq('workspace_id', effectiveWsId)
                     .gte('created_at', prevStart.toISOString())
                     .order('created_at', { ascending: false })
                     .range(from, to)
@@ -285,6 +317,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                     .from('offramp_orders')
                     .select('id,status,fiat_amount,fiat_currency,created_at')
                     .eq('user_id', user.id)
+                    .eq('workspace_id', effectiveWsId)
                     .gte('created_at', prevStart.toISOString())
                     .order('created_at', { ascending: false })
                     .range(from, to)
@@ -294,6 +327,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                     .from('onramp_orders')
                     .select('id,status,fiat_amount,fiat_currency,crypto_amount,created_at')
                     .eq('user_id', user.id)
+                    .eq('workspace_id', effectiveWsId)
                     .gte('created_at', prevStart.toISOString())
                     .order('created_at', { ascending: false })
                     .range(from, to)
@@ -301,11 +335,13 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             supabase
                 .from('clients')
                 .select('id', { count: 'exact', head: true })
-                .eq('user_id', user.id),
+                .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId),
             supabase
                 .from('projects')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .in('status', ['ONGOING', 'ACTIVE', 'ON_HOLD']),
         ]);
 
@@ -342,6 +378,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                 .from('clients')
                 .select('id,name')
                 .eq('user_id', user.id)
+                .eq('workspace_id', effectiveWsId)
                 .eq('id', topClientEntry[0])
                 .limit(1);
             if (topClientError) {
@@ -502,6 +539,8 @@ router.get('/tax-summary', authenticate, async (req: Request, res: Response, nex
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
 
         const start = new Date(Date.UTC(year, 0, 1));
         const end = new Date(Date.UTC(year + 1, 0, 1));

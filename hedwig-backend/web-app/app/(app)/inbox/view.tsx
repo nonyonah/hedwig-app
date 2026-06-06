@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import {
   ArrowsClockwise,
   CalendarBlank,
@@ -31,6 +32,7 @@ import {
   XCircle,
 } from '@/components/ui/lucide-icons';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
 import type {
   EmailThread,
@@ -88,26 +90,26 @@ const TABS: { id: InboxTab; label: string }[] = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function confidenceColor(score: number) {
-  if (score >= 0.8) return { dot: 'bg-[#12b76a]', text: 'text-[#027a48]', bg: 'bg-[#ecfdf3]' };
-  if (score >= 0.6) return { dot: 'bg-[#f79009]', text: 'text-[#92400e]', bg: 'bg-[#fffaeb]' };
-  return { dot: 'bg-[#f04438]', text: 'text-[#b42318]', bg: 'bg-[#fef3f2]' };
+  if (score >= 0.8) return { dot: 'bg-[var(--color-success)]', text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]' };
+  if (score >= 0.6) return { dot: 'bg-[var(--color-warning)]', text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' };
+  return { dot: 'bg-[var(--color-danger)]', text: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' };
 }
 
 function statusConfig(status: EmailThread['status']) {
   switch (status) {
-    case 'matched':    return { label: 'Matched',      bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' };
-    case 'needs_review': return { label: 'Needs Review', bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f79009]' };
-    case 'ignored':    return { label: 'Ignored',      bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#d0d5dd]' };
-    case 'imported':   return { label: 'Imported',     bg: 'bg-[#eff4ff]', text: 'text-[#3538cd]', dot: 'bg-[#6172f3]' };
+    case 'matched':    return { label: 'Matched',      bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]', dot: 'bg-[var(--color-success)]' };
+    case 'needs_review': return { label: 'Needs Review', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]', dot: 'bg-[var(--color-warning)]' };
+    case 'ignored':    return { label: 'Ignored',      bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]', dot: 'bg-[var(--color-border-input)]' };
+    case 'imported':   return { label: 'Imported',     bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]', dot: 'bg-[var(--color-accent)]' };
   }
 }
 
 function typeConfig(type?: DocumentType) {
   switch (type) {
-    case 'invoice':  return { label: 'Invoice',  bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' };
-    case 'contract': return { label: 'Contract', bg: 'bg-[#f0fdf4]', text: 'text-[#15803d]' };
-    case 'receipt':  return { label: 'Receipt',  bg: 'bg-[#fefce8]', text: 'text-[#a16207]' };
-    case 'proposal': return { label: 'Proposal', bg: 'bg-[#fdf4ff]', text: 'text-[#9333ea]' };
+    case 'invoice':  return { label: 'Invoice',  bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary)]' };
+    case 'contract': return { label: 'Contract', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' };
+    case 'receipt':  return { label: 'Receipt',  bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' };
+    case 'proposal': return { label: 'Proposal', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' };
     default:         return null;
   }
 }
@@ -161,35 +163,35 @@ function ThreadCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`group w-full rounded-2xl border bg-white p-4 text-left transition ${
+      className={`group w-full rounded-2xl border bg-[var(--color-surface)] p-4 text-left transition ${
         isSelected
-          ? 'border-[#2563eb] shadow-[0_0_0_3px_#eff4ff]'
-          : 'border-[#e9eaeb] hover:border-[#c8cdd5] hover:shadow-xs'
+          ? 'border-[var(--color-primary)] shadow-[0_0_0_3px_var(--color-accent-soft)]'
+          : 'border-[var(--color-border)] hover:border-[var(--color-text-placeholder)] hover:shadow-xs'
       }`}
     >
       {/* Top row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {/* Provider badge */}
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7]">
-            <Envelope className="h-3.5 w-3.5 text-[#717680]" />
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
+            <Envelope className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-[#181d27]">{thread.subject}</p>
-            <p className="mt-0.5 text-[11px] text-[#717680]">{thread.fromName || thread.fromEmail}</p>
+            <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{thread.subject}</p>
+            <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{thread.fromName || thread.fromEmail}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-[11px] text-[#a4a7ae]">{formatEmailTime(thread.lastMessageAt)}</span>
+          <span className="text-[11px] text-[var(--color-text-muted)]">{formatEmailTime(thread.lastMessageAt)}</span>
           {thread.hasAttachments && (
-            <Paperclip className="h-3.5 w-3.5 text-[#a4a7ae]" />
+            <Paperclip className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
           )}
         </div>
       </div>
 
       {/* Summary */}
       {thread.summary && (
-        <p className="mt-2.5 line-clamp-2 text-[12px] leading-relaxed text-[#717680]">
+        <p className="mt-2.5 line-clamp-2 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
           {thread.summary}
         </p>
       )}
@@ -211,20 +213,20 @@ function ThreadCard({
 
         {/* Amount */}
         {amount && (
-          <span className="rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[10px] font-semibold text-[#414651]">
+          <span className="rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-secondary)]">
             {amount}
           </span>
         )}
 
         {/* Matched entity */}
         {thread.matchedClientName && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[10px] font-medium text-[#414651]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">
             <User className="h-2.5 w-2.5" />
             {thread.matchedClientName}
           </span>
         )}
         {thread.matchedProjectName && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[10px] font-medium text-[#414651]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">
             <FolderSimple className="h-2.5 w-2.5" />
             {thread.matchedProjectName}
           </span>
@@ -241,31 +243,34 @@ function ThreadCard({
 
       {/* Actions — visible on hover/selection */}
       {(thread.status === 'needs_review' || isSelected) && (
-        <div className="mt-3 flex items-center gap-2 border-t border-[#f2f4f7] pt-3 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            type="button"
+        <div className="mt-3 flex items-center gap-2 border-t border-[var(--color-surface-tertiary)] pt-3 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button
+            variant="default"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onConfirm(); }}
-            className="inline-flex items-center gap-1 rounded-full bg-[#2563eb] px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+            className="rounded-full px-3 py-1 text-[11px] font-semibold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
           >
             <Check className="h-3 w-3" />
             Confirm match
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onIgnore(); }}
-            className="inline-flex items-center gap-1 rounded-full border border-[#e9eaeb] bg-white px-3 py-1 text-[11px] font-semibold text-[#414651] transition hover:bg-[#f9fafb]"
+            className="rounded-full px-3 py-1 text-[11px] font-semibold"
           >
             <X className="h-3 w-3" />
             Ignore
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
-            className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-[#717680] transition hover:text-[#181d27]"
+            className="ml-auto text-[11px] font-medium text-[var(--color-text-tertiary)] hover:text-[var(--color-foreground)]"
           >
             View thread
             <CaretRight className="h-3 w-3" />
-          </button>
+          </Button>
         </div>
       )}
     </button>
@@ -290,11 +295,11 @@ function EmptyState({ tab }: { tab: InboxTab }) {
 
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f2f4f7]">
-        <Icon className="h-6 w-6 text-[#a4a7ae]" />
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-surface-tertiary)]">
+        <Icon className="h-6 w-6 text-[var(--color-text-muted)]" />
       </span>
-      <p className="mt-4 text-[15px] font-semibold text-[#181d27]">{config.title}</p>
-      <p className="mt-1.5 max-w-[280px] text-[13px] leading-relaxed text-[#717680]">{config.body}</p>
+      <p className="mt-4 text-[15px] font-semibold text-[var(--color-foreground)]">{config.title}</p>
+      <p className="mt-1.5 max-w-[280px] text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">{config.body}</p>
     </div>
   );
 }
@@ -311,6 +316,8 @@ export function MagicInboxClient({
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
+
+  useAssistantPageContext('Inbox');
 
   const [activeTab, setActiveTab] = useState<InboxTab>(
     (searchParams.get('tab') as InboxTab) ?? initialTab ?? 'all'
@@ -407,81 +414,84 @@ export function MagicInboxClient({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between border-b border-[#f2f4f7] px-6 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-6 py-4">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#eff4ff]">
-            <Sparkle className="h-4 w-4 text-[#2563eb]" />
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--color-accent-soft)]">
+            <Sparkle className="h-4 w-4 text-[var(--color-primary)]" />
           </span>
           <div>
-            <h1 className="text-[17px] font-semibold text-[#181d27]">Magic Inbox</h1>
-            <p className="text-[12px] text-[#717680]">Your emails, organized and matched automatically</p>
+            <h1 className="text-[17px] font-semibold text-[var(--color-foreground)]">Magic Inbox</h1>
+            <p className="text-[12px] text-[var(--color-text-tertiary)]">Your emails, organized and matched automatically</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => void handleSync()}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#f9fafb] disabled:opacity-60"
+            className="rounded-full px-3 py-1.5 text-[12px] font-semibold"
           >
             <ArrowsClockwise className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             {isLoading ? 'Syncing…' : 'Sync'}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
             onClick={() => setShowImportModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+            className="rounded-full px-3 py-1.5 text-[12px] font-semibold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
           >
             <Plus className="h-3.5 w-3.5" />
             Import invoice
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-[#f2f4f7] px-6 pt-1">
+      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-[var(--color-surface-tertiary)] px-6 pt-1">
         {TABS.map(({ id, label }) => (
-          <button
+          <Button
             key={id}
-            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab(id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-[12px] font-semibold transition ${
+            className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-[12px] font-semibold ${
               activeTab === id
-                ? 'border-b-2 border-[#2563eb] text-[#2563eb]'
-                : 'text-[#717680] hover:text-[#414651]'
+                ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)]'
+                : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
             }`}
           >
             {label}
             {counts[id] > 0 && (
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                activeTab === id ? 'bg-[#eff4ff] text-[#2563eb]' : 'bg-[#f2f4f7] text-[#717680]'
+                activeTab === id ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary)]' : 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]'
               }`}>
                 {counts[id]}
               </span>
             )}
-          </button>
+          </Button>
         ))}
       </div>
 
       {/* ── Body ── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Thread list */}
-        <div className={`flex flex-col overflow-y-auto transition-all ${selectedThread ? 'w-[420px] shrink-0 border-r border-[#f2f4f7]' : 'flex-1'}`}>
+        <div className={`flex flex-col overflow-y-auto transition-all ${selectedThread ? 'w-[420px] shrink-0 border-r border-[var(--color-surface-tertiary)]' : 'flex-1'}`}>
           {/* Search */}
           <div className="px-4 py-3">
-            <div className="flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-[#f9fafb] px-3 py-2">
-              <MagnifyingGlass className="h-3.5 w-3.5 shrink-0 text-[#a4a7ae]" />
+            <div className="flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2">
+              <MagnifyingGlass className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" />
               <input
                 type="text"
                 placeholder="Search emails, senders, clients…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-[12px] text-[#181d27] placeholder-[#a4a7ae] outline-none"
+                className="flex-1 bg-transparent text-[12px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none"
               />
               {search && (
-                <button type="button" onClick={() => setSearch('')}>
-                  <X className="h-3 w-3 text-[#a4a7ae] hover:text-[#414651]" />
-                </button>
+                <Button variant="ghost" size="sm" onClick={() => setSearch('')} className="h-5 w-5 p-0">
+                  <X className="h-3 w-3 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]" />
+                </Button>
               )}
             </div>
           </div>
@@ -490,9 +500,9 @@ export function MagicInboxClient({
           {activeTab === 'all' && !search && (
             <AttachedStatGrid
               items={[
-                { id: 'needs-review', title: 'Needs review', value: String(counts.needs_review), valueClassName: 'text-[#92400e]', helper: undefined },
-                { id: 'matched', title: 'Matched', value: String(counts.matched), valueClassName: 'text-[#027a48]', helper: undefined },
-                { id: 'attachments', title: 'Attachments', value: String(counts.attachments), valueClassName: 'text-[#2563eb]', helper: undefined },
+                { id: 'needs-review', title: 'Needs review', value: String(counts.needs_review), valueClassName: 'text-[var(--color-warning)]', helper: undefined },
+                { id: 'matched', title: 'Matched', value: String(counts.matched), valueClassName: 'text-[var(--color-success)]', helper: undefined },
+                { id: 'attachments', title: 'Attachments', value: String(counts.attachments), valueClassName: 'text-[var(--color-primary)]', helper: undefined },
               ]}
               className="mx-4 mb-3 grid-cols-1 md:grid-cols-3"
             />
@@ -502,13 +512,13 @@ export function MagicInboxClient({
           <div className="flex flex-col gap-2 px-4 pb-6">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="animate-pulse rounded-2xl border border-[#f2f4f7] bg-[#f9fafb] p-4">
+                <div key={i} className="animate-pulse rounded-2xl border border-[var(--color-surface-tertiary)] bg-[var(--color-surface-secondary)] p-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 shrink-0 rounded-full bg-[#e9eaeb]" />
+                    <div className="h-8 w-8 shrink-0 rounded-full bg-[var(--color-border)]" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-3 w-3/4 rounded-full bg-[#e9eaeb]" />
-                      <div className="h-2.5 w-1/2 rounded-full bg-[#f2f4f7]" />
-                      <div className="h-2.5 w-full rounded-full bg-[#f2f4f7]" />
+                      <div className="h-3 w-3/4 rounded-full bg-[var(--color-border)]" />
+                      <div className="h-2.5 w-1/2 rounded-full bg-[var(--color-surface-tertiary)]" />
+                      <div className="h-2.5 w-full rounded-full bg-[var(--color-surface-tertiary)]" />
                     </div>
                   </div>
                 </div>

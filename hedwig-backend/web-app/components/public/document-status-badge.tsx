@@ -8,10 +8,10 @@ export function DocumentStatusBadge({ status }: { status: string }) {
       className={cn(
         'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize',
         normalized === 'paid' || normalized === 'approved' || normalized === 'signed'
-          ? 'border-[#abefc6] bg-[#ecfdf3] text-[#717680]'
+          ? 'border-[var(--color-success-soft)] bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]'
           : normalized === 'overdue'
-            ? 'border-[#fecdca] bg-[#fef3f2] text-[#717680]'
-            : 'border-[#d5d7da] bg-[#f8f9fc] text-[#414651]'
+            ? 'border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] text-[var(--color-text-tertiary)]'
+            : 'border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)]'
       )}
     >
       {normalized.replace('_', ' ')}

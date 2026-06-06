@@ -26,7 +26,12 @@
 
 ### Manage your workspace
 - Organize **clients, projects, and milestones** in one place
+- **Time tracking** — start/stop timer, manually log hours, set hourly rates, view weekly/monthly summaries
+- Track billable hours per client and project, generate invoices directly from tracked time
+- **Team payouts** — send USDC to workspace members across Solana, Base, Arbitrum, Polygon, Optimism
+- Payouts use Privy wallets for signing and support Circle Gateway for gasless cross-chain sends
 - Get an **AI assistant** with explicit intent routing: it knows when to draft an invoice, when to create a payment link, when to surface an overdue reminder, and when to stage a calendar event
+- AI can query time entries — "How many hours did I work this month?", "Generate an invoice from unbilled hours"
 - Assistant always resolves clients via the live database — never from chat history or uploaded attachments — eliminating the wrong-client problem
 - **Calendar sync** — invoice due dates and reminders appear in Google Calendar or Apple Calendar
 
@@ -48,11 +53,11 @@
 | Backend API | Express (Node.js), TypeScript |
 | Database | Supabase (PostgreSQL) |
 | Auth | Privy (embedded wallets + social login) |
-| AI | Google Gemini (assistant, summarization, nudges) |
+| AI | DeepSeek (assistant, summarization, nudges) |
 | File storage | Cloudflare R2 (documents, email attachments) |
 | Payments | Polar (web subscriptions), RevenueCat (mobile subscriptions) |
 | Notifications | OneSignal (push), Resend (email) |
-| Chains | Base, Arbitrum, Polygon, Optimism, Solana (+ Circle Gateway aggregated USDC, BETA) |
+| Chains | Base, Arbitrum, Polygon, Optimism, Solana (+ Circle Gateway aggregated USDC) |
 | Address-activity webhooks | Alchemy (Base, Arbitrum, Polygon, Optimism, Solana) |
 
 ---
@@ -130,7 +135,7 @@ npm run dev          # starts on port 3001
 |---|---|
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Database access |
 | `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | Auth token verification |
-| `GEMINI_API_KEY` | AI assistant + email summarization |
+| `DEEPSEEK_API_KEY` | AI assistant + email summarization |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Gmail + Google Calendar OAuth |
 | `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | Slack workspace OAuth |
 | `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Cloudflare R2 file storage |
@@ -189,9 +194,11 @@ npm run dev          # starts on port 3001
 ## Plans
 
 | Feature | Free | Pro |
-|---|---|---|
+|---|---|---|---|
 | Invoices, payment links, contracts | ✓ | ✓ |
 | Clients, projects, milestones | ✓ | ✓ |
+| Time tracking + billable hours | ✓ | ✓ |
+| Team payouts (usdc) | ✓ | ✓ |
 | Earnings dashboard + AI assistant | ✓ | ✓ |
 | Recurring invoice automation | — | ✓ |
 | Tax summary reports | — | ✓ |

@@ -471,7 +471,7 @@ async function ingestThread(
     return;
   }
 
-  // Run Gemini intelligence detection on subject + snippet, with deterministic
+  // Run DeepSeek intelligence detection on subject + snippet, with deterministic
   // filename/subject fallback so obvious invoice and contract threads still
   // import when AI extraction is unavailable.
   const intel = await detectThreadIntelligence(subject, snippet, from.email);
@@ -527,7 +527,7 @@ async function ingestThread(
     return;
   }
 
-  // Phase 4: Fetch attachments + Gemini Vision analysis
+  // Phase 4: Fetch attachments + DeepSeek Vision analysis
   if (hasAttachments && upserted) {
     await fetchAndStoreAttachments(userId, accessToken, upserted.id, messages);
   }
@@ -599,9 +599,9 @@ async function fetchAndStoreAttachments(
             attachment_type:        attachType,
           }).select('id').single();
 
-          // Run Gemini Vision on PDFs/images to extract structured invoice data
+          // Run DeepSeek Vision on PDFs/images to extract structured invoice data
           if (inserted?.id && (contentType.includes('pdf') || contentType.startsWith('image/'))) {
-            analyzeAttachmentWithGemini(threadDbId, inserted.id, filename, contentType, buffer).catch(() => {});
+            analyzeAttachmentWithDeepSeek(threadDbId, inserted.id, filename, contentType, buffer).catch(() => {});
           }
         }
       } catch (err) {
@@ -620,22 +620,24 @@ function inferAttachmentType(filename: string, contentType: string): string {
   return 'other';
 }
 
-// ─── Phase 3a: Gemini invoice intelligence ───────────────────────────────────
+// ─── Phase 3a: DeepSeek invoice intelligence ──────────────────────────────────
+
+import { llmService } from './llm';
 
 interface ThreadIntelligence {
   detectedType?: 'invoice' | 'contract' | 'receipt' | 'proposal' | 'other';
   detectedAmount?: number;
   detectedCurrency?: string;
-  detectedDueDate?: string; // ISO date YYYY-MM-DD
+  detectedDueDate?: string;
 }
+
 
 async function detectThreadIntelligence(
   subject: string,
   snippet: string,
   fromEmail: string,
 ): Promise<ThreadIntelligence> {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) return {};
+  if (!process.env.AI_GATEWAY_API_KEY) return {};
 
   const prompt = `Analyze this email and extract structured business data. Return ONLY valid JSON, no markdown.
 
@@ -646,7 +648,7 @@ Snippet: ${snippet?.slice(0, 500) || ''}
 Return JSON with these fields (all optional, omit if not found):
 {
   "detectedType": "invoice" | "contract" | "receipt" | "proposal" | "other",
-  "detectedAmount": number (numeric value only, no currency symbols),
+  "detectedAmount": number,
   "detectedCurrency": "USD" | "EUR" | "GBP" | "NGN" | etc.,
   "detectedDueDate": "YYYY-MM-DD"
 }
@@ -658,21 +660,10 @@ Rules:
 - If none of these apply, return {}`;
 
   try {
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 200, temperature: 0.1 },
-        }),
-      }
-    );
-    if (!resp.ok) return {};
-
-    const result = await resp.json() as any;
-    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const text = (await llmService.generateText(prompt, {
+      maxOutputTokens: 200,
+      temperature: 0.1,
+    })).trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return {};
 
@@ -696,23 +687,21 @@ Rules:
   }
 }
 
-// ─── Gemini Vision: extract data from PDF/image invoice attachments ───────────
+// ─── DeepSeek Vision: extract data from PDF/image invoice attachments ─────────
 
-export async function analyzeAttachmentWithGemini(
+export async function analyzeAttachmentWithDeepSeek(
   threadId: string,
   attachmentId: string,
   _filename: string,
   contentType: string,
   buffer: Buffer,
 ): Promise<void> {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) return;
+  if (!process.env.AI_GATEWAY_API_KEY) return;
 
   const supportedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
   if (!supportedTypes.includes(contentType)) return;
 
   const base64Data = buffer.toString('base64');
-  const mimeType = contentType === 'application/pdf' ? 'application/pdf' : contentType;
 
   const prompt = `Extract invoice/document data from this file. Return ONLY valid JSON, no markdown.
 
@@ -730,27 +719,11 @@ Return JSON with these fields (all optional, omit if not found):
 }`;
 
   try {
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [
-              { inlineData: { mimeType, data: base64Data } },
-              { text: prompt },
-            ],
-          }],
-          generationConfig: { maxOutputTokens: 600, temperature: 0.1 },
-        }),
-      }
-    );
-    if (!resp.ok) return;
-
-    const result = await resp.json() as any;
-    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const text = (await llmService.generateText(prompt, {
+      files: [{ mimeType: contentType, data: base64Data }],
+      maxOutputTokens: 600,
+      temperature: 0.1,
+    })).trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return;
 
@@ -774,7 +747,6 @@ Return JSON with these fields (all optional, omit if not found):
       })
       .eq('id', attachmentId);
 
-    // Propagate detected fields up to the thread if we got useful data
     if (parsed.documentType || parsed.amount || parsed.dueDate) {
       const threadUpdate: Record<string, any> = {};
       const parsedType = normalizeDetectedType(parsed.documentType);
@@ -795,7 +767,7 @@ Return JSON with these fields (all optional, omit if not found):
   }
 }
 
-// ─── Phase 3: Gemini email summarization ─────────────────────────────────────
+// ─── Phase 3: DeepSeek email summarization ────────────────────────────────────
 
 export async function summarizeThread(userId: string, threadDbId: string): Promise<void> {
   const { data: thread } = await supabase
@@ -807,8 +779,7 @@ export async function summarizeThread(userId: string, threadDbId: string): Promi
 
   if (!thread) return;
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) return;
+  if (!process.env.AI_GATEWAY_API_KEY) return;
 
   const prompt = `You are a business assistant for a freelancer. Summarize this email thread in 1–2 sentences, focusing on what action (if any) is required.
 
@@ -820,27 +791,20 @@ Snippet: ${thread.snippet || ''}
 
 Write a concise, professional summary. If the email is about a payment, invoice, project update, or contract, mention that explicitly.`;
 
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 150, temperature: 0.3 },
-      }),
-    }
-  );
+  try {
+    const summary = (await llmService.generateText(prompt, {
+      maxOutputTokens: 150,
+      temperature: 0.3,
+    })).trim();
+    if (!summary) return;
 
-  if (!resp.ok) return;
-  const result = await resp.json() as any;
-  const summary = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!summary) return;
-
-  await supabase
-    .from('email_threads')
-    .update({ summary, summary_generated_at: new Date().toISOString() })
-    .eq('id', threadDbId);
+    await supabase
+      .from('email_threads')
+      .update({ summary, summary_generated_at: new Date().toISOString() })
+      .eq('id', threadDbId);
+  } catch {
+    // Summarization is best-effort
+  }
 }
 
 // ─── Phase 5: Matching engine ─────────────────────────────────────────────────

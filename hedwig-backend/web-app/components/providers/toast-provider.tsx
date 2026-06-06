@@ -21,10 +21,10 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
 
 const typeConfig: Record<ToastType, { icon: typeof CheckCircle; bar: string; iconClass: string }> = {
-  success: { icon: CheckCircle, bar: 'bg-[#17b26a]', iconClass: 'text-[#17b26a]' },
-  error:   { icon: XCircle,     bar: 'bg-[#f04438]', iconClass: 'text-[#f04438]' },
-  warning: { icon: Warning,     bar: 'bg-[#f79009]', iconClass: 'text-[#f79009]' },
-  info:    { icon: Info,        bar: 'bg-[#2563eb]', iconClass: 'text-[#2563eb]' },
+  success: { icon: CheckCircle, bar: 'bg-[var(--color-success)]', iconClass: 'text-[var(--color-success)]' },
+  error:   { icon: XCircle,     bar: 'bg-[var(--color-danger)]', iconClass: 'text-[var(--color-danger)]' },
+  warning: { icon: Warning,     bar: 'bg-[var(--color-warning)]', iconClass: 'text-[var(--color-warning)]' },
+  info:    { icon: Info,        bar: 'bg-[var(--color-accent)]', iconClass: 'text-[var(--color-accent)]' },
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               onOpenChange={(open) => { if (!open) dismiss(t.id); }}
               className={cn(
                 'group pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden',
-                'rounded-xl border border-[#e9eaeb] bg-white px-4 py-3.5 shadow-lg',
+                'rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 shadow-lg',
                 'data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=open]:fade-in-0',
                 'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=closed]:fade-out-0',
                 'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]',
@@ -62,17 +62,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 'duration-300 ease-out'
               )}
             >
-              {/* colored accent bar */}
               <span className={cn('absolute left-0 top-0 h-full w-1 rounded-l-xl', bar)} />
 
               <Icon className={cn('mt-0.5 h-[18px] w-[18px] shrink-0', iconClass)} weight="fill" />
 
               <div className="min-w-0 flex-1 pl-1">
-                <ToastPrimitive.Title className="text-[13px] font-semibold text-[#181d27]">
+                <ToastPrimitive.Title className="text-[13px] font-semibold text-[var(--color-foreground)]">
                   {t.title}
                 </ToastPrimitive.Title>
                 {t.message ? (
-                  <ToastPrimitive.Description className="mt-0.5 text-[12px] leading-5 text-[#717680]">
+                  <ToastPrimitive.Description className="mt-0.5 text-[12px] leading-5 text-[var(--color-text-tertiary)]">
                     {t.message}
                   </ToastPrimitive.Description>
                 ) : null}
@@ -80,7 +79,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
               <ToastPrimitive.Close
                 onClick={() => dismiss(t.id)}
-                className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#a4a7ae] transition-colors hover:bg-[#f5f5f5] hover:text-[#717680]"
+                className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]"
                 aria-label="Dismiss"
               >
                 <X className="h-3.5 w-3.5" weight="bold" />

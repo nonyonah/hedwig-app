@@ -407,17 +407,17 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
         onKeyDown={handleKeyDown}
         placeholder={EXAMPLES[exampleIdx]}
         rows={2}
-        className="w-full resize-none bg-transparent px-5 pt-4 pb-1 text-[14px] text-[#181d27] placeholder:text-[#b8bdc7] outline-none transition-[placeholder] duration-500"
+        className="w-full resize-none bg-transparent px-5 pt-4 pb-1 text-[14px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] outline-none transition-[placeholder] duration-500"
       />
 
       {/* Example hint — tap to fill, only shown when empty */}
       {!text && (
         <div className="flex items-center gap-1.5 px-5 pb-2">
-          <span className="text-[11px] text-[#b8bdc7]">e.g.</span>
+          <span className="text-[11px] text-[var(--color-text-placeholder)]">e.g.</span>
           <button
             type="button"
             onClick={() => { setText(EXAMPLES[exampleIdx]); triggerParse(EXAMPLES[exampleIdx]); textareaRef.current?.focus(); }}
-            className="text-[11px] text-[#a4a7ae] hover:text-[#717680] transition-colors truncate max-w-[340px] text-left"
+            className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-tertiary)] transition-colors truncate max-w-[340px] text-left"
           >
             {EXAMPLES[exampleIdx]}
           </button>
@@ -429,10 +429,10 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
         <div className="flex flex-wrap items-center gap-2 px-5 pb-2">
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
             resolvedIntent === 'payment_link'
-              ? 'bg-[#f0fdf4] text-[#717680]'
+              ? 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]'
               : resolvedIntent === 'recurring_invoice'
-              ? 'bg-[#fdf4ff] text-[#717680]'
-              : 'bg-[#eff4ff] text-[#717680]'
+              ? 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
+              : 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
           }`}>
             {resolvedIntent === 'payment_link'
               ? <><LinkSimple className="h-3 w-3" weight="bold" /> Payment Link</>
@@ -441,12 +441,12 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
               : <><FileText className="h-3 w-3" weight="bold" /> Invoice</>}
           </span>
           {parsed.amount != null && parsed.amount > 0 && (
-            <span className="text-[12px] font-medium text-[#344054]">
+            <span className="text-[12px] font-medium text-[var(--color-text-secondary)]">
               ${parsed.amount.toLocaleString()}
             </span>
           )}
           {parsed.clientName && (
-            <span className="text-[12px] text-[#717680]">→ {parsed.clientName}</span>
+            <span className="text-[12px] text-[var(--color-text-tertiary)]">→ {parsed.clientName}</span>
           )}
         </div>
       )}
@@ -457,13 +457,13 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
           {items.map((item, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#eff4ff] px-3 py-1 text-[12px] font-medium text-[#717680]"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-[12px] font-medium text-[var(--color-text-tertiary)]"
             >
               {item.description} · ${item.amount.toFixed(2)}
               <button
                 type="button"
                 onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))}
-                className="ml-0.5 rounded-full hover:text-[#717680]"
+                className="ml-0.5 rounded-full hover:text-[var(--color-text-tertiary)]"
               >
                 <X className="h-3 w-3" weight="bold" />
               </button>
@@ -474,7 +474,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
 
       {/* Inline add-item form */}
       {addingItem && (
-        <div className="flex items-center gap-2 border-t border-[#f2f4f7] px-5 py-2.5">
+        <div className="flex items-center gap-2 border-t border-[var(--color-surface-tertiary)] px-5 py-2.5">
           <input
             autoFocus
             type="text"
@@ -482,7 +482,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
             value={itemDesc}
             onChange={(e) => setItemDesc(e.target.value)}
             onKeyDown={handleItemKey}
-            className="flex-1 rounded-full border border-[#d5d7da] bg-[#f9fafb] px-3.5 py-1.5 text-[13px] text-[#181d27] outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]/30"
+            className="flex-1 rounded-full border border-[var(--color-border-input)] bg-[var(--color-background)] px-3.5 py-1.5 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]/30"
           />
           <input
             type="number"
@@ -490,19 +490,19 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
             value={itemAmt}
             onChange={(e) => setItemAmt(e.target.value)}
             onKeyDown={handleItemKey}
-            className="w-24 rounded-full border border-[#d5d7da] bg-[#f9fafb] px-3.5 py-1.5 text-[13px] text-[#181d27] outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]/30"
+            className="w-24 rounded-full border border-[var(--color-border-input)] bg-[var(--color-background)] px-3.5 py-1.5 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]/30"
           />
           <button
             type="button"
             onClick={commitItem}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-white"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-white"
           >
             <Check className="h-3.5 w-3.5" weight="bold" />
           </button>
           <button
             type="button"
             onClick={() => setAddingItem(false)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7] text-[#717680]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]"
           >
             <X className="h-3.5 w-3.5" weight="bold" />
           </button>
@@ -510,7 +510,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
       )}
 
       {/* Chips + action row */}
-      <div className="flex items-center justify-between border-t border-[#f2f4f7] px-5 py-2.5">
+      <div className="flex items-center justify-between border-t border-[var(--color-surface-tertiary)] px-5 py-2.5">
         <div className="flex items-center gap-2">
           {/* Date chip */}
           <button
@@ -520,8 +520,8 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
               'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
               shakingDate ? 'animate-shake' : '',
               effectiveDate
-                ? 'border-[#2563eb] bg-[#eff4ff] text-[#717680]'
-                : 'border-[#d5d7da] bg-[#f9fafb] text-[#717680] hover:border-[#2563eb] hover:text-[#717680]',
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
+                : 'border-[var(--color-border-input)] bg-[var(--color-background)] text-[var(--color-text-tertiary)] hover:border-[var(--color-accent)] hover:text-[var(--color-text-tertiary)]',
             ].join(' ')}
           >
             <CalendarBlank className="h-3.5 w-3.5" weight="bold" />
@@ -534,7 +534,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
                   setSelectedDate(null);
                   setParsed((p) => p ? { ...p, dueDate: null } : p);
                 }}
-                className="ml-0.5 rounded-full hover:text-[#717680]"
+                className="ml-0.5 rounded-full hover:text-[var(--color-text-tertiary)]"
               >
                 <X className="h-3 w-3" weight="bold" />
               </span>
@@ -546,7 +546,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
             <button
               type="button"
               onClick={() => setAddingItem(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-[#f9fafb] px-3 py-1.5 text-[12px] font-medium text-[#717680] transition-colors hover:border-[#2563eb] hover:text-[#717680]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-input)] bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-tertiary)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-text-tertiary)]"
             >
               <ListPlus className="h-3.5 w-3.5" weight="bold" />
               Add Item
@@ -560,8 +560,8 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
             className={[
               'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
               fileName
-                ? 'border-[#2563eb] bg-[#eff4ff] text-[#717680]'
-                : 'border-[#d5d7da] bg-[#f9fafb] text-[#717680] hover:border-[#2563eb] hover:text-[#717680]',
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
+                : 'border-[var(--color-border-input)] bg-[var(--color-background)] text-[var(--color-text-tertiary)] hover:border-[var(--color-accent)] hover:text-[var(--color-text-tertiary)]',
             ].join(' ')}
           >
             <Paperclip className="h-3.5 w-3.5" weight="bold" />
@@ -575,7 +575,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
                     setFileName(null);
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
-                  className="ml-0.5 hover:text-[#717680]"
+                  className="ml-0.5 hover:text-[var(--color-text-tertiary)]"
                 >
                   <X className="h-3 w-3" weight="bold" />
                 </span>
@@ -587,7 +587,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
         {/* Right: spinner + send */}
         <div className="flex items-center gap-2.5">
           {isParsing && (
-            <SpinnerGap className="h-4 w-4 animate-spin text-[#a4a7ae]" weight="bold" />
+            <SpinnerGap className="h-4 w-4 animate-spin text-[var(--color-text-muted)]" weight="bold" />
           )}
           <button
             type="button"
@@ -596,8 +596,8 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
             title="Create (⌘↵)"
             className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
               text.trim() && !isCreating && !isParsing
-                ? 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
-                : 'bg-[#f2f4f7] text-[#a4a7ae]'
+                ? 'bg-[var(--color-accent)] text-white hover:bg-[var(--color-primary-dark)]'
+                : 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]'
             }`}
           >
             {isCreating ? (

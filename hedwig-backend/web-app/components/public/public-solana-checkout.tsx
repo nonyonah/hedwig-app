@@ -261,50 +261,50 @@ export function PublicSolanaCheckout({
   };
 
   return (
-    <div className="rounded-2xl border border-[#e9eaeb] bg-white p-6 shadow-xs">
+    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-xs">
       <div className="flex items-center gap-3">
-        <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#f8f9fc]">
+        <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-secondary)]">
           <Image src={chainIcon} alt="Solana" width={28} height={28} className="rounded-full" />
-          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-white shadow-xs">
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[var(--color-surface)] shadow-xs">
             <Image src={tokenIcon} alt={tokenSymbol} width={14} height={14} className="rounded-full" />
           </span>
         </div>
         <div>
-          <p className="text-sm font-medium text-[#717680]">Crypto checkout</p>
-          <p className="text-sm font-semibold text-[#181d27]">{tokenSymbol} on {cluster === 'devnet' ? 'Solana Devnet' : 'Solana'}</p>
+          <p className="text-sm font-medium text-[var(--color-text-tertiary)]">Crypto checkout</p>
+          <p className="text-sm font-semibold text-[var(--color-foreground)]">{tokenSymbol} on {cluster === 'devnet' ? 'Solana Devnet' : 'Solana'}</p>
         </div>
       </div>
 
-      <p className="mt-4 text-sm leading-6 text-[#717680]">
-        Pay <span className="font-semibold text-[#181d27]">{title}</span> directly from an injected Solana wallet.
+      <p className="mt-4 text-sm leading-6 text-[var(--color-text-tertiary)]">
+        Pay <span className="font-semibold text-[var(--color-foreground)]">{title}</span> directly from an injected Solana wallet.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <div className="inline-flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-[#fcfcfd] px-3 py-1.5 text-xs font-medium text-[#414651]">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
           <Image src={chainIcon} alt="Solana" width={16} height={16} className="rounded-full" />
           {cluster === 'devnet' ? 'Solana Devnet' : 'Solana'}
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-[#fcfcfd] px-3 py-1.5 text-xs font-medium text-[#414651]">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
           <Image src={tokenIcon} alt={tokenSymbol} width={16} height={16} className="rounded-full" />
           {tokenSymbol}
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4 text-sm text-[#414651]">
+      <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-sm text-[var(--color-text-secondary)]">
         <div className="flex items-center justify-between">
           <span>Amount</span>
-          <span className="font-semibold text-[#181d27]">{amount} {tokenSymbol}</span>
+          <span className="font-semibold text-[var(--color-foreground)]">{amount} {tokenSymbol}</span>
         </div>
         <div className="mt-3 flex items-center justify-between">
           <span>Merchant wallet</span>
-          <span className="font-mono text-[12px] text-[#181d27]">
+          <span className="font-mono text-[12px] text-[var(--color-foreground)]">
             {merchantAddress ? `${merchantAddress.slice(0, 6)}...${merchantAddress.slice(-4)}` : 'Unavailable'}
           </span>
         </div>
         {walletAddress ? (
           <div className="mt-3 flex items-center justify-between">
             <span>Your wallet</span>
-            <span className="font-mono text-[12px] text-[#181d27]">
+            <span className="font-mono text-[12px] text-[var(--color-foreground)]">
               {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
             </span>
           </div>
@@ -325,7 +325,7 @@ export function PublicSolanaCheckout({
       ) : null}
 
       {error ? (
-        <div className="mt-4 rounded-2xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-sm text-[#717680]">
+        <div className="mt-4 rounded-2xl border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-text-tertiary)]">
           {error}
         </div>
       ) : null}
@@ -334,13 +334,13 @@ export function PublicSolanaCheckout({
         type="button"
         onClick={handlePay}
         disabled={!supportsDirectCheckout || isPaying}
-        className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[#2563eb] px-5 py-2.5 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {buttonLabel}
       </button>
 
-      <div className="mt-3 flex items-center gap-2 text-xs text-[#717680]">
-        <CheckCircle className="h-4 w-4 text-[#717680]" weight="fill" />
+      <div className="mt-3 flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+        <CheckCircle className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="fill" />
         This checkout now runs directly inside Hedwig.
       </div>
     </div>

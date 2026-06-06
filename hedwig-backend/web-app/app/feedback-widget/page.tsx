@@ -99,20 +99,20 @@ export default function FeedbackWidgetPage() {
   }, [openWidget, ready]);
 
   return (
-    <main className="mx-auto min-h-screen max-w-xl bg-[#f8fafc] p-6 text-[#181d27]">
-      <section className="mt-8 rounded-2xl border border-[#e9eaeb] bg-white p-6 shadow-xs">
+    <main className="mx-auto min-h-screen max-w-xl bg-[var(--color-surface-secondary)] p-6 text-[var(--color-foreground)]">
+      <section className="mt-8 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-xs">
         <h1 className="text-xl font-semibold">Send feedback</h1>
-        <p className="mt-2 text-sm leading-6 text-[#717680]">
+        <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
           The feedback widget should open automatically. If it does not, use the button below.
         </p>
         <button
           type="button"
           onClick={openWidget}
-          className="mt-5 inline-flex rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d4ed8]"
+          className="mt-5 inline-flex rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-dark)]"
         >
           Open feedback widget
         </button>
-        <p className="mt-3 text-xs text-[#717680]">{status}</p>
+        <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">{status}</p>
       </section>
     </main>
   );

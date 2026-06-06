@@ -77,22 +77,22 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
 
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#e9eaeb]">
+        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-[#e9eaeb] px-6 py-4">
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ecfdf3]">
-                <LinkSimple className="h-4 w-4 text-[#717680]" weight="bold" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-success-soft)]">
+                <LinkSimple className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" />
               </div>
               <div>
-                <p className="text-[15px] font-semibold text-[#181d27]">New payment link</p>
-                <p className="text-[11px] text-[#a4a7ae]">Collect USDC from anyone with a link</p>
+                <p className="text-[15px] font-semibold text-[var(--color-foreground)]">New payment link</p>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Collect USDC from anyone with a link</p>
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#717680] transition-colors hover:bg-[#f2f4f7]"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-tertiary)]"
             >
               <X className="h-4 w-4" weight="bold" />
             </button>
@@ -103,7 +103,7 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
             <div className="space-y-4 px-6 py-5">
               {/* Client name */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
+                <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">
                   Client / payer name
                 </label>
                 <input
@@ -111,18 +111,18 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
                   placeholder="Acme Corp"
                   value={form.clientName}
                   onChange={(e) => set('clientName', e.target.value)}
-                  className="w-full rounded-full border border-[#d5d7da] px-4 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/30"
+                  className="w-full rounded-full border border-[var(--color-border-input)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/30"
                 />
-                <p className="mt-1 text-[11px] text-[#a4a7ae]">Optional, but useful for labeling the link.</p>
+                <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Optional, but useful for labeling the link.</p>
               </div>
 
               {/* Amount */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
-                  Amount (USDC) <span className="text-[#717680]">*</span>
+                <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                  Amount (USDC) <span className="text-[var(--color-text-tertiary)]">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-[#717680]">$</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-[var(--color-text-tertiary)]">$</span>
                   <input
                     type="number"
                     min="0"
@@ -130,70 +130,70 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
                     placeholder="0.00"
                     value={form.amount}
                     onChange={(e) => set('amount', e.target.value)}
-                    className={`w-full rounded-full border py-2.5 pl-8 pr-4 text-[13px] text-[#181d27] outline-none transition focus:ring-2 focus:ring-[#2563eb]/30 ${
-                      errors.amount ? 'border-[#f04438] focus:border-[#f04438]' : 'border-[#d5d7da] focus:border-[#2563eb]'
+                    className={`w-full rounded-full border py-2.5 pl-8 pr-4 text-[13px] text-[var(--color-foreground)] outline-none transition focus:ring-2 focus:ring-[var(--color-accent)]/30 ${
+                      errors.amount ? 'border-[var(--color-danger)] focus:border-[var(--color-danger)]' : 'border-[var(--color-border-input)] focus:border-[var(--color-accent)]'
                     }`}
                   />
                 </div>
-                {errors.amount && <p className="mt-1 text-[11px] text-[#717680]">{errors.amount}</p>}
-                <p className="mt-1 text-[11px] text-[#a4a7ae]">Fixed to USDC · settled on Base</p>
+                {errors.amount && <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{errors.amount}</p>}
+                <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Fixed to USDC · settled on Base</p>
               </div>
 
               {/* Expiry date */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
-                  Expiry date <span className="text-[#717680]">*</span>
+                <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                  Expiry date <span className="text-[var(--color-text-tertiary)]">*</span>
                 </label>
                 <input
                   type="date"
                   value={form.dueDate}
                   onChange={(e) => set('dueDate', e.target.value)}
-                  className={`w-full rounded-full border px-4 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:ring-2 focus:ring-[#2563eb]/30 ${
-                    errors.dueDate ? 'border-[#f04438] focus:border-[#f04438]' : 'border-[#d5d7da] focus:border-[#2563eb]'
+                  className={`w-full rounded-full border px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:ring-2 focus:ring-[var(--color-accent)]/30 ${
+                    errors.dueDate ? 'border-[var(--color-danger)] focus:border-[var(--color-danger)]' : 'border-[var(--color-border-input)] focus:border-[var(--color-accent)]'
                   }`}
                 />
-                {errors.dueDate && <p className="mt-1 text-[11px] text-[#717680]">{errors.dueDate}</p>}
+                {errors.dueDate && <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{errors.dueDate}</p>}
               </div>
 
               {/* Description */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">Description</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Description</label>
                 <input
                   type="text"
                   placeholder="Monthly retainer, project milestone…"
                   value={form.description}
                   onChange={(e) => set('description', e.target.value)}
-                  className="w-full rounded-full border border-[#d5d7da] px-4 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/30"
+                  className="w-full rounded-full border border-[var(--color-border-input)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/30"
                 />
               </div>
 
               {/* Recipient email */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">Recipient email</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Recipient email</label>
                 <input
                   type="email"
                   placeholder="client@example.com"
                   value={form.recipientEmail}
                   onChange={(e) => set('recipientEmail', e.target.value)}
-                  className="w-full rounded-full border border-[#d5d7da] px-4 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/30"
+                  className="w-full rounded-full border border-[var(--color-border-input)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/30"
                 />
-                <p className="mt-1 text-[11px] text-[#a4a7ae]">Link will be emailed to this address when provided.</p>
+                <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Link will be emailed to this address when provided.</p>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-[#e9eaeb] px-6 py-4">
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] px-6 py-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full px-4 py-2 text-[13px] font-semibold text-[#717680] transition-colors hover:bg-[#f2f4f7]"
+                className="rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-tertiary)]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-2 rounded-full bg-[#2563eb] px-5 py-2 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--color-accent)] px-5 py-2 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>

@@ -1,5 +1,5 @@
-import Image from 'next/image';
 import Link from 'next/link';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
 
 export function PublicDocumentFrame({
   title,
@@ -9,15 +9,15 @@ export function PublicDocumentFrame({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
+    <div className="min-h-screen bg-[var(--color-surface-secondary)]">
       {/* Sticky top nav */}
-      <nav className="sticky top-0 z-10 border-b border-[#e9eaeb] bg-white/90 backdrop-blur-sm">
+      <nav className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/hedwig-logo.png" alt="Hedwig" width={30} height={30} className="rounded-[9px]" />
-            <span className="text-[14px] font-semibold text-[#181d27]">Hedwig</span>
+            <HedwigLogo width={30} height={30} className="rounded-[9px]" />
+            <span className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig</span>
           </Link>
-          <span className="rounded-full bg-[#f5f5f5] px-3 py-1 text-[12px] font-medium text-[#717680]">{title}</span>
+          <span className="rounded-full bg-[var(--color-surface-secondary)] px-3 py-1 text-[12px] font-medium text-[var(--color-text-tertiary)]">{title}</span>
         </div>
       </nav>
 
@@ -28,9 +28,9 @@ export function PublicDocumentFrame({
 
       {/* Footer */}
       <div className="pb-10 pt-2 text-center">
-        <p className="text-[12px] text-[#a4a7ae]">
+        <p className="text-[12px] text-[var(--color-text-muted)]">
           Powered by{' '}
-          <Link href="/" className="font-medium text-[#717680] hover:text-[#414651]">
+          <Link href="/" className="font-medium text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
             Hedwig
           </Link>{' '}
           — payments for independent professionals

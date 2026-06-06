@@ -32,7 +32,7 @@ Create a `.env` file in the root directory with the following variables:
 VITE_REOWN_PROJECT_ID=your_project_id_here
 
 # Backend API URL
-VITE_API_URL=https://pay.hedwigbot.xyz
+VITE_API_URL=https://money.hedwigbot.xyz
 
 # Solana RPC endpoint
 VITE_SOLANA_RPC=https://api.mainnet-beta.solana.com
@@ -41,7 +41,7 @@ VITE_SOLANA_RPC=https://api.mainnet-beta.solana.com
 VITE_USERJOT_PROJECT_ID=your_userjot_project_id
 
 # Web client URL
-EXPO_PUBLIC_WEB_CLIENT_URL=https://pay.hedwigbot.xyz
+EXPO_PUBLIC_WEB_CLIENT_URL=https://hedwigbot.xyz
 ```
 
 ### Getting a Reown Project ID

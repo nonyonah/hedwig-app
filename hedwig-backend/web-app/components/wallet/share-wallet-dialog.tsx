@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Bank, Check, Copy, ShareNetwork } from '@/components/ui/lucide-icons';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 import type { UsdAccount } from '@/lib/models/entities';
 
@@ -67,14 +68,14 @@ export function ShareWalletDialog({
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-4 py-2 text-[13px] font-semibold text-[#414651] shadow-xs transition duration-100 hover:bg-[#fafafa]"
       >
         <ShareNetwork className="h-4 w-4" weight="bold" />
         Receive
-      </button>
+      </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[420px]">
@@ -84,19 +85,20 @@ export function ShareWalletDialog({
 
           <DialogBody className="space-y-5">
             {receiveModes.length > 1 && (
-              <div className="flex items-center gap-1 rounded-full border border-[#e9eaeb] bg-[#f5f5f5] p-1">
+              <div className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-1">
                 {receiveModes.map((mode) => {
                   const isActive = activeMode === mode;
                   const isUsd = mode === 'USD account';
                   return (
-                    <button
+                    <Button
                       key={mode}
-                      type="button"
+                      variant={isActive ? 'secondary' : 'ghost'}
+                      size="sm"
                       onClick={() => setActiveMode(mode)}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-[13px] font-semibold transition duration-100 ${
                         isActive
-                          ? 'bg-white text-[#181d27] shadow-xs'
-                          : 'text-[#717680] hover:text-[#414651]'
+                          ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs'
+                          : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                       }`}
                     >
                       {isUsd ? (
@@ -105,7 +107,7 @@ export function ShareWalletDialog({
                         <Image src={chainMeta[mode as Chain].icon} alt={mode} width={16} height={16} className="rounded-full" />
                       )}
                       {mode}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -113,56 +115,57 @@ export function ShareWalletDialog({
 
             {activeMode === 'USD account' ? (
               <>
-                <div className="rounded-2xl border border-[#e9eaeb] bg-[#fafafa] p-5">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-xs">
-                    <Bank className="h-5 w-5 text-[#414651]" weight="bold" />
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-5">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface)] shadow-xs">
+                    <Bank className="h-5 w-5 text-[var(--color-text-secondary)]" weight="bold" />
                   </div>
-                  <p className="text-[15px] font-semibold text-[#181d27]">
+                  <p className="text-[15px] font-semibold text-[var(--color-foreground)]">
                     {hasAssignedUsdAccount ? 'Receive bank transfers' : 'Set up your USD account'}
                   </p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#717680]">
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
                     {hasAssignedUsdAccount
                       ? 'Share these account details with clients who want to pay by bank transfer.'
                       : 'Finish setup to get account and routing details for receiving USD bank transfers.'}
                   </p>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
-                  <div className="flex items-center gap-2 border-b border-[#e9eaeb] px-4 py-2.5">
-                    <Bank className="h-3.5 w-3.5 text-[#a4a7ae]" weight="bold" />
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+                  <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
+                    <Bank className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="bold" />
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                       {hasAssignedUsdAccount ? 'Account details' : 'Setup reminder'}
                     </span>
                   </div>
                   <div className="space-y-3 px-4 py-3 text-[13px]">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[#717680]">Bank</span>
-                      <span className="text-right font-semibold text-[#181d27]">{usdAccount?.bankName || 'Pending setup'}</span>
+                      <span className="text-[var(--color-text-tertiary)]">Bank</span>
+                      <span className="text-right font-semibold text-[var(--color-foreground)]">{usdAccount?.bankName || 'Pending setup'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[#717680]">Account number</span>
-                      <span className="text-right font-mono text-[#414651]">{usdAccount?.accountNumberMasked || 'Not assigned yet'}</span>
+                      <span className="text-[var(--color-text-tertiary)]">Account number</span>
+                      <span className="text-right font-mono text-[var(--color-text-secondary)]">{usdAccount?.accountNumberMasked || 'Not assigned yet'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[#717680]">Routing number</span>
-                      <span className="text-right font-mono text-[#414651]">{usdAccount?.routingNumberMasked || 'Not assigned yet'}</span>
+                      <span className="text-[var(--color-text-tertiary)]">Routing number</span>
+                      <span className="text-right font-mono text-[var(--color-text-secondary)]">{usdAccount?.routingNumberMasked || 'Not assigned yet'}</span>
                     </div>
                     {usdAccount?.depositMessage ? (
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-[#717680]">Memo / reference</span>
-                        <span className="text-right font-mono text-[#414651]">{usdAccount.depositMessage}</span>
+                        <span className="text-[var(--color-text-tertiary)]">Memo / reference</span>
+                        <span className="text-right font-mono text-[var(--color-text-secondary)]">{usdAccount.depositMessage}</span>
                       </div>
                     ) : null}
                   </div>
                   {hasAssignedUsdAccount ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={handleCopy}
-                      className="flex w-full items-center justify-center gap-2 border-t border-[#e9eaeb] bg-[#fafafa] px-4 py-3 text-[13px] font-semibold text-[#414651] transition hover:bg-[#f5f5f5]"
+                      className="flex w-full items-center justify-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-[13px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)]"
                     >
                       {copied ? <Check className="h-3.5 w-3.5" weight="bold" /> : <Copy className="h-3.5 w-3.5" weight="bold" />}
                       {copied ? 'Copied' : 'Copy details'}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </>
@@ -171,11 +174,11 @@ export function ShareWalletDialog({
                 {activeChain && meta && receiveModes.length === 1 ? (
                   <div className="flex items-center gap-2">
                     <Image src={meta.icon} alt={activeChain} width={20} height={20} className="rounded-full" />
-                    <span className="text-[14px] font-semibold text-[#181d27]">{activeChain} network</span>
+                    <span className="text-[14px] font-semibold text-[var(--color-foreground)]">{activeChain} network</span>
                   </div>
                 ) : null}
 
-                <div className="flex items-center justify-center rounded-2xl border border-[#e9eaeb] bg-white p-6">
+                <div className="flex items-center justify-center rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
                   {address ? (
                     <QRCodeSVG
                       value={address}
@@ -185,39 +188,40 @@ export function ShareWalletDialog({
                       level="M"
                     />
                   ) : (
-                    <div className="flex h-[200px] w-[200px] items-center justify-center text-[12px] text-[#a4a7ae]">
+                    <div className="flex h-[200px] w-[200px] items-center justify-center text-[12px] text-[var(--color-text-muted)]">
                       No address connected
                     </div>
                   )}
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-[#fafafa]">
-                  <div className="flex items-center gap-2 border-b border-[#e9eaeb] px-4 py-2.5">
+                <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)]">
+                  <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
                     {meta ? <Image src={meta.icon} alt={activeChain ?? ''} width={14} height={14} className="rounded-full" /> : null}
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                       {activeChain} address
                     </span>
                   </div>
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <p className="flex-1 break-all font-mono text-[12px] leading-relaxed text-[#414651]">
+                    <p className="flex-1 break-all font-mono text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
                       {address ?? 'Not connected'}
                     </p>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={handleCopy}
                       disabled={!address}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] bg-white shadow-xs transition duration-100 hover:bg-[#f5f5f5] disabled:opacity-40"
+                      className="h-8 w-8 rounded-full"
                     >
                       {copied ? (
-                        <Check className="h-3.5 w-3.5 text-[#717680]" weight="bold" />
+                        <Check className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />
                       ) : (
-                        <Copy className="h-3.5 w-3.5 text-[#717680]" weight="bold" />
+                        <Copy className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
-                <p className="text-[12px] leading-relaxed text-[#a4a7ae]">
+                <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
                   Only send USDC or supported tokens on the {activeChain} network to this address. Sending unsupported assets may result in permanent loss.
                 </p>
               </>

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { hedwigApi } from '@/lib/api/client';
 import { getCurrentSession } from '@/lib/auth/session';
+import { workspaceApiOptions } from '@/lib/workspace/server';
 import { ProjectDetailClient } from './view';
 
 export default async function ProjectDetailPage({
@@ -13,7 +14,8 @@ export default async function ProjectDetailPage({
   const { id } = await params;
   const query = (await searchParams) ?? {};
   const session = await getCurrentSession();
-  const data = await hedwigApi.project(id, { accessToken: session.accessToken });
+  const opts = await workspaceApiOptions(session.accessToken);
+  const data = await hedwigApi.project(id, opts);
 
   if (!data.project) notFound();
 

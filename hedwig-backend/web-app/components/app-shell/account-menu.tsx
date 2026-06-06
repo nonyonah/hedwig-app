@@ -45,7 +45,7 @@ export function AccountMenu({
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-9 w-9 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 ease-linear hover:bg-[#f8f9fb]"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-text-muted)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)]"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -53,37 +53,37 @@ export function AccountMenu({
       </button>
 
       {open ? (
-        /* UUI dropdown: rounded-xl, bg-white, shadow-lg, ring-1 ring-[#e9eaeb] */
-        <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[264px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#eef0f3]">
+        /* UUI dropdown: rounded-xl, bg-[var(--color-surface)], shadow-lg, ring-1 ring-[var(--color-border)] */
+        <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[264px] overflow-hidden rounded-xl bg-[var(--color-surface)] shadow-lg ring-1 ring-[var(--color-border-light)]">
           {/* Account header */}
-          <div className="border-b border-[#f3f4f6] px-4 py-3.5">
-            <p className="truncate text-[14px] font-semibold text-[#181d27]">{fullName}</p>
-            <p className="truncate text-[13px] text-[#717680]">{email}</p>
+          <div className="border-b border-[var(--color-border-light)] px-4 py-3.5">
+            <p className="truncate text-[14px] font-semibold text-[var(--color-foreground)]">{fullName}</p>
+            <p className="truncate text-[13px] text-[var(--color-text-tertiary)]">{email}</p>
           </div>
 
           {/* Menu items — UUI: px-1.5 py-1.5 */}
           <div className="flex flex-col gap-0.5 px-1.5 py-1.5">
             <Link
-              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#f8f9fb]"
+              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)]"
               href="https://help.hedwigbot.xyz"
               target="_blank"
               rel="noreferrer"
               onClick={() => setOpen(false)}
             >
-              <Lifebuoy className="h-5 w-5 text-[#a4a7ae]" weight="regular" />
-              <span className="text-[14px] font-semibold text-[#414651] group-hover:text-[#252b37]">Help Center</span>
+              <Lifebuoy className="h-5 w-5 text-[var(--color-text-muted)]" weight="regular" />
+              <span className="text-[14px] font-semibold text-[var(--color-text-secondary)] group-hover:text-[var(--color-foreground)]">Help Center</span>
             </Link>
           </div>
 
           {/* Divider + sign out */}
-          <div className="border-t border-[#f3f4f6] px-1.5 py-1.5">
+          <div className="border-t border-[var(--color-border-light)] px-1.5 py-1.5">
             <Link
-              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#fef2f2]"
+              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[var(--color-danger-soft)]"
               href="/sign-out"
               onClick={() => setOpen(false)}
             >
-              <SignOut className="h-5 w-5 text-[#717680]" weight="regular" />
-              <span className="text-[14px] font-semibold text-[#717680]">Sign out</span>
+              <SignOut className="h-5 w-5 text-[var(--color-text-tertiary)]" weight="regular" />
+              <span className="text-[14px] font-semibold text-[var(--color-text-tertiary)]">Sign out</span>
             </Link>
           </div>
         </div>

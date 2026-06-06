@@ -22,14 +22,14 @@ export function ApprovalActionBar({
   continueDisabled: boolean;
 }) {
   return (
-    <div className="sticky bottom-0 z-10 mt-6 rounded-[28px] border border-[#d5d7da] bg-white/95 p-4 shadow-xl backdrop-blur">
+    <div className="sticky bottom-0 z-10 mt-6 rounded-[28px] border border-[var(--color-border-input)] bg-[var(--color-surface)]/95 p-4 shadow-xl backdrop-blur">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#98a2b3]">Approval progress</p>
-          <p className="mt-1 text-[14px] font-semibold text-[#181d27]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-placeholder)]">Approval progress</p>
+          <p className="mt-1 text-[14px] font-semibold text-[var(--color-foreground)]">
             {resolved} of {total} suggestions resolved
           </p>
-          <p className="mt-1 text-[12px] text-[#667085]">
+          <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
             {approved} approved · {deferred} deferred · {rejected} rejected
           </p>
         </div>

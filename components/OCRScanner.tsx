@@ -23,7 +23,7 @@ interface OCRScannerProps {
 const MAX_RETRIES = 3;
 
 /**
- * OCR Scanner component using expo-camera + Gemini Vision backend.
+ * OCR Scanner component using expo-camera + AI Vision backend.
  * Manual capture only — user taps the shutter button to take a photo.
  */
 export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: OCRScannerProps) {

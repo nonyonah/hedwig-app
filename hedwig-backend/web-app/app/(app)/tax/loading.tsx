@@ -1,5 +1,5 @@
 function SkeletonBlock({ className }: { className: string }) {
-  return <div className={`animate-pulse rounded-2xl bg-[#f2f4f7] ${className}`} />;
+  return <div className={`animate-pulse rounded-2xl bg-[var(--color-surface-tertiary)] ${className}`} />;
 }
 
 export default function TaxLoading() {
@@ -18,9 +18,9 @@ export default function TaxLoading() {
         <SkeletonBlock className="h-[122px] w-full" />
       </div>
 
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)] md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="bg-white p-5">
+          <div key={index} className="bg-[var(--color-surface)] p-5">
             <SkeletonBlock className="h-4 w-24" />
             <SkeletonBlock className="mt-4 h-8 w-28" />
             <SkeletonBlock className="mt-3 h-3 w-20" />

@@ -46,12 +46,12 @@ export function ApproveContractButton({ contractId }: { contractId: string }) {
         type="button"
         onClick={handleApprove}
         disabled={submitting}
-        className="inline-flex h-10 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex h-10 items-center justify-center rounded-full bg-[var(--color-primary)] px-5 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitting ? 'Approving…' : 'Approve contract'}
       </button>
       {error ? (
-        <div className="rounded-2xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-[13px] text-[#717680]">
+        <div className="rounded-2xl border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-4 py-3 text-[13px] text-[var(--color-text-tertiary)]">
           {error}
         </div>
       ) : null}

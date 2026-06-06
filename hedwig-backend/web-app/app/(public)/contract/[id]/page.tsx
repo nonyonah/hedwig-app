@@ -15,12 +15,12 @@ function formatDate(value?: string | null) {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; dot: string; text: string; label: string }> = {
-  draft:     { bg: 'bg-[#f2f4f7]', dot: 'bg-[#a4a7ae]', text: 'text-[#535862]', label: 'Draft' },
-  review:    { bg: 'bg-[#fffaeb]', dot: 'bg-[#f59e0b]', text: 'text-[#717680]', label: 'In review' },
-  sent:      { bg: 'bg-[#eff4ff]', dot: 'bg-[#2563eb]', text: 'text-[#717680]', label: 'Sent' },
-  approved:  { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Approved' },
-  signed:    { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Signed' },
-  completed: { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Completed' },
+  draft:     { bg: 'bg-[var(--color-surface-tertiary)]', dot: 'bg-[var(--color-text-muted)]', text: 'text-[var(--color-text-secondary)]', label: 'Draft' },
+  review:    { bg: 'bg-[var(--color-warning-soft)]', dot: 'bg-[var(--color-warning)]', text: 'text-[var(--color-text-tertiary)]', label: 'In review' },
+  sent:      { bg: 'bg-[var(--color-accent-soft)]', dot: 'bg-[var(--color-primary)]', text: 'text-[var(--color-text-tertiary)]', label: 'Sent' },
+  approved:  { bg: 'bg-[var(--color-success-soft)]', dot: 'bg-[var(--color-success)]', text: 'text-[var(--color-text-tertiary)]', label: 'Approved' },
+  signed:    { bg: 'bg-[var(--color-success-soft)]', dot: 'bg-[var(--color-success)]', text: 'text-[var(--color-text-tertiary)]', label: 'Signed' },
+  completed: { bg: 'bg-[var(--color-success-soft)]', dot: 'bg-[var(--color-success)]', text: 'text-[var(--color-text-tertiary)]', label: 'Completed' },
 };
 
 export default async function PublicContractPage({
@@ -55,22 +55,22 @@ export default async function PublicContractPage({
 
         {/* Success banner */}
         {query.approved === 'true' ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-[#abefc6] bg-[#ecfdf3] px-5 py-4">
-            <CheckCircle className="h-5 w-5 shrink-0 text-[#717680]" weight="fill" />
-            <p className="text-[14px] font-semibold text-[#717680]">Contract approved successfully.</p>
+          <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-success-soft)] bg-[var(--color-success-soft)] px-5 py-4">
+            <CheckCircle className="h-5 w-5 shrink-0 text-[var(--color-text-tertiary)]" weight="fill" />
+            <p className="text-[14px] font-semibold text-[var(--color-text-tertiary)]">Contract approved successfully.</p>
           </div>
         ) : null}
 
         {/* Contract document */}
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
+        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
 
           {/* Header */}
-          <div className="border-b border-[#e9eaeb] px-6 py-5">
+          <div className="border-b border-[var(--color-border)] px-6 py-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Contract</p>
-                <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{document.title}</h1>
-                <p className="mt-1 font-mono text-[11px] text-[#a4a7ae]"># {document.id}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Contract</p>
+                <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{document.title}</h1>
+                <p className="mt-1 font-mono text-[11px] text-[var(--color-text-muted)]"># {document.id}</p>
               </div>
               <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`} />
@@ -80,34 +80,34 @@ export default async function PublicContractPage({
           </div>
 
           {/* Meta row */}
-          <div className="grid grid-cols-3 gap-px bg-[#e9eaeb]">
-            <div className="bg-[#fafafa] px-5 py-4">
+          <div className="grid grid-cols-3 gap-px bg-[var(--color-border)]">
+            <div className="bg-[var(--color-background)] px-5 py-4">
               <div className="flex items-center gap-1.5 mb-1">
-                <User className="h-3 w-3 text-[#a4a7ae]" weight="bold" />
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Freelancer</p>
+                <User className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" />
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Freelancer</p>
               </div>
-              <p className="text-[13px] font-semibold text-[#181d27]">{issuerName}</p>
+              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{issuerName}</p>
             </div>
-            <div className="bg-[#fafafa] px-5 py-4">
+            <div className="bg-[var(--color-background)] px-5 py-4">
               <div className="flex items-center gap-1.5 mb-1">
-                <User className="h-3 w-3 text-[#a4a7ae]" weight="bold" />
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Client</p>
+                <User className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" />
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Client</p>
               </div>
-              <p className="text-[13px] font-semibold text-[#181d27]">{clientName}</p>
+              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{clientName}</p>
             </div>
-            <div className="bg-[#fafafa] px-5 py-4">
+            <div className="bg-[var(--color-background)] px-5 py-4">
               <div className="flex items-center gap-1.5 mb-1">
-                <CalendarBlank className="h-3 w-3 text-[#a4a7ae]" weight="bold" />
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Created</p>
+                <CalendarBlank className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" />
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Created</p>
               </div>
-              <p className="text-[13px] font-semibold text-[#181d27]">{formatDate(document.created_at)}</p>
+              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{formatDate(document.created_at)}</p>
             </div>
           </div>
 
           {/* Contract body */}
           <div className="px-6 py-6">
-            <div className="rounded-2xl border border-[#e9eaeb] bg-[#fafafa] px-5 py-5">
-              <div className="prose prose-sm max-w-none whitespace-pre-wrap text-[13px] leading-relaxed text-[#414651]">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-5 py-5">
+              <div className="prose prose-sm max-w-none whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
                 {generatedContent}
               </div>
             </div>
@@ -115,14 +115,14 @@ export default async function PublicContractPage({
 
           {/* Approval section */}
           {canApprove ? (
-            <div className="border-t border-[#e9eaeb] px-6 py-5">
+            <div className="border-t border-[var(--color-border)] px-6 py-5">
               <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eff4ff]">
-                  <Signature className="h-5 w-5 text-[#717680]" weight="bold" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)]">
+                  <Signature className="h-5 w-5 text-[var(--color-text-tertiary)]" weight="bold" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold text-[#181d27]">Your signature is required</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#717680]">
+                  <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Your signature is required</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
                     By approving this contract, you confirm your acceptance of all terms stated above. This action is legally binding.
                   </p>
                   <div className="mt-4">
@@ -134,14 +134,14 @@ export default async function PublicContractPage({
           ) : null}
 
           {isApproved ? (
-            <div className="border-t border-[#e9eaeb] px-6 py-5">
+            <div className="border-t border-[var(--color-border)] px-6 py-5">
               <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#ecfdf3]">
-                  <CheckCircle className="h-5 w-5 text-[#717680]" weight="fill" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-success-soft)]">
+                  <CheckCircle className="h-5 w-5 text-[var(--color-text-tertiary)]" weight="fill" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-semibold text-[#717680]">Contract approved</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#717680]/80 text-[#717680]">
+                  <p className="text-[14px] font-semibold text-[var(--color-text-tertiary)]">Contract approved</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]/80 text-[var(--color-text-tertiary)]">
                     This contract has already been approved. No further action is needed.
                   </p>
                 </div>

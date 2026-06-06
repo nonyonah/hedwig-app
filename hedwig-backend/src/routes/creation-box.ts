@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth';
-import { GeminiService } from '../services/gemini';
+import { DeepSeekService } from '../services/deepseek';
 import { createLogger } from '../utils/logger';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
@@ -94,7 +94,7 @@ const sanitizeTitle = (candidate: string | null | undefined, originalText: strin
 /**
  * POST /api/creation-box/parse
  * Parse natural language input to extract intent and structured data
- * Uses Gemini's full system instructions for better intent recognition
+ * Uses DeepSeek's full system instructions for better intent recognition
  */
 router.post('/parse', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -108,7 +108,7 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             return;
         }
 
-        // Pro gate — Creation Box uses Gemini per call. Greetings short-circuit
+        // Pro gate — Creation Box uses DeepSeek per call. Greetings short-circuit
         // below before the gate so basic UX still works on the free plan.
         const referenceDate = currentDate ? new Date(currentDate) : new Date();
 
@@ -156,7 +156,7 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
         // Build prompt with date context for accurate relative date parsing
         const dateContext = `Today is ${referenceDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Current time: ${referenceDate.toLocaleTimeString('en-US')}.`;
 
-        // Load user's existing clients so Gemini can match names intelligently
+        // Load user's existing clients so DeepSeek can match names intelligently
         let clientsContext: { id: string; name: string; email: string | null; phone: string | null; company: string | null }[] = [];
         try {
             const user = gateUser;
@@ -226,8 +226,8 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
 
         const enrichedText = `${dateContext}\n${networkDefault}\n${modeInstruction}\nUser input: ${text}`;
 
-        // Use Gemini's chat response with the user's saved clients so names are matched intelligently
-        const result = await GeminiService.generateChatResponse(enrichedText, [], undefined, {
+        // Use DeepSeek's chat response with the user's saved clients so names are matched intelligently
+        const result = await DeepSeekService.generateChatResponse(enrichedText, [], undefined, {
             clients: clientsContext,
         });
         const topLevelNaturalResponse =
@@ -238,7 +238,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
                 ? (result as any).response
                 : null);
         
-        logger.debug('[CreationBox] Gemini raw response', { result });
+        logger.debug('[CreationBox] DeepSeek raw response', { result });
 
         // Extract JSON from the response
         let parsedData: {
@@ -285,7 +285,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
                 const extracted = JSON.parse(jsonMatch[0]);
                 logger.debug('[CreationBox] Extracted JSON', { extracted });
 
-                // Map Gemini response to our format
+                // Map DeepSeek response to our format
                 parsedData.intent = mode || extracted.intent || parsedData.intent; // Prioritize explicit mode
                 parsedData.naturalResponse = unwrapNaturalResponse(extracted.naturalResponse);
                 
@@ -400,7 +400,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
                 }
             }
         } catch (parseError) {
-            logger.error('[CreationBox] Failed to parse Gemini response', { error: parseError, result });
+            logger.error('[CreationBox] Failed to parse DeepSeek response', { error: parseError, result });
         }
 
         // Ensure natural response is always available for chat/general intents
@@ -414,7 +414,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
         // FORCE OVERRIDES
         const lowerText = text.toLowerCase();
 
-        // 1. Normalize intent — Gemini may return 'CREATE_INVOICE', 'CREATE_PAYMENT_LINK', etc.
+        // 1. Normalize intent — DeepSeek may return 'CREATE_INVOICE', 'CREATE_PAYMENT_LINK', etc.
         const rawIntent = String(parsedData.intent || '').toLowerCase();
         if (rawIntent === 'invoice' || rawIntent === 'create_invoice' || rawIntent.startsWith('invoice')) {
             parsedData.intent = 'invoice';
@@ -430,7 +430,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             parsedData.intent = 'payment_link';
         }
 
-        // Also extract recurring-specific params from Gemini parameters
+        // Also extract recurring-specific params from DeepSeek parameters
         if (parsedData.intent === 'recurring_invoice' && parsedData.parameters) {
             const params = parsedData.parameters;
             (parsedData as any).frequency = params.frequency || 'monthly';

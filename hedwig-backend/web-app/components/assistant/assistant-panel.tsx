@@ -1,7 +1,7 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import { useEffect, useState } from 'react';
 import {
   ArrowRight,
@@ -27,8 +27,8 @@ type Tab = 'today' | 'week' | 'attention' | 'suggestions';
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
 const SEV_ICON = { urgent: WarningCircle, warning: Warning, info: Info };
-const SEV_COLOR = { urgent: 'text-[#b42318]', warning: 'text-[#92400e]', info: 'text-[#2563eb]' };
-const SEV_BG   = { urgent: 'bg-[#fef3f2]',  warning: 'bg-[#fffaeb]',   info: 'bg-[#eff4ff]'  };
+const SEV_COLOR = { urgent: 'text-[var(--color-danger)]', warning: 'text-[var(--color-warning)]', info: 'text-[var(--color-accent)]' };
+const SEV_BG   = { urgent: 'bg-[var(--color-danger-soft)]',  warning: 'bg-[var(--color-warning-soft)]',   info: 'bg-[var(--color-accent-soft)]'  };
 
 function EventRow({ event }: { event: AssistantEvent }) {
   const Icon = SEV_ICON[event.severity];
@@ -38,9 +38,9 @@ function EventRow({ event }: { event: AssistantEvent }) {
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', SEV_COLOR[event.severity])} weight="fill" />
       <div className="min-w-0 flex-1">
         <p className={cn('text-[13px] font-semibold', SEV_COLOR[event.severity])}>{event.title}</p>
-        {event.body && <p className="mt-0.5 text-[12px] text-[#717680]">{formatUsdText(event.body)}</p>}
+        {event.body && <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{formatUsdText(event.body)}</p>}
       </div>
-      {event.href && <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#c1c5cd]" />}
+      {event.href && <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-text-placeholder)]" />}
     </div>
   );
   return event.href ? <Link href={event.href}>{inner}</Link> : inner;
@@ -50,7 +50,7 @@ function Skeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-2.5 animate-pulse">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-12 rounded-xl bg-[#f2f4f7]" />
+        <div key={i} className="h-12 rounded-xl bg-[var(--color-surface-tertiary)]" />
       ))}
     </div>
   );
@@ -65,13 +65,13 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-[#f9fafb] px-4 py-3">
+      <div className="rounded-xl bg-[var(--color-background)] px-4 py-3">
         <div className="mb-1.5 flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Daily brief</span>
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Daily brief</span>
         </div>
-        <p className="text-[13px] leading-relaxed text-[#414651]">{formatUsdText(brief.summary)}</p>
+        <p className="text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{formatUsdText(brief.summary)}</p>
         {brief.highlights.map((h, i) => (
-          <p key={i} className="mt-1 text-[12px] text-[#717680]">· {formatUsdText(h)}</p>
+          <p key={i} className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">· {formatUsdText(h)}</p>
         ))}
       </div>
 
@@ -79,13 +79,13 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
       {brief.financialTrend && (
         <div className={cn(
           'flex items-center gap-2 rounded-xl px-3 py-2',
-          brief.financialTrend.direction === 'up' ? 'bg-[#ecfdf3]' :
-          brief.financialTrend.direction === 'down' ? 'bg-[#fef3f2]' : 'bg-[#f9fafb]'
+          brief.financialTrend.direction === 'up' ? 'bg-[var(--color-success-soft)]' :
+          brief.financialTrend.direction === 'down' ? 'bg-[var(--color-danger-soft)]' : 'bg-[var(--color-background)]'
         )}>
           <span className="text-[18px]">
             {brief.financialTrend.direction === 'up' ? '↑' : brief.financialTrend.direction === 'down' ? '↓' : '→'}
           </span>
-          <p className="text-[12px] font-medium text-[#414651]">{formatUsdText(brief.financialTrend.description)}</p>
+          <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">{formatUsdText(brief.financialTrend.description)}</p>
         </div>
       )}
 
@@ -96,19 +96,19 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
           { label: 'Overdue',   value: brief.metrics.overdueCount,   sub: formatAmount(brief.metrics.overdueAmountUsd, { compact: true }), warn: brief.metrics.overdueCount > 0 },
           { label: 'Deadlines', value: brief.metrics.upcomingDeadlines, sub: 'next 14 days', warn: brief.metrics.upcomingDeadlines > 0 },
         ].map(({ label, value, sub, warn }) => (
-          <div key={label} className={cn('rounded-xl px-3 py-2.5 text-center', warn && value > 0 ? 'bg-[#fffaeb]' : 'bg-[#f9fafb]')}>
-            <p className={cn('text-[18px] font-bold tracking-[-0.03em]', warn && value > 0 ? 'text-[#92400e]' : 'text-[#181d27]')}>{value}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{label}</p>
-            <p className="mt-0.5 text-[10px] text-[#c1c5cd]">{sub}</p>
+          <div key={label} className={cn('rounded-xl px-3 py-2.5 text-center', warn && value > 0 ? 'bg-[var(--color-warning-soft)]' : 'bg-[var(--color-background)]')}>
+            <p className={cn('text-[18px] font-bold tracking-[-0.03em]', warn && value > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-foreground)]')}>{value}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{label}</p>
+            <p className="mt-0.5 text-[10px] text-[var(--color-text-placeholder)]">{sub}</p>
           </div>
         ))}
       </div>
 
       {/* Events / all clear */}
       {allClear ? (
-        <div className="flex items-center gap-2 rounded-xl bg-[#ecfdf3] px-4 py-3">
-          <CheckCircle className="h-4 w-4 text-[#12b76a]" weight="fill" />
-          <p className="text-[13px] font-semibold text-[#027a48]">All clear — nothing needs attention today</p>
+        <div className="flex items-center gap-2 rounded-xl bg-[var(--color-success-soft)] px-4 py-3">
+          <CheckCircle className="h-4 w-4 text-[var(--color-success)]" weight="fill" />
+          <p className="text-[13px] font-semibold text-[var(--color-success)]">All clear — nothing needs attention today</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -118,9 +118,9 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
 
       {/* Tax hint */}
       {brief.taxHint && (
-        <div className="flex items-start gap-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#92400e]" weight="fill" />
-          <p className="text-[12px] text-[#92400e]">{formatUsdText(brief.taxHint)}</p>
+        <div className="flex items-start gap-2 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
+          <p className="text-[12px] text-[var(--color-warning)]">{formatUsdText(brief.taxHint)}</p>
         </div>
       )}
 
@@ -128,9 +128,9 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
       {(brief.projectAlerts ?? []).length > 0 && (
         <div className="space-y-1.5">
           {brief.projectAlerts!.map((a, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-lg bg-[#f9fafb] px-3 py-2">
-              <Warning className="h-3.5 w-3.5 shrink-0 text-[#a4a7ae]" />
-              <p className="text-[12px] text-[#717680]">{formatUsdText(a)}</p>
+            <div key={i} className="flex items-center gap-2 rounded-lg bg-[var(--color-background)] px-3 py-2">
+              <Warning className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" />
+              <p className="text-[12px] text-[var(--color-text-tertiary)]">{formatUsdText(a)}</p>
             </div>
           ))}
         </div>
@@ -145,12 +145,12 @@ function WeekTab({ weekly, loading }: { weekly: WeeklySummary | null; loading: b
   const { formatAmount, formatUsdText } = useCurrency();
   if (loading || !weekly) return <Skeleton />;
 
-  const changeColor = weekly.revenueChangePct >= 0 ? 'text-[#027a48]' : 'text-[#b42318]';
+  const changeColor = weekly.revenueChangePct >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]';
   const changePrefix = weekly.revenueChangePct >= 0 ? '+' : '';
 
   return (
     <div className="space-y-4">
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{weekly.weekLabel}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{weekly.weekLabel}</p>
 
       <div className="grid grid-cols-2 gap-2">
         {[
@@ -160,12 +160,12 @@ function WeekTab({ weekly, loading }: { weekly: WeeklySummary | null; loading: b
           { label: 'New invoices',  value: weekly.newInvoiceCount,  icon: ArrowRight, highlight: false, sub: null },
           { label: 'Overdue',       value: weekly.overdueCount, icon: WarningCircle,
             highlight: weekly.overdueCount > 0,
-            sub: weekly.overdueCount > 0 ? <span className="text-[#b42318]">{formatAmount(weekly.overdueAmountUsd, { compact: true })}</span> : null },
+            sub: weekly.overdueCount > 0 ? <span className="text-[var(--color-danger)]">{formatAmount(weekly.overdueAmountUsd, { compact: true })}</span> : null },
         ].map(({ label, value, icon: Icon, highlight, sub }) => (
-          <div key={label} className={cn('rounded-xl px-3 py-3', highlight ? 'bg-[#eff4ff]' : 'bg-[#f9fafb]')}>
-            <Icon className={cn('h-3.5 w-3.5 mb-1', highlight ? 'text-[#2563eb]' : 'text-[#a4a7ae]')} weight="fill" />
-            <p className={cn('text-[20px] font-bold tracking-[-0.03em]', highlight ? 'text-[#2563eb]' : 'text-[#181d27]')}>{value}</p>
-            <p className="text-[11px] text-[#a4a7ae]">{label}</p>
+          <div key={label} className={cn('rounded-xl px-3 py-3', highlight ? 'bg-[var(--color-accent-soft)]' : 'bg-[var(--color-background)]')}>
+            <Icon className={cn('h-3.5 w-3.5 mb-1', highlight ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]')} weight="fill" />
+            <p className={cn('text-[20px] font-bold tracking-[-0.03em]', highlight ? 'text-[var(--color-accent)]' : 'text-[var(--color-foreground)]')}>{value}</p>
+            <p className="text-[11px] text-[var(--color-text-muted)]">{label}</p>
             {sub && <p className="mt-0.5 text-[10px] font-semibold">{sub}</p>}
           </div>
         ))}
@@ -173,23 +173,23 @@ function WeekTab({ weekly, loading }: { weekly: WeeklySummary | null; loading: b
 
       {weekly.topClients.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Top clients</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Top clients</p>
           <div className="space-y-1.5">
             {weekly.topClients.map((c) => (
-              <div key={c.name} className="flex items-center justify-between rounded-lg bg-[#f9fafb] px-3 py-2">
-                <p className="text-[13px] font-medium text-[#414651]">{c.name}</p>
-                <p className="text-[13px] font-bold tabular-nums text-[#181d27]">{formatAmount(c.amountUsd, { compact: true })}</p>
+              <div key={c.name} className="flex items-center justify-between rounded-lg bg-[var(--color-background)] px-3 py-2">
+                <p className="text-[13px] font-medium text-[var(--color-text-secondary)]">{c.name}</p>
+                <p className="text-[13px] font-bold tabular-nums text-[var(--color-foreground)]">{formatAmount(c.amountUsd, { compact: true })}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="rounded-xl bg-[#f9fafb] px-4 py-3">
+      <div className="rounded-xl bg-[var(--color-background)] px-4 py-3">
         <div className="mb-1.5 flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Weekly insight</span>
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Weekly insight</span>
         </div>
-        <p className="text-[13px] leading-relaxed text-[#414651]">{formatUsdText(weekly.aiInsight)}</p>
+        <p className="text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{formatUsdText(weekly.aiInsight)}</p>
       </div>
     </div>
   );
@@ -207,9 +207,9 @@ function AttentionTab({ brief, loading }: { brief: AssistantBrief | null; loadin
   if (brief.events.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-8 text-center">
-        <CheckCircle className="h-8 w-8 text-[#12b76a]" weight="fill" />
-        <p className="text-[14px] font-semibold text-[#181d27]">Nothing needs attention</p>
-        <p className="text-[12px] text-[#a4a7ae]">You're on top of everything right now.</p>
+        <CheckCircle className="h-8 w-8 text-[var(--color-success)]" weight="fill" />
+        <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Nothing needs attention</p>
+        <p className="text-[12px] text-[var(--color-text-muted)]">You're on top of everything right now.</p>
       </div>
     );
   }
@@ -218,19 +218,19 @@ function AttentionTab({ brief, loading }: { brief: AssistantBrief | null; loadin
     <div className="space-y-4">
       {urgent.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#b42318]">Urgent</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-danger)]">Urgent</p>
           <div className="space-y-2">{urgent.map((e) => <EventRow key={e.id} event={e} />)}</div>
         </div>
       )}
       {warning.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#92400e]">Review</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-warning)]">Review</p>
           <div className="space-y-2">{warning.map((e) => <EventRow key={e.id} event={e} />)}</div>
         </div>
       )}
       {info.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Info</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Info</p>
           <div className="space-y-2">{info.map((e) => <EventRow key={e.id} event={e} />)}</div>
         </div>
       )}
@@ -256,25 +256,25 @@ function SuggestionsTab({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
           {suggestions.length > 0 ? `${suggestions.length} active` : 'No active suggestions'}
         </p>
         <button
           type="button"
           onClick={onRefresh}
           disabled={generating}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1 text-[11px] font-semibold text-[#414651] transition-colors hover:bg-[#f9fafb] disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-background)] disabled:opacity-50"
         >
-          <ArrowRight className={cn('h-3 w-3 text-[#2563eb]', generating && 'animate-pulse')} weight="bold" />
+          <ArrowRight className={cn('h-3 w-3 text-[var(--color-accent)]', generating && 'animate-pulse')} weight="bold" />
           {generating ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
       {suggestions.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <Info className="h-8 w-8 text-[#c1c5cd]" weight="regular" />
-          <p className="text-[13px] font-semibold text-[#414651]">No active suggestions</p>
-          <p className="text-[12px] text-[#a4a7ae]">Hedwig will surface new suggestions here when something worth acting on appears.</p>
+          <Info className="h-8 w-8 text-[var(--color-text-placeholder)]" weight="regular" />
+          <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">No active suggestions</p>
+          <p className="text-[12px] text-[var(--color-text-muted)]">Hedwig will surface new suggestions here when something worth acting on appears.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -284,7 +284,7 @@ function SuggestionsTab({
         </div>
       )}
 
-      <p className="text-center text-[11px] text-[#c1c5cd]">
+      <p className="text-center text-[11px] text-[var(--color-text-placeholder)]">
         Approving a suggestion records your intent — no action is taken automatically.
       </p>
     </div>
@@ -376,23 +376,23 @@ export function AssistantPanel({ className }: { className?: string }) {
 
   return (
     <>
-      <article className={cn('flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb] lg:max-h-[620px]', className)}>
+      <article className={cn('flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)] lg:max-h-[620px]', className)}>
         {/* Header */}
-        <div className="flex items-center gap-2.5 border-b border-[#f2f4f7] px-5 py-4">
-          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-[#eff4ff]">
-            <Image src="/hedwig-logo.png" alt="Hedwig" width={18} height={18} />
+        <div className="flex items-center gap-2.5 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
+          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-[var(--color-accent-soft)]">
+            <HedwigLogo width={18} height={18} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-[14px] font-semibold text-[#181d27]">Hedwig Assistant</h2>
-              <span className="rounded-full bg-[#eff4ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#2563eb]">Beta</span>
+              <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig Assistant</h2>
+              <span className="rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">Beta</span>
             </div>
-            <p className="text-[11px] text-[#a4a7ae]">Read-only workspace intelligence</p>
+            <p className="text-[11px] text-[var(--color-text-muted)]">Read-only workspace intelligence</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex overflow-x-auto border-b border-[#f2f4f7]">
+        <div className="flex overflow-x-auto border-b border-[var(--color-surface-tertiary)]">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -400,17 +400,17 @@ export function AssistantPanel({ className }: { className?: string }) {
               onClick={() => setTab(t.id)}
               className={cn(
                 'relative flex shrink-0 items-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold transition-colors',
-                tab === t.id ? 'text-[#2563eb]' : 'text-[#717680] hover:text-[#414651]',
+                tab === t.id ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]',
               )}
             >
               {t.label}
               {t.badge != null && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#eff4ff] px-1 text-[10px] font-bold text-[#2563eb]">
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-accent-soft)] px-1 text-[10px] font-bold text-[var(--color-accent)]">
                   {t.badge}
                 </span>
               )}
               {tab === t.id && (
-                <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[#2563eb]" />
+                <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[var(--color-accent)]" />
               )}
             </button>
           ))}

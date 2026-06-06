@@ -1,14 +1,12 @@
 import { hedwigApi } from '@/lib/api/client';
 import { getCurrentSession } from '@/lib/auth/session';
+import { workspaceApiOptions } from '@/lib/workspace/server';
 import { ClientsClient } from './view';
 
 export default async function ClientsPage() {
   const session = await getCurrentSession();
-  // Allow the mock fallback so demo sessions (accessToken === 'demo') still
-  // render the page instead of throwing on the unauthenticated backend call.
-  const clients = await hedwigApi.clients({
-    accessToken: session.accessToken,
-  });
+  const opts = await workspaceApiOptions(session.accessToken);
+  const clients = await hedwigApi.clients(opts);
 
-  return <ClientsClient accessToken={session.accessToken} initialClients={clients} />;
+  return <ClientsClient key={opts.workspaceId ?? 'default'} accessToken={session.accessToken} initialClients={clients} />;
 }

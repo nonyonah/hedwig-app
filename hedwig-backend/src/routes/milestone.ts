@@ -364,7 +364,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
 router.post('/:id/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const { network, token } = req.body;
+        const { network, token, skipInvoice } = req.body;
         const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
@@ -391,16 +391,90 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
             return;
         }
 
-        if (milestone.project?.user_id !== user.id) {
-            res.status(403).json({ success: false, error: { message: 'Access denied' } });
+        // Verify access: project owner, assigned member, or workspace member
+        const isOwner = milestone.project?.user_id === user.id;
+
+        if (!isOwner) {
+            const projectId = milestone.project_id || (Array.isArray(milestone.project) ? milestone.project[0]?.id : milestone.project?.id);
+            const { data: proj } = await supabase
+                .from('projects').select('workspace_id').eq('id', projectId).single();
+
+            if (proj?.workspace_id) {
+                const { data: membership } = await supabase
+                    .from('workspace_members').select('role')
+                    .eq('workspace_id', proj.workspace_id).eq('user_id', user.id).maybeSingle();
+                if (!membership) {
+                    res.status(403).json({ success: false, error: { message: 'Access denied' } });
+                    return;
+                }
+            } else {
+                res.status(403).json({ success: false, error: { message: 'Access denied' } });
+                return;
+            }
+        }
+
+        if (milestone.status !== 'pending' && milestone.status !== 'done') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Milestone already completed' }
+            });
             return;
         }
 
-        if (milestone.status !== 'pending') {
-            res.status(400).json({
-                success: false,
-                error: { message: 'Invoice already exists for this milestone' }
-            });
+        // For non-owners: just mark as done without creating an invoice
+        if (skipInvoice || !isOwner) {
+            const { error: updateError } = await supabase
+                .from('milestones')
+                .update({ status: 'done' })
+                .eq('id', id);
+            if (updateError) throw updateError;
+
+            // Notify project owner and admins
+            try {
+                const memberName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'A member';
+                const projectId = milestone.project_id || (Array.isArray(milestone.project) ? milestone.project[0]?.id : milestone.project?.id);
+                const projectName = Array.isArray(milestone.project) ? milestone.project[0]?.name : milestone.project?.name;
+
+                // Get workspace admins/owner to notify
+                const { data: proj } = await supabase.from('projects').select('workspace_id').eq('id', projectId).single();
+                if (proj?.workspace_id) {
+                    const { data: admins } = await supabase
+                        .from('workspace_members')
+                        .select('user_id')
+                        .eq('workspace_id', proj.workspace_id)
+                        .in('role', ['owner', 'admin']);
+
+                    for (const admin of (admins || [])) {
+                        await supabase.from('notifications').insert({
+                            user_id: admin.user_id,
+                            workspace_id: proj.workspace_id,
+                            title: `${memberName} completed a milestone`,
+                            message: `"${milestone.title}" in "${projectName || 'a project'}" has been marked as complete.`,
+                            type: 'milestone',
+                            is_read: false,
+                            metadata: { milestone_id: id, project_id: projectId, member_name: memberName },
+                        });
+                    }
+
+                    // Email admins
+                    const { data: adminUsers } = await supabase
+                        .from('users').select('email').in('id', (admins || []).map((a: any) => a.user_id));
+                    for (const admin of (adminUsers || [])) {
+                        if (!admin.email) continue;
+                        EmailService.sendMilestoneCompletedEmail({
+                            to: admin.email,
+                            memberName,
+                            milestoneTitle: milestone.title,
+                            projectName: projectName || 'a project',
+                            projectId,
+                        }).catch(() => {});
+                    }
+                }
+            } catch {
+                // Non-critical
+            }
+
+            res.json({ success: true, data: { milestone: { id, status: 'done' } } });
             return;
         }
 
@@ -412,6 +486,8 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
 
         // Create the invoice
         const invoiceTitle = `${milestone.title} - ${milestone.project.name}`;
+        const projectId = milestone.project_id || (Array.isArray(milestone.project) ? milestone.project[0]?.id : milestone.project?.id);
+        const { data: projectWs } = await supabase.from('projects').select('workspace_id').eq('id', projectId).single();
 
         const { data: invoice, error: invoiceError } = await supabase
             .from('documents')
@@ -419,6 +495,7 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
                 user_id: user.id,
                 client_id: client.id,
                 project_id: milestone.project.id,
+                workspace_id: projectWs?.workspace_id || null,
                 type: 'INVOICE',
                 title: invoiceTitle,
                 description: `Milestone: ${milestone.title}`,

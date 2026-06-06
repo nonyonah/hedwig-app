@@ -84,7 +84,7 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-[#a4a7ae]">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                 {meta.label}
               </p>
               <DialogTitle className="mt-1">{suggestion.title}</DialogTitle>
@@ -101,26 +101,26 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
         </DialogHeader>
 
         <DialogBody className="space-y-4">
-          <div className="rounded-xl bg-[#f9fafb] px-4 py-3">
-            <p className="text-[13px] leading-relaxed text-[#414651]">{suggestion.description}</p>
+          <div className="rounded-xl bg-[var(--color-background)] px-4 py-3">
+            <p className="text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{suggestion.description}</p>
           </div>
 
           {suggestion.reason && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-[#e9eaeb] px-4 py-3">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#2563eb]" weight="fill" />
+            <div className="flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] px-4 py-3">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-accent)]" weight="fill" />
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Why Hedwig is suggesting this</p>
-                <p className="mt-1 text-[13px] text-[#414651]">{suggestion.reason}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Why Hedwig is suggesting this</p>
+                <p className="mt-1 text-[13px] text-[var(--color-text-secondary)]">{suggestion.reason}</p>
               </div>
             </div>
           )}
 
           {badges.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Context</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Context</p>
               <div className="flex flex-wrap gap-2">
                 {badges.map((badge) => (
-                  <span key={badge} className="inline-flex items-center rounded-lg bg-[#f9fafb] px-3 py-1.5 text-[12px] font-medium text-[#414651]">
+                  <span key={badge} className="inline-flex items-center rounded-lg bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
                     {badge}
                   </span>
                 ))}
@@ -128,16 +128,16 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
             </div>
           )}
 
-          <div className="flex items-start gap-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
-            <Warning className="mt-0.5 h-4 w-4 shrink-0 text-[#92400e]" weight="fill" />
-            <p className="text-[12px] text-[#92400e]">
+          <div className="flex items-start gap-2 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
+            <Warning className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
+            <p className="text-[12px] text-[var(--color-warning)]">
               <span className="font-semibold">Approval is always manual.</span> Hedwig will never send, create, link, or file anything automatically from this suggestion.
             </p>
           </div>
 
           {actions.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Available actions</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Available actions</p>
               <div className="flex flex-wrap gap-2">
                 {actions.map((action) => (
                   <button
@@ -147,8 +147,8 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
                     className={cn(
                       'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors',
                       selectedAction?.type === action.type
-                        ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb]'
-                        : 'border-[#e9eaeb] bg-white text-[#414651] hover:bg-[#f9fafb]'
+                        ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
                     )}
                   >
                     {action.label}
@@ -156,8 +156,8 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
                 ))}
               </div>
               {selectedAction ? (
-                <p className="mt-2 text-[12px] text-[#717680]">
-                  Approving will mark <span className="font-semibold text-[#181d27]">{selectedAction.label}</span> as the intended next step.
+                <p className="mt-2 text-[12px] text-[var(--color-text-tertiary)]">
+                  Approving will mark <span className="font-semibold text-[var(--color-foreground)]">{selectedAction.label}</span> as the intended next step.
                 </p>
               ) : null}
             </div>

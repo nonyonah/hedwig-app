@@ -9,6 +9,11 @@ import { requireProFeatureAccess } from '../services/billingRules';
 const logger = createLogger('Recurring');
 const router = Router();
 
+function getEffectiveWorkspaceId(req: Request, userId: string): string {
+  const wsId = req.headers['x-workspace-id'] as string;
+  return wsId || `ws_personal_${userId}`;
+}
+
 const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
 
 export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
@@ -82,11 +87,13 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
         const access = await ensureRecurringAccess(req, res);
         if (!access.allowed || !access.user) return;
         const user = access.user;
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
 
         const { data, error } = await supabase
             .from('recurring_invoices')
             .select('*')
             .eq('user_id', user.id)
+            .eq('workspace_id', effectiveWsId)
             .neq('status', 'cancelled')
             .order('created_at', { ascending: false });
 
@@ -104,6 +111,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         const access = await ensureRecurringAccess(req, res);
         if (!access.allowed || !access.user) return;
         const user = access.user;
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
 
         const {
             clientId, clientName, clientEmail, projectId,
@@ -143,6 +151,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             .from('recurring_invoices')
             .insert({
                 user_id: user.id,
+                workspace_id: effectiveWsId,
                 client_id: clientId || null,
                 client_name: resolvedClientName || null,
                 client_email: resolvedClientEmail || null,

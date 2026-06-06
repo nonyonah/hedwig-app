@@ -20,6 +20,7 @@ import {
   Warning,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import {
   Dialog,
@@ -35,6 +36,7 @@ import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { formatShortDate } from '@/lib/utils';
 import { hedwigApi } from '@/lib/api/client';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
@@ -75,34 +77,34 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 };
 
 const CATEGORY_COLORS: Record<ExpenseCategory, { bg: string; text: string }> = {
-  software:      { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  equipment:     { bg: 'bg-[#f5f3ff]', text: 'text-[#7c3aed]' },
-  marketing:     { bg: 'bg-[#fff7ed]', text: 'text-[#c2410c]' },
-  travel:        { bg: 'bg-[#f0fdf4]', text: 'text-[#15803d]' },
-  operations:    { bg: 'bg-[#f2f4f7]', text: 'text-[#414651]' },
-  contractor:    { bg: 'bg-[#fdf4ff]', text: 'text-[#7e22ce]' },
-  subscriptions: { bg: 'bg-[#eff4ff]', text: 'text-[#1d4ed8]' },
-  other:         { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
+  software:      { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  equipment:     { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  marketing:     { bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  travel:        { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  operations:    { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-secondary)]' },
+  contractor:    { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  subscriptions: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary-dark)]' },
+  other:         { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
 };
 
 const ACTIVITY_COLORS: Record<ActivityEvent['type'], { dot: string; bg: string }> = {
-  invoice_paid:    { dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]' },
-  payment_received:{ dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]' },
-  payment_link_paid:{ dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]' },
-  invoice_sent:    { dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]' },
-  invoice_created: { dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]' },
-  payment_link_active:{ dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]' },
-  invoice_overdue: { dot: 'bg-[#f04438]', bg: 'bg-[#fff1f0]' },
-  expense_added:   { dot: 'bg-[#f79009]', bg: 'bg-[#fffaeb]' },
+  invoice_paid:    { dot: 'bg-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]' },
+  payment_received:{ dot: 'bg-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]' },
+  payment_link_paid:{ dot: 'bg-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]' },
+  invoice_sent:    { dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+  invoice_created: { dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+  payment_link_active:{ dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+  invoice_overdue: { dot: 'bg-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
+  expense_added:   { dot: 'bg-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
 };
-const DEFAULT_ACTIVITY_COLORS = { dot: 'bg-[#a4a7ae]', bg: 'bg-[#f2f4f7]' };
+const DEFAULT_ACTIVITY_COLORS = { dot: 'bg-[var(--color-text-muted)]', bg: 'bg-[var(--color-surface-tertiary)]' };
 
 const INV_STATUS = {
-  draft:   { dot: 'bg-[#a4a7ae]', label: 'Draft',   bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
-  sent:    { dot: 'bg-[#2563eb]', label: 'Sent',    bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  viewed:  { dot: 'bg-[#2563eb]', label: 'Viewed',  bg: 'bg-[#eff4ff]', text: 'text-[#717680]' },
-  paid:    { dot: 'bg-[#12b76a]', label: 'Paid',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  overdue: { dot: 'bg-[#f04438]', label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
+  draft:   { dot: 'bg-[var(--color-text-muted)]', label: 'Draft',   bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  sent:    { dot: 'bg-[var(--color-accent)]', label: 'Sent',    bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  viewed:  { dot: 'bg-[var(--color-accent)]', label: 'Viewed',  bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-text-tertiary)]' },
+  paid:    { dot: 'bg-[var(--color-success)]', label: 'Paid',    bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  overdue: { dot: 'bg-[var(--color-danger)]', label: 'Overdue', bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
 } as const;
 
 /* ─── helpers ─── */
@@ -223,8 +225,8 @@ function ExpenseDialog({
   };
 
   const inputCls =
-    'w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]';
-  const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[#414651]';
+    'w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]';
+  const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]';
   const selectedCurrency = currencyOptions.find((option) => option.code === form.currency)
     ?? { code: form.currency, label: form.currency, symbol: form.currency };
   const currencyChoices = currencyOptions.some((option) => option.code === form.currency)
@@ -246,18 +248,18 @@ function ExpenseDialog({
           <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
             <div>
               <label className={labelCls}>Amount</label>
-              <div className="flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
-                <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[13px] font-semibold text-[#a4a7ae]">
+              <div className="flex items-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-soft)]">
+                <span className="flex h-full items-center border-r border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-muted)]">
                   {selectedCurrency.symbol}
                 </span>
-                <input
+                <Input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.amount}
                   onChange={(e) => set('amount', e.target.value)}
                   placeholder="0.00"
-                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
+                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none border-0 shadow-none focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -289,7 +291,7 @@ function ExpenseDialog({
             </div>
             <div>
               <label className={labelCls}>Date</label>
-              <input
+              <Input
                 type="date"
                 value={form.date}
                 max={new Date().toISOString().slice(0, 10)}
@@ -301,8 +303,8 @@ function ExpenseDialog({
 
           {/* Note */}
           <div>
-            <label className={labelCls}>Note <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
-            <input
+            <label className={labelCls}>Note <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
+            <Input
               type="text"
               value={form.note}
               onChange={(e) => set('note', e.target.value)}
@@ -314,7 +316,7 @@ function ExpenseDialog({
           {/* Client */}
           {clients.length > 0 && (
             <div>
-              <label className={labelCls}>Link to client <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
+              <label className={labelCls}>Link to client <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
               <select value={form.clientId} onChange={(e) => set('clientId', e.target.value)} className={inputCls}>
                 <option value="">No client</option>
                 {clients.map((c) => (
@@ -371,8 +373,8 @@ function CreditDialog({
   };
 
   const inputCls =
-    'w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]';
-  const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[#414651]';
+    'w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]';
+  const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]';
   const selectedCurrency = currencyOptions.find((option) => option.code === form.currency)
     ?? { code: form.currency, label: form.currency, symbol: form.currency };
   const currencyChoices = currencyOptions.some((option) => option.code === form.currency)
@@ -393,18 +395,18 @@ function CreditDialog({
           <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
             <div>
               <label className={labelCls}>Amount</label>
-              <div className="flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
-                <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[13px] font-semibold text-[#a4a7ae]">
+              <div className="flex items-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-soft)]">
+                <span className="flex h-full items-center border-r border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-muted)]">
                   {selectedCurrency.symbol}
                 </span>
-                <input
+                <Input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.amount}
                   onChange={(e) => set('amount', e.target.value)}
                   placeholder="0.00"
-                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
+                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none border-0 shadow-none focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -423,7 +425,7 @@ function CreditDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Title</label>
-              <input
+              <Input
                 type="text"
                 value={form.title}
                 onChange={(e) => set('title', e.target.value)}
@@ -433,7 +435,7 @@ function CreditDialog({
             </div>
             <div>
               <label className={labelCls}>Date</label>
-              <input
+              <Input
                 type="date"
                 value={form.date}
                 max={new Date().toISOString().slice(0, 10)}
@@ -444,8 +446,8 @@ function CreditDialog({
           </div>
 
           <div>
-            <label className={labelCls}>Note <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
-            <input
+            <label className={labelCls}>Note <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
+            <Input
               type="text"
               value={form.note}
               onChange={(e) => set('note', e.target.value)}
@@ -456,7 +458,7 @@ function CreditDialog({
 
           {clients.length > 0 && (
             <div>
-              <label className={labelCls}>Link to client <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
+              <label className={labelCls}>Link to client <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
               <select value={form.clientId} onChange={(e) => set('clientId', e.target.value)} className={inputCls}>
                 <option value="">No client</option>
                 {clients.map((c) => (
@@ -504,6 +506,14 @@ export function RevenueClient({
 }) {
   const { currency, options: currencyOptions, formatAmount, convertToUsd, formatNative } = useCurrency();
   const { toast } = useToast();
+
+  useAssistantPageContext('Revenue', {
+    totalRevenue: initialSummary.totalRevenue,
+    netRevenue: initialSummary.netRevenue,
+    expensesCount: initialExpenses.length,
+    clientCount: clientBreakdown.length,
+    projectCount: projectBreakdown.length,
+  });
 
   const [range, setRange] = useState<RevenueRange>('30d');
   const [summary, setSummary] = useState<RevenueSummary>(initialSummary);
@@ -723,8 +733,8 @@ export function RevenueClient({
       {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[#181d27]">Revenue</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Operational financial dashboard — what is happening with your money right now.</p>
+          <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Revenue</h1>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Operational financial dashboard — what is happening with your money right now.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
           <div className="relative">
@@ -756,19 +766,20 @@ export function RevenueClient({
       {/* ── Range filter ── */}
       <div className="flex items-center gap-1.5">
         {RANGES.map((r) => (
-          <button
+          <Button
             key={r}
             type="button"
+            variant="outline"
             onClick={() => refreshRangeData(r)}
             disabled={isRefreshingRange && range === r}
             className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-100 ease-linear ${
               range === r
-                ? 'bg-[#181d27] text-white'
-                : 'text-[#717680] hover:bg-[#f2f4f7] hover:text-[#344054]'
+                ? 'bg-[var(--color-text-primary)] text-[var(--color-background)]'
+                : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]'
             }`}
           >
             {RANGE_LABELS[r]}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -780,8 +791,8 @@ export function RevenueClient({
             value: formatAmount(summary.totalRevenue, { compact: true }),
             helper: (
               <span className="flex items-center gap-1">
-                {netTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
-                {netTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
+                {netTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[var(--color-success)]" weight="bold" />}
+                {netTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[var(--color-danger)]" weight="bold" />}
                 <span>{summary.revenueDeltaPct >= 0 ? '+' : ''}{summary.revenueDeltaPct.toFixed(0)}% vs prev period</span>
               </span>
             ),
@@ -810,9 +821,9 @@ export function RevenueClient({
             helper: `${overdueInvoices.length} invoice${overdueInvoices.length !== 1 ? 's' : ''}`,
             icon: Warning,
             href: '/payments',
-            valueClassName: summary.overdueRevenue > 0 ? 'text-[#b42318]' : undefined,
-            iconWrapClassName: summary.overdueRevenue > 0 ? 'bg-[#fff1f0]' : undefined,
-            iconClassName: summary.overdueRevenue > 0 ? 'text-[#f04438]' : undefined,
+            valueClassName: summary.overdueRevenue > 0 ? 'text-[var(--color-danger)]' : undefined,
+            iconWrapClassName: summary.overdueRevenue > 0 ? 'bg-[var(--color-danger-soft)]' : undefined,
+            iconClassName: summary.overdueRevenue > 0 ? 'text-[var(--color-danger)]' : undefined,
           },
           {
             id: 'expenses',
@@ -827,9 +838,9 @@ export function RevenueClient({
             value: formatAmount(netRevenueDisplay, { compact: true }),
             helper: 'Paid minus expenses',
             icon: netRevenueDisplay >= 0 ? ArrowUpRight : ArrowDownRight,
-            valueClassName: netRevenueDisplay >= 0 ? undefined : 'text-[#b42318]',
-            iconWrapClassName: netRevenueDisplay >= 0 ? 'bg-[#ecfdf3]' : 'bg-[#fff1f0]',
-            iconClassName: netRevenueDisplay >= 0 ? 'text-[#12b76a]' : 'text-[#f04438]',
+            valueClassName: netRevenueDisplay >= 0 ? undefined : 'text-[var(--color-danger)]',
+            iconWrapClassName: netRevenueDisplay >= 0 ? 'bg-[var(--color-success-soft)]' : 'bg-[var(--color-danger-soft)]',
+            iconClassName: netRevenueDisplay >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]',
           },
         ]}
         className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
@@ -839,21 +850,21 @@ export function RevenueClient({
       <div className="grid gap-4 lg:grid-cols-2">
 
         {/* Invoice Status */}
-        <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
-            <h2 className="text-[15px] font-semibold text-[#181d27]">Invoice status</h2>
-            <Link href="/payments" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+        <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
+            <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Invoice status</h2>
+            <Link href="/payments" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]">
               All invoices <ArrowRight className="h-3.5 w-3.5" weight="bold" />
             </Link>
           </div>
 
           {/* Unpaid */}
-          <div className="border-b border-[#f5f5f5] px-5 py-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+          <div className="border-b border-[var(--color-surface-secondary)] px-5 py-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
               Unpaid ({unpaidInvoices.length})
             </p>
             {unpaidInvoices.length === 0 ? (
-              <p className="py-1 text-[13px] text-[#a4a7ae]">No unpaid invoices</p>
+              <p className="py-1 text-[13px] text-[var(--color-text-muted)]">No unpaid invoices</p>
             ) : (
               <div className="space-y-1">
                 {unpaidInvoices.slice(0, 3).map((inv) => (
@@ -861,18 +872,18 @@ export function RevenueClient({
                     key={inv.id}
                     type="button"
                     onClick={() => openPaymentDetail('invoice', inv.id)}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#fafafa]"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--color-background)]"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">{inv.number}</p>
-                      <p className="text-[11px] text-[#a4a7ae]">Due {formatShortDate(inv.dueAt)}</p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{inv.number}</p>
+                      <p className="text-[11px] text-[var(--color-text-muted)]">Due {formatShortDate(inv.dueAt)}</p>
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
-                      <span className="text-[13px] font-semibold text-[#181d27]">
+                      <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                         {formatAmount(inv.amountUsd, { compact: true })}
                       </span>
                       <StatusPill status={inv.status} />
-                      <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
+                      <ArrowRight className="h-3.5 w-3.5 text-[var(--color-border-input)]" weight="bold" />
                     </div>
                   </button>
                 ))}
@@ -881,12 +892,12 @@ export function RevenueClient({
           </div>
 
           {/* Overdue */}
-          <div className="border-b border-[#f5f5f5] px-5 py-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+          <div className="border-b border-[var(--color-surface-secondary)] px-5 py-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
               Overdue ({overdueInvoices.length})
             </p>
             {overdueInvoices.length === 0 ? (
-              <p className="py-1 text-[13px] text-[#a4a7ae]">No overdue invoices</p>
+              <p className="py-1 text-[13px] text-[var(--color-text-muted)]">No overdue invoices</p>
             ) : (
               <div className="space-y-1">
                 {overdueInvoices.slice(0, 3).map((inv) => (
@@ -894,18 +905,18 @@ export function RevenueClient({
                     key={inv.id}
                     type="button"
                     onClick={() => openPaymentDetail('invoice', inv.id)}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#fafafa]"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--color-background)]"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">{inv.number}</p>
-                      <p className="text-[11px] text-[#f04438]">Was due {formatShortDate(inv.dueAt)}</p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{inv.number}</p>
+                      <p className="text-[11px] text-[var(--color-danger)]">Was due {formatShortDate(inv.dueAt)}</p>
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
-                      <span className="text-[13px] font-semibold text-[#b42318]">
+                      <span className="text-[13px] font-semibold text-[var(--color-danger)]">
                         {formatAmount(inv.amountUsd, { compact: true })}
                       </span>
                       <StatusPill status="overdue" />
-                      <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
+                      <ArrowRight className="h-3.5 w-3.5 text-[var(--color-border-input)]" weight="bold" />
                     </div>
                   </button>
                 ))}
@@ -915,11 +926,11 @@ export function RevenueClient({
 
           {/* Recently Paid */}
           <div className="px-5 py-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
               Recently paid
             </p>
             {paidInvoices.length === 0 ? (
-              <p className="py-1 text-[13px] text-[#a4a7ae]">No paid invoices yet</p>
+              <p className="py-1 text-[13px] text-[var(--color-text-muted)]">No paid invoices yet</p>
             ) : (
               <div className="space-y-1">
                 {paidInvoices.map((inv) => (
@@ -927,18 +938,18 @@ export function RevenueClient({
                     key={inv.id}
                     type="button"
                     onClick={() => openPaymentDetail('invoice', inv.id)}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#fafafa]"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--color-background)]"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">{inv.number}</p>
-                      <p className="text-[11px] text-[#a4a7ae]">Paid {formatShortDate(inv.dueAt)}</p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{inv.number}</p>
+                      <p className="text-[11px] text-[var(--color-text-muted)]">Paid {formatShortDate(inv.dueAt)}</p>
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
-                      <span className="text-[13px] font-semibold text-[#027a48]">
+                      <span className="text-[13px] font-semibold text-[var(--color-success)]">
                         {formatAmount(inv.amountUsd, { compact: true })}
                       </span>
                       <StatusPill status="paid" />
-                      <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
+                      <ArrowRight className="h-3.5 w-3.5 text-[var(--color-border-input)]" weight="bold" />
                     </div>
                   </button>
                 ))}
@@ -948,34 +959,34 @@ export function RevenueClient({
         </article>
 
         {/* Revenue Breakdown */}
-        <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="border-b border-[#f5f5f5] px-5 py-4">
-            <h2 className="text-[15px] font-semibold text-[#181d27]">Revenue breakdown</h2>
+        <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
+            <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Revenue breakdown</h2>
           </div>
 
           {/* By Client */}
-          <div className="border-b border-[#f5f5f5] px-5 py-3">
+          <div className="border-b border-[var(--color-surface-secondary)] px-5 py-3">
             <div className="flex items-center gap-2 mb-3">
-              <UsersThree className="h-3.5 w-3.5 text-[#a4a7ae]" weight="regular" />
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">By client</p>
+              <UsersThree className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="regular" />
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">By client</p>
             </div>
             <div className="space-y-3">
               {clientsByRevenue.map((c) => (
                 <div key={c.clientId}>
                   <div className="mb-1 flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">{c.company || c.clientName}</p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{c.company || c.clientName}</p>
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
-                      <span className="text-[13px] font-semibold text-[#181d27]">
+                      <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                         {formatAmount(c.totalRevenue, { compact: true })}
                       </span>
-                      <span className="w-9 text-right text-[11px] text-[#a4a7ae]">{c.shareOfTotal.toFixed(0)}%</span>
+                      <span className="w-9 text-right text-[11px] text-[var(--color-text-muted)]">{c.shareOfTotal.toFixed(0)}%</span>
                     </div>
                   </div>
-                  <div className="h-1 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
                     <div
-                      className="h-full rounded-full bg-[#2563eb] transition-all"
+                      className="h-full rounded-full bg-[var(--color-accent)] transition-all"
                       style={{ width: `${c.shareOfTotal}%` }}
                     />
                   </div>
@@ -987,18 +998,18 @@ export function RevenueClient({
           {/* By Project */}
           <div className="px-5 py-3">
             <div className="flex items-center gap-2 mb-3">
-              <FolderSimple className="h-3.5 w-3.5 text-[#a4a7ae]" weight="regular" />
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">By project</p>
+              <FolderSimple className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="regular" />
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">By project</p>
             </div>
             <div className="space-y-2">
               {projectsByRevenue.map((p, i) => (
                 <div key={p.projectId} className="flex items-center gap-3">
-                  <span className="w-4 shrink-0 text-[11px] font-semibold text-[#c1c5cd]">{i + 1}</span>
+                  <span className="w-4 shrink-0 text-[11px] font-semibold text-[var(--color-text-muted)]">{i + 1}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-[#181d27]">{p.projectName}</p>
-                    <p className="text-[11px] text-[#a4a7ae]">{p.clientName}</p>
+                    <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{p.projectName}</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">{p.clientName}</p>
                   </div>
-                  <span className="shrink-0 text-[13px] font-semibold text-[#181d27]">
+                  <span className="shrink-0 text-[13px] font-semibold text-[var(--color-text-primary)]">
                     {formatAmount(p.totalRevenue, { compact: true })}
                   </span>
                 </div>
@@ -1009,11 +1020,11 @@ export function RevenueClient({
       </div>
 
       {/* ── Expense Tracking ── */}
-      <article className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-        <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+      <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
           <div>
-            <h2 className="text-[15px] font-semibold text-[#181d27]">Expenses</h2>
-            <p className="mt-0.5 text-[13px] text-[#717680]">
+            <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expenses</h2>
+            <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
               {expenses.length > 0
                 ? `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} · ${formatAmount(totalExpensesDisplay, { compact: true })} total`
                 : 'No expenses recorded yet'}
@@ -1024,23 +1035,24 @@ export function RevenueClient({
               <Plus className="h-4 w-4" weight="bold" />
               Import
             </Button>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={openAddExpense}
-              className="text-[12px] font-semibold text-[#717680] hover:text-[#414651] transition"
+              className="text-[12px] font-semibold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition"
             >
               Add manually
-            </button>
+            </Button>
           </div>
         </div>
 
         {expenses.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f5f5f5]">
-              <FileText className="h-5 w-5 text-[#a4a7ae]" weight="regular" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-surface-secondary)]">
+              <FileText className="h-5 w-5 text-[var(--color-text-muted)]" weight="regular" />
             </div>
-            <p className="text-[14px] font-semibold text-[#414651]">No expenses yet</p>
-            <p className="text-[13px] text-[#a4a7ae]">
+            <p className="text-[14px] font-semibold text-[var(--color-text-secondary)]">No expenses yet</p>
+            <p className="text-[13px] text-[var(--color-text-muted)]">
               Track your business costs to see your true net revenue.
             </p>
             <Button variant="secondary" onClick={openAddExpense}>
@@ -1051,16 +1063,16 @@ export function RevenueClient({
         ) : (
           <>
             {/* Table header */}
-            <div className="grid grid-cols-[1fr_120px_100px_110px_44px] border-b border-[#f5f5f5] bg-[#fafafa] px-5 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Description</p>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Category</p>
-              <p className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</p>
-              <p className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Date</p>
+            <div className="grid grid-cols-[1fr_120px_100px_110px_44px] border-b border-[var(--color-surface-secondary)] bg-[var(--color-background)] px-5 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Description</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Category</p>
+              <p className="text-right text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount</p>
+              <p className="text-right text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Date</p>
               <p />
             </div>
 
             {/* Table rows */}
-            <div className="divide-y divide-[#f9fafb]">
+            <div className="divide-y divide-[var(--color-surface-secondary)]">
               {expenses.map((exp) => {
                 const linkedClient = clientForId(exp.clientId);
                 const actions = [
@@ -1077,29 +1089,29 @@ export function RevenueClient({
                   },
                 ];
                 return (
-                  <div key={exp.id} className="grid grid-cols-[1fr_120px_100px_110px_44px] items-center px-5 py-3.5 hover:bg-[#fafafa]">
+                  <div key={exp.id} className="grid grid-cols-[1fr_120px_100px_110px_44px] items-center px-5 py-3.5 hover:bg-[var(--color-background)]">
                     <div className="min-w-0 pr-4">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">
                         {exp.note || CATEGORY_LABELS[exp.category]}
                       </p>
                       {linkedClient && (
-                        <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{linkedClient.name}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{linkedClient.name}</p>
                       )}
                     </div>
                     <div>
                       <CategoryPill category={exp.category} />
                     </div>
                     <div className="text-right">
-                      <p className="text-[13px] font-semibold text-[#181d27]">
+                      <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                         {formatAmount(exp.convertedAmountUsd, { compact: true })}
                       </p>
                       {exp.currency && exp.currency !== 'USD' ? (
-                        <p className="mt-0.5 text-[10px] font-medium text-[#a4a7ae]">
+                        <p className="mt-0.5 text-[10px] font-medium text-[var(--color-text-muted)]">
                           {formatNative(exp.amount, exp.currency, { compact: true })}
                         </p>
                       ) : null}
                     </div>
-                    <p className="text-right text-[12px] text-[#717680]">
+                    <p className="text-right text-[12px] text-[var(--color-text-tertiary)]">
                       {formatShortDate(exp.date)}
                     </p>
                     <div className="flex justify-end">
@@ -1117,41 +1129,41 @@ export function RevenueClient({
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
 
         {/* Recent Activity */}
-        <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="shrink-0 border-b border-[#f5f5f5] px-5 py-3.5">
-            <h2 className="text-[15px] font-semibold text-[#181d27]">Recent activity</h2>
-            <p className="mt-0.5 text-[13px] text-[#717680]">Latest financial events from your account.</p>
+        <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="shrink-0 border-b border-[var(--color-surface-secondary)] px-5 py-3.5">
+            <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Recent activity</h2>
+            <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Latest financial events from your account.</p>
           </div>
           {activityItems.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-8 text-center">
-              <p className="text-[13px] font-semibold text-[#414651]">No recent activity</p>
-              <p className="text-[12px] text-[#a4a7ae]">Activity appears here as invoices are paid and expenses are added.</p>
+              <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">No recent activity</p>
+              <p className="text-[12px] text-[var(--color-text-muted)]">Activity appears here as invoices are paid and expenses are added.</p>
             </div>
           ) : (
-            <div className="min-h-0 flex-1 divide-y divide-[#f9fafb] overflow-y-auto">
+            <div className="min-h-0 flex-1 divide-y divide-[var(--color-surface-secondary)] overflow-y-auto">
               {activityItems.map((evt) => {
                 const colors = ACTIVITY_COLORS[evt.type] ?? DEFAULT_ACTIVITY_COLORS;
                 return (
-                  <div key={evt.id} className="flex items-start gap-3 px-5 py-3 hover:bg-[#fafafa]">
+                  <div key={evt.id} className="flex items-start gap-3 px-5 py-3 hover:bg-[var(--color-background)]">
                     <div className={`mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${colors.bg}`}>
                       <span className={`h-2 w-2 rounded-full ${colors.dot}`} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-[#181d27]">{evt.title}</p>
-                      <p className="mt-0.5 text-[12px] text-[#717680]">{evt.description}</p>
+                      <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{evt.title}</p>
+                      <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{evt.description}</p>
                     </div>
                     <div className="shrink-0 text-right">
                       {evt.amount !== undefined && (
-                        <p className="text-[13px] font-semibold text-[#181d27]">
+                        <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                           {formatAmount(evt.amount, { compact: true })}
                         </p>
                       )}
                       {evt.nativeAmount !== undefined && evt.currency && evt.currency !== 'USD' && (
-                        <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
+                        <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
                           {formatNative(evt.nativeAmount, evt.currency, { compact: true })}
                         </p>
                       )}
-                      <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{formatTimeAgo(evt.createdAt)}</p>
+                      <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{formatTimeAgo(evt.createdAt)}</p>
                     </div>
                   </div>
                 );
@@ -1161,15 +1173,15 @@ export function RevenueClient({
         </article>
 
         {/* Payment Sources */}
-        <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="shrink-0 border-b border-[#f5f5f5] px-4 py-3.5">
-            <h2 className="text-[15px] font-semibold text-[#181d27]">Payment sources</h2>
-            <p className="mt-0.5 text-[13px] text-[#717680]">Where your revenue comes from.</p>
+        <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="shrink-0 border-b border-[var(--color-surface-secondary)] px-4 py-3.5">
+            <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Payment sources</h2>
+            <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Where your revenue comes from.</p>
           </div>
           {sourceBreakdown.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-8 text-center">
-              <p className="text-[13px] font-semibold text-[#414651]">No payment sources yet</p>
-              <p className="text-[12px] text-[#a4a7ae]">Revenue sources appear as invoices and payment links are collected.</p>
+              <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">No payment sources yet</p>
+              <p className="text-[12px] text-[var(--color-text-muted)]">Revenue sources appear as invoices and payment links are collected.</p>
             </div>
           ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
@@ -1177,23 +1189,23 @@ export function RevenueClient({
             {sourceBreakdown.map((src) => (
               <div key={src.source}>
                 <div className="mb-1 flex items-center justify-between gap-3">
-                  <p className="text-[13px] font-semibold text-[#181d27]">{src.label}</p>
+                  <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{src.label}</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-semibold text-[#181d27]">
+                    <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                       {formatAmount(src.amount, { compact: true })}
                     </span>
-                    <span className="w-8 text-right text-[11px] font-semibold text-[#a4a7ae]">
+                    <span className="w-8 text-right text-[11px] font-semibold text-[var(--color-text-muted)]">
                       {src.shareOfTotal.toFixed(0)}%
                     </span>
                   </div>
                 </div>
-                <div className="h-1 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
+                <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
                   <div
-                    className="h-full rounded-full bg-[#2563eb] transition-all"
+                    className="h-full rounded-full bg-[var(--color-accent)] transition-all"
                     style={{ width: `${src.shareOfTotal}%` }}
                   />
                 </div>
-                <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{src.count} transaction{src.count !== 1 ? 's' : ''}</p>
+                <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{src.count} transaction{src.count !== 1 ? 's' : ''}</p>
               </div>
             ))}
             </div>
@@ -1201,10 +1213,10 @@ export function RevenueClient({
           )}
 
           {/* Footer: net revenue callout */}
-          <div className="shrink-0 border-t border-[#f5f5f5] px-4 py-3">
+          <div className="shrink-0 border-t border-[var(--color-surface-secondary)] px-4 py-3">
             <div className="flex items-center justify-between">
-              <p className="text-[12px] font-semibold text-[#717680]">Net revenue this period</p>
-              <p className={`text-[16px] font-bold tracking-[-0.02em] ${netRevenueDisplay >= 0 ? 'text-[#027a48]' : 'text-[#b42318]'}`}>
+              <p className="text-[12px] font-semibold text-[var(--color-text-tertiary)]">Net revenue this period</p>
+              <p className={`text-[16px] font-bold tracking-[-0.02em] ${netRevenueDisplay >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}>
                 {formatAmount(netRevenueDisplay, { compact: true })}
               </p>
             </div>

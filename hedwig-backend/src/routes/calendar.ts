@@ -35,6 +35,11 @@ const logger = createLogger('Calendar');
 
 const router = Router();
 
+function getEffectiveWorkspaceId(req: Request, userId: string): string {
+  const wsId = req.headers['x-workspace-id'] as string;
+  return wsId || `ws_personal_${userId}`;
+}
+
 async function pushToConnectedGoogleCalendar(userId: string): Promise<void> {
     if (await hasActiveComposioCalendar(userId)) {
         await pushHedwigEventsToComposioGoogleCalendar(userId);
@@ -59,10 +64,13 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+
         let query = supabase
             .from('calendar_events')
             .select('*')
             .eq('user_id', user.id)
+            .eq('workspace_id', effectiveWsId)
             .order('event_date', { ascending: true })
             .limit(parsedLimit);
 
@@ -375,10 +383,13 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+
         const { data: event, error } = await supabase
             .from('calendar_events')
             .insert({
                 user_id: user.id,
+                workspace_id: effectiveWsId,
                 title,
                 description: description || null,
                 event_date: eventDate,
@@ -532,21 +543,25 @@ export async function createCalendarEventFromSource(
     eventType: 'invoice_due' | 'milestone_due' | 'project_deadline',
     sourceType: string,
     sourceId: string,
-    description?: string
+    description?: string,
+    workspaceId?: string
 ): Promise<{ id: string } | null> {
     try {
+        const insertData: Record<string, any> = {
+            user_id: userId,
+            title,
+            description: description || null,
+            event_date: eventDate,
+            event_type: eventType,
+            status: 'upcoming',
+            source_type: sourceType,
+            source_id: sourceId,
+        };
+        if (workspaceId) insertData.workspace_id = workspaceId;
+
         const { data: event, error } = await supabase
             .from('calendar_events')
-            .insert({
-                user_id: userId,
-                title,
-                description: description || null,
-                event_date: eventDate,
-                event_type: eventType,
-                status: 'upcoming',
-                source_type: sourceType,
-                source_id: sourceId,
-            })
+            .insert(insertData)
             .select('id')
             .single();
 

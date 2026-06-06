@@ -296,9 +296,9 @@ export async function classifyAttachment(params: {
   buffer: Buffer;
   userInstruction?: string;
 }): Promise<AttachmentAnalysis | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) {
-    logger.warn('GEMINI_API_KEY missing — cannot classify attachment');
+    logger.warn('AI_GATEWAY_API_KEY missing — cannot classify attachment');
     return null;
   }
   const mimeType = resolveAttachmentMimeType(params.fileName, params.mimeType);
@@ -377,15 +377,13 @@ ${params.userInstruction ? `\nThe user added context: "${params.userInstruction}
 
   try {
     const text = (await llmService.generateText(prompt, {
-      forceProvider: 'gemini',
-      useFallbacks: false,
       maxOutputTokens: 1800,
       temperature: 0.1,
       files: [{ mimeType, data: base64Data }],
     })).trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      logger.warn('Gemini attachment analysis returned non-JSON text', {
+      logger.warn('DeepSeek attachment analysis returned non-JSON text', {
         fileName: params.fileName,
         mimeType,
         preview: text.slice(0, 200),
@@ -451,7 +449,7 @@ ${params.userInstruction ? `\nThe user added context: "${params.userInstruction}
       } : undefined,
     };
   } catch (error) {
-    logger.warn('Gemini classify exception', {
+    logger.warn('DeepSeek classify exception', {
       fileName: params.fileName,
       mimeType,
       sizeBytes: params.buffer.length,
@@ -943,7 +941,7 @@ export async function processAttachment(params: ProcessAttachmentParams): Promis
 
   if (!analysis) {
     return {
-      reply: `I could not analyze ${params.fileName} — Gemini is not configured or the file format is unsupported. Try uploading a PDF, PNG, JPEG, or WebP.`,
+      reply: `I could not analyze ${params.fileName} — DeepSeek is not configured or the file format is unsupported. Try uploading a PDF, PNG, JPEG, or WebP.`,
       classification: 'other',
       stagedSuggestionIds: [],
       createdEntities: [],

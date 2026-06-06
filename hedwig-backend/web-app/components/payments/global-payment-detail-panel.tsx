@@ -33,17 +33,17 @@ type OpenPayload = {
 };
 
 const INV_STATUS: Record<Invoice['status'], { dot: string; label: string; bg: string; text: string }> = {
-  draft: { dot: 'bg-[#a4a7ae]', label: 'Draft', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
-  sent: { dot: 'bg-[#2563eb]', label: 'Sent', bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  viewed: { dot: 'bg-[#2563eb]', label: 'Viewed', bg: 'bg-[#eff4ff]', text: 'text-[#717680]' },
-  paid: { dot: 'bg-[#12b76a]', label: 'Paid', bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  overdue: { dot: 'bg-[#f04438]', label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
+  draft: { dot: 'bg-[var(--color-text-muted)]', label: 'Draft', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  sent: { dot: 'bg-[var(--color-accent)]', label: 'Sent', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  viewed: { dot: 'bg-[var(--color-accent)]', label: 'Viewed', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-text-tertiary)]' },
+  paid: { dot: 'bg-[var(--color-success)]', label: 'Paid', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  overdue: { dot: 'bg-[var(--color-danger)]', label: 'Overdue', bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
 };
 
 const LINK_STATUS: Record<PaymentLink['status'], { dot: string; label: string; bg: string; text: string }> = {
-  active: { dot: 'bg-[#12b76a]', label: 'Active', bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  paid: { dot: 'bg-[#2563eb]', label: 'Paid', bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  expired: { dot: 'bg-[#a4a7ae]', label: 'Expired', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
+  active: { dot: 'bg-[var(--color-success)]', label: 'Active', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  paid: { dot: 'bg-[var(--color-accent)]', label: 'Paid', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  expired: { dot: 'bg-[var(--color-text-muted)]', label: 'Expired', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
 };
 
 const FREQ_LABELS: Record<string, string> = {
@@ -227,11 +227,11 @@ export function GlobalPaymentDetailPanel({ accessToken }: { accessToken?: string
   return (
     <ClientPortal>
       <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={close} />
-      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-[#e9eaeb] animate-in slide-in-from-right-full duration-300 ease-out">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] animate-in slide-in-from-right-full duration-300 ease-out">
         {isLoading ? (
           <>
             <PanelHeader label="Payment detail" id="Loading..." onClose={close} />
-            <div className="flex-1 px-6 py-5 text-[13px] text-[#a4a7ae]">Loading details...</div>
+            <div className="flex-1 px-6 py-5 text-[13px] text-[var(--color-text-muted)]">Loading details...</div>
           </>
         ) : selectedInvoice ? (
           <InvoicePanel
@@ -264,7 +264,7 @@ export function GlobalPaymentDetailPanel({ accessToken }: { accessToken?: string
         ) : (
           <>
             <PanelHeader label="Payment detail" id={openTarget.id} onClose={close} />
-            <div className="flex-1 px-6 py-5 text-[13px] text-[#a4a7ae]">This record could not be found.</div>
+            <div className="flex-1 px-6 py-5 text-[13px] text-[var(--color-text-muted)]">This record could not be found.</div>
           </>
         )}
       </div>
@@ -284,31 +284,33 @@ export function GlobalPaymentDetailPanel({ accessToken }: { accessToken?: string
       {emailTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setEmailTarget(null)} />
-          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-[#e9eaeb]">
-            <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-4">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eff4ff]">
-                  <Envelope className="h-4 w-4 text-[#717680]" weight="bold" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+                  <Envelope className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-semibold text-[#181d27]">
+                  <p className="text-[14px] font-semibold text-[var(--color-foreground)]">
                     {emailTarget.current ? 'Change recipient email' : 'Add recipient email'}
                   </p>
-                  <p className="text-[11px] text-[#a4a7ae]">
+                  <p className="text-[11px] text-[var(--color-text-muted)]">
                     {emailTarget.kind === 'invoice' ? 'Invoice' : 'Payment link'} recipient
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setEmailTarget(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[#a4a7ae] transition-colors hover:bg-[#f2f4f7]"
+                className="h-8 w-8 rounded-full text-[var(--color-text-muted)]"
+                aria-label="Close"
               >
                 <X className="h-4 w-4" weight="bold" />
-              </button>
+              </Button>
             </div>
             <div className="px-5 py-4">
-              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">
+              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-placeholder)]">
                 Email address
               </label>
               <input
@@ -320,10 +322,10 @@ export function GlobalPaymentDetailPanel({ accessToken }: { accessToken?: string
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') void saveRecipientEmail();
                 }}
-                className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[14px] text-[#181d27] placeholder-[#a4a7ae] focus:border-[#2563eb] focus:outline-none"
+                className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
               />
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-[#f2f4f7] px-5 py-4">
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-surface-tertiary)] px-5 py-4">
               <Button variant="outline" onClick={() => setEmailTarget(null)} disabled={isSavingEmail}>Cancel</Button>
               <Button onClick={saveRecipientEmail} disabled={isSavingEmail || !emailInput.trim()}>
                 {isSavingEmail ? 'Saving...' : 'Save'}
@@ -372,7 +374,7 @@ function InvoicePanel({
             description="Only high-confidence invoice suggestions appear here."
             query={{ invoiceId: invoice.id, types: ['invoice_reminder', 'calendar_event'], limit: 2 }}
           />
-          <div className="divide-y divide-[#f2f4f7]">
+          <div className="divide-y divide-[var(--color-surface-tertiary)]">
             <PanelRow label="Invoice number" value={invoice.number} />
             <PanelRow label="Due date" value={formatShortDate(invoice.dueAt)} />
             {invoice.viewedAt ? <PanelRow label="First viewed" value={formatShortDate(invoice.viewedAt)} /> : null}
@@ -382,7 +384,7 @@ function InvoicePanel({
           </div>
         </div>
       </div>
-      <div className="space-y-2 border-t border-[#e9eaeb] px-6 py-5">
+      <div className="space-y-2 border-t border-[var(--color-border)] px-6 py-5">
         {invoice.status !== 'paid' && (
           <Button className="w-full" disabled={isLoading} onClick={onMarkPaid}>
             <CheckCircle className="h-4 w-4" weight="bold" /> Mark as paid
@@ -419,7 +421,7 @@ function InvoicePanel({
             </Button>
           </div>
         )}
-        <Button variant="ghost" className="w-full text-[#717680] hover:bg-[#fff1f0] hover:text-[#717680]" onClick={onDelete}>
+        <Button variant="ghost" className="w-full text-[var(--color-text-tertiary)] hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-text-tertiary)]" onClick={onDelete}>
           <Trash className="h-4 w-4" /> Delete invoice
         </Button>
       </div>
@@ -457,7 +459,7 @@ function PaymentLinkPanel({
       <PanelHeader label="Payment link" id={link.title} onClose={onClose} />
       <PanelHero amount={formatAmount(link.amountUsd, { compact: true })} status={<StatusPill {...s} />} />
       <div className="flex-1 overflow-y-auto">
-        <div className="divide-y divide-[#f2f4f7] px-6 py-2">
+        <div className="divide-y divide-[var(--color-surface-tertiary)] px-6 py-2">
           <PanelRow label="Title" value={link.title} />
           <PanelRow label="Asset" value={link.asset} />
           <PanelRow label="Network" value={link.chain} />
@@ -466,7 +468,7 @@ function PaymentLinkPanel({
           <PanelRow label="Public page" value={publicUrl} mono />
         </div>
       </div>
-      <div className="space-y-2 border-t border-[#e9eaeb] px-6 py-5">
+      <div className="space-y-2 border-t border-[var(--color-border)] px-6 py-5">
         {link.status === 'active' && (
           <Button className="w-full" disabled={isLoading} onClick={onMarkPaid}>
             <CheckCircle className="h-4 w-4" weight="bold" /> Mark as paid
@@ -496,7 +498,7 @@ function PaymentLinkPanel({
             </Button>
           </div>
         )}
-        <Button variant="ghost" className="w-full text-[#717680] hover:bg-[#fff1f0] hover:text-[#717680]" onClick={onDelete}>
+        <Button variant="ghost" className="w-full text-[var(--color-text-tertiary)] hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-text-tertiary)]" onClick={onDelete}>
           <Trash className="h-4 w-4" /> Delete link
         </Button>
       </div>
@@ -509,17 +511,17 @@ function RecurringPanel({ item, onClose }: { item: RecurringInvoice; onClose: ()
   return (
     <>
       <PanelHeader label="Recurring template" id={item.title || 'Recurring invoice'} onClose={onClose} />
-      <div className="border-b border-[#e9eaeb] bg-[#f8f9fc] px-6 py-5">
-        <p className="mb-1 text-[11px] font-medium text-[#a4a7ae]">Amount per cycle</p>
-        <p className="mb-3 text-[32px] font-bold leading-none tracking-[-0.03em] text-[#181d27]">
+      <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-6 py-5">
+        <p className="mb-1 text-[11px] font-medium text-[var(--color-text-muted)]">Amount per cycle</p>
+        <p className="mb-3 text-[32px] font-bold leading-none tracking-[-0.03em] text-[var(--color-foreground)]">
           {formatAmount(item.amountUsd, { compact: true })}
         </p>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fdf4ff] px-2.5 py-1 text-[11px] font-semibold text-[#717680]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
           <Repeat className="h-3 w-3" /> {FREQ_LABELS[item.frequency] || item.frequency}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">
-        <div className="divide-y divide-[#f2f4f7] px-6 py-2">
+        <div className="divide-y divide-[var(--color-surface-tertiary)] px-6 py-2">
           <PanelRow label="Status" value={item.status.charAt(0).toUpperCase() + item.status.slice(1)} />
           <PanelRow label="Frequency" value={FREQ_LABELS[item.frequency] || item.frequency} />
           <PanelRow label="Next due date" value={item.status === 'cancelled' ? 'Cancelled' : formatShortDate(item.nextDueDate)} />
@@ -528,7 +530,7 @@ function RecurringPanel({ item, onClose }: { item: RecurringInvoice; onClose: ()
           <PanelRow label="Auto-send" value={item.autoSend ? 'Enabled' : 'Disabled'} />
         </div>
       </div>
-      <div className="border-t border-[#e9eaeb] px-6 py-5">
+      <div className="border-t border-[var(--color-border)] px-6 py-5">
         <Button variant="secondary" className="w-full" asChild>
           <Link href={`/payments?recurring=${item.id}`}>
             <ArrowSquareOut className="h-4 w-4" /> Open in Payments
@@ -550,27 +552,29 @@ function StatusPill({ dot, label, bg, text }: { dot: string; label: string; bg: 
 
 function PanelHeader({ label, id, onClose }: { label: string; id: string; onClose: () => void }) {
   return (
-    <div className="flex items-center justify-between border-b border-[#e9eaeb] px-6 py-4">
+    <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
       <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">{label}</p>
-        <p className="mt-0.5 max-w-[320px] truncate text-[16px] font-bold leading-tight text-[#181d27]">{id}</p>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-placeholder)]">{label}</p>
+        <p className="mt-0.5 max-w-[320px] truncate text-[16px] font-bold leading-tight text-[var(--color-foreground)]">{id}</p>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={onClose}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#717680] transition-colors hover:bg-[#f2f4f7] hover:text-[#344054]"
+        className="h-8 w-8 shrink-0 rounded-lg text-[var(--color-text-tertiary)]"
+        aria-label="Close panel"
       >
         <X className="h-4 w-4" weight="bold" />
-      </button>
+      </Button>
     </div>
   );
 }
 
 function PanelHero({ amount, status }: { amount: string; status: React.ReactNode }) {
   return (
-    <div className="border-b border-[#e9eaeb] bg-[#f8f9fc] px-6 py-5">
-      <p className="mb-1 text-[11px] font-medium text-[#a4a7ae]">Amount</p>
-      <p className="mb-3 text-[32px] font-bold leading-none tracking-[-0.03em] text-[#181d27]">{amount}</p>
+    <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-6 py-5">
+      <p className="mb-1 text-[11px] font-medium text-[var(--color-text-muted)]">Amount</p>
+      <p className="mb-3 text-[32px] font-bold leading-none tracking-[-0.03em] text-[var(--color-foreground)]">{amount}</p>
       {status}
     </div>
   );
@@ -579,8 +583,8 @@ function PanelHero({ amount, status }: { amount: string; status: React.ReactNode
 function PanelRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="py-3.5">
-      <p className="mb-0.5 text-[11px] font-medium text-[#a4a7ae]">{label}</p>
-      <p className={`text-[13px] font-semibold text-[#344054] ${mono ? 'break-all font-mono text-[11px]' : ''}`}>{value}</p>
+      <p className="mb-0.5 text-[11px] font-medium text-[var(--color-text-muted)]">{label}</p>
+      <p className={`text-[13px] font-semibold text-[var(--color-text-secondary)] ${mono ? 'break-all font-mono text-[11px]' : ''}`}>{value}</p>
     </div>
   );
 }

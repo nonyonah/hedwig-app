@@ -9,13 +9,15 @@ import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { backendConfig } from '@/lib/auth/config';
 
 const CONTRACT_STATUS = {
-  draft:  { dot: 'bg-[#a4a7ae]', label: 'Draft',  bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
-  review: { dot: 'bg-[#2563eb]', label: 'Review', bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  signed: { dot: 'bg-[#12b76a]', label: 'Signed', bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
+  draft:  { dot: 'bg-[var(--color-text-muted)]', label: 'Draft',  bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  review: { dot: 'bg-[var(--color-accent)]', label: 'Review', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  signed: { dot: 'bg-[var(--color-success)]', label: 'Signed', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
 } as const;
 
 const STATUS_FILTERS = ['all', 'draft', 'review', 'signed'] as const;
@@ -30,6 +32,14 @@ export function ContractsClient({
   highlightedContractId?: string | null;
 }) {
   const { toast } = useToast();
+
+  useAssistantPageContext('Contracts', {
+    totalContracts: initialContracts.length,
+    signedCount: initialContracts.filter((c) => c.status === 'signed').length,
+    draftCount: initialContracts.filter((c) => c.status === 'draft').length,
+    reviewCount: initialContracts.filter((c) => c.status === 'review').length,
+  });
+
   const [contracts, setContracts] = useState(initialContracts);
   const [filter, setFilter] = useState('all');
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
@@ -132,8 +142,8 @@ export function ContractsClient({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-[15px] font-semibold text-[#181d27]">Contracts</h1>
-        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Create, send, and manage signed agreements with your clients.</p>
+        <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Contracts</h1>
+        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Create, send, and manage signed agreements with your clients.</p>
       </div>
 
       <AttachedStatGrid
@@ -146,15 +156,15 @@ export function ContractsClient({
       />
 
       {/* Table card */}
-      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
+      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
         {/* Unified header */}
-        <div className="flex items-center gap-3 border-b border-[#f2f4f7] px-5 py-3">
+        <div className="flex items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <span className="text-[12px] font-medium text-[#717680]">{contracts.length} contracts</span>
+            <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{contracts.length} contracts</span>
             {(signedCount > 0 || reviewCount > 0) && (
               <>
-                <span className="h-3 w-px shrink-0 bg-[#f2f4f7]" />
-                <span className="truncate text-[12px] text-[#a4a7ae]">
+                <span className="h-3 w-px shrink-0 bg-[var(--color-surface-tertiary)]" />
+                <span className="truncate text-[12px] text-[var(--color-text-muted)]">
                   {signedCount} signed{reviewCount > 0 ? ` · ${reviewCount} in review` : ''}
                   {isRefreshing ? ' · syncing…' : ''}
                 </span>
@@ -163,27 +173,28 @@ export function ContractsClient({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {STATUS_FILTERS.map((s) => (
-              <button
+              <Button
                 key={s}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setFilter(s)}
-                className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
                   filter === s
-                    ? 'bg-[#f5f5f5] text-[#181d27]'
-                    : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
+                    ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
+                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
                 {s === 'all' ? 'All' : CONTRACT_STATUS[s as keyof typeof CONTRACT_STATUS]?.label ?? s}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_110px_160px_44px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Title</span>
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Status</span>
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Client</span>
+        <div className="grid grid-cols-[1fr_110px_160px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Title</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Status</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Client</span>
           <span />
         </div>
 
@@ -191,20 +202,20 @@ export function ContractsClient({
         {filtered.length === 0 ? (
           <EmptyState text="No contracts match this filter." />
         ) : (
-          <div className="divide-y divide-[#f9fafb]">
+          <div className="divide-y divide-[var(--color-surface-secondary)]">
             {filtered.map((contract) => {
               const s = CONTRACT_STATUS[contract.status] ?? CONTRACT_STATUS.draft;
               const isHighlighted = contract.id === highlightedContractId;
               return (
-                <div key={contract.id} className={`grid grid-cols-[1fr_110px_160px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa] ${isHighlighted ? 'bg-[#f5f8ff]' : ''}`}>
+                <div key={contract.id} className={`grid grid-cols-[1fr_110px_160px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)] ${isHighlighted ? 'bg-[var(--color-accent-soft)]' : ''}`}>
                   <div className="min-w-0">
                     <Link href={`${backendConfig.publicPagesUrl}/contract/${contract.id}`} target="_blank" className="group flex items-center gap-1.5">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27] group-hover:text-[#717680] transition-colors">{contract.title}</p>
-                      <ArrowSquareOut className="h-3.5 w-3.5 shrink-0 text-[#a4a7ae] opacity-0 group-hover:opacity-100 transition-opacity" weight="bold" />
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-text-tertiary)] transition-colors">{contract.title}</p>
+                      <ArrowSquareOut className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" weight="bold" />
                     </Link>
                   </div>
                   <StatusPill dot={s.dot} label={s.label} bg={s.bg} text={s.text} />
-                  <p className="truncate text-[13px] text-[#717680]">{contract.clientName || contract.clientId || 'Unassigned'}</p>
+                  <p className="truncate text-[13px] text-[var(--color-text-tertiary)]">{contract.clientName || contract.clientId || 'Unassigned'}</p>
                   <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                     <RowActionsMenu items={contractActions(contract)} />
                   </div>
@@ -231,7 +242,7 @@ export function ContractsClient({
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <p className="text-[13px] text-[#a4a7ae]">{text}</p>
+      <p className="text-[13px] text-[var(--color-text-muted)]">{text}</p>
     </div>
   );
 }

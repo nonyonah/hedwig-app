@@ -18,30 +18,34 @@ import {
 import { hedwigApi } from '@/lib/api/client';
 import type { Contract, Invoice, Milestone, Project } from '@/lib/models/entities';
 import { cn, formatShortDate } from '@/lib/utils';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
+import { ProjectAssignmentPanel } from '@/components/workspace/project-assignment-panel';
+import { ProjectStatusActions } from '@/components/workspace/project-status-actions';
 import { useToast } from '@/components/providers/toast-provider';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { openPaymentDetail } from '@/lib/payments/open-detail';
 
 const PROJ_STATUS = {
-  active:    { label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
-  paused:    { label: 'Paused',    bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f59e0b]' },
-  completed: { label: 'Completed', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#a4a7ae]' },
+  active:    { label: 'Active',    bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]', dot: 'bg-[var(--color-success)]' },
+  paused:    { label: 'Paused',    bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]', dot: 'bg-[var(--color-warning)]' },
+  completed: { label: 'Completed', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]', dot: 'bg-[var(--color-text-muted)]' },
 } as const;
 
 const MILESTONE_STATUS = {
-  upcoming: { label: 'Upcoming', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
-  due_soon: { label: 'Due soon', bg: 'bg-[#fffaeb]', text: 'text-[#92400e]' },
-  done:     { label: 'Done',     bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  late:     { label: 'Late',     bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
+  upcoming: { label: 'Upcoming', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  due_soon: { label: 'Due soon', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  done:     { label: 'Done',     bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  late:     { label: 'Late',     bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
 } as const;
 
 const INV_STATUS = {
-  draft:   { label: 'Draft',   bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
-  sent:    { label: 'Sent',    bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  viewed:  { label: 'Viewed',  bg: 'bg-[#f0f9ff]', text: 'text-[#0e7490]' },
-  paid:    { label: 'Paid',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  overdue: { label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
+  draft:   { label: 'Draft',   bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  sent:    { label: 'Sent',    bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  viewed:  { label: 'Viewed',  bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  paid:    { label: 'Paid',    bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  overdue: { label: 'Overdue', bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
 } as const;
 
 function Pill({ bg, text, label }: { bg: string; text: string; label: string }) {
@@ -59,12 +63,12 @@ function SectionCard({ title, count, action, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#f2f4f7]">
-      <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-3">
+    <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-surface-tertiary)]">
+      <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-[13px] font-semibold text-[#181d27]">{title}</h2>
+          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">{title}</h2>
           {typeof count === 'number' && (
-            <span className="text-[12px] text-[#c1c5cd]">{count}</span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">{count}</span>
           )}
         </div>
         {action}
@@ -75,11 +79,11 @@ function SectionCard({ title, count, action, children }: {
 }
 
 function ColHead({ children }: { children: React.ReactNode }) {
-  return <th className="px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">{children}</th>;
+  return <th className="px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">{children}</th>;
 }
 
 function EmptyRow({ text }: { text: string }) {
-  return <div className="px-5 py-10 text-center text-[13px] text-[#a4a7ae]">{text}</div>;
+  return <div className="px-5 py-10 text-center text-[13px] text-[var(--color-text-muted)]">{text}</div>;
 }
 
 export function ProjectDetailClient({
@@ -99,6 +103,17 @@ export function ProjectDetailClient({
 }) {
   const { toast } = useToast();
   const { formatAmount } = useCurrency();
+  const { activeWorkspace } = useWorkspaceContext();
+  const canManage = activeWorkspace?.role === 'owner' || activeWorkspace?.role === 'admin';
+  const isMember = activeWorkspace?.role === 'member';
+
+  useAssistantPageContext('Project Detail', {
+    projectName: initialProject.name,
+    projectStatus: initialProject.status,
+    milestonesCount: milestones.length,
+    invoicesCount: invoices.length,
+  });
+
   const [project, setProject] = useState(initialProject);
   const [milestoneList, setMilestoneList] = useState(milestones);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
@@ -149,6 +164,7 @@ export function ProjectDetailClient({
       const resp = await fetch(`/api/backend/api/milestones/${milestoneId}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ skipInvoice: isMember }),
       });
       const data = await resp.json().catch(() => ({ success: false })) as {
         success?: boolean;
@@ -184,19 +200,19 @@ export function ProjectDetailClient({
     <div className="space-y-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[13px]">
-        <Link href="/projects" className="flex items-center gap-1.5 text-[#a4a7ae] transition-colors hover:text-[#525866]">
+        <Link href="/projects" className="flex items-center gap-1.5 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]">
           <ArrowLeft className="h-3 w-3" weight="bold" />
           Projects
         </Link>
-        <span className="text-[#e9eaeb]">/</span>
-        <span className="text-[#525866]">{project.name}</span>
+        <span className="text-[var(--color-border)]">/</span>
+        <span className="text-[var(--color-text-secondary)]">{project.name}</span>
       </div>
 
       {/* Calendar context banner */}
       {highlightedMilestone && (
-        <div className="flex items-start gap-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#2563eb]" weight="fill" />
-          <p className="text-[13px] text-[#1d4ed8]">
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-primary-light)] bg-[var(--color-accent-soft)] px-4 py-3">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-accent)]" weight="fill" />
+          <p className="text-[13px] text-[var(--color-primary-dark)]">
             Milestone <span className="font-semibold">{highlightedMilestone.name}</span> is{' '}
             <span className="font-semibold">{MILESTONE_STATUS[highlightedMilestone.status]?.label ?? highlightedMilestone.status}</span>{' '}
             — due {formatShortDate(highlightedMilestone.dueAt)}.
@@ -205,57 +221,71 @@ export function ProjectDetailClient({
       )}
 
       {/* Record header */}
-      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#f2f4f7]">
-        <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-4">
+      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-surface-tertiary)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f5f5f5]">
-              <FolderSimple className="h-4 w-4 text-[#8d9096]" weight="bold" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-secondary)]">
+              <FolderSimple className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-[15px] font-semibold text-[#181d27]">{project.name}</h1>
+                <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">{project.name}</h1>
                 <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', s.bg, s.text)}>
                   <span className={cn('h-1.5 w-1.5 rounded-full', s.dot)} />
                   {s.label}
                 </span>
               </div>
-              <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
-                {project.ownerName} · {completedMilestones}/{milestoneList.length} milestones · {formatAmount(project.budgetUsd, { compact: true })} budget
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">
+                {project.ownerName} · {completedMilestones}/{milestoneList.length} milestones
+                {isMember && project.memberPayout != null
+                  ? ` · ${formatAmount(project.memberPayout, { compact: true })} your pay`
+                  : !isMember && project.budgetUsd > 0 ? ` · ${formatAmount(project.budgetUsd, { compact: true })} budget` : ''}
               </p>
             </div>
           </div>
-          <Button size="sm" variant="secondary" onClick={openEdit}>
-            <NotePencil className="h-3.5 w-3.5" weight="bold" />
-            Edit
-          </Button>
+          <div className="flex items-center gap-3">
+            <ProjectStatusActions
+              status={project.status as any}
+              role={activeWorkspace?.role ?? null}
+              onStatusChange={async (newStatus) => {
+                await hedwigApi.updateProject(project.id, { status: newStatus as any }, { accessToken: accessToken ?? '' });
+                setProject({ ...project, status: newStatus as any });
+              }}
+            />
+            <div className="h-5 w-px bg-[var(--color-border-light)]" />
+            <Button size="sm" variant="secondary" onClick={openEdit}>
+              <NotePencil className="h-3.5 w-3.5" weight="bold" />
+              Edit
+            </Button>
+          </div>
         </div>
 
         {/* Progress bar */}
-        <div className="flex items-center gap-3 border-b border-[#f9fafb] px-5 py-3">
-          <span className="w-[120px] shrink-0 text-[12px] text-[#a4a7ae]">Progress</span>
+        <div className="flex items-center gap-3 border-b border-[var(--color-surface-secondary)] px-5 py-3">
+          <span className="w-[120px] shrink-0 text-[12px] text-[var(--color-text-muted)]">Progress</span>
           <div className="flex flex-1 items-center gap-3">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#f2f4f7]">
-              <div className="h-full rounded-full bg-[#2563eb] transition-all" style={{ width: `${project.progress}%` }} />
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+              <div className="h-full rounded-full bg-[var(--color-accent)] transition-all" style={{ width: `${project.progress}%` }} />
             </div>
-            <span className="w-8 text-right text-[12px] tabular-nums text-[#8d9096]">{project.progress}%</span>
+            <span className="w-8 text-right text-[12px] tabular-nums text-[var(--color-text-tertiary)]">{project.progress}%</span>
           </div>
         </div>
 
         {/* Details rows */}
-        <div className="divide-y divide-[#f9fafb] px-5">
+        <div className="divide-y divide-[var(--color-surface-secondary)] px-5">
           {[
             { label: 'Deadline', value: formatShortDate(project.nextDeadlineAt), icon: <CalendarBlank className="h-3.5 w-3.5" /> },
-            { label: 'Budget',   value: formatAmount(project.budgetUsd), icon: <CurrencyDollar className="h-3.5 w-3.5" /> },
+            { label: isMember && project.memberPayout != null ? 'Your pay' : 'Budget', value: isMember && project.memberPayout != null ? formatAmount(project.memberPayout) : formatAmount(project.budgetUsd), icon: <CurrencyDollar className="h-3.5 w-3.5" /> },
             { label: 'Owner',    value: project.ownerName, icon: <Target className="h-3.5 w-3.5" /> },
             { label: 'Contract', value: project.contract?.title ?? null, icon: <Info className="h-3.5 w-3.5" /> },
-          ].map(({ label, value, icon }) => (
+          ].filter(row => !isMember || row.label !== 'Contract').map(({ label, value, icon }) => (
             <div key={label} className="flex items-center gap-3 py-2.5">
-              <div className="flex w-[120px] shrink-0 items-center gap-2 text-[#c1c5cd]">
+              <div className="flex w-[120px] shrink-0 items-center gap-2 text-[var(--color-text-muted)]">
                 {icon}
-                <span className="text-[12px] text-[#a4a7ae]">{label}</span>
+                <span className="text-[12px] text-[var(--color-text-muted)]">{label}</span>
               </div>
-              <span className="text-[13px] text-[#414651]">
-                {value || <span className="text-[#d0d5dd]">—</span>}
+              <span className="text-[13px] text-[var(--color-text-secondary)]">
+                {value || <span className="text-[var(--color-border-input)]">—</span>}
               </span>
             </div>
           ))}
@@ -278,7 +308,7 @@ export function ProjectDetailClient({
             ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#f2f4f7]">
+                  <tr className="border-b border-[var(--color-surface-tertiary)]">
                     <ColHead>Milestone</ColHead>
                     <ColHead>Status</ColHead>
                     <ColHead>Due</ColHead>
@@ -286,44 +316,60 @@ export function ProjectDetailClient({
                     <ColHead><span className="sr-only">Actions</span></ColHead>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f9fafb]">
+                <tbody className="divide-y divide-[var(--color-surface-secondary)]">
                   {milestoneList.map((m) => {
                     const ms = MILESTONE_STATUS[m.status] ?? MILESTONE_STATUS.upcoming;
                     const canComplete = m.status !== 'done' && !m.invoiceId;
+                    const canApprove = m.status === 'done' && !m.invoiceId && canManage;
                     const isCompleting = completingIds.has(m.id);
                     return (
                       <tr
                         key={m.id}
-                        className={cn('transition-colors', m.id === highlightedMilestoneId ? 'bg-[#f0f7ff]' : 'hover:bg-[#fafafa]')}
+                        className={cn('transition-colors', m.id === highlightedMilestoneId ? 'bg-[var(--color-accent-soft)]' : 'hover:bg-[var(--color-background)]')}
                       >
                         <td className="px-5 py-2.5">
-                          <p className="text-[13px] font-medium text-[#252b37]">{m.name}</p>
+                          <p className="text-[13px] font-medium text-[var(--color-foreground)]">{m.name}</p>
                           {m.id === highlightedMilestoneId && (
-                            <span className="text-[11px] font-medium text-[#2563eb]">From calendar</span>
+                            <span className="text-[11px] font-medium text-[var(--color-accent)]">From calendar</span>
                           )}
                         </td>
                         <td className="px-5 py-2.5"><Pill bg={ms.bg} text={ms.text} label={ms.label} /></td>
-                        <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(m.dueAt)}</td>
-                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{m.amountUsd ? formatAmount(m.amountUsd, { compact: true }) : '—'}</td>
+                        <td className="px-5 py-2.5 text-[12px] text-[var(--color-text-muted)]">{formatShortDate(m.dueAt)}</td>
+                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[var(--color-text-tertiary)]">{isMember ? '—' : (m.amountUsd ? formatAmount(m.amountUsd, { compact: true }) : '—')}</td>
                         <td className="px-5 py-2.5 text-right">
                           {canComplete && (
-                            <button
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => completeMilestone(m.id)}
                               disabled={isCompleting}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1 text-[11px] font-semibold text-[#414651] transition-colors hover:bg-[#f9fafb] disabled:opacity-50"
+                              className="rounded-full px-3 py-1 text-[11px] font-semibold"
                             >
-                              <CheckCircle className={cn('h-3.5 w-3.5', isCompleting ? 'text-[#c1c5cd]' : 'text-[#12b76a]')} weight="fill" />
+                              <CheckCircle className={cn('h-3.5 w-3.5', isCompleting ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-success)]')} weight="fill" />
                               {isCompleting ? 'Sending…' : 'Mark complete'}
-                            </button>
+                            </Button>
+                          )}
+                          {canApprove && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => completeMilestone(m.id)}
+                              disabled={isCompleting}
+                              className="rounded-full bg-[var(--color-success-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--color-success)]"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 text-[var(--color-success)]" weight="fill" />
+                              {isCompleting ? 'Invoicing…' : 'Approve & invoice'}
+                            </Button>
                           )}
                           {m.status === 'done' && m.invoiceId && (
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => openPaymentDetail('invoice', m.invoiceId!)}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#2563eb] hover:underline"
+                              className="text-[11px] font-medium text-[var(--color-accent)] hover:underline"
                             >
                               View invoice
-                            </button>
+                            </Button>
                           )}
                         </td>
                       </tr>
@@ -336,39 +382,44 @@ export function ProjectDetailClient({
         </div>
 
         <div className="space-y-4">
-          {/* Contract */}
+          {/* Assigned members */}
+          <ProjectAssignmentPanel projectId={project.id} canManage={canManage} />
+          {/* Contract — hidden from members */}
+          {!isMember && (
           <SectionCard title="Contract">
             {!contract ? (
               <EmptyRow text="No contract linked." />
             ) : (
-              <Link href={`/contracts?contract=${contract.id}`} className="block px-5 py-3 transition-colors hover:bg-[#fafafa]">
+              <Link href={`/contracts?contract=${contract.id}`} className="block px-5 py-3 transition-colors hover:bg-[var(--color-background)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-[#252b37]">{contract.title}</p>
+                    <p className="text-[13px] font-medium text-[var(--color-foreground)]">{contract.title}</p>
                     {contract.signedAt && (
-                      <p className="mt-0.5 text-[11px] text-[#a4a7ae]">Signed {formatShortDate(contract.signedAt)}</p>
+                      <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">Signed {formatShortDate(contract.signedAt)}</p>
                     )}
                   </div>
                   {(() => {
                     const cs = contract.status === 'signed'
-                      ? { bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' }
+                      ? { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' }
                       : contract.status === 'review'
-                      ? { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' }
-                      : { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' };
+                      ? { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' }
+                      : { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
                     return <Pill bg={cs.bg} text={cs.text} label={contract.status} />;
                   })()}
                 </div>
               </Link>
             )}
           </SectionCard>
+          )}
 
-          {/* Invoices */}
+          {/* Invoices — hidden from members */}
+          {!isMember && (
           <SectionCard
             title="Invoices"
             count={invoices.length}
             action={
               invoices.length > 5 ? (
-                <Link href={`/payments?project=${project.id}`} className="text-[12px] font-medium text-[#a4a7ae] transition-colors hover:text-[#525866]">
+                <Link href={`/payments?project=${project.id}`} className="text-[12px] font-medium text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]">
                   See all
                 </Link>
               ) : undefined
@@ -377,7 +428,7 @@ export function ProjectDetailClient({
             {invoices.length === 0 ? (
               <EmptyRow text="No invoices for this project." />
             ) : (
-              <div className="divide-y divide-[#f9fafb]">
+              <div className="divide-y divide-[var(--color-surface-secondary)]">
                 {invoices.slice(0, 5).map((inv) => {
                   const is = INV_STATUS[inv.status] ?? INV_STATUS.draft;
                   return (
@@ -385,14 +436,14 @@ export function ProjectDetailClient({
                       key={inv.id}
                       type="button"
                       onClick={() => openPaymentDetail('invoice', inv.id)}
-                      className="flex w-full items-center justify-between px-5 py-2.5 text-left transition-colors hover:bg-[#fafafa]"
+                      className="flex w-full items-center justify-between px-5 py-2.5 text-left transition-colors hover:bg-[var(--color-background)]"
                     >
                       <div>
-                        <p className="text-[13px] font-medium text-[#252b37]">{inv.number}</p>
-                        <p className="text-[11px] text-[#a4a7ae]">Due {formatShortDate(inv.dueAt)}</p>
+                        <p className="text-[13px] font-medium text-[var(--color-foreground)]">{inv.number}</p>
+                        <p className="text-[11px] text-[var(--color-text-muted)]">Due {formatShortDate(inv.dueAt)}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <span className="text-[13px] font-semibold tabular-nums text-[#252b37]">{formatAmount(inv.amountUsd, { compact: true })}</span>
+                        <span className="text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">{formatAmount(inv.amountUsd, { compact: true })}</span>
                         <Pill bg={is.bg} text={is.text} label={is.label} />
                       </div>
                     </button>
@@ -401,6 +452,7 @@ export function ProjectDetailClient({
               </div>
             )}
           </SectionCard>
+          )}
         </div>
       </div>
 
@@ -413,28 +465,31 @@ export function ProjectDetailClient({
           </DialogHeader>
           <DialogBody className="space-y-3.5">
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Title <span className="text-[#f04438]">*</span></label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Title <span className="text-[var(--color-danger)]">*</span></label>
               <Input value={form.title} onChange={(e) => updateField('title', e.target.value)} placeholder="Project title" disabled={isSaving} />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Budget (USD)</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Budget (USD)</label>
               <Input type="number" value={form.budget} onChange={(e) => updateField('budget', e.target.value)} placeholder="0" disabled={isSaving} />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Deadline</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Deadline</label>
               <Input type="date" value={form.deadline} onChange={(e) => updateField('deadline', e.target.value)} disabled={isSaving} />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Status</label>
-              <div className="flex h-9 w-full items-center rounded-lg border border-[#d5d7da] bg-white px-3 shadow-xs">
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Status</label>
+              <div className="flex h-9 w-full items-center rounded-lg border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 shadow-xs">
                 <select
-                  className="w-full bg-transparent text-[13px] text-[#181d27] outline-none"
+                  className="w-full bg-transparent text-[13px] text-[var(--color-text-primary)] outline-none"
                   value={form.status}
                   onChange={(e) => updateField('status', e.target.value)}
                   disabled={isSaving}
                 >
                   <option value="active">Active</option>
                   <option value="paused">Paused</option>
+                  <option value="review">In review</option>
+                  <option value="approved">Approved</option>
+                  <option value="changes_requested">Changes requested</option>
                   <option value="completed">Completed</option>
                 </select>
               </div>

@@ -56,6 +56,8 @@ import revenueRoutes from './routes/revenue';
 import currencyRoutes from './routes/currency';
 import assistantRoutes from './routes/assistant';
 import bankAccountRoutes from './routes/bankAccount';
+import workspaceRoutes from './routes/workspaces';
+import timeRoutes from './routes/time';
 import { warmRateSnapshot } from './services/currency';
 
 // Import middleware
@@ -212,6 +214,8 @@ const inferredOrigins = [
     normalizeOrigin(process.env.APP_URL || ''),
     'https://hedwigbot.xyz',
     'https://www.hedwigbot.xyz',
+    'https://money.hedwigbot.xyz',
+    'https://hedwig-app-wuqvha-production.up.railway.app',
     'https://pay.hedwigbot.xyz',
 ].filter(Boolean);
 
@@ -416,6 +420,26 @@ schedulerRouter.post('/gmail-import-sync', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.syncConnectedGmailInboxes();
 });
+schedulerRouter.post('/viewed-followup-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendViewedDocumentFollowUpNudges();
+});
+schedulerRouter.post('/client-reactivation-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendClientReactivationNudges();
+});
+schedulerRouter.post('/recurring-upsell-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendRecurringInvoiceUpsellNudges();
+});
+schedulerRouter.post('/integration-teaser-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendIntegrationTeaserNudges();
+});
+schedulerRouter.post('/payment-link-boost-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendPaymentLinkBoostNudges();
+});
 
 app.use('/internal/scheduler', schedulerRouter);
 
@@ -446,6 +470,7 @@ app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/milestones', milestoneRoutes);
+app.use('/api/time-entries', timeRoutes);
 app.use('/api/webhooks/paycrest', (req, _res, next) => {
     logger.info('Paycrest webhook route hit', {
         method: req.method,
@@ -503,6 +528,7 @@ app.use('/api/revenue', insightsLimiter, revenueRoutes);
 app.use('/api/currency', currencyRoutes);
 app.use('/api/assistant', insightsLimiter, assistantRoutes);
 app.use('/api/bank-account', financialLimiter, bankAccountRoutes);
+app.use('/api/workspaces', workspaceRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

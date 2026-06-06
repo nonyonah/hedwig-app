@@ -80,8 +80,10 @@ export interface CreateRecurringInvoiceInput {
 
 const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
 
-interface ApiOptions {
+export interface ApiOptions {
   accessToken?: string | null;
+  /** Active workspace — required for SSR; client reads localStorage when omitted. */
+  workspaceId?: string | null;
   disableMockFallback?: boolean;
 }
 
@@ -278,7 +280,6 @@ const normalizeWalletChain = (value?: string | null): string => {
   if (chain === 'arbitrum' || chain === 'arbitrum-one') return 'Arbitrum';
   if (chain === 'polygon' || chain === 'polygon-pos') return 'Polygon';
   if (chain === 'optimism' || chain === 'op') return 'Optimism';
-  if (chain === 'celo') return 'Celo';
   return 'Base';
 };
 
@@ -286,7 +287,7 @@ const assetNameBySymbol: Record<string, string> = {
   USDC: 'USD Coin'
 };
 
-const supportedWalletAssets = new Set(['Base:USDC', 'Solana:USDC', 'Arbitrum:USDC', 'Polygon:USDC', 'Optimism:USDC', 'Celo:USDC']);
+const supportedWalletAssets = new Set(['Base:USDC', 'Solana:USDC', 'Arbitrum:USDC', 'Polygon:USDC', 'Optimism:USDC']);
 const walletAssetDecimals: Record<string, number> = {
   USDC: 6
 };
@@ -416,6 +417,7 @@ const mapBackendProject = (project: any): Project => ({
   name: String(project.title || project.name || 'Untitled project'),
   status: normalizeProjectStatus(project.status),
   budgetUsd: Number(project.budget ?? project.progress?.totalAmount ?? 0),
+  memberPayout: project.memberPayout ?? null,
   progress: Number(project.progress?.percentage ?? project.progress ?? 0),
   nextDeadlineAt: String(project.deadline || project.nextDeadlineAt || project.startDate || new Date().toISOString()),
   ownerName: currentUser.firstName + ' ' + currentUser.lastName,
@@ -436,6 +438,7 @@ const mapCreatedProject = (project: any, clientId: string): Project => ({
   name: String(project.title || project.name || 'Untitled project'),
   status: normalizeProjectStatus(project.status),
   budgetUsd: Number(project.budget ?? 0),
+  memberPayout: project.memberPayout ?? null,
   progress: Number(project.progress?.percentage ?? 0),
   nextDeadlineAt: String(project.deadline || project.nextDeadlineAt || new Date().toISOString()),
   ownerName: currentUser.firstName + ' ' + currentUser.lastName,
@@ -718,11 +721,21 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
 const shouldUseMockFallback = (options?: ApiOptions) =>
   options?.accessToken === 'demo' && !options?.disableMockFallback;
 
-const authHeaders = (accessToken: string) => ({
-  Authorization: `Bearer ${accessToken}`,
-  'Content-Type': 'application/json',
-  'x-hedwig-shared-backend': backendConfig.apiBaseUrl
-});
+const AUTH_HEADER = 'Authorization';
+const WORKSPACE_HEADER = 'x-workspace-id';
+import { ACTIVE_WORKSPACE_STORAGE_KEY } from '@/lib/workspace/constants';
+import { readActiveWorkspaceIdFromStorage } from '@/lib/workspace/active-workspace';
+
+const authHeaders = (accessToken: string, workspaceId?: string | null) => {
+  const headers: Record<string, string> = {
+    [AUTH_HEADER]: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    'x-hedwig-shared-backend': backendConfig.apiBaseUrl,
+  };
+  const wsId = workspaceId ?? readActiveWorkspaceIdFromStorage();
+  if (wsId) headers[WORKSPACE_HEADER] = wsId;
+  return headers;
+};
 
 function capturePostHogEvent(event: string, properties: Record<string, unknown>): void {
   if (typeof window === 'undefined') return;
@@ -746,7 +759,7 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
       ...init,
       cache: 'no-store',
       headers: {
-        ...authHeaders(options.accessToken),
+        ...authHeaders(options.accessToken, options.workspaceId),
         ...(init?.headers ?? {})
       }
     });
@@ -1170,14 +1183,14 @@ export const hedwigApi = {
             currency: input.currency,
             deadline: input.deadline,
             startDate: input.startDate,
-            status:
-              input.status === 'completed'
-                ? 'COMPLETED'
-                : input.status === 'paused'
-                  ? 'PAUSED'
-                  : input.status === 'active'
-                    ? 'ACTIVE'
-                    : undefined
+            status: input.status
+              ? (
+                input.status === 'completed' ? 'COMPLETED'
+                : input.status === 'paused' ? 'PAUSED'
+                : input.status === 'active' ? 'ACTIVE'
+                : (input.status as string).toUpperCase()
+              )
+              : undefined
           })
         });
         return mapBackendProject(data.project);
@@ -2149,6 +2162,72 @@ export const hedwigApi = {
     );
   },
 
+  // ── Workspaces ──────────────────────────────────────────────────────────────
+
+  async workspaces(options?: ApiOptions): Promise<{ workspaces: any[] }> {
+    return request<{ workspaces: any[] }>('/api/workspaces', options);
+  },
+
+  async workspace(id: string, options?: ApiOptions): Promise<{ workspace: any }> {
+    return request<{ workspace: any }>(`/api/workspaces/${id}`, options);
+  },
+
+  async createWorkspace(name: string, options?: ApiOptions): Promise<{ workspace: any }> {
+    return request<{ workspace: any }>('/api/workspaces', options, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  async updateWorkspace(id: string, data: { name?: string }, options?: ApiOptions): Promise<{ workspace: any }> {
+    return request<{ workspace: any }>(`/api/workspaces/${id}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteWorkspace(id: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}`, options, { method: 'DELETE' });
+  },
+
+  async workspaceMembers(id: string, options?: ApiOptions): Promise<{ members: any[] }> {
+    return request<{ members: any[] }>(`/api/workspaces/${id}/members`, options);
+  },
+
+  async updateWorkspaceMemberRole(id: string, userId: string, role: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}/members/${userId}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  },
+
+  async removeWorkspaceMember(id: string, userId: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}/members/${userId}`, options, { method: 'DELETE' });
+  },
+
+  async workspaceInvitations(id: string, options?: ApiOptions): Promise<{ invitations: any[] }> {
+    return request<{ invitations: any[] }>(`/api/workspaces/${id}/invitations`, options);
+  },
+
+  async inviteWorkspaceMember(id: string, email: string, role: string = 'member', options?: ApiOptions): Promise<{ invitation: any }> {
+    return request<{ invitation: any }>(`/api/workspaces/${id}/invitations`, options, {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    });
+  },
+
+  async cancelWorkspaceInvitation(id: string, invitationId: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/workspaces/${id}/invitations/${invitationId}`, options, { method: 'DELETE' });
+  },
+
+  async acceptWorkspaceInvitation(token: string, options?: ApiOptions): Promise<{ workspaceId: string; workspaceName: string; role: string }> {
+    return request<{ workspaceId: string; workspaceName: string; role: string }>(
+      `/api/workspaces/invitations/${token}/accept`,
+      options,
+      { method: 'POST' }
+    );
+  },
+
   async createRevenueCredit(payload: {
     amount: number;
     currency: string;
@@ -2239,6 +2318,51 @@ export const hedwigApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    });
+  },
+
+  // ── Time Entries ────────────────────────────────────────────────────────────
+
+  async timeEntries(filters?: { from?: string; to?: string; projectId?: string; status?: string }, options?: ApiOptions) {
+    const params = new URLSearchParams();
+    if (filters?.from) params.set('from', filters.from);
+    if (filters?.to) params.set('to', filters.to);
+    if (filters?.projectId) params.set('projectId', filters.projectId);
+    if (filters?.status) params.set('status', filters.status);
+    const qs = params.toString();
+    return request<{ entries: any[] }>(`/api/time-entries${qs ? `?${qs}` : ''}`, options);
+  },
+
+  async timeEntryActive(options?: ApiOptions) {
+    return request<{ entry: any | null }>('/api/time-entries/active', options);
+  },
+
+  async timeSummary(options?: ApiOptions) {
+    return request<{ summary: any }>('/api/time-entries/summary', options);
+  },
+
+  async createTimeEntry(input: {
+    projectId?: string; description?: string; startTime?: string; endTime?: string;
+    durationSeconds?: number; hourlyRate?: number; status?: string;
+  }, options?: ApiOptions) {
+    return request<{ entry: any }>('/api/time-entries', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  },
+
+  async updateTimeEntry(id: string, input: { description?: string; hourlyRate?: number; projectId?: string; startTime?: string; endTime?: string; durationSeconds?: number; action?: string }, options?: ApiOptions) {
+    return request<{ entry: any }>(`/api/time-entries/${id}`, options, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  },
+
+  async deleteTimeEntry(id: string, options?: ApiOptions) {
+    return request<{ success: boolean }>(`/api/time-entries/${id}`, options, {
+      method: 'DELETE',
     });
   },
 };
