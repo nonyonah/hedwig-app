@@ -5,17 +5,7 @@ import { X } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { hedwigApi } from '@/lib/api/client';
-
-interface TimeEntry {
-  id: string;
-  projectId: string | null;
-  description: string | null;
-  startTime: string;
-  endTime: string | null;
-  durationSeconds: number | null;
-  hourlyRate: number | null;
-  project?: { id: string; name: string; client?: { id: string; name: string } };
-}
+import type { TimeEntry } from '@/components/time/types';
 
 export function TimeEntryForm({
   initial,

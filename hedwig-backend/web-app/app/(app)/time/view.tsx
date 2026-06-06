@@ -10,29 +10,7 @@ import { TimeTracker } from '@/components/time/time-tracker';
 import { TimeEntryForm } from '@/components/time/time-entry-form';
 import { TimeEntriesList } from '@/components/time/time-entries-list';
 import { TimeSummaryCards } from '@/components/time/time-summary-cards';
-
-interface TimeEntry {
-  id: string;
-  projectId: string | null;
-  description: string | null;
-  startTime: string;
-  endTime: string | null;
-  durationSeconds: number | null;
-  hourlyRate: number | null;
-  billableAmount: number | null;
-  status: string;
-  createdAt: string;
-  project?: { id: string; name: string; client?: { id: string; name: string } };
-}
-
-interface TimeSummary {
-  hoursToday: number;
-  hoursThisWeek: number;
-  hoursThisMonth: number;
-  billableAmount: number;
-  topClient: { id: string; name: string; hours: number } | null;
-  topProject: { id: string; name: string; hours: number } | null;
-}
+import type { TimeEntry, TimeSummary } from '@/components/time/types';
 
 export function TimeView({
   accessToken,

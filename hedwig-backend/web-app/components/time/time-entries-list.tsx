@@ -1,19 +1,7 @@
 'use client';
 
 import { PencilSimple, Trash } from '@/components/ui/lucide-icons';
-
-interface TimeEntry {
-  id: string;
-  projectId: string | null;
-  description: string | null;
-  startTime: string;
-  endTime: string | null;
-  durationSeconds: number | null;
-  hourlyRate: number | null;
-  billableAmount: number | null;
-  status: string;
-  project?: { id: string; name: string; client?: { id: string; name: string } };
-}
+import type { TimeEntry } from '@/components/time/types';
 
 function fmtDuration(seconds: number | null): string {
   if (!seconds || seconds <= 0) return '';

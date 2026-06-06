@@ -1,15 +1,7 @@
 'use client';
 
 import { ClockCountdown, CurrencyDollar, UsersThree, FolderSimple } from '@/components/ui/lucide-icons';
-
-interface TimeSummary {
-  hoursToday: number;
-  hoursThisWeek: number;
-  hoursThisMonth: number;
-  billableAmount: number;
-  topClient: { id: string; name: string; hours: number } | null;
-  topProject: { id: string; name: string; hours: number } | null;
-}
+import type { TimeSummary } from '@/components/time/types';
 
 function fmtHours(h: number): string {
   if (h <= 0) return '—';
