@@ -1,12 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth';
-import { getOrCreateUser } from '../services/user';
+import { getOrCreateUser } from '../utils/userHelper';
 import { WorkspaceService } from '../services/workspace';
 import { TimeEntriesService } from '../services/timeEntries';
-import { createLogger } from '../utils/logger';
 
 const router = Router();
-const logger = createLogger('TimeRoutes');
 
 function getParam(req: Request, name: string): string {
   return (req.params as any)[name] || '';
@@ -14,9 +12,7 @@ function getParam(req: Request, name: string): string {
 
 router.use(authenticate);
 
-// ── Start / Manual Create ───────────────────────────────────────────────────
-
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', async (req: Request, res: Response, _next: NextFunction) => {
   try {
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
@@ -96,7 +92,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
 
 // ── Stop / Update ────────────────────────────────────────────────────────────
 
-router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', async (req: Request, res: Response, _next: NextFunction) => {
   try {
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);

@@ -300,7 +300,7 @@ router.post('/transfer/submit', authenticate, async (req: Request, res: Response
 router.get('/transfer/:transferId/status', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { pollGatewayTransfer } = await import('../services/gateway');
-        const transferId = req.params.transferId;
+        const transferId = String(req.params.transferId || '');
 
         if (!transferId) {
             res.status(400).json({ success: false, error: { message: 'transferId is required' } });
