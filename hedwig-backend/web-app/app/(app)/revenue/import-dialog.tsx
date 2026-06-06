@@ -167,8 +167,8 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
   };
 
   const inputCls =
-    'w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]';
-  const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[#414651]';
+    'w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]';
+  const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]';
 
   const selectedCurrency = currencyOptions.find((opt) => opt.code === editCurrency)
     ?? { code: editCurrency, label: editCurrency, symbol: editCurrency };
@@ -191,13 +191,13 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
               onDragLeave={handleDragLeave}
               onClick={() => fileInputRef.current?.click()}
               className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 transition ${
-                dragOver ? 'border-[#2563eb] bg-[#eff4ff]' : 'border-[#e9eaeb] bg-[#fafbfc] hover:border-[#2563eb]'
+                dragOver ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]'
               }`}
             >
-              <UploadSimple className="h-10 w-10 text-[#a4a7ae]" weight="light" />
+              <UploadSimple className="h-10 w-10 text-[var(--color-text-muted)]" weight="light" />
               <div className="text-center">
-                <p className="text-[13px] font-semibold text-[#414651]">Drop a file here or click to browse</p>
-                <p className="mt-0.5 text-[12px] text-[#a4a7ae]">PDF, PNG, JPG, WebP (max 10 MB)</p>
+                <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Drop a file here or click to browse</p>
+                <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">PDF, PNG, JPG, WebP (max 10 MB)</p>
               </div>
               <input
                 ref={fileInputRef}
@@ -215,9 +215,9 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
 
           {step === 'analyzing' && (
             <div className="flex flex-col items-center justify-center gap-3 py-12">
-              <SpinnerGap className="h-8 w-8 animate-spin text-[#2563eb]" weight="bold" />
-              <p className="text-[13px] font-semibold text-[#414651]">Analyzing document…</p>
-              <p className="text-[12px] text-[#a4a7ae]">Hedwig is reading your {file?.name}</p>
+              <SpinnerGap className="h-8 w-8 animate-spin text-[var(--color-primary)]" weight="bold" />
+              <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Analyzing document…</p>
+              <p className="text-[12px] text-[var(--color-text-muted)]">Hedwig is reading your {file?.name}</p>
             </div>
           )}
 
@@ -227,8 +227,8 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
               <div className="flex items-center gap-3">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold ${
                   entryType === 'expense'
-                    ? 'bg-[#fff1f0] text-[#b42318]'
-                    : 'bg-[#ecfdf3] text-[#027a48]'
+                    ? 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]'
+                    : 'bg-[var(--color-success-soft)] text-[var(--color-success)]'
                 }`}>
                   <ArrowsDownUp className="h-3.5 w-3.5" weight="bold" />
                   {entryType === 'expense' ? 'Expense' : 'Earning'}
@@ -237,20 +237,20 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
                 <button
                   type="button"
                   onClick={() => setEntryType(entryType === 'expense' ? 'credit' : 'expense')}
-                  className="text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8] transition"
+                  className="text-[12px] font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] transition"
                 >
                   Change to {entryType === 'expense' ? 'earning' : 'expense'}
                 </button>
 
                 {analysis.confidence && (
-                  <span className="ml-auto text-[11px] text-[#a4a7ae]">
+                  <span className="ml-auto text-[11px] text-[var(--color-text-muted)]">
                     Confidence: {Math.round(analysis.confidence * 100)}%
                   </span>
                 )}
               </div>
 
               {analysis.summary && (
-                <p className="rounded-lg bg-[#f5f6fa] px-3 py-2 text-[12px] text-[#535862] leading-relaxed">
+                <p className="rounded-lg bg-[var(--color-surface-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)] leading-relaxed">
                   {analysis.summary}
                 </p>
               )}
@@ -259,8 +259,8 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
               <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
                 <div>
                   <label className={labelCls}>Amount</label>
-                  <div className="flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
-                    <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[13px] font-semibold text-[#a4a7ae]">
+                  <div className="flex items-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs transition focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-accent-soft)]">
+                    <span className="flex h-full items-center border-r border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-muted)]">
                       {selectedCurrency.symbol}
                     </span>
                     <input
@@ -270,7 +270,7 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
                       value={editAmount}
                       onChange={(e) => setEditAmount(e.target.value)}
                       placeholder="0.00"
-                      className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
+                      className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[var(--color-foreground)] placeholder:text-[var(--color-text-muted)] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
               </div>
 
               <div>
-                <label className={labelCls}>Note <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
+                <label className={labelCls}>Note <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
                 <input
                   type="text"
                   value={editNote}
@@ -332,7 +332,7 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
               <button
                 type="button"
                 onClick={() => { setStep('upload'); setFile(null); setAnalysis(null); }}
-                className="text-[12px] font-semibold text-[#717680] hover:text-[#414651] transition"
+                className="text-[12px] font-semibold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition"
               >
                 Upload a different file
               </button>

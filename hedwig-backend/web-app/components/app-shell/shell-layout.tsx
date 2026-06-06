@@ -51,13 +51,13 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
   return (
     <TutorialProvider isDemo={isDemo}>
       <AssistantSidebarProvider>
-        <div className="min-h-screen bg-[#fafafa] text-foreground">
+        <div className="min-h-screen bg-[var(--color-background)] text-foreground">
           {isDemo && (
-            <div className="flex flex-col items-center justify-center gap-2 border-b border-[#bfdbfe] bg-[#eff6ff] px-4 py-2 text-center text-[13px] font-medium text-[#1d4ed8] sm:flex-row">
+            <div className="flex flex-col items-center justify-center gap-2 border-b border-[var(--color-primary-light)] bg-[var(--color-accent-soft)] px-4 py-2 text-center text-[13px] font-medium text-[var(--color-primary-dark)] sm:flex-row">
               <span>Demo mode — sample data only. Explore freely, then start when you are ready.</span>
               <a
                 href="/api/auth/exit-demo"
-                className="rounded-full bg-[#2563eb] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+                className="rounded-full bg-[var(--color-accent)] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
               >
                 Try it for free
               </a>
@@ -66,7 +66,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
           <TokenRefresher />
           <WorkspaceProvider
             accessToken={accessToken ?? null}
-            fallbackWorkspace={fallbackWorkspace ?? { id: 'ws_personal', name: user.fullName || 'My Workspace', slug: 'my-workspace', plan: 'beta', timezone: 'UTC' }}
+            fallbackWorkspace={fallbackWorkspace ?? { id: 'ws_personal', name: user.fullName || 'My Workspace', slug: 'my-workspace', type: 'personal', plan: 'beta', timezone: 'UTC' }}
           >
             <div className="flex min-h-screen">
               <AppSidebar

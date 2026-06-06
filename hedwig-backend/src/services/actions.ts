@@ -93,27 +93,27 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 return await handleCreateInvoice(params, user);
 
             case 'COLLECT_INVOICE_INFO':
-                // Don't create invoice yet, Gemini will handle the conversation
+                // Don't create invoice yet, DeepSeek will handle the conversation
                 return { text: '' };
 
             case 'COLLECT_PAYMENT_INFO':
-                // Don't create payment link yet, Gemini will ask for amount
+                // Don't create payment link yet, DeepSeek will ask for amount
                 return { text: '' };
 
             case 'COLLECT_NETWORK_INFO':
-                // Don't create payment link yet, Gemini will ask for network
+                // Don't create payment link yet, DeepSeek will ask for network
                 return { text: '' };
 
             case 'COLLECT_CONTRACT_INFO':
-                // Don't create contract yet, Gemini will collect all fields
+                // Don't create contract yet, DeepSeek will collect all fields
                 return { text: '' };
 
             case 'COLLECT_PROPOSAL_INFO':
-                // Don't create proposal yet, Gemini will collect all fields
+                // Don't create proposal yet, DeepSeek will collect all fields
                 return { text: '' };
 
             case 'COLLECT_TRANSACTION_INFO':
-                // Don't execute transaction yet, Gemini will collect all fields
+                // Don't execute transaction yet, DeepSeek will collect all fields
                 return { text: '' };
 
             case 'CONFIRM_TRANSACTION':
@@ -171,7 +171,7 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 };
 
             case 'COLLECT_OFFRAMP_INFO':
-                // Don't execute offramp yet, Gemini will collect all fields
+                // Don't execute offramp yet, DeepSeek will collect all fields
                 return { text: '' };
 
             case 'CREATE_PROPOSAL':
@@ -181,7 +181,7 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 return await handleCreateContract(params, user);
 
             case 'COLLECT_CONTRACT_INFO':
-                // Don't create contract yet, Gemini will ask for missing info
+                // Don't create contract yet, DeepSeek will ask for missing info
                 return { text: '' };
 
             // Project and Milestone intents
@@ -192,7 +192,7 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 return await handleUpdateClient(params, user);
 
             case 'COLLECT_PROJECT_INFO':
-                // Don't create project yet, Gemini will ask for missing info
+                // Don't create project yet, DeepSeek will ask for missing info
                 return { text: '' };
 
             case 'ADD_MILESTONE':
@@ -204,7 +204,7 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                     logger.debug('COLLECT_MILESTONE_INFO has all required fields, creating directly');
                     return await handleAddMilestone(params, user);
                 }
-                // Don't add milestone yet, Gemini will collect all fields
+                // Don't add milestone yet, DeepSeek will collect all fields
                 return { text: '' };
 
             case 'UPDATE_MILESTONE':
@@ -233,7 +233,7 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 return await handleListUpcomingEvents(params, user);
 
             case 'COLLECT_REMINDER_INFO':
-                // Don't create reminder yet, Gemini will collect all fields
+                // Don't create reminder yet, DeepSeek will collect all fields
                 return { text: '' };
 
             case 'GENERAL_CHAT':
@@ -263,9 +263,9 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         const title = params.title || params.description || params.for || 'Payment';
         const description = params.description || params.for || title;
 
-        // Require due date - if not provided, let Gemini ask for it
+        // Require due date - if not provided, let DeepSeek ask for it
         if (!dueDate) {
-            return { text: '' }; // Empty text signals Gemini to collect this field
+            return { text: '' }; // Empty text signals DeepSeek to collect this field
         }
 
         // Map network to chain enum
@@ -372,9 +372,9 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
         const clientEmail = params.client_email || params.recipient_email;
         const dueDate = params.due_date || params.dueDate;
 
-        // Require due date - if not provided, let Gemini ask for it
+        // Require due date - if not provided, let DeepSeek ask for it
         if (!dueDate) {
-            return { text: '' }; // Empty text signals Gemini to collect this field
+            return { text: '' }; // Empty text signals DeepSeek to collect this field
         }
 
         // Handle items (either array or single description/amount)
@@ -989,9 +989,9 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
             };
         }
 
-        // Require deadline - if not provided, let Gemini ask for it
+        // Require deadline - if not provided, let DeepSeek ask for it
         if (!deadline) {
-            return { text: '' }; // Empty text signals Gemini to collect this field
+            return { text: '' }; // Empty text signals DeepSeek to collect this field
         }
 
         // Get internal user ID
@@ -1765,7 +1765,7 @@ async function handleCreateReminder(params: ActionParams, user: any): Promise<Ac
         const description = params.description || params.notes || '';
 
         if (!eventDate) {
-            return { text: '' }; // Let Gemini ask for the date
+            return { text: '' }; // Let DeepSeek ask for the date
         }
 
         // Parse the date

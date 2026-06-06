@@ -21,29 +21,29 @@ type SuggestionMeta = {
 };
 
 export const SUGGESTION_META: Record<SuggestionType, SuggestionMeta> = {
-  invoice_reminder: { label: 'Invoice reminder', icon: Bell, color: 'text-[#b42318]', bg: 'bg-[#fef3f2]' },
-  import_match: { label: 'Import match', icon: UsersThree, color: 'text-[#2563eb]', bg: 'bg-[#eff4ff]' },
-  expense_categorization: { label: 'Expense review', icon: Receipt, color: 'text-[#027a48]', bg: 'bg-[#ecfdf3]' },
-  calendar_event: { label: 'Calendar event', icon: CalendarDots, color: 'text-[#92400e]', bg: 'bg-[#fffaeb]' },
-  project_action: { label: 'Project action', icon: FolderSimple, color: 'text-[#7c3aed]', bg: 'bg-[#f5f3ff]' },
-  tax_review: { label: 'Tax review', icon: FileText, color: 'text-[#0e7490]', bg: 'bg-[#f0f9ff]' },
+  invoice_reminder: { label: 'Invoice reminder', icon: Bell, color: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
+  import_match: { label: 'Import match', icon: UsersThree, color: 'text-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+  expense_categorization: { label: 'Expense review', icon: Receipt, color: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]' },
+  calendar_event: { label: 'Calendar event', icon: CalendarDots, color: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
+  project_action: { label: 'Project action', icon: FolderSimple, color: 'text-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+  tax_review: { label: 'Tax review', icon: FileText, color: 'text-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
 };
 
 export function getConfidenceBadge(value: number) {
   const pct = Math.round(value * 100);
-  if (pct >= 85) return { label: `${pct}% confidence`, color: 'bg-[#ecfdf3] text-[#027a48]' };
-  if (pct >= 65) return { label: `${pct}% confidence`, color: 'bg-[#fffaeb] text-[#92400e]' };
-  return { label: `${pct}% confidence`, color: 'bg-[#f2f4f7] text-[#717680]' };
+  if (pct >= 85) return { label: `${pct}% confidence`, color: 'bg-[var(--color-success-soft)] text-[var(--color-success)]' };
+  if (pct >= 65) return { label: `${pct}% confidence`, color: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' };
+  return { label: `${pct}% confidence`, color: 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]' };
 }
 
 export function getPriorityBadge(priority: SuggestionPriority) {
   switch (priority) {
     case 'high':
-      return { label: 'High priority', color: 'bg-[#fef3f2] text-[#b42318]' };
+      return { label: 'High priority', color: 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]' };
     case 'medium':
-      return { label: 'Medium priority', color: 'bg-[#fffaeb] text-[#92400e]' };
+      return { label: 'Medium priority', color: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' };
     default:
-      return { label: 'Low priority', color: 'bg-[#f2f4f7] text-[#717680]' };
+      return { label: 'Low priority', color: 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]' };
   }
 }
 

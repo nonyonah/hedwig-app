@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Check, Sparkle } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { isOnPaidPlan } from '@/lib/billing/feature-gates';
 import { PRO_PLAN_FEATURES, STARTER_PLAN_FEATURES } from '@/lib/billing/pricing';
@@ -80,34 +81,34 @@ export function SuccessPageClient({
   }, [isPaid, pollCount]);
 
   return (
-    <main className="min-h-screen bg-[#fafafa]">
+    <main className="min-h-screen bg-[var(--color-background)]">
       {/* Nav */}
-      <nav className="sticky top-0 z-40 border-b border-[#eef0f3] bg-white/90 backdrop-blur-xl">
+      <nav className="sticky top-0 z-40 border-b border-[var(--color-border-light)] bg-[var(--color-surface)]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/hedwig-logo.png" alt="Hedwig" width={28} height={28} priority />
-            <span className="text-[14px] font-semibold text-[#181d27]">Hedwig</span>
+            <HedwigLogo width={28} height={28} priority />
+            <span className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig</span>
           </Link>
           <Link
             href={accessToken ? '/dashboard' : '/sign-in'}
-            className="inline-flex h-8 items-center rounded-full border border-[#d5d7da] px-3.5 text-[13px] font-medium text-[#344054] hover:bg-[#f9fafb] transition-colors"
+            className="inline-flex h-8 items-center rounded-full border border-[var(--color-border-input)] px-3.5 text-[13px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] transition-colors"
           >
             {accessToken ? 'Open app' : 'Sign in'}
           </Link>
         </div>
       </nav>
 
-      <section className="bg-white border-b border-[#f1f2f4]">
+      <section className="bg-[var(--color-surface)] border-b border-[var(--color-surface-tertiary)]">
         <div className="mx-auto max-w-[480px] px-6 py-20 text-center">
           {/* Icon */}
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-[#eff4ff]">
-            <Sparkle className="h-6 w-6 text-[#2563eb]" weight="fill" />
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+            <Sparkle className="h-6 w-6 text-[var(--color-primary)]" weight="fill" />
           </div>
 
-          <h1 className="text-[32px] font-bold tracking-[-0.04em] text-[#181d27]">
+          <h1 className="text-[32px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">
             {isPaid ? `You're on ${planLabel}` : 'Payment received'}
           </h1>
-          <p className="mt-3 text-[15px] text-[#667085] leading-relaxed">
+          <p className="mt-3 text-[15px] text-[var(--color-text-muted)] leading-relaxed">
             {isPaid
               ? `Your ${planLabel} subscription is active. Everything is ready to go.`
               : 'Your payment was successful. Your subscription will be active shortly — this usually takes a few seconds.'}
@@ -115,33 +116,33 @@ export function SuccessPageClient({
 
           {/* Sync indicator */}
           {!isPaid && checkoutId && pollCount < 10 && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#f2f4f7] px-3.5 py-1.5">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2563eb]" />
-              <span className="text-[12px] font-medium text-[#717680]">Syncing subscription…</span>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--color-surface-tertiary)] px-3.5 py-1.5">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-primary)]" />
+              <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">Syncing subscription…</span>
             </div>
           )}
 
           {isPaid && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#ecfdf3] px-3.5 py-1.5">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#12b76a]">
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--color-success-soft)] px-3.5 py-1.5">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-success)]">
                 <Check className="h-2.5 w-2.5 text-white" weight="bold" />
               </span>
-              <span className="text-[12px] font-semibold text-[#027a48]">{planLabel} active</span>
+              <span className="text-[12px] font-semibold text-[var(--color-success)]">{planLabel} active</span>
             </div>
           )}
 
           {/* Features */}
-          <div className="mt-8 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white text-left">
-            <div className="border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">What you get with {planLabel}</p>
+          <div className="mt-8 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] text-left">
+            <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">What you get with {planLabel}</p>
             </div>
-            <div className="divide-y divide-[#f9fafb]">
+            <div className="divide-y divide-[var(--color-surface-secondary)]">
               {planFeatures.map((feat) => (
                 <div key={feat} className="flex items-center gap-3 px-5 py-3.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#eff4ff]">
-                    <Check className="h-3 w-3 text-[#2563eb]" weight="bold" />
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+                    <Check className="h-3 w-3 text-[var(--color-primary)]" weight="bold" />
                   </span>
-                  <span className="text-[13px] text-[#414651]">{feat}</span>
+                  <span className="text-[13px] text-[var(--color-text-secondary)]">{feat}</span>
                 </div>
               ))}
             </div>
@@ -156,7 +157,7 @@ export function SuccessPageClient({
             </Button>
             <Link
               href="/pricing"
-              className="block text-center text-[12px] font-medium text-[#717680] hover:text-[#414651] transition-colors"
+              className="block text-center text-[12px] font-medium text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
             >
               View plan details
             </Link>

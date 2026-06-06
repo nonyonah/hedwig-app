@@ -18,6 +18,7 @@ export interface Workspace {
   id: EntityId;
   name: string;
   slug: string;
+  type: 'personal' | 'organization';
   plan: 'beta' | 'growth' | 'scale';
   timezone: string;
 }
@@ -117,6 +118,7 @@ export interface Project {
   name: string;
   status: 'active' | 'paused' | 'completed';
   budgetUsd: number;
+  memberPayout: number | null;
   progress: number;
   nextDeadlineAt: string;
   ownerName: string;

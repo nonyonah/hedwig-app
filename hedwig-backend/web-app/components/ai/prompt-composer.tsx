@@ -48,7 +48,7 @@ export function PromptComposer({ onDraft }: { onDraft: (draft: { invoiceDraft?: 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2 text-[#72706b]">
+        <div className="flex items-center gap-2 text-[var(--color-text-tertiary)]">
           <Sparkle className="h-4 w-4" weight="bold" />
           <span className="text-xs font-semibold uppercase tracking-[0.24em]">AI actions</span>
         </div>
@@ -58,7 +58,7 @@ export function PromptComposer({ onDraft }: { onDraft: (draft: { invoiceDraft?: 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="inline-flex rounded-[15px] border border-border/80 bg-white p-1 shadow-soft text-sm">
+        <div className="inline-flex rounded-[15px] border border-border/80 bg-[var(--color-surface)] p-1 shadow-soft text-sm">
           <button
             className={`rounded-[15px] px-4 py-2 font-semibold ${mode === 'invoice' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
             onClick={() => form.setValue('mode', 'invoice')}
@@ -78,9 +78,9 @@ export function PromptComposer({ onDraft }: { onDraft: (draft: { invoiceDraft?: 
           <Textarea
             placeholder={mode === 'invoice' ? 'Invoice Northstar Labs $2,100 for the payout dashboard milestone due next Friday.' : 'Create a Base USDC payment link for $950 for the design QA sprint.'}
             {...form.register('prompt')}
-            className="bg-[#fcfcfd]"
+            className="bg-[var(--color-background)]"
           />
-          {form.formState.errors.prompt ? <p className="text-sm text-[#717680]">{form.formState.errors.prompt.message}</p> : null}
+          {form.formState.errors.prompt ? <p className="text-sm text-[var(--color-text-tertiary)]">{form.formState.errors.prompt.message}</p> : null}
           <div className="flex flex-wrap gap-3">
             <Button disabled={loading} type="submit">
               <MagicWand className="h-4 w-4" weight="bold" />

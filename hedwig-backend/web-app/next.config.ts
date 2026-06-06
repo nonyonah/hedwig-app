@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import path from 'path';
 import { withSentryConfig } from '@sentry/nextjs';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwigbot.xyz';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwigbot.xyz';
 const uploadSentrySourceMaps = process.env.SENTRY_UPLOAD_SOURCE_MAPS === 'true';
 
 // ─── Content-Security-Policy ────────────────────────────────────────────────
@@ -63,10 +63,13 @@ const CSP_CONNECT_SOURCES = [
   'https://*.privy.io',
   'https://auth.privy.io',
   'https://api.privy.io',
+  'https://*.privy.systems',
   'wss://relay.walletconnect.com',
   'wss://relay.walletconnect.org',
   'https://*.walletconnect.com',
   'https://*.walletconnect.org',
+  'https://verify.walletconnect.com',
+  'https://verify.walletconnect.org',
   'https://explorer-api.walletconnect.com',
   'https://*.crossmint.com',
   // Wallets / chains
@@ -74,11 +77,21 @@ const CSP_CONNECT_SOURCES = [
   'https://*.alchemyapi.io',
   'https://*.solana.com',
   'https://api.mainnet-beta.solana.com',
+  'https://api.devnet.solana.com',
+  'https://*.helius-rpc.com',
+  'https://*.extrnode.com',
   'https://*.base.org',
   'https://*.coinbase.com',
   'https://mainnet.optimism.io',
+  'https://sepolia.optimism.io',
   'https://arb1.arbitrum.io',
+  'https://sepolia-rollup.arbitrum.io',
   'https://polygon-rpc.com',
+  'https://rpc-amoy.polygon.technology',
+  'https://forno.celo.org',
+  // Circle Gateway
+  'https://gateway-api.circle.com',
+  'https://gateway-api-testnet.circle.com',
   // Sentry
   'https://*.sentry.io',
   'https://*.ingest.sentry.io',
@@ -98,6 +111,9 @@ const CSP_CONNECT_SOURCES = [
   // Mintlify help docs (proxied at /docs)
   'https://*.mintlify.dev',
   'https://*.mintlify.com',
+  // Circle RPC (CCTP / Gateway infrastructure)
+  'https://iris-api.circle.com',
+  'https://iris-api-sandbox.circle.com',
 ];
 
 const CSP_FRAME_SOURCES = [

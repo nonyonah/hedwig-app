@@ -586,7 +586,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
               <button
                 type="button"
                 onClick={() => setFlow('menu')}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f2f4f7] hover:text-[#414651]"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]"
                 aria-label="Back to menu"
               >
                 <ArrowLeft className="h-4 w-4" weight="bold" />
@@ -601,7 +601,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
 
         <DialogBody className="max-h-[72vh] overflow-y-auto">
           {!hasSession && (
-            <div className="rounded-xl border border-[#fecdca] bg-[#fff6ed] px-4 py-3 text-[13px] text-[#717680]">
+            <div className="rounded-xl border border-[var(--color-danger-soft)] bg-[var(--color-warning-soft)] px-4 py-3 text-[13px] text-[var(--color-text-tertiary)]">
               Session unavailable — please sign in again to create records.
             </div>
           )}
@@ -780,7 +780,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                     <div className="space-y-2">
                       {invoiceForm.lineItems.map((item, index) => (
                         <div key={item.id} className="flex items-center gap-2">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7] text-[11px] font-semibold text-[#717680]">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-tertiary)]">
                             {index + 1}
                           </span>
                           <Input
@@ -820,7 +820,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                                 lineItems: f.lineItems.filter((li) => li.id !== item.id),
                               }))
                             }
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f2f4f7] hover:text-[#535862]"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-muted)]"
                           >
                             <Trash className="h-3.5 w-3.5" weight="regular" />
                           </button>
@@ -831,7 +831,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                         onClick={() =>
                           setInvoiceForm((f) => ({ ...f, lineItems: [...f.lineItems, createLineItem()] }))
                         }
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#535862] transition hover:border-[#d0d5dd] hover:bg-[#fafafa]"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:bg-[var(--color-background)]"
                       >
                         <Plus className="h-3 w-3" weight="bold" />
                         Add line item
@@ -1106,14 +1106,14 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
               <Section label="Milestones">
                 <div className="space-y-2">
                   {projectForm.milestones.length === 0 && (
-                    <p className="text-[13px] text-[#a4a7ae]">
+                    <p className="text-[13px] text-[var(--color-text-muted)]">
                       No milestones yet. Add them manually or use Suggest milestones.
                     </p>
                   )}
                   {projectForm.milestones.map((milestone, index) => (
-                    <div key={milestone.id} className="rounded-xl border border-[#e9eaeb] bg-[#fafafa] p-3.5">
+                    <div key={milestone.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3.5">
                       <div className="mb-3 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                        <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                           Milestone {index + 1}
                         </span>
                         <button
@@ -1124,7 +1124,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                               milestones: f.milestones.filter((m) => m.id !== milestone.id),
                             }))
                           }
-                          className="flex h-6 w-6 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f2f4f7] hover:text-[#535862]"
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-muted)]"
                         >
                           <Trash className="h-3.5 w-3.5" weight="regular" />
                         </button>
@@ -1179,7 +1179,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                       onClick={() =>
                         setProjectForm((f) => ({ ...f, milestones: [...f.milestones, createMilestone()] }))
                       }
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#535862] transition hover:border-[#d0d5dd] hover:bg-[#fafafa]"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:bg-[var(--color-background)]"
                     >
                       <Plus className="h-3 w-3" weight="bold" />
                       Add milestone
@@ -1187,14 +1187,14 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                     <button
                       type="button"
                       onClick={suggestMilestones}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#535862] transition hover:border-[#d0d5dd] hover:bg-[#fafafa]"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:bg-[var(--color-background)]"
                     >
                       Suggest milestones
                     </button>
                     <button
                       type="button"
                       onClick={summarizeScope}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#535862] transition hover:border-[#d0d5dd] hover:bg-[#fafafa]"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:bg-[var(--color-background)]"
                     >
                       Summarize scope
                     </button>
@@ -1206,11 +1206,17 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
         </DialogBody>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={closeAndReset} disabled={isSubmitting}>
+          <button
+            type="button"
+            onClick={closeAndReset}
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] transition duration-100 hover:bg-[var(--color-background)] disabled:opacity-50"
+          >
             Cancel
-          </Button>
+          </button>
           {flow !== 'menu' && (
-            <Button
+            <button
+              type="button"
               onClick={() => {
                 if (flow === 'invoice')       { void handleInvoiceCreate(); return; }
                 if (flow === 'payment-link')  { void handlePaymentLinkCreate(); return; }
@@ -1218,6 +1224,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                 void handleProjectCreate();
               }}
               disabled={isSubmitting || !hasSession}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-4 py-2 text-[13px] font-semibold text-white transition duration-100 hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
@@ -1230,7 +1237,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                   Create
                 </>
               )}
-            </Button>
+            </button>
           )}
         </DialogFooter>
       </DialogContent>
@@ -1244,10 +1251,10 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
           {label}
         </span>
-        <div className="h-px flex-1 bg-[#f2f4f7]" />
+        <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
       </div>
       {children}
     </div>
@@ -1265,9 +1272,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-[12px] font-semibold text-[#414651]">
+      <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">
         {label}
-        {required && <span className="ml-0.5 text-[#717680]">*</span>}
+        {required && <span className="ml-0.5 text-[var(--color-text-tertiary)]">*</span>}
       </label>
       {children}
     </div>
@@ -1286,12 +1293,12 @@ function FormSelect({
   disabled?: boolean;
 }) {
   return (
-    <div className="relative flex h-10 w-full items-center rounded-lg border border-[#e9eaeb] bg-white px-3.5 shadow-xs transition focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#2563eb]/15">
+    <div className="relative flex h-10 w-full items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent)]/15">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-full appearance-none bg-transparent pr-5 text-[13px] text-[#181d27] outline-none disabled:text-[#a4a7ae]"
+        className="w-full appearance-none bg-transparent pr-5 text-[13px] text-[var(--color-text-primary)] outline-none disabled:text-[var(--color-text-muted)]"
       >
         {options.map((opt) => (
           <option key={`${opt.value}-${opt.label}`} value={opt.value}>
@@ -1299,7 +1306,7 @@ function FormSelect({
           </option>
         ))}
       </select>
-      <CaretDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-[#a4a7ae]" weight="bold" />
+      <CaretDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="bold" />
     </div>
   );
 }
@@ -1319,7 +1326,7 @@ function Textarea({
       onChange={onChange}
       placeholder={placeholder}
       rows={3}
-      className="min-h-[88px] w-full resize-none rounded-lg border border-[#e9eaeb] bg-white px-3.5 py-2.5 text-[13px] text-[#181d27] shadow-xs outline-none placeholder:text-[#a4a7ae] transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/15"
+      className="min-h-[88px] w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2.5 text-[13px] text-[var(--color-text-primary)] shadow-xs outline-none placeholder:text-[var(--color-text-muted)] transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/15"
     />
   );
 }
@@ -1339,19 +1346,19 @@ function Toggle({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-4 rounded-xl border border-[#e9eaeb] bg-[#fafafa] px-4 py-3 text-left transition hover:bg-[#f5f6f7]"
+      className="flex w-full items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-left transition hover:bg-[var(--color-surface-tertiary)]"
     >
       <div>
-        <p className="text-[13px] font-semibold text-[#181d27]">{label}</p>
-        {description && <p className="mt-0.5 text-[12px] text-[#a4a7ae]">{description}</p>}
+        <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{label}</p>
+        {description && <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">{description}</p>}
       </div>
       <div
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? 'bg-[#2563eb]' : 'bg-[#d5d7da]'
+          checked ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
         }`}
       >
         <div
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-[var(--color-surface)] shadow-sm transition-transform ${
             checked ? 'translate-x-4' : 'translate-x-0.5'
           }`}
         />
@@ -1375,13 +1382,13 @@ function CreateActionCard({
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-2xl border border-[#e9eaeb] bg-white p-5 text-left transition hover:border-[#c8cbd0] hover:shadow-sm active:scale-[0.99]"
+      className="group rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-left transition hover:border-[var(--color-text-placeholder)] hover:shadow-sm active:scale-[0.99]"
     >
-      <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#f2f4f7] text-[#717680]">
+      <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]">
         {icon}
       </div>
-      <p className="text-[14px] font-semibold text-[#181d27]">{title}</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-[#a4a7ae]">{description}</p>
+      <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{title}</p>
+      <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">{description}</p>
     </button>
   );
 }

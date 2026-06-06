@@ -1,3 +1,4 @@
+import { llmService } from '../services/llm';
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
@@ -446,7 +447,8 @@ router.patch('/threads/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-// POST /api/integrations/analyze-document — Gemini Vision invoice extraction
+
+// POST /api/integrations/analyze-document — AI Vision invoice extraction
 router.post('/analyze-document', upload.single('file'), async (req: Request, res: Response) => {
   const userId = await getUserId(req);
   if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
@@ -454,8 +456,8 @@ router.post('/analyze-document', upload.single('file'), async (req: Request, res
   const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; }
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) { res.status(503).json({ success: false, error: 'AI extraction not configured' }); return; }
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY;
+  if (!gatewayKey) { res.status(503).json({ success: false, error: 'AI extraction not configured' }); return; }
 
   const supportedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
   if (!supportedTypes.includes(file.mimetype)) {
@@ -498,33 +500,13 @@ Rules:
 - Set "paymentStatus" to "paid" if the invoice shows a payment stamp, receipt confirmation, "PAID" watermark, or zero balance due. Otherwise set it to "unpaid".`;
 
   try {
-    const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [
-              { inlineData: { mimeType: file.mimetype, data: base64Data } },
-              { text: prompt },
-            ],
-          }],
-          generationConfig: { maxOutputTokens: 1400, temperature: 0.1 },
-        }),
-      }
-    );
+    const aiResult = await llmService.generateText(prompt, {
+      files: [{ mimeType: file.mimetype, data: base64Data }],
+      maxOutputTokens: 1400,
+      temperature: 0.1,
+    });
 
-    if (!gemResp.ok) {
-      const errText = await gemResp.text().catch(() => '');
-      logger.error('Gemini Vision failed', { status: gemResp.status, errText });
-      res.status(502).json({ success: false, error: 'Extraction service error' });
-      return;
-    }
-
-    const gemData = await gemResp.json() as any;
-    const text = gemData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const text = aiResult.trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       res.status(422).json({ success: false, error: 'Could not extract data from document' });
@@ -787,7 +769,7 @@ router.delete('/composio/connect/:provider', async (req: Request, res: Response)
   }
 });
 
-// POST /api/integrations/extract-payment-details — Gemini Vision payment details extraction
+// POST /api/integrations/extract-payment-details — DeepSeek Vision payment details extraction
 router.post('/extract-payment-details', upload.single('file'), async (req: Request, res: Response) => {
   const userId = await getUserId(req);
   if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
@@ -795,8 +777,8 @@ router.post('/extract-payment-details', upload.single('file'), async (req: Reque
   const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; }
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) { res.status(503).json({ success: false, error: 'AI extraction not configured' }); return; }
+  const gatewayKey2 = process.env.AI_GATEWAY_API_KEY;
+  if (!gatewayKey2) { res.status(503).json({ success: false, error: 'AI extraction not configured' }); return; }
 
   const supportedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
   if (!supportedTypes.includes(file.mimetype)) {
@@ -809,33 +791,13 @@ router.post('/extract-payment-details', upload.single('file'), async (req: Reque
   const prompt = `Extract ALL payment details visible in this image. Return ONLY the raw text exactly as it appears. Do not summarize, do not format as JSON, do not add commentary. Just return the plain text from the image.`;
 
   try {
-    const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [
-              { inlineData: { mimeType: file.mimetype, data: base64Data } },
-              { text: prompt },
-            ],
-          }],
-          generationConfig: { maxOutputTokens: 800, temperature: 0.1 },
-        }),
-      }
-    );
+    const aiResult = await llmService.generateText(prompt, {
+      files: [{ mimeType: file.mimetype, data: base64Data }],
+      maxOutputTokens: 800,
+      temperature: 0.1,
+    });
 
-    if (!gemResp.ok) {
-      const errText = await gemResp.text().catch(() => '');
-      logger.error('Gemini Vision payment extraction failed', { status: gemResp.status, errText });
-      res.status(502).json({ success: false, error: 'Extraction service error' });
-      return;
-    }
-
-    const gemData = await gemResp.json() as any;
-    const text = gemData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const text = aiResult.trim();
 
     res.json({ success: true, data: { rawText: text } });
   } catch (err: any) {

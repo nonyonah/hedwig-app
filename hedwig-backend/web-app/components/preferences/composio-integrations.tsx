@@ -34,12 +34,12 @@ const STATUS_CONFIG: Record<
   ConnectionView['status'],
   { label: string; dot: string; text: string; bg: string }
 > = {
-  active:        { label: 'Connected',     dot: 'bg-[#039855]', text: 'text-[#027a48]', bg: 'bg-[#ecfdf3]' },
-  pending:       { label: 'Pending auth',  dot: 'bg-[#f79009]', text: 'text-[#b54708]', bg: 'bg-[#fffaeb]' },
-  expired:       { label: 'Expired',       dot: 'bg-[#d92d20]', text: 'text-[#b42318]', bg: 'bg-[#fef3f2]' },
-  error:         { label: 'Error',         dot: 'bg-[#d92d20]', text: 'text-[#b42318]', bg: 'bg-[#fef3f2]' },
-  revoked:       { label: 'Revoked',       dot: 'bg-[#a4a7ae]', text: 'text-[#717680]', bg: 'bg-[#f2f4f7]' },
-  not_connected: { label: 'Not connected', dot: 'bg-[#d0d5dd]', text: 'text-[#717680]', bg: 'bg-[#f9fafb]' },
+  active:        { label: 'Connected',     dot: 'bg-[var(--color-success)]', text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]' },
+  pending:       { label: 'Pending auth',  dot: 'bg-[var(--color-warning)]', text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
+  expired:       { label: 'Expired',       dot: 'bg-[var(--color-danger)]', text: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
+  error:         { label: 'Error',         dot: 'bg-[var(--color-danger)]', text: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
+  revoked:       { label: 'Revoked',       dot: 'bg-[var(--color-text-muted)]', text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-tertiary)]' },
+  not_connected: { label: 'Not connected', dot: 'bg-[var(--color-border-input)]', text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-background)]' },
 };
 
 function StatusPill({ status }: { status: ConnectionView['status'] }) {
@@ -126,14 +126,14 @@ export function ComposioIntegrations() {
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-      <div className="flex items-start justify-between gap-4 border-b border-[#f2f4f7] px-5 py-4">
+    <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+      <div className="flex items-start justify-between gap-4 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[16px] font-semibold text-[#181d27]">Workspace integrations</h2>
-            <span className="rounded-full bg-[#eff4ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#2563eb]">Beta</span>
+            <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">Workspace integrations</h2>
+            <span className="rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">Beta</span>
           </div>
-          <p className="mt-0.5 text-[13px] text-[#717680]">
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
             Connect the tools your assistant and agent can read from and act on.
           </p>
         </div>
@@ -141,7 +141,7 @@ export function ComposioIntegrations() {
           type="button"
           onClick={handleRefresh}
           disabled={refreshing || loading}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <ArrowsClockwise className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} weight="bold" />
           Refresh
@@ -149,33 +149,33 @@ export function ComposioIntegrations() {
       </div>
 
       {configured === false && (
-        <div className="flex items-start gap-2.5 border-b border-[#f2f4f7] bg-[#fffaeb] px-5 py-3">
-          <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#b54708]" weight="fill" />
-          <p className="text-[12px] text-[#92400e]">
+        <div className="flex items-start gap-2.5 border-b border-[var(--color-surface-tertiary)] bg-[var(--color-warning-soft)] px-5 py-3">
+          <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
+          <p className="text-[12px] text-[var(--color-warning)]">
             <span className="font-semibold">Integrations are not configured.</span> Set the integration API key on the backend to enable connections.
           </p>
         </div>
       )}
 
-      <div className="divide-y divide-[#f2f4f7]">
+      <div className="divide-y divide-[var(--color-surface-tertiary)]">
         {(loading ? PLACEHOLDER_CONNECTIONS : connections).map((connection) => (
           <div key={connection.provider} className="flex items-center justify-between gap-4 px-5 py-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e9eaeb] bg-white">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={ICON_PATH[connection.provider]} alt={connection.label} className="h-5 w-5" />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[14px] font-semibold text-[#181d27]">{connection.label}</p>
+                  <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{connection.label}</p>
                   <StatusPill status={connection.status} />
                 </div>
-                <p className="mt-0.5 truncate text-[12px] text-[#717680]">
+                <p className="mt-0.5 truncate text-[12px] text-[var(--color-text-tertiary)]">
                   {connection.accountLabel
                     ? connection.accountLabel
                     : connection.description}
                 </p>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-[#a4a7ae]">
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-[var(--color-text-muted)]">
                   {connection.connected && connection.tools.length > 0 && (
                     <span>
                       {connection.tools.length} tool{connection.tools.length === 1 ? '' : 's'} available to assistant
@@ -194,7 +194,7 @@ export function ComposioIntegrations() {
                   type="button"
                   onClick={() => handleDisconnect(connection.provider)}
                   disabled={busy === connection.provider}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy === connection.provider ? 'Disconnecting…' : 'Disconnect'}
                 </button>
@@ -203,7 +203,7 @@ export function ComposioIntegrations() {
                   type="button"
                   onClick={() => handleConnect(connection.provider)}
                   disabled={busy === connection.provider || configured === false}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3.5 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3.5 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <ArrowSquareOut className="h-3.5 w-3.5" weight="bold" />
                   {busy === connection.provider ? 'Opening…' : 'Connect'}

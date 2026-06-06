@@ -10,6 +10,7 @@ import {
   X,
 } from '@/components/ui/lucide-icons';
 import { useAssistantSidebar } from '@/components/providers/assistant-sidebar-provider';
+import { UsageCounter } from '@/components/assistant/usage-counter';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import type { AssistantSuggestion } from '@/lib/types/assistant';
@@ -77,7 +78,10 @@ export function AssistantSidebar() {
 
   useEffect(() => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
   }, [messages]);
 
   const handleSend = useCallback(async () => {
@@ -129,7 +133,7 @@ export function AssistantSidebar() {
       }
 
       const json = await resp.json();
-      const reply = json.data?.response || json.data?.message || 'No response';
+      const reply = json.data?.reply || json.data?.message || 'No response';
 
       setMessages((prev) => {
         const filtered = prev.filter((m) => m.id !== pendingMsg.id);
@@ -172,19 +176,20 @@ export function AssistantSidebar() {
   return (
     <div
       className={cn(
-        'flex shrink-0 flex-col border-l border-[#e9eaeb] bg-white transition-all duration-300 ease-out',
+        'sticky top-0 flex h-dvh shrink-0 flex-col border-l border-[var(--color-border-light)] bg-[var(--color-surface)] transition-all duration-300 ease-out',
         open ? 'w-[380px] opacity-100' : 'w-0 overflow-hidden opacity-0'
       )}
     >
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#f3f4f6] px-4">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border-light)] px-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eff4ff]">
-            <Sparkle className="h-3.5 w-3.5 text-[#2563eb]" weight="fill" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+            <Sparkle className="h-3.5 w-3.5 text-[var(--color-accent)]" weight="fill" />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#181d27]">Hedwig Assistant</p>
+            <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">Hedwig Assistant</p>
           </div>
+          <UsageCounter />
         </div>
         <div className="flex items-center gap-1.5">
           {messages.length > 0 && (
@@ -195,7 +200,7 @@ export function AssistantSidebar() {
                 if (storageKey) window.localStorage.removeItem(storageKey);
               }}
               title="Clear chat"
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f4f5f7] hover:text-[#717680]"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-muted)] transition duration-150 hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)] active:scale-90"
             >
               <ArrowsClockwise className="h-3.5 w-3.5" weight="bold" />
             </button>
@@ -204,47 +209,45 @@ export function AssistantSidebar() {
             type="button"
             onClick={toggle}
             title="Close sidebar"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f4f5f7] hover:text-[#717680]"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-muted)] transition duration-150 hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)] active:scale-90"
           >
             <X className="h-3.5 w-3.5" weight="bold" />
           </button>
         </div>
       </div>
 
-      {/* Context chip */}
-      {pageContext && (
-        <div className="shrink-0 border-b border-[#f3f4f6] bg-[#fafafa] px-4 py-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-2.5 py-1 text-[11px] font-medium text-[#717680]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
-            {pageContext.page}
-          </div>
-        </div>
-      )}
-
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
-          <EmptyState onPick={(prompt) => { setInput(prompt); }} />
+          <div className="animate-fade-up">
+            <EmptyState onPick={(prompt) => { setInput(prompt); }} />
+          </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+            {messages.map((msg, i) => (
+              <div
+                key={msg.id}
+                className={msg.role === 'user' ? 'animate-message-in-user' : 'animate-message-in'}
+                style={{ animationDelay: `${i * 40}ms` }}
+              >
+                <MessageBubble message={msg} />
+              </div>
             ))}
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="shrink-0 border-t border-[#f3f4f6] bg-white px-4 py-3">
+      <div className="shrink-0 border-t border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3">
         {pendingFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {pendingFiles.map((file, i) => (
-              <div key={i} className="inline-flex items-center gap-1 rounded-full bg-[#f4f5f7] px-2 py-1 text-[11px] text-[#414651]">
+              <div key={i} className="animate-chip-in inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-tertiary)] px-2 py-1 text-[11px] text-[var(--color-text-secondary)]">
                 <span className="max-w-[120px] truncate">{file.name}</span>
                 <button
                   type="button"
                   onClick={() => removeFile(i)}
-                  className="flex h-4 w-4 items-center justify-center rounded-full text-[#a4a7ae] hover:text-[#717680]"
+                  className="flex h-4 w-4 items-center justify-center rounded-full text-[var(--color-text-muted)] transition duration-150 hover:text-[var(--color-text-tertiary)] active:scale-75"
                 >
                   <X className="h-3 w-3" weight="bold" />
                 </button>
@@ -252,40 +255,42 @@ export function AssistantSidebar() {
             ))}
           </div>
         )}
-        <div className="flex items-end gap-2">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f4f5f7] hover:text-[#717680]"
-          >
-            <Paperclip className="h-4 w-4" weight="bold" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+        <div className="relative rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-xs transition duration-150 focus-within:border-[var(--color-border)] focus-within:shadow-sm">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask Hedwig anything..."
-            rows={1}
-            className="min-h-[36px] flex-1 resize-none rounded-xl border border-[#e9eaeb] bg-[#fafafa] px-3 py-2 text-[13px] text-[#181d27] placeholder:text-[#a4a7ae] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#2563eb]/10"
-            style={{ maxHeight: '120px' }}
+            rows={3}
+            className="min-h-[72px] w-full resize-none bg-transparent px-3 pb-10 pt-3 text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+            style={{ maxHeight: '140px' }}
           />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={sending || (!input.trim() && pendingFiles.length === 0)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8] disabled:opacity-40"
-          >
-            <PaperPlaneRight className="h-4 w-4" weight="bold" />
-          </button>
+          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-muted)] transition duration-150 hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)] active:scale-90"
+            >
+              <Paperclip className="h-3.5 w-3.5" weight="bold" />
+            </button>
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={sending || (!input.trim() && pendingFiles.length === 0)}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-accent)] text-white transition duration-150 hover:bg-[var(--color-primary-dark)] active:scale-90 disabled:opacity-40"
+            >
+              <PaperPlaneRight className="h-3.5 w-3.5" weight="bold" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -300,15 +305,15 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         className={cn(
           'max-w-[90%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed',
           isUser
-            ? 'bg-[#2563eb] text-white'
-            : 'bg-[#f4f5f7] text-[#181d27]'
+            ? 'bg-[var(--color-accent)] text-white'
+            : 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-primary)]'
         )}
       >
         {message.pending ? (
           <div className="flex items-center gap-2 py-1">
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:0.15s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:0.3s]" />
+            <span className="h-1.5 w-1.5 animate-typing-dot rounded-full bg-current opacity-60" style={{ animationDelay: '0ms' }} />
+            <span className="h-1.5 w-1.5 animate-typing-dot rounded-full bg-current opacity-60" style={{ animationDelay: '200ms' }} />
+            <span className="h-1.5 w-1.5 animate-typing-dot rounded-full bg-current opacity-60" style={{ animationDelay: '400ms' }} />
           </div>
         ) : (
           <div className="whitespace-pre-wrap">{message.content}</div>
@@ -326,12 +331,12 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
   ];
 
   return (
-    <div className="flex h-full flex-col items-center justify-center text-center py-8">
-      <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#eff4ff] ring-1 ring-[#2563eb]/10">
-        <Sparkle className="h-5 w-5 text-[#2563eb]" weight="fill" />
+    <div className="flex flex-col items-center justify-center text-center py-8">
+      <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[var(--color-accent-soft)] ring-1 ring-[var(--color-accent)]/10">
+        <Sparkle className="h-5 w-5 text-[var(--color-accent)]" weight="fill" />
       </div>
-      <p className="mt-3 text-[15px] font-semibold text-[#181d27]">How can I help?</p>
-      <p className="mt-1 text-[12px] text-[#717680]">
+      <p className="mt-3 text-[15px] font-semibold text-[var(--color-text-primary)]">How can I help?</p>
+      <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
         Ask about your workspace, documents, or connected tools.
       </p>
       <div className="mt-5 flex w-full flex-col gap-2">
@@ -340,7 +345,7 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
             key={prompt}
             type="button"
             onClick={() => onPick(prompt)}
-            className="rounded-2xl border border-[#e9eaeb] bg-white px-4 py-2.5 text-left text-[12px] text-[#414651] transition hover:border-[#d0d5dd] hover:bg-[#fafafa]"
+            className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-left text-[12px] text-[var(--color-text-secondary)] transition duration-150 hover:border-[var(--color-border-input)] hover:bg-[var(--color-background)] active:scale-[0.98]"
           >
             {prompt}
           </button>

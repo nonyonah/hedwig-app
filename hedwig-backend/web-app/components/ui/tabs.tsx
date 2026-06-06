@@ -44,7 +44,7 @@ export function TabsList({ className, children, ...props }: React.HTMLAttributes
       <HeroUITabs.List
         aria-label="Tabs"
         className={cn(
-          'inline-flex rounded-[15px] border border-[#e9eaeb]/80 bg-white p-1 shadow-soft'
+          'inline-flex rounded-[15px] border border-[var(--color-border)]/80 bg-[var(--color-surface)] p-1 shadow-soft'
         )}
       >
         {children}
@@ -64,8 +64,8 @@ export function TabsTrigger({ value, children, className, disabled }: {
       id={value}
       isDisabled={disabled}
       className={cn(
-        'rounded-[15px] px-4 py-2 text-sm font-semibold text-[#a4a7ae] transition',
-        'data-[selected=true]:bg-[#2563eb] data-[selected=true]:text-white',
+        'rounded-[15px] px-4 py-2 text-sm font-semibold text-[var(--color-text-muted)] transition',
+        'data-[selected=true]:bg-[var(--color-accent)] data-[selected=true]:text-white',
         className
       )}
     >

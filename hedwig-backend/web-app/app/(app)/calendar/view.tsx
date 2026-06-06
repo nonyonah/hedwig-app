@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { hedwigApi } from '@/lib/api/client';
 import { cn, formatShortDate } from '@/lib/utils';
 import type { Invoice, Milestone, Project, Reminder } from '@/lib/models/entities';
@@ -89,17 +90,17 @@ const iconByKind = {
 } satisfies Record<PlannerItem['kind'], typeof ClockCountdown>;
 
 const badgeToneByKind: Record<PlannerItem['kind'], string> = {
-  reminder: 'bg-[#eff4ff] text-[#717680]',
-  milestone: 'bg-[#ecfdf3] text-[#717680]',
-  invoice: 'bg-[#fffaeb] text-[#717680]',
-  project: 'bg-[#f4f3ff] text-[#717680]',
+  reminder: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
+  milestone: 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]',
+  invoice: 'bg-[var(--color-warning-soft)] text-[var(--color-text-tertiary)]',
+  project: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
 };
 
 const dotColorByKind: Record<PlannerItem['kind'], string> = {
-  reminder: 'bg-[#2563eb]',
-  milestone: 'bg-[#12b76a]',
-  invoice: 'bg-[#f79009]',
-  project: 'bg-[#7c3aed]',
+  reminder: 'bg-[var(--color-primary)]',
+  milestone: 'bg-[var(--color-success)]',
+  invoice: 'bg-[var(--color-warning)]',
+  project: 'bg-[var(--color-accent)]',
 };
 
 // ─── Main client ──────────────────────────────────────────────────────────────
@@ -115,6 +116,13 @@ export function CalendarClient({
 }) {
   const router = useRouter();
   const today = useMemo(() => sod(new Date()), []);
+
+  useAssistantPageContext('Calendar', {
+    remindersCount: data.reminders.length,
+    milestonesCount: data.milestones.length,
+    invoicesCount: data.invoices.length,
+    projectsCount: data.projects.length,
+  });
 
   const [gcalConnected, setGcalConnected] = useState<boolean | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -346,8 +354,8 @@ export function CalendarClient({
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[#181d27]">Calendar</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">
+          <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Calendar</h1>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">
             Reminders, milestones, invoice due dates, and project deadlines.
           </p>
         </div>
@@ -355,8 +363,8 @@ export function CalendarClient({
           {gcalConnected !== null &&
             (gcalConnected ? (
               <>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ecfdf3] px-3 py-1.5 text-[12px] font-semibold text-[#12b76a]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success-soft)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-success)]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" />
                   Google Calendar connected
                 </span>
                 <Button
@@ -373,13 +381,13 @@ export function CalendarClient({
             ) : (
               <a
                 href="/api/integrations/composio/connect/google_calendar"
-                className="inline-flex h-8 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-3 text-[13px] font-medium text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+                className="inline-flex h-8 items-center gap-2 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-secondary)] shadow-xs transition hover:bg-[var(--color-background)]"
               >
                 Connect Google Calendar
               </a>
             ))}
           {/* View switcher */}
-          <div className="flex rounded-full border border-[#e9eaeb] bg-[#f9fafb] p-0.5">
+          <div className="flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-0.5">
             {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
               <Button
                 key={v}
@@ -392,8 +400,8 @@ export function CalendarClient({
                 className={cn(
                   'rounded-full px-3.5 py-1.5 text-[12px] font-semibold capitalize',
                   view === v
-                    ? 'bg-white text-[#181d27] shadow-xs'
-                    : 'text-[#717680] hover:text-[#414651]'
+                    ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs'
+                    : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                 )}
               >
                 {v}
@@ -403,9 +411,9 @@ export function CalendarClient({
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+      <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
         {/* Toolbar */}
-        <div className="flex items-center justify-between gap-4 border-b border-[#f2f4f7] px-6 py-3.5">
+        <div className="flex items-center justify-between gap-4 border-b border-[var(--color-surface-tertiary)] px-6 py-3.5">
           <div className="flex items-center gap-1 overflow-x-auto">
             {FILTERS.map((f) => (
               <Button
@@ -416,8 +424,8 @@ export function CalendarClient({
                 className={cn(
                   'shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold',
                   activeFilter === f.value
-                    ? 'bg-[#ececec] text-[#181d27]'
-                    : 'text-[#717680] hover:bg-[#f4f4f5]'
+                    ? 'bg-[var(--color-border-light)] text-[var(--color-foreground)]'
+                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)]'
                 )}
               >
                 {f.label}
@@ -429,7 +437,7 @@ export function CalendarClient({
               variant="ghost"
               size="sm"
               onClick={() => navigate(-1)}
-              className="h-8 w-8 rounded-full text-[#717680] hover:bg-[#f4f4f5]"
+              className="h-8 w-8 rounded-full text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)]"
             >
               <CaretLeft className="h-4 w-4" weight="bold" />
             </Button>
@@ -445,11 +453,11 @@ export function CalendarClient({
               variant="ghost"
               size="sm"
               onClick={() => navigate(1)}
-              className="h-8 w-8 rounded-full text-[#717680] hover:bg-[#f4f4f5]"
+              className="h-8 w-8 rounded-full text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)]"
             >
               <CaretRight className="h-4 w-4" weight="bold" />
             </Button>
-            <span className="ml-2 text-[13px] font-semibold text-[#181d27]">{headingText}</span>
+            <span className="ml-2 text-[13px] font-semibold text-[var(--color-foreground)]">{headingText}</span>
           </div>
         </div>
 
@@ -581,7 +589,7 @@ function WeekView({
       <div>
         {/* 7-day strip */}
 
-        <div className="grid grid-cols-7 gap-1 rounded-2xl border border-[#f2f4f7] bg-[#fafafa] p-1.5">
+        <div className="grid grid-cols-7 gap-1 rounded-2xl border border-[var(--color-surface-tertiary)] bg-[var(--color-background)] p-1.5">
           {weekDays.map((day) => {
             const isToday = sameDay(day, today);
             const isSelected = selectedDate ? sameDay(day, selectedDate) : false;
@@ -593,16 +601,16 @@ function WeekView({
                 className={cn(
                   'flex flex-col items-center gap-1.5 rounded-xl py-3 transition',
                   isSelected
-                    ? 'bg-[#2563eb]'
+                    ? 'bg-[var(--color-primary)]'
                     : isToday
-                      ? 'bg-[#181d27]'
-                      : 'hover:bg-white hover:shadow-xs'
+                      ? 'bg-[var(--color-foreground)]'
+                      : 'hover:bg-[var(--color-surface)] hover:shadow-xs'
                 )}
               >
                 <span
                   className={cn(
                     'text-[11px] font-medium',
-                    isSelected || isToday ? 'text-white/70' : 'text-[#a4a7ae]'
+                    isSelected ? 'text-white/70' : isToday ? 'text-[var(--color-background)]/70' : 'text-[var(--color-text-muted)]'
                   )}
                 >
                   {day.toLocaleString('en-US', { weekday: 'short' })}
@@ -610,7 +618,7 @@ function WeekView({
                 <span
                   className={cn(
                     'text-[16px] font-semibold leading-none',
-                    isSelected || isToday ? 'text-white' : 'text-[#181d27]'
+                    isSelected ? 'text-white' : isToday ? 'text-[var(--color-background)]' : 'text-[var(--color-foreground)]'
                   )}
                 >
                   {day.getDate()}
@@ -620,8 +628,8 @@ function WeekView({
                     'h-1.5 w-1.5 rounded-full',
                     hasEvents(day)
                       ? isSelected || isToday
-                        ? 'bg-white/50'
-                        : 'bg-[#2563eb]'
+                        ? 'bg-[var(--color-surface)]/50'
+                        : 'bg-[var(--color-primary)]'
                       : 'bg-transparent'
                   )}
                 />
@@ -633,7 +641,7 @@ function WeekView({
         {/* Selected date label */}
         {selectedDate && (
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-[#181d27]">
+            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">
               {selectedDate.toLocaleString('en-US', {
                 weekday: 'long',
                 month: 'long',
@@ -644,7 +652,7 @@ function WeekView({
               variant="ghost"
               size="sm"
               onClick={onClearDate}
-              className="text-[12px] font-semibold text-[#717680] hover:text-[#414651]"
+              className="text-[12px] font-semibold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
             >
               Show week
             </Button>
@@ -655,7 +663,7 @@ function WeekView({
         <div className="mt-5 space-y-6">
           {!selectedDate && weekGroups.overdue.length > 0 && (
             <div>
-              <SectionHeading label="Overdue" accent="text-[#f04438]" />
+              <SectionHeading label="Overdue" accent="text-[var(--color-danger)]" />
               <div className="mt-2 space-y-0.5">
                 {weekGroups.overdue.map((item) => (
                   <EventRow key={item.id} item={item} onSelectItem={onSelectItem} />
@@ -736,7 +744,7 @@ function MonthView({
         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
           <div
             key={d}
-            className="py-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]"
+            className="py-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]"
           >
             {d}
           </div>
@@ -744,7 +752,7 @@ function MonthView({
       </div>
 
       {/* Date grid */}
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl bg-[#f2f4f7]">
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl bg-[var(--color-surface-tertiary)]">
         {grid.map(({ date, inMonth }) => {
           const isToday = sameDay(date, today);
           const isSelected = selectedDate ? sameDay(date, selectedDate) : false;
@@ -756,8 +764,8 @@ function MonthView({
               type="button"
               onClick={() => onSelectDate(date)}
               className={cn(
-                'group flex min-h-[76px] flex-col bg-white px-2 py-2 text-left transition hover:bg-[#fafafa]',
-                isSelected && 'bg-[#eff4ff] hover:bg-[#eff4ff]',
+                'group flex min-h-[76px] flex-col bg-[var(--color-surface)] px-2 py-2 text-left transition hover:bg-[var(--color-background)]',
+                isSelected && 'bg-[var(--color-accent-soft)] hover:bg-[var(--color-accent-soft)]',
                 !inMonth && 'opacity-40'
               )}
             >
@@ -765,10 +773,10 @@ function MonthView({
                 className={cn(
                   'inline-flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-semibold',
                   isSelected
-                    ? 'bg-[#2563eb] text-white'
+                    ? 'bg-[var(--color-primary)] text-white'
                     : isToday
-                      ? 'bg-[#181d27] text-white'
-                      : 'text-[#181d27] group-hover:bg-[#f0f0f0]'
+                      ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
+                      : 'text-[var(--color-foreground)] group-hover:bg-[var(--color-surface-tertiary)]'
                 )}
               >
                 {date.getDate()}
@@ -782,7 +790,7 @@ function MonthView({
                     />
                   ))}
                   {items.length > 3 && (
-                    <span className="text-[9px] font-bold text-[#a4a7ae]">+{items.length - 3}</span>
+                    <span className="text-[9px] font-bold text-[var(--color-text-muted)]">+{items.length - 3}</span>
                   )}
                 </div>
               )}
@@ -793,19 +801,19 @@ function MonthView({
 
       {/* Selected day event list */}
       {selectedDate && (
-        <div className="rounded-2xl border border-[#e9eaeb] p-5">
+        <div className="rounded-2xl border border-[var(--color-border)] p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-[14px] font-semibold text-[#181d27]">
+            <h3 className="text-[14px] font-semibold text-[var(--color-foreground)]">
               {selectedDate.toLocaleString('en-US', {
                 weekday: 'long',
                 month: 'long',
                 day: 'numeric',
               })}
               {sameDay(selectedDate, today) && (
-                <span className="ml-2 text-[13px] font-normal text-[#a4a7ae]">Today</span>
+                <span className="ml-2 text-[13px] font-normal text-[var(--color-text-muted)]">Today</span>
               )}
             </h3>
-            <span className="text-[12px] text-[#a4a7ae]">
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -849,14 +857,14 @@ function DayView({
     <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
       {/* Mini month calendar */}
       <div>
-        <p className="mb-3 text-[12px] font-semibold text-[#181d27]">
+        <p className="mb-3 text-[12px] font-semibold text-[var(--color-foreground)]">
           {anchor.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
         </p>
         <div className="grid grid-cols-7 text-center">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
             <div
               key={i}
-              className="py-1 text-[10px] font-semibold uppercase tracking-wider text-[#a4a7ae]"
+              className="py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]"
             >
               {d}
             </div>
@@ -874,28 +882,28 @@ function DayView({
                 className={cn(
                   'flex flex-col items-center gap-0.5 rounded-lg py-1 transition',
                   isSelected
-                    ? 'bg-[#2563eb]'
+                    ? 'bg-[var(--color-primary)]'
                     : isToday
-                      ? 'bg-[#181d27]'
-                      : 'hover:bg-[#f4f4f5]',
+                      ? 'bg-[var(--color-foreground)]'
+                      : 'hover:bg-[var(--color-surface-tertiary)]',
                   !inMonth && 'opacity-30'
                 )}
               >
                 <span
                   className={cn(
                     'text-[12px] font-semibold leading-none',
-                    isSelected || isToday ? 'text-white' : 'text-[#181d27]'
+                    isSelected ? 'text-white' : isToday ? 'text-[var(--color-background)]' : 'text-[var(--color-foreground)]'
                   )}
                 >
-                  {date.getDate()}
+                    {date.getDate()}
                 </span>
                 <span
                   className={cn(
                     'h-1 w-1 rounded-full',
                     hasEvents(date)
                       ? isSelected || isToday
-                        ? 'bg-white/50'
-                        : 'bg-[#2563eb]'
+                        ? 'bg-[var(--color-surface)]/50'
+                        : 'bg-[var(--color-primary)]'
                       : 'bg-transparent'
                   )}
                 />
@@ -907,8 +915,8 @@ function DayView({
 
       {/* Day events */}
       <div>
-        <div className="mb-4 border-b border-[#f2f4f7] pb-3">
-          <h2 className="text-[16px] font-semibold text-[#181d27]">
+        <div className="mb-4 border-b border-[var(--color-surface-tertiary)] pb-3">
+          <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">
             {selectedDate.toLocaleString('en-US', {
               weekday: 'long',
               month: 'long',
@@ -916,7 +924,7 @@ function DayView({
               year: 'numeric',
             })}
             {sameDay(selectedDate, today) && (
-              <span className="ml-2 text-[14px] font-normal text-[#a4a7ae]">· Today</span>
+              <span className="ml-2 text-[14px] font-normal text-[var(--color-text-muted)]">· Today</span>
             )}
           </h2>
         </div>
@@ -964,13 +972,13 @@ function ReminderPanel({
   onClear: () => void;
 }) {
   return (
-    <aside className="h-fit rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
+    <aside className="h-fit rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
             Reminder
           </p>
-          <h3 className="mt-1.5 text-[15px] font-semibold text-[#181d27]">{reminder.title}</h3>
+          <h3 className="mt-1.5 text-[15px] font-semibold text-[var(--color-foreground)]">{reminder.title}</h3>
         </div>
         <Button
           variant="secondary"
@@ -982,30 +990,30 @@ function ReminderPanel({
         </Button>
       </div>
 
-      <div className="mt-4 space-y-3 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4">
+      <div className="mt-4 space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
         {feedback && (
-          <div className="rounded-xl border border-[#d5d7da] bg-white px-3 py-2 text-[13px] text-[#414651]">
+          <div className="rounded-xl border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-2 text-[13px] text-[var(--color-text-secondary)]">
             {feedback}
           </div>
         )}
         {isEditing ? (
           <>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                 Title
               </p>
               <Input
-                className="mt-1.5 bg-white"
+                className="mt-1.5 bg-[var(--color-surface)]"
                 value={draftTitle}
                 onChange={(e) => setDraftTitle(e.target.value)}
               />
             </div>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                 Due date
               </p>
               <Input
-                className="mt-1.5 bg-white"
+                className="mt-1.5 bg-[var(--color-surface)]"
                 type="date"
                 value={draftDueDate}
                 onChange={(e) => setDraftDueDate(e.target.value)}
@@ -1015,16 +1023,16 @@ function ReminderPanel({
         ) : (
           <>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                 Category
               </p>
-              <p className="mt-1 text-[13px] font-medium text-[#181d27]">{reminder.subtitle}</p>
+              <p className="mt-1 text-[13px] font-medium text-[var(--color-foreground)]">{reminder.subtitle}</p>
             </div>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                 Due date
               </p>
-              <p className="mt-1 text-[13px] font-medium text-[#181d27]">
+              <p className="mt-1 text-[13px] font-medium text-[var(--color-foreground)]">
                 {formatShortDate(reminder.date)}
               </p>
             </div>
@@ -1079,10 +1087,10 @@ function SectionHeading({
   accent?: string;
 }) {
   return (
-    <div className="border-b border-[#f2f4f7] pb-2">
-      <h3 className={cn('text-[13px] font-semibold text-[#181d27]', accent)}>
+    <div className="border-b border-[var(--color-surface-tertiary)] pb-2">
+      <h3 className={cn('text-[13px] font-semibold text-[var(--color-foreground)]', accent)}>
         {label}
-        {suffix && <span className="ml-2 font-normal text-[#a4a7ae]">· {suffix}</span>}
+        {suffix && <span className="ml-2 font-normal text-[var(--color-text-muted)]">· {suffix}</span>}
       </h3>
     </div>
   );
@@ -1099,7 +1107,7 @@ function EventRow({
 
   return (
     <div
-      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#f9fafb]"
+      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[var(--color-surface-secondary)]"
       onClick={() => onSelectItem(item)}
       role="button"
       tabIndex={0}
@@ -1109,7 +1117,7 @@ function EventRow({
     >
       <span className={cn('h-2 w-2 shrink-0 rounded-full', dotColorByKind[item.kind])} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-[#181d27]">{item.title}</p>
+        <p className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{item.title}</p>
         <div className="mt-0.5 flex items-center gap-2">
           <span
             className={cn(
@@ -1120,10 +1128,10 @@ function EventRow({
             <Icon className="h-3 w-3" weight="bold" />
             {item.meta}
           </span>
-          <span className="text-[11px] text-[#a4a7ae]">{item.subtitle}</span>
+          <span className="text-[11px] text-[var(--color-text-muted)]">{item.subtitle}</span>
         </div>
       </div>
-      <span className="shrink-0 text-[11px] text-[#a4a7ae]">{formatShortDate(item.date)}</span>
+      <span className="shrink-0 text-[11px] text-[var(--color-text-muted)]">{formatShortDate(item.date)}</span>
     </div>
   );
 }
@@ -1183,9 +1191,9 @@ function ItemDetailDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#e9eaeb]">
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-[#f2f4f7] px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
           <div className="flex items-center gap-3">
             <span
               className={cn(
@@ -1196,28 +1204,27 @@ function ItemDetailDialog({
               <Icon className="h-4.5 w-4.5" weight="bold" />
             </span>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                 {item.meta}
               </p>
-              <p className="mt-0.5 text-[15px] font-semibold text-[#181d27] leading-tight">
+              <p className="mt-0.5 text-[15px] font-semibold text-[var(--color-foreground)] leading-tight">
                 {isEditing ? draftTitle : item.title}
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={onClose}
-            className="h-8 w-8 shrink-0 rounded-full text-[#a4a7ae] hover:bg-[#f4f4f5] hover:text-[#717680]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-text-muted)] transition duration-150 hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)]"
           >
             <X className="h-4 w-4" weight="bold" />
-          </Button>
+          </button>
         </div>
 
         {/* Body */}
         <div className="space-y-3 px-5 py-4">
           {feedback && (
-            <div className="rounded-xl border border-[#d5d7da] bg-[#f9fafb] px-3 py-2 text-[12px] text-[#414651]">
+            <div className="rounded-xl border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
               {feedback}
             </div>
           )}
@@ -1225,34 +1232,34 @@ function ItemDetailDialog({
           {isEditing ? (
             <>
               <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                   Title
                 </p>
                 <Input
                   value={draftTitle}
                   onChange={(e) => setDraftTitle(e.target.value)}
-                  className="bg-white"
+                  className="bg-[var(--color-surface)]"
                 />
               </div>
               <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                   Due date
                 </p>
                 <Input
                   type="date"
                   value={draftDueDate}
                   onChange={(e) => setDraftDueDate(e.target.value)}
-                  className="bg-white"
+                  className="bg-[var(--color-surface)]"
                 />
               </div>
             </>
           ) : (
             <dl className="space-y-3">
               <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                <dt className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                   Date
                 </dt>
-                <dd className="mt-0.5 text-[13px] font-medium text-[#181d27]">
+                <dd className="mt-0.5 text-[13px] font-medium text-[var(--color-foreground)]">
                   {new Date(item.date).toLocaleString('en-US', {
                     weekday: 'long',
                     month: 'long',
@@ -1262,10 +1269,10 @@ function ItemDetailDialog({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                <dt className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                   Status
                 </dt>
-                <dd className="mt-0.5 text-[13px] font-medium text-[#181d27] capitalize">
+                <dd className="mt-0.5 text-[13px] font-medium text-[var(--color-foreground)] capitalize">
                   {item.subtitle}
                 </dd>
               </div>
@@ -1274,7 +1281,7 @@ function ItemDetailDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-2 border-t border-[#f2f4f7] px-5 py-4">
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--color-surface-tertiary)] px-5 py-4">
           {isEditing ? (
             <div className="flex gap-2">
               <Button size="sm" type="button" disabled={isSaving} onClick={saveEdit}>
@@ -1311,7 +1318,7 @@ function ItemDetailDialog({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-[12px] font-semibold text-[#717680] hover:text-[#414651]"
+              className="text-[12px] font-semibold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
             >
               Clear
             </Button>
@@ -1324,7 +1331,7 @@ function ItemDetailDialog({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#d5d7da] px-4 py-10 text-center text-[13px] text-[#a4a7ae]">
+    <div className="rounded-2xl border border-dashed border-[var(--color-border-input)] px-4 py-10 text-center text-[13px] text-[var(--color-text-muted)]">
       {message}
     </div>
   );

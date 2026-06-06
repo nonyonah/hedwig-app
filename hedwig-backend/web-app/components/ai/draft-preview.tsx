@@ -48,7 +48,7 @@ export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewPro
               <Stat label="Amount" value={formatAmount(invoiceDraft.amountUsd)} />
               <Stat label="Due" value={formatShortDate(invoiceDraft.dueAt)} />
             </div>
-            <div className="space-y-3 rounded-[15px] border border-[#e9eaeb] bg-[#fcfcfd] p-4">
+            <div className="space-y-3 rounded-[15px] border border-[var(--color-border)] bg-[var(--color-background)] p-4">
               {invoiceDraft.lineItems.map((item) => (
                 <div key={item.label} className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">{item.label}</span>
@@ -80,8 +80,8 @@ export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewPro
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[15px] border border-[#e9eaeb] bg-[#fcfcfd] p-4 shadow-xs">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#717680]">{label}</p>
+    <div className="rounded-[15px] border border-[var(--color-border)] bg-[var(--color-background)] p-4 shadow-xs">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{label}</p>
       <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
     </div>
   );

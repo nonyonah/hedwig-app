@@ -25,6 +25,8 @@ import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
+import { MemberWelcomeBanner } from '@/components/workspace/member-welcome-banner';
+import { PendingInvitationBanner } from '@/components/workspace/pending-invitation-banner';
 
 type DashboardData = {
   totals: {
@@ -287,6 +289,8 @@ export function DashboardClient({
 
   return (
     <div className="flex flex-col gap-6">
+      <MemberWelcomeBanner />
+      <PendingInvitationBanner />
       {!isDemo && showCoreIntro ? (
         <CoreFeaturesIntro
           activeStep={coreIntroStep}
@@ -310,15 +314,15 @@ export function DashboardClient({
 
       {/* Page header */}
       <div>
-        <h1 className="text-[15px] font-semibold text-[#181d27]">
+        <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">
           {getTimeOfDayGreeting(hour)}, {greetingName}
         </h1>
-        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Here&rsquo;s what&rsquo;s happening today.</p>
+        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Here&rsquo;s what&rsquo;s happening today.</p>
       </div>
 
       {/* Financial snapshot — gap-px stats bar */}
       <div
-        className="grid gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]"
+        className="grid gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]"
         style={{ gridTemplateColumns: `repeat(${dashboardState.summaryCards.length}, minmax(0, 1fr))` }}
       >
         {dashboardState.summaryCards.map((card) => {
@@ -327,16 +331,16 @@ export function DashboardClient({
             <Link
               key={card.id}
               href={card.href}
-              className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]"
+              className="group flex flex-col bg-[var(--color-surface)] px-5 py-4 transition duration-100 ease-linear hover:bg-[var(--color-background)]"
             >
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[12px] font-medium text-[#717680]">{card.title}</p>
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  <Icon className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
+                <p className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{card.title}</p>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-surface-secondary)]">
+                  <Icon className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="regular" />
                 </div>
               </div>
-              <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{card.value}</p>
-              <p className="mt-1.5 text-[11px] text-[#a4a7ae]">{card.helper}</p>
+              <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[var(--color-foreground)]">{card.value}</p>
+              <p className="mt-1.5 text-[11px] text-[var(--color-text-muted)]">{card.helper}</p>
             </Link>
           );
         })}
@@ -345,44 +349,44 @@ export function DashboardClient({
       {/* Main two-column: action items + workstream stats */}
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         {/* Action items card */}
-        <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+        <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
             <div>
               {/* UUI: text-md (16px) font-semibold text-primary */}
-              <h2 className="text-[16px] font-semibold text-[#181d27]">Action items</h2>
-              <p className="mt-0.5 text-[13px] text-[#717680]">Next moves across billing, deadlines, and earnings.</p>
+              <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">Action items</h2>
+              <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Next moves across billing, deadlines, and earnings.</p>
             </div>
             {dashboardState.actionItems.filter((item) => !item.complete).length > 0 ? (
               /* UUI badge: error color, pill */
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#fef3f2] px-1.5 text-[11px] font-semibold text-[#717680]">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-danger-soft)] px-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
                 {dashboardState.actionItems.filter((item) => !item.complete).length}
               </span>
             ) : null}
           </div>
-          <div className="divide-y divide-[#f5f5f5]">
+          <div className="divide-y divide-[var(--color-surface-secondary)]">
             {dashboardState.actionItems.map((item) => (
               <Link
                 key={item.id}
-                className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]"
+                className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[var(--color-background)]"
                 href={item.href}
               >
                 {/* UUI checkbox-style indicator */}
                 <div
                   className={`mt-[1px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
                     item.complete
-                      ? 'border-[#17b26a] bg-[#ecfdf3] text-[#717680]'
-                      : 'border-[#d5d7da] bg-white text-transparent'
+                      ? 'border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]'
+                      : 'border-[var(--color-border-input)] bg-[var(--color-surface)] text-transparent'
                   }`}
                 >
                   <CheckCircle className="h-3 w-3" weight={item.complete ? 'fill' : 'regular'} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-[14px] font-semibold ${item.complete ? 'text-[#a4a7ae] line-through' : 'text-[#181d27]'}`}>
+                  <p className={`text-[14px] font-semibold ${item.complete ? 'text-[var(--color-text-muted)] line-through' : 'text-[var(--color-foreground)]'}`}>
                     {item.title}
                   </p>
-                  <p className="mt-0.5 text-[13px] text-[#717680]">{item.meta}</p>
+                  <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">{item.meta}</p>
                 </div>
-                <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] group-hover:text-[#a4a7ae]" />
+                <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-border-input)] group-hover:text-[var(--color-text-muted)]" />
               </Link>
             ))}
           </div>
@@ -405,15 +409,15 @@ export function DashboardClient({
       {/* Bottom row: assistant summary + next reminder */}
       <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
         {canUseAssistantSummary ? (
-          <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+          <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
             <div className="mb-3 flex items-center gap-2.5">
               {/* UUI featured icon: brand color */}
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
-                <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
+                <Sparkle className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="fill" />
               </div>
-              <p className="text-[16px] font-semibold text-[#181d27]">Assistant summary</p>
+              <p className="text-[16px] font-semibold text-[var(--color-foreground)]">Assistant summary</p>
             </div>
-            <p className="text-[14px] leading-relaxed text-[#535862]">
+            <p className="text-[14px] leading-relaxed text-[var(--color-text-secondary)]">
               {data.assistantSummary ||
                 dashboardState.latestNotification?.body ||
                 dashboardState.latestActivity?.summary ||
@@ -428,20 +432,20 @@ export function DashboardClient({
           />
         )}
 
-        <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+        <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-[16px] font-semibold text-[#181d27]">Next reminder</p>
-            <CalendarDots className="h-4 w-4 text-[#a4a7ae]" weight="regular" />
+            <p className="text-[16px] font-semibold text-[var(--color-foreground)]">Next reminder</p>
+            <CalendarDots className="h-4 w-4 text-[var(--color-text-muted)]" weight="regular" />
           </div>
           {dashboardState.latestReminder ? (
             <>
-              <p className="text-[14px] font-semibold text-[#181d27]">{dashboardState.latestReminder.title}</p>
-              <p className="mt-1 text-[13px] text-[#717680]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
+              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{dashboardState.latestReminder.title}</p>
+              <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
             </>
           ) : (
             <>
-              <p className="text-[14px] font-semibold text-[#414651]">No pending reminders</p>
-              <p className="mt-1 text-[13px] text-[#a4a7ae]">You are caught up for now.</p>
+              <p className="text-[14px] font-semibold text-[var(--color-text-secondary)]">No pending reminders</p>
+              <p className="mt-1 text-[13px] text-[var(--color-text-muted)]">You are caught up for now.</p>
             </>
           )}
           <Button
@@ -464,35 +468,35 @@ const CORE_INTRO_STEPS = [
     description: 'Start with one client, amount, and due date. If the client email is included, Hedwig sends the invoice automatically.',
     label: 'Invoice',
     Icon: FileText,
-    accent: 'bg-[#eff4ff] text-[#2563eb]',
+    accent: 'bg-[var(--color-accent-soft)] text-[var(--color-primary)]',
   },
   {
     title: 'Track clients and projects',
     description: 'Keep client details, project work, documents, and payment history tied together from the first invoice.',
     label: 'Clients',
     Icon: IdentificationCard,
-    accent: 'bg-[#ecfdf3] text-[#067647]',
+    accent: 'bg-[var(--color-success-soft)] text-[var(--color-success)]',
   },
   {
     title: 'Automatic payment reminders',
     description: 'Hedwig can remind clients before and after due dates so you spend less time chasing payments manually.',
     label: 'Reminders',
     Icon: Bell,
-    accent: 'bg-[#fffaeb] text-[#b54708]',
+    accent: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]',
   },
   {
     title: 'Hedwig assistant keeps watch',
     description: 'The assistant summarizes payment activity, highlights next steps, and helps draft client follow-ups when needed.',
     label: 'Assistant',
     Icon: Sparkle,
-    accent: 'bg-[#f4f3ff] text-[#5925dc]',
+    accent: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]',
   },
   {
     title: 'Track payment until it lands',
     description: 'See what is paid, pending, or overdue without checking every message thread manually.',
     label: 'Track',
     Icon: CurrencyDollar,
-    accent: 'bg-[#fdf2fa] text-[#c11574]',
+    accent: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]',
   },
 ];
 
@@ -512,51 +516,51 @@ function CoreFeaturesIntro({
   const Icon = step.Icon;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#181d27]/30 px-4 backdrop-blur-[2px]">
-      <div className="relative w-full max-w-[440px] overflow-hidden rounded-[28px] bg-white shadow-[0_28px_100px_rgba(24,29,39,0.24)] ring-1 ring-black/5">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--color-foreground)]/30 px-4 backdrop-blur-[2px]">
+      <div className="relative w-full max-w-[440px] overflow-hidden rounded-[28px] bg-[var(--color-surface)] shadow-[0_28px_100px_rgba(24,29,39,0.24)] ring-1 ring-black/5">
           <Button
             variant="ghost"
             size="sm"
             onClick={onDismiss}
             aria-label="Close intro"
-            className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-white/75 text-[#a4a7ae] shadow-sm ring-1 ring-[#e9eaeb] hover:bg-white hover:text-[#414651]"
+            className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-[var(--color-surface)]/75 text-[var(--color-text-muted)] shadow-sm ring-1 ring-[var(--color-border)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)]"
           >
             <X className="h-3.5 w-3.5" weight="bold" />
           </Button>
 
-        <div className="relative flex h-[244px] items-center justify-center overflow-hidden bg-[#f4f7fb]">
+        <div className="relative flex h-[244px] items-center justify-center overflow-hidden bg-[var(--color-surface-secondary)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(37,99,235,0.16),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(22,163,74,0.12),transparent_28%)]" />
-          <div className="absolute left-8 top-8 h-16 w-24 rounded-2xl border border-[#e9eaeb] bg-white/75 shadow-sm" />
-          <div className="absolute bottom-8 right-8 h-16 w-28 rounded-2xl border border-[#e9eaeb] bg-white/70 shadow-sm" />
-          <div className="relative w-[260px] rounded-[22px] bg-white p-5 shadow-[0_18px_50px_rgba(24,29,39,0.15)] ring-1 ring-[#e9eaeb]">
+          <div className="absolute left-8 top-8 h-16 w-24 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/75 shadow-sm" />
+          <div className="absolute bottom-8 right-8 h-16 w-28 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 shadow-sm" />
+          <div className="relative w-[260px] rounded-[22px] bg-[var(--color-surface)] p-5 shadow-[0_18px_50px_rgba(24,29,39,0.15)] ring-1 ring-[var(--color-border)]">
             <div className="mb-4 flex items-center justify-between">
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${step.accent}`}>
                 <Icon className="h-3.5 w-3.5" weight="bold" />
                 {step.label}
               </span>
-              <span className="h-2 w-2 rounded-full bg-[#17b26a]" />
+              <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
             </div>
             <div className="space-y-2">
-              <div className="h-3 w-36 rounded-full bg-[#181d27]" />
-              <div className="h-2 w-48 rounded-full bg-[#d5d7da]" />
-              <div className="h-2 w-40 rounded-full bg-[#e9eaeb]" />
+              <div className="h-3 w-36 rounded-full bg-[var(--color-foreground)]" />
+              <div className="h-2 w-48 rounded-full bg-[var(--color-border-input)]" />
+              <div className="h-2 w-40 rounded-full bg-[var(--color-border)]" />
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-[#f8f9fb] p-3">
-                <div className="h-2 w-12 rounded-full bg-[#a4a7ae]" />
-                <div className="mt-2 h-4 w-16 rounded-full bg-[#181d27]" />
+              <div className="rounded-xl bg-[var(--color-surface-secondary)] p-3">
+                <div className="h-2 w-12 rounded-full bg-[var(--color-text-muted)]" />
+                <div className="mt-2 h-4 w-16 rounded-full bg-[var(--color-foreground)]" />
               </div>
-              <div className="rounded-xl bg-[#eff4ff] p-3">
-                <div className="h-2 w-10 rounded-full bg-[#93c5fd]" />
-                <div className="mt-2 h-4 w-14 rounded-full bg-[#2563eb]" />
+              <div className="rounded-xl bg-[var(--color-accent-soft)] p-3">
+                <div className="h-2 w-10 rounded-full bg-[var(--color-accent-soft)]" />
+                <div className="mt-2 h-4 w-14 rounded-full bg-[var(--color-primary)]" />
               </div>
             </div>
           </div>
         </div>
 
         <div className="px-7 pb-6 pt-7 text-center">
-          <h2 className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{step.title}</h2>
-          <p className="mx-auto mt-2 max-w-[330px] text-[15px] leading-6 text-[#8d9096]">{step.description}</p>
+          <h2 className="text-[22px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{step.title}</h2>
+          <p className="mx-auto mt-2 max-w-[330px] text-[15px] leading-6 text-[var(--color-text-tertiary)]">{step.description}</p>
 
           <div className="mt-6 flex items-center justify-center gap-2">
             {CORE_INTRO_STEPS.map((item, index) => (
@@ -565,7 +569,7 @@ function CoreFeaturesIntro({
                 type="button"
                 aria-label={`Go to intro step ${index + 1}`}
                 onClick={() => onStepChange(index)}
-                className={`h-2.5 rounded-full transition-all ${index === activeStep ? 'w-6 bg-[#717680]' : 'w-2.5 bg-[#d5d7da]'}`}
+                className={`h-2.5 rounded-full transition-all ${index === activeStep ? 'w-6 bg-[var(--color-text-tertiary)]' : 'w-2.5 bg-[var(--color-border-input)]'}`}
               />
             ))}
           </div>
@@ -592,34 +596,34 @@ function CoreFeaturesIntro({
 
 function FirstInvoiceCard({ onStart }: { onStart: () => void }) {
   return (
-    <article className="overflow-hidden rounded-2xl bg-[#181d27] text-white shadow-[0_18px_60px_rgba(24,29,39,0.16)]">
-      <div className="grid gap-px bg-white/10 lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="bg-[#181d27] p-6">
-          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#93c5fd]">First session goal</p>
+    <article className="overflow-hidden rounded-2xl bg-[var(--color-foreground)] text-[var(--color-background)] shadow-[0_18px_60px_rgba(24,29,39,0.16)]">
+      <div className="grid gap-px bg-[var(--color-surface)]/10 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="bg-[var(--color-foreground)] p-6">
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-accent-soft)]">First session goal</p>
           <h2 className="mt-2 max-w-2xl text-[24px] font-bold tracking-[-0.035em]">
             Create your first invoice in 60 seconds.
           </h2>
-          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#cbd5e1]">
+          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--color-text-placeholder)]">
             Start with one client, an amount, and a due date. Hedwig will turn it into a client-ready invoice you can share.
           </p>
           <Button
             variant="secondary"
             size="lg"
             onClick={onStart}
-            className="mt-5 bg-white text-[#181d27] hover:bg-[#f1f5ff]"
+            className="mt-5 bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)]"
           >
             Create your first invoice →
           </Button>
         </div>
-        <div className="bg-[#202636] p-6">
+        <div className="bg-[var(--color-foreground)] p-6">
           <p className="text-[13px] font-semibold text-white">What happens next</p>
           <div className="mt-4 space-y-3">
             {['Create the invoice', 'Invoice is sent automatically to the client', 'Track payment when it lands'].map((item, index) => (
               <div key={item} className="flex items-center gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold text-white">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface)]/10 text-[12px] font-semibold text-white">
                   {index + 1}
                 </span>
-                <span className="text-[13px] text-[#dbeafe]">{item}</span>
+                <span className="text-[13px] text-[var(--color-primary-light)]">{item}</span>
               </div>
             ))}
           </div>
@@ -649,14 +653,14 @@ function OnboardingChecklist({
   ];
 
   return (
-    <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+    <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#2563eb]">Getting paid checklist</p>
-          <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[#181d27]">
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">Getting paid checklist</p>
+          <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">
             Keep going until the first payment lands.
           </h2>
-          <p className="mt-1 text-[13px] leading-5 text-[#717680]">
+          <p className="mt-1 text-[13px] leading-5 text-[var(--color-text-tertiary)]">
             Once your first request is sent, you can set a monthly earnings goal from Insights.
           </p>
         </div>
@@ -677,15 +681,15 @@ function OnboardingChecklist({
           </Button>
         </div>
       </div>
-      <div className="mt-4 grid gap-px overflow-hidden rounded-xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] md:grid-cols-3">
+      <div className="mt-4 grid gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)] md:grid-cols-3">
         {steps.map((step) => (
-          <div key={step.label} className="flex items-center gap-3 bg-white px-4 py-3">
+          <div key={step.label} className="flex items-center gap-3 bg-[var(--color-surface)] px-4 py-3">
             <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-              step.complete ? 'border-[#17b26a] bg-[#ecfdf3] text-[#067647]' : 'border-[#d5d7da] text-transparent'
+              step.complete ? 'border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]' : 'border-[var(--color-border-input)] text-transparent'
             }`}>
               <CheckCircle className="h-3.5 w-3.5" weight="fill" />
             </span>
-            <span className={`text-[13px] font-medium ${step.complete ? 'text-[#717680] line-through' : 'text-[#181d27]'}`}>
+            <span className={`text-[13px] font-medium ${step.complete ? 'text-[var(--color-text-tertiary)] line-through' : 'text-[var(--color-foreground)]'}`}>
               {step.label}
             </span>
           </div>

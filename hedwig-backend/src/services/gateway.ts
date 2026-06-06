@@ -474,3 +474,37 @@ export async function requestGatewayAttestation(requests: GatewayTransferRequest
 
     return response.json();
 }
+
+export async function submitForwardedTransfer(requests: GatewayTransferRequest[]): Promise<{ transferId: string }> {
+    const response = await fetch(`${getGatewayApiBaseUrl()}/transfer?enableForwarder=true`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requests),
+    });
+
+    if (!response.ok) {
+        const payload = await response.text();
+        throw new Error(`Gateway forwarded transfer failed (${response.status}): ${payload}`);
+    }
+
+    const json = await response.json();
+    const transferId = json?.transfer?.id || json?.transferId || json?.id || json?.[0]?.transfer?.id || json?.[0]?.id;
+    if (!transferId) throw new Error('Gateway did not return a transfer ID');
+    return { transferId: String(transferId) };
+}
+
+export async function pollGatewayTransfer(transferId: string): Promise<{ status: string; txHash?: string; error?: string }> {
+    const response = await fetch(`${getGatewayApiBaseUrl()}/transfer/${encodeURIComponent(transferId)}`);
+
+    if (!response.ok) {
+        const payload = await response.text();
+        throw new Error(`Gateway transfer poll failed (${response.status}): ${payload}`);
+    }
+
+    const record = await response.json();
+    const status = record?.status || 'pending';
+    const txHash = record?.destination?.txHash || record?.destinationTxHash || record?.txHash;
+    const error = record?.error?.message;
+
+    return { status: String(status).toLowerCase(), txHash: txHash ? String(txHash) : undefined, error };
+}

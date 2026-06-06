@@ -19,7 +19,7 @@ export function AuthHintCard() {
   return (
     <div className="rounded-[15px] border border-border/80 bg-card p-6 shadow-surface">
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[15px] bg-accent text-primary">
-        <ShieldCheck className="h-6 w-6 text-[#72706b]" weight="bold" />
+        <ShieldCheck className="h-6 w-6 text-[var(--color-text-tertiary)]" weight="bold" />
       </div>
       <h2 className="text-[1.65rem] font-semibold tracking-[-0.03em] text-foreground">Use the existing Hedwig identity layer</h2>
       <p className="mt-2.5 text-sm leading-6 text-muted-foreground">

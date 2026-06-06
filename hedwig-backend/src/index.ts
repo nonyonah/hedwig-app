@@ -57,6 +57,7 @@ import currencyRoutes from './routes/currency';
 import assistantRoutes from './routes/assistant';
 import bankAccountRoutes from './routes/bankAccount';
 import workspaceRoutes from './routes/workspaces';
+import timeRoutes from './routes/time';
 import { warmRateSnapshot } from './services/currency';
 
 // Import middleware
@@ -213,6 +214,8 @@ const inferredOrigins = [
     normalizeOrigin(process.env.APP_URL || ''),
     'https://hedwigbot.xyz',
     'https://www.hedwigbot.xyz',
+    'https://money.hedwigbot.xyz',
+    'https://hedwig-app-wuqvha-production.up.railway.app',
     'https://pay.hedwigbot.xyz',
 ].filter(Boolean);
 
@@ -467,6 +470,7 @@ app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/milestones', milestoneRoutes);
+app.use('/api/time-entries', timeRoutes);
 app.use('/api/webhooks/paycrest', (req, _res, next) => {
     logger.info('Paycrest webhook route hit', {
         method: req.method,

@@ -270,4 +270,49 @@ router.post('/transfer/attestation', authenticate, async (req: Request, res: Res
     }
 });
 
+/**
+ * POST /api/gateway/transfer/submit
+ * Submits a signed burn intent to Circle with Forwarder enabled.
+ * Body: { burnIntent, signature, enableForwarder?: boolean }
+ */
+router.post('/transfer/submit', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { submitForwardedTransfer } = await import('../services/gateway');
+        const { burnIntent, signature } = req.body;
+
+        if (!burnIntent || !signature) {
+            res.status(400).json({ success: false, error: { message: 'burnIntent and signature are required' } });
+            return;
+        }
+
+        const result = await submitForwardedTransfer([{ burnIntent, signature }]);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        logger.error('Gateway transfer submit failed', { error });
+        next(error);
+    }
+});
+
+/**
+ * GET /api/gateway/transfer/:transferId/status
+ * Polls a forwarded transfer for status.
+ */
+router.get('/transfer/:transferId/status', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { pollGatewayTransfer } = await import('../services/gateway');
+        const transferId = req.params.transferId;
+
+        if (!transferId) {
+            res.status(400).json({ success: false, error: { message: 'transferId is required' } });
+            return;
+        }
+
+        const status = await pollGatewayTransfer(transferId);
+        res.json({ success: true, data: status });
+    } catch (error) {
+        logger.error('Gateway transfer poll failed', { error });
+        next(error);
+    }
+});
+
 export default router;

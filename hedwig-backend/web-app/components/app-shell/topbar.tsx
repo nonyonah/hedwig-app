@@ -1,22 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTheme } from 'next-themes';
 import {
   FileText,
   FolderSimple,
   LinkSimple,
   CaretDown,
+  Moon,
   Plus,
   SidebarSimple,
   Sparkle,
+  Sun,
   User,
 } from '@/components/ui/lucide-icons';
 import { AccountMenu } from '@/components/app-shell/account-menu';
 import { NotificationBell } from '@/components/app-shell/notification-bell';
 import { TopbarTitle } from '@/components/app-shell/topbar-title';
 import { GlobalSearch } from '@/components/app-shell/global-search';
-import { useAssistantSidebar } from '@/components/providers/assistant-sidebar-provider';
 import { cn } from '@/lib/utils';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
+import { useAssistantSidebar } from '@/components/providers/assistant-sidebar-provider';
 
 type AppTopbarProps = {
   collapsed: boolean;
@@ -34,7 +38,24 @@ type AppTopbarProps = {
 export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const createRef = useRef<HTMLDivElement | null>(null);
+  const { activeWorkspace } = useWorkspaceContext();
+  const showCreate = !activeWorkspace || activeWorkspace.role !== 'member';
   const { open: assistantOpen, toggle: toggleAssistant } = useAssistantSidebar();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  const usingSystem = theme === 'system' || theme === undefined;
+
+  const cycleTheme = () => {
+    if (usingSystem) {
+      setTheme(isDark ? 'light' : 'dark');
+      return;
+    }
+    if (theme === 'light') {
+      setTheme('dark');
+      return;
+    }
+    setTheme('system');
+  };
 
   useEffect(() => {
     if (!createOpen) return;
@@ -51,14 +72,14 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
   };
 
   return (
-    <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between border-b border-[#f3f4f6] bg-[#fcfcfd]/95 px-4 backdrop-blur-sm lg:px-5">
+    <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-background)]/95 px-4 backdrop-blur-sm lg:px-5">
       {/* Left */}
       <div className="flex min-w-0 items-center gap-2.5">
         <button
           type="button"
           onClick={onOpenMobileSidebar}
           aria-label="Open sidebar"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#8d9096] transition hover:bg-[#f4f5f7] hover:text-[#414651] lg:hidden"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)] lg:hidden"
         >
           <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
         </button>
@@ -67,7 +88,7 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
             type="button"
             onClick={onToggleSidebar}
             aria-label="Expand sidebar"
-            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-[#f4f5f7] hover:text-[#717680] lg:flex"
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-placeholder)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)] lg:flex"
           >
             <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
           </button>
@@ -78,6 +99,7 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
       {/* Right */}
       <div className="flex items-center gap-1.5">
         {/* Create */}
+        {showCreate && (
         <div className="relative" ref={createRef}>
           <button
             type="button"
@@ -88,8 +110,8 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
             className={cn(
               'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition',
               createOpen
-                ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white shadow-[#2563eb]/20'
-                : 'border-[#2563eb] bg-[#2563eb] text-white shadow-[#2563eb]/20 hover:border-[#1d4ed8] hover:bg-[#1d4ed8]'
+                ? 'border-[var(--color-primary-dark)] bg-[var(--color-primary-dark)] text-white shadow-[var(--color-accent)]/20'
+                : 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white shadow-[var(--color-accent)]/20 hover:border-[var(--color-primary-dark)] hover:bg-[var(--color-primary-dark)]'
             )}
           >
             <Plus className="h-4 w-4" weight="bold" />
@@ -98,7 +120,7 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
           </button>
 
           {createOpen && (
-            <div className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-xl border border-[#f3f4f6] bg-white py-1 shadow-lg shadow-black/5">
+            <div className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] py-1 shadow-lg shadow-black/5">
               {[
                 { flow: 'invoice' as const, label: 'Invoice', Icon: FileText },
                 { flow: 'payment-link' as const, label: 'Payment link', Icon: LinkSimple },
@@ -109,37 +131,52 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
                   key={flow}
                   type="button"
                   onClick={() => openCreateFlow(flow)}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[#414651] transition hover:bg-[#f8f9fb] hover:text-[#181d27]"
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
                 >
-                  <Icon className="h-3.5 w-3.5 text-[#c1c5cd]" weight="bold" />
+                  <Icon className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
                   {label}
                 </button>
               ))}
             </div>
           )}
         </div>
+        )}
 
         <GlobalSearch accessToken={accessToken} />
+        <NotificationBell unreadCount={unreadCount} accessToken={accessToken ?? null} />
         <button
           type="button"
-          onClick={toggleAssistant}
-          title="Ask Hedwig"
-          aria-label="Toggle Hedwig assistant"
-          className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-full transition',
-            assistantOpen
-              ? 'bg-[#eff4ff] text-[#2563eb] ring-1 ring-[#2563eb]/20'
-              : 'text-[#8d9096] hover:bg-[#f4f5f7] hover:text-[#414651]'
-          )}
+          onClick={cycleTheme}
+          title={
+            usingSystem
+              ? `System theme (${isDark ? 'dark' : 'light'}) — click for ${isDark ? 'light' : 'dark'}`
+              : theme === 'light'
+                ? 'Light mode — click for dark'
+                : 'Dark mode — click to use system theme'
+          }
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]"
         >
-          <Sparkle className="h-4 w-4" weight="bold" />
+          {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </button>
-        <NotificationBell unreadCount={unreadCount} accessToken={accessToken ?? null} />
         <AccountMenu
           avatarUrl={user.avatarUrl}
           email={user.email}
           fullName={user.fullName}
         />
+          <button
+            type="button"
+            onClick={toggleAssistant}
+            title="Ask Hedwig"
+            aria-label="Toggle Hedwig assistant"
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-md transition duration-150',
+              assistantOpen
+                ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/20'
+                : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]'
+            )}
+          >
+            <SidebarSimple className={cn('h-4 w-4', assistantOpen && 'animate-sparkle-active')} weight="bold" />
+          </button>
       </div>
     </div>
   );

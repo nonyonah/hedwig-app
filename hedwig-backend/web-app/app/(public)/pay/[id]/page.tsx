@@ -83,38 +83,38 @@ export default async function PublicPaymentLinkPage({
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
 
         {/* ── Left: payment detail card ── */}
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
+        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
 
           {/* Header */}
-          <div className="border-b border-[#e9eaeb] px-6 py-5">
+          <div className="border-b border-[var(--color-border)] px-6 py-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Payment link</p>
-                <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{document.title}</h1>
-                <p className="mt-1 text-[12px] text-[#a4a7ae]">from {merchantName}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Payment link</p>
+                <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{document.title}</h1>
+                <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">from {merchantName}</p>
               </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#eff4ff] px-2.5 py-1 text-[11px] font-semibold text-[#717680]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
                 Active
               </span>
             </div>
           </div>
 
           {/* Amount hero */}
-          <div className="border-b border-[#e9eaeb] bg-[#f8f9fc] px-6 py-5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</p>
-            <p className="mt-1.5 text-[34px] font-bold tracking-[-0.04em] leading-none text-[#181d27]">
+          <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-6 py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount</p>
+            <p className="mt-1.5 text-[34px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
               {formatCurrency(Number(document.amount || 0))}
             </p>
           </div>
 
           {/* Token + chain pills */}
           <div className="flex items-center gap-2 px-6 py-4">
-            <div className="flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-[#fafafa] px-3 py-1.5 text-[12px] font-medium text-[#414651]">
+            <div className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
               <Image src={tokenIcon} alt={paymentToken} width={14} height={14} className="rounded-full" />
               {paymentCurrency}
             </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-[#fafafa] px-3 py-1.5 text-[12px] font-medium text-[#414651]">
+            <div className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
               <Image src={chainIcon} alt={chainLabel} width={14} height={14} className="rounded-full" />
               {chainLabel}
             </div>
@@ -122,9 +122,9 @@ export default async function PublicPaymentLinkPage({
 
           {/* Instructions */}
           <div className="px-6 pb-6">
-            <div className="rounded-2xl border border-[#e9eaeb] bg-[#fafafa] px-4 py-4">
-              <p className="mb-2 text-[12px] font-semibold text-[#414651]">How to pay</p>
-              <ol className="space-y-1.5 text-[12px] leading-relaxed text-[#717680]">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-4">
+              <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">How to pay</p>
+              <ol className="space-y-1.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
                 <li>1. Select your preferred network in the checkout panel.</li>
                 <li>2. Connect a wallet that holds {paymentCurrency} on {chainLabel}.</li>
                 {/* Celo / MiniPay support temporarily disabled. */}

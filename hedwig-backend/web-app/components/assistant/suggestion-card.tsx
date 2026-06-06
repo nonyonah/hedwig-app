@@ -36,7 +36,7 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
   };
 
   return (
-    <div className="rounded-xl border border-[#e9eaeb] bg-white p-3 transition-shadow hover:shadow-sm">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 transition-shadow hover:shadow-sm">
       <div className="flex items-start gap-3">
         <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', cfg.bg)}>
           <Icon className={cn('h-4 w-4', cfg.color)} weight="fill" />
@@ -53,13 +53,13 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
             </span>
           </div>
 
-          <p className="mt-1 text-[13px] font-semibold leading-snug text-[#181d27]">{suggestion.title}</p>
-          <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-[#717680]">{suggestion.description}</p>
+          <p className="mt-1 text-[13px] font-semibold leading-snug text-[var(--color-foreground)]">{suggestion.title}</p>
+          <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">{suggestion.description}</p>
 
           {badges.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {badges.slice(0, 3).map((badge) => (
-                <span key={badge} className="inline-flex items-center rounded-md bg-[#f9fafb] px-2 py-0.5 text-[11px] font-medium text-[#414651]">
+                <span key={badge} className="inline-flex items-center rounded-md bg-[var(--color-background)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-text-secondary)]">
                   {badge}
                 </span>
               ))}
@@ -70,7 +70,7 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
             <button
               type="button"
               onClick={() => onReview(suggestion)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#1d4ed8]"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-primary-dark)]"
             >
               <CheckCircle className="h-3 w-3" weight="bold" />
               {primaryActionLabel}
@@ -79,7 +79,7 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
               type="button"
               onClick={handleReject}
               disabled={rejecting}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#717680] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318] hover:border-[#fecdca] disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger-soft)] disabled:opacity-50"
             >
               <Warning className="h-3 w-3" />
               Dismiss

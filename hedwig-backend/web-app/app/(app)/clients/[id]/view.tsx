@@ -23,6 +23,7 @@ import type { Client, Contract, Invoice, PaymentLink, Project } from '@/lib/mode
 import { cn, formatShortDate } from '@/lib/utils';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { openPaymentDetail } from '@/lib/payments/open-detail';
 
 function initials(name: string) {
@@ -36,30 +37,30 @@ function buildSmsHref(phone?: string) {
 }
 
 const CLIENT_STATUS = {
-  active:   { label: 'Active',   bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
-  at_risk:  { label: 'At risk',  bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f59e0b]' },
-  inactive: { label: 'Inactive', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#a4a7ae]' },
+  active:   { label: 'Active',   bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]', dot: 'bg-[var(--color-success)]' },
+  at_risk:  { label: 'At risk',  bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]', dot: 'bg-[var(--color-warning)]' },
+  inactive: { label: 'Inactive', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]', dot: 'bg-[var(--color-text-muted)]' },
 } as const;
 
 const SEGMENT_PILL = {
-  new:     { label: 'New',     bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]', dot: 'bg-[#2563eb]' },
-  active:  { label: 'Active',  bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
-  lapsing: { label: 'Lapsing', bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f59e0b]' },
-  dormant: { label: 'Dormant', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#a4a7ae]' },
+  new:     { label: 'New',     bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary)]', dot: 'bg-[var(--color-primary)]' },
+  active:  { label: 'Active',  bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]', dot: 'bg-[var(--color-success)]' },
+  lapsing: { label: 'Lapsing', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]', dot: 'bg-[var(--color-warning)]' },
+  dormant: { label: 'Dormant', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]', dot: 'bg-[var(--color-text-muted)]' },
 } as const;
 
 const INV_STATUS = {
-  draft:   { label: 'Draft',   bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
-  sent:    { label: 'Sent',    bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  viewed:  { label: 'Viewed',  bg: 'bg-[#f0f9ff]', text: 'text-[#0e7490]' },
-  paid:    { label: 'Paid',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  overdue: { label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
+  draft:   { label: 'Draft',   bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  sent:    { label: 'Sent',    bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary)]' },
+  viewed:  { label: 'Viewed',  bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  paid:    { label: 'Paid',    bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  overdue: { label: 'Overdue', bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
 } as const;
 
 const PROJ_STATUS = {
-  active:    { label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  paused:    { label: 'Paused',    bg: 'bg-[#fffaeb]', text: 'text-[#92400e]' },
-  completed: { label: 'Completed', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
+  active:    { label: 'Active',    bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  paused:    { label: 'Paused',    bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  completed: { label: 'Completed', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
 } as const;
 
 function Pill({ bg, text, label }: { bg: string; text: string; label: string }) {
@@ -77,12 +78,12 @@ function SectionCard({ title, count, action, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#f2f4f7]">
-      <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-3">
+    <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-surface-tertiary)]">
+      <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-[13px] font-semibold text-[#181d27]">{title}</h2>
+          <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">{title}</h2>
           {typeof count === 'number' && (
-            <span className="text-[12px] text-[#c1c5cd]">{count}</span>
+            <span className="text-[12px] text-[var(--color-text-placeholder)]">{count}</span>
           )}
         </div>
         {action}
@@ -93,11 +94,11 @@ function SectionCard({ title, count, action, children }: {
 }
 
 function ColHead({ children }: { children: React.ReactNode }) {
-  return <th className="px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">{children}</th>;
+  return <th className="px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-placeholder)]">{children}</th>;
 }
 
 function EmptyRow({ text }: { text: string }) {
-  return <div className="px-5 py-10 text-center text-[13px] text-[#a4a7ae]">{text}</div>;
+  return <div className="px-5 py-10 text-center text-[13px] text-[var(--color-text-muted)]">{text}</div>;
 }
 
 export function ClientDetailClient({
@@ -118,6 +119,15 @@ export function ClientDetailClient({
   const router = useRouter();
   const { toast } = useToast();
   const { formatAmount } = useCurrency();
+
+  useAssistantPageContext('Client Detail', {
+    clientName: initialClient.name,
+    clientEmail: initialClient.email,
+    projectsCount: projects.length,
+    invoicesCount: invoices.length,
+    contractsCount: contracts.length,
+  });
+
   const [client, setClient] = useState(initialClient);
   const [editOpen, setEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -229,24 +239,24 @@ export function ClientDetailClient({
     <div className="space-y-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[13px]">
-        <Link href="/clients" className="flex items-center gap-1.5 text-[#a4a7ae] transition-colors hover:text-[#525866]">
+        <Link href="/clients" className="flex items-center gap-1.5 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-tertiary)]">
           <ArrowLeft className="h-3 w-3" weight="bold" />
           Clients
         </Link>
-        <span className="text-[#e9eaeb]">/</span>
-        <span className="text-[#525866]">{client.name}</span>
+        <span className="text-[var(--color-border)]">/</span>
+        <span className="text-[var(--color-text-tertiary)]">{client.name}</span>
       </div>
 
       {/* Record header */}
-      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#f2f4f7]">
-        <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-4">
+      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-surface-tertiary)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2563eb] text-[13px] font-bold text-white">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)] text-[13px] font-bold text-white">
               {initials(client.name)}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-[15px] font-semibold text-[#181d27]">{client.name}</h1>
+                <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">{client.name}</h1>
                 <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', s.bg, s.text)}>
                   <span className={cn('h-1.5 w-1.5 rounded-full', s.dot)} />
                   {s.label}
@@ -256,7 +266,7 @@ export function ClientDetailClient({
                   {seg.label}
                 </span>
               </div>
-              <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">
                 {client.company ? `${client.company} · ` : ''}
                 {formatAmount(client.totalBilledUsd, { compact: true })} billed
                 {client.outstandingUsd > 0 ? ` · ${formatAmount(client.outstandingUsd, { compact: true })} outstanding` : ''}
@@ -265,10 +275,14 @@ export function ClientDetailClient({
           </div>
           <div className="flex items-center gap-2">
             {client.email && (
-              <Button size="sm" onClick={openMessage}>
+              <button
+                type="button"
+                onClick={openMessage}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-3 py-1.5 text-[13px] font-semibold text-white transition duration-150 hover:bg-[var(--color-primary-dark)]"
+              >
                 <PaperPlaneRight className="h-3.5 w-3.5" weight="bold" />
                 Message
-              </Button>
+              </button>
             )}
             {smsHref && (
               <Button size="sm" variant="secondary" asChild>
@@ -278,24 +292,27 @@ export function ClientDetailClient({
                 </a>
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="secondary"
+            <button
+              type="button"
               onClick={() => setDeleteOpen(true)}
-              className="text-[#b42318] hover:bg-[#fef3f2] hover:text-[#b42318]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-danger)] shadow-xs transition duration-150 hover:bg-[var(--color-danger-soft)]"
             >
               <Trash className="h-3.5 w-3.5" weight="bold" />
               Delete
-            </Button>
-            <Button size="sm" variant="secondary" onClick={openEdit}>
+            </button>
+            <button
+              type="button"
+              onClick={openEdit}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-150 hover:bg-[var(--color-background)]"
+            >
               <NotePencil className="h-3.5 w-3.5" weight="bold" />
               Edit
-            </Button>
+            </button>
           </div>
         </div>
 
         {/* Details rows */}
-        <div className="divide-y divide-[#f9fafb] px-5">
+        <div className="divide-y divide-[var(--color-surface-secondary)] px-5">
           {[
             { label: 'Email',         value: client.email,   icon: <Envelope className="h-3.5 w-3.5" weight="regular" /> },
             { label: 'Company',       value: client.company,  icon: <Buildings className="h-3.5 w-3.5" weight="regular" /> },
@@ -305,12 +322,12 @@ export function ClientDetailClient({
             { label: 'Last activity', value: client.lastActivityAt ? formatShortDate(client.lastActivityAt) : null, icon: <ClockCountdown className="h-3.5 w-3.5" weight="regular" /> },
           ].map(({ label, value, icon }) => (
             <div key={label} className="flex items-center gap-3 py-2.5">
-              <div className="flex w-[120px] shrink-0 items-center gap-2 text-[#c1c5cd]">
+              <div className="flex w-[120px] shrink-0 items-center gap-2 text-[var(--color-text-placeholder)]">
                 {icon}
-                <span className="text-[12px] text-[#a4a7ae]">{label}</span>
+                <span className="text-[12px] text-[var(--color-text-muted)]">{label}</span>
               </div>
-              <span className="text-[13px] text-[#414651]">
-                {value || <span className="text-[#d0d5dd]">—</span>}
+              <span className="text-[13px] text-[var(--color-text-secondary)]">
+                {value || <span className="text-[var(--color-border-input)]">—</span>}
               </span>
             </div>
           ))}
@@ -327,7 +344,7 @@ export function ClientDetailClient({
             ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#f2f4f7]">
+                  <tr className="border-b border-[var(--color-surface-tertiary)]">
                     <ColHead>Project</ColHead>
                     <ColHead>Status</ColHead>
                     <ColHead>Progress</ColHead>
@@ -335,13 +352,13 @@ export function ClientDetailClient({
                     <ColHead>Deadline</ColHead>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f9fafb]">
+                <tbody className="divide-y divide-[var(--color-surface-secondary)]">
                   {projects.map((p) => {
                     const ps = PROJ_STATUS[p.status] ?? PROJ_STATUS.active;
                     return (
-                      <tr key={p.id} className="transition-colors hover:bg-[#fafafa]">
+                      <tr key={p.id} className="transition-colors hover:bg-[var(--color-background)]">
                         <td className="px-5 py-2.5">
-                          <Link href={`/projects/${p.id}`} className="text-[13px] font-medium text-[#252b37] transition-colors hover:text-[#2563eb]">
+                          <Link href={`/projects/${p.id}`} className="text-[13px] font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)]">
                             {p.name}
                           </Link>
                         </td>
@@ -350,14 +367,14 @@ export function ClientDetailClient({
                         </td>
                         <td className="px-5 py-2.5">
                           <div className="flex items-center gap-2">
-                            <div className="h-1 w-16 overflow-hidden rounded-full bg-[#f2f4f7]">
-                              <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${p.progress}%` }} />
+                            <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                              <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${p.progress}%` }} />
                             </div>
-                            <span className="text-[12px] tabular-nums text-[#8d9096]">{p.progress}%</span>
+                            <span className="text-[12px] tabular-nums text-[var(--color-text-tertiary)]">{p.progress}%</span>
                           </div>
                         </td>
-                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{formatAmount(p.budgetUsd, { compact: true })}</td>
-                        <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(p.nextDeadlineAt)}</td>
+                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[var(--color-text-tertiary)]">{formatAmount(p.budgetUsd, { compact: true })}</td>
+                        <td className="px-5 py-2.5 text-[12px] text-[var(--color-text-muted)]">{formatShortDate(p.nextDeadlineAt)}</td>
                       </tr>
                     );
                   })}
@@ -373,31 +390,31 @@ export function ClientDetailClient({
             ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#f2f4f7]">
+                  <tr className="border-b border-[var(--color-surface-tertiary)]">
                     <ColHead>Invoice</ColHead>
                     <ColHead>Status</ColHead>
                     <ColHead>Amount</ColHead>
                     <ColHead>Due</ColHead>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f9fafb]">
+                <tbody className="divide-y divide-[var(--color-surface-secondary)]">
                   {invoices.map((inv) => {
                     const is = INV_STATUS[inv.status] ?? INV_STATUS.draft;
                     return (
-                      <tr key={inv.id} className="transition-colors hover:bg-[#fafafa]">
+                      <tr key={inv.id} className="transition-colors hover:bg-[var(--color-background)]">
                         <td className="px-5 py-2.5">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => openPaymentDetail('invoice', inv.id)}
-                            className="text-[13px] font-medium text-[#252b37] hover:text-[#2563eb]"
+                            className="text-[13px] font-medium text-[var(--color-foreground)] hover:text-[var(--color-primary)]"
                           >
                             {inv.number}
                           </Button>
                         </td>
                         <td className="px-5 py-2.5"><Pill bg={is.bg} text={is.text} label={is.label} /></td>
-                        <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[#252b37]">{formatAmount(inv.amountUsd, { compact: true })}</td>
-                        <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(inv.dueAt)}</td>
+                        <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">{formatAmount(inv.amountUsd, { compact: true })}</td>
+                        <td className="px-5 py-2.5 text-[12px] text-[var(--color-text-muted)]">{formatShortDate(inv.dueAt)}</td>
                       </tr>
                     );
                   })}
@@ -413,18 +430,18 @@ export function ClientDetailClient({
             {contracts.length === 0 ? (
               <EmptyRow text="No contracts yet." />
             ) : (
-              <div className="divide-y divide-[#f9fafb]">
+              <div className="divide-y divide-[var(--color-surface-secondary)]">
                 {contracts.map((c) => {
                   const cs = c.status === 'signed'
-                    ? { bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' }
+                    ? { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' }
                     : c.status === 'review'
-                    ? { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' }
-                    : { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' };
+                    ? { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary)]' }
+                    : { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
                   return (
-                    <Link key={c.id} href={`/contracts?contract=${c.id}`} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-[#fafafa]">
+                    <Link key={c.id} href={`/contracts?contract=${c.id}`} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-[var(--color-background)]">
                       <div>
-                        <p className="text-[13px] font-medium text-[#252b37]">{c.title}</p>
-                        {c.signedAt && <p className="mt-0.5 text-[11px] text-[#a4a7ae]">Signed {formatShortDate(c.signedAt)}</p>}
+                        <p className="text-[13px] font-medium text-[var(--color-foreground)]">{c.title}</p>
+                        {c.signedAt && <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">Signed {formatShortDate(c.signedAt)}</p>}
                       </div>
                       <Pill bg={cs.bg} text={cs.text} label={c.status} />
                     </Link>
@@ -439,25 +456,25 @@ export function ClientDetailClient({
             {paymentLinks.length === 0 ? (
               <EmptyRow text="No payment links yet." />
             ) : (
-              <div className="divide-y divide-[#f9fafb]">
+              <div className="divide-y divide-[var(--color-surface-secondary)]">
                 {paymentLinks.map((pl) => {
                   const ps = pl.status === 'paid'
-                    ? { bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' }
+                    ? { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' }
                     : pl.status === 'active'
-                    ? { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' }
-                    : { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' };
+                    ? { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary)]' }
+                    : { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
                   return (
                     <button
                       key={pl.id}
                       type="button"
                       onClick={() => openPaymentDetail('payment-link', pl.id)}
-                      className="w-full px-5 py-3 text-left transition-colors hover:bg-[#fafafa]"
+                      className="w-full px-5 py-3 text-left transition-colors hover:bg-[var(--color-background)]"
                     >
                       <div className="flex items-center justify-between">
-                        <p className="text-[13px] font-medium text-[#252b37]">{pl.title}</p>
+                        <p className="text-[13px] font-medium text-[var(--color-foreground)]">{pl.title}</p>
                         <Pill bg={ps.bg} text={ps.text} label={pl.status} />
                       </div>
-                      <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
+                      <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
                         {formatAmount(pl.amountUsd, { compact: true })} · {pl.asset} on {pl.chain}
                       </p>
                     </button>
@@ -485,8 +502,8 @@ export function ClientDetailClient({
               { label: 'Address', field: 'address' as const, placeholder: '123 Main St, New York', required: false as boolean }
             ]).map(({ label, field, placeholder, required }) => (
               <div key={field}>
-                <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">
-                  {label}{required && <span className="ml-0.5 text-[#f04438]">*</span>}
+                <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">
+                  {label}{required && <span className="ml-0.5 text-[var(--color-danger)]">*</span>}
                 </label>
                 <Input placeholder={placeholder} value={form[field]} onChange={(e) => updateField(field, e.target.value)} disabled={isSaving} />
               </div>
@@ -521,7 +538,7 @@ export function ClientDetailClient({
           </DialogHeader>
           <DialogBody className="space-y-3.5">
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">What should Hedwig draft?</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">What should Hedwig draft?</label>
               <div className="flex gap-2">
                 <Input
                   value={messagePurpose}
@@ -536,7 +553,7 @@ export function ClientDetailClient({
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Subject</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Subject</label>
               <Input
                 value={messageSubject}
                 onChange={(e) => setMessageSubject(e.target.value)}
@@ -546,7 +563,7 @@ export function ClientDetailClient({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Message</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Message</label>
               <Textarea
                 value={messageBody}
                 onChange={(e) => setMessageBody(e.target.value)}

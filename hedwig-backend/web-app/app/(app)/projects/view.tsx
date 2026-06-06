@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { ArrowRight, DownloadSimple, Plus, Trash } from '@/components/ui/lucide-icons';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { Client, Project } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
@@ -10,18 +11,19 @@ import { Button } from '@/components/ui/button';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { formatShortDate } from '@/lib/utils';
 
 const PROJECT_STATUS = {
-  active:    { dot: 'bg-[#12b76a]', label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  paused:    { dot: 'bg-[#f59e0b]', label: 'Paused',    bg: 'bg-[#fffaeb]', text: 'text-[#92400e]' },
-  completed: { dot: 'bg-[#a4a7ae]', label: 'Completed', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
+  active:    { dot: 'bg-[var(--color-success)]', label: 'Active',    bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  paused:    { dot: 'bg-[var(--color-warning)]', label: 'Paused',    bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  completed: { dot: 'bg-[var(--color-text-muted)]', label: 'Completed', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
 } as const;
 
 const CONTRACT_STATUS = {
-  draft:  { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
-  review: { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  signed: { bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
+  draft:  { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  review: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  signed: { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
 } as const;
 
 const STATUS_FILTERS = ['all', 'active', 'paused', 'completed'] as const;
@@ -38,13 +40,21 @@ export function ProjectsClient({
   const { formatAmount } = useCurrency();
   const { toast } = useToast();
 
+  useAssistantPageContext('Projects', {
+    totalProjects: initialProjects.length,
+  });
+
   const [projects, setProjects] = useState(initialProjects);
   const [filter, setFilter] = useState('all');
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { activeWorkspace } = useWorkspaceContext();
+  const canCreate = !activeWorkspace || activeWorkspace.role !== 'member';
+  const isMember = activeWorkspace?.role === 'member';
 
   const activeCount = useMemo(() => projects.filter((p) => p.status === 'active').length, [projects]);
   const completedCount = useMemo(() => projects.filter((p) => p.status === 'completed').length, [projects]);
+  const totalPayout = useMemo(() => projects.reduce((s, p) => s + (p.memberPayout ?? 0), 0), [projects]);
   const totalBudget = useMemo(() => projects.reduce((s, p) => s + p.budgetUsd, 0), [projects]);
 
   const downloadCsv = () => {
@@ -96,29 +106,29 @@ export function ProjectsClient({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-[15px] font-semibold text-[#181d27]">Projects</h1>
-        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Track deliverables, milestones, and project progress.</p>
+        <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Projects</h1>
+        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Track deliverables, milestones, and project progress.</p>
       </div>
 
       <AttachedStatGrid
         items={[
           { id: 'active', title: 'Active', value: String(activeCount), helper: 'In progress' },
           { id: 'completed', title: 'Completed', value: String(completedCount), helper: 'Delivered' },
-          { id: 'total-budget', title: 'Total budget', value: formatAmount(totalBudget, { compact: true }), helper: 'Across all projects' },
+          { id: 'total-budget', title: isMember ? 'Your pay' : 'Total budget', value: formatAmount(isMember ? totalPayout : totalBudget, { compact: true }), helper: isMember ? 'Assigned to you' : 'Across all projects' },
         ]}
         className="grid-cols-1 md:grid-cols-3"
       />
 
-      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
+      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
         {/* Unified header */}
-        <div className="flex items-center gap-3 border-b border-[#f2f4f7] px-5 py-3">
+        <div className="flex items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <span className="text-[12px] font-medium text-[#717680]">{projects.length} projects</span>
+            <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{projects.length} projects</span>
             {activeCount > 0 && (
               <>
-                <span className="h-3 w-px shrink-0 bg-[#f2f4f7]" />
-                <span className="truncate text-[12px] text-[#a4a7ae]">
-                  {activeCount} active · {formatAmount(totalBudget, { compact: true })} total budget
+                <span className="h-3 w-px shrink-0 bg-[var(--color-surface-tertiary)]" />
+                <span className="truncate text-[12px] text-[var(--color-text-muted)]">
+                  {activeCount} active · {formatAmount(isMember ? totalPayout : totalBudget, { compact: true })} {isMember ? 'assigned pay' : 'total budget'}
                 </span>
               </>
             )}
@@ -132,27 +142,30 @@ export function ProjectsClient({
                 onClick={() => setFilter(s)}
                 className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
                   filter === s
-                    ? 'bg-[#f5f5f5] text-[#181d27]'
-                    : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
+                    ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
+                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
                 {s === 'all' ? 'All' : PROJECT_STATUS[s as keyof typeof PROJECT_STATUS]?.label ?? s}
               </Button>
             ))}
-            <div className="mx-1 h-4 w-px bg-[#f2f4f7]" />
+            <div className="mx-1 h-4 w-px bg-[var(--color-surface-tertiary)]" />
             <ExportMenu onCsv={downloadCsv} onPdf={downloadPdf} />
-            <Button
-              size="sm"
+            {canCreate && (
+            <button
+              type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow: 'project' } }))}
+              className="bg-[var(--color-accent)] text-white rounded-full px-4 py-2 text-[13px] font-semibold inline-flex items-center gap-1.5 hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
             >
               <Plus className="h-3.5 w-3.5" weight="bold" />
               New project
-            </Button>
+            </button>
+            )}
           </div>
         </div>
 
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
+        <div className="grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
           <ColHead>Project</ColHead>
           <ColHead>Status</ColHead>
           <ColHead>Contract</ColHead>
@@ -166,7 +179,7 @@ export function ProjectsClient({
         {filtered.length === 0 ? (
           <EmptyState text={filter === 'all' ? 'No projects yet.' : 'No projects match this filter.'} />
         ) : (
-          <div className="divide-y divide-[#f9fafb]">
+          <div className="divide-y divide-[var(--color-surface-secondary)]">
             {filtered.map((project) => {
               const s = PROJECT_STATUS[project.status] ?? PROJECT_STATUS.active;
               const cs = project.contract
@@ -175,13 +188,13 @@ export function ProjectsClient({
               return (
                 <div
                   key={project.id}
-                  className="group grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[#fafafa]"
+                  className="group grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]"
                 >
                   <Link href={`/projects/${project.id}`} className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-[#252b37] transition-colors hover:text-[#2563eb]">
+                    <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
                       {project.name}
                     </p>
-                    <p className="text-[11px] text-[#a4a7ae]">{project.ownerName}</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">{project.ownerName}</p>
                   </Link>
                   <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.bg} ${s.text}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
@@ -194,29 +207,31 @@ export function ProjectsClient({
                       </span>
                     </Link>
                   ) : (
-                    <span className="text-[11px] text-[#d0d5dd]">—</span>
+                    <span className="text-[11px] text-[var(--color-border-input)]">—</span>
                   )}
                   <div className="flex items-center gap-2">
-                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#f2f4f7]">
+                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
                       <div
-                        className="h-full rounded-full bg-[#2563eb] transition-all"
+                        className="h-full rounded-full bg-[var(--color-accent)] transition-all"
                         style={{ width: `${project.progress}%` }}
                       />
                     </div>
-                    <span className="w-8 text-right text-[11px] tabular-nums text-[#8d9096]">
+                    <span className="w-8 text-right text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
                       {project.progress}%
                     </span>
                   </div>
-                  <p className="text-right text-[13px] tabular-nums text-[#8d9096]">
-                    {formatAmount(project.budgetUsd, { compact: true })}
+                  <p className="text-right text-[13px] tabular-nums text-[var(--color-text-tertiary)]">
+                    {isMember
+                      ? (project.memberPayout != null ? formatAmount(project.memberPayout, { compact: true }) : null)
+                      : formatAmount(project.budgetUsd, { compact: true })}
                   </p>
-                  <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(project.nextDeadlineAt)}</p>
+                  <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(project.nextDeadlineAt)}</p>
                   <div className="flex justify-end">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setProjectToDelete(project)}
-                      className="h-7 w-7 rounded-md text-[#d0d5dd] opacity-0 hover:bg-[#fff1f0] hover:text-[#f04438] group-hover:opacity-100"
+                      className="h-7 w-7 rounded-md text-[var(--color-border-input)] opacity-0 hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)] group-hover:opacity-100"
                     >
                       <Trash className="h-3.5 w-3.5" weight="regular" />
                     </Button>
@@ -243,7 +258,7 @@ export function ProjectsClient({
 
 function ColHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <span className={`text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd] ${right ? 'text-right' : ''}`}>
+    <span className={`text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)] ${right ? 'text-right' : ''}`}>
       {children}
     </span>
   );
@@ -252,7 +267,7 @@ function ColHead({ children, right }: { children: React.ReactNode; right?: boole
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <p className="text-[13px] text-[#a4a7ae]">{text}</p>
+      <p className="text-[13px] text-[var(--color-text-muted)]">{text}</p>
     </div>
   );
 }
@@ -261,22 +276,22 @@ function ExportMenu({ onCsv, onPdf }: { onCsv: () => void; onPdf: () => void }) 
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <Button
-        variant="secondary"
-        size="sm"
+      <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
+        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50"
       >
         <DownloadSimple className="h-3.5 w-3.5" weight="bold" />
         Export
-      </Button>
+      </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-lg">
+          <div className="absolute right-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
+              className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)]"
               onClick={() => { onCsv(); setOpen(false); }}
             >
               Download CSV
@@ -284,7 +299,7 @@ function ExportMenu({ onCsv, onPdf }: { onCsv: () => void; onPdf: () => void }) 
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
+              className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)]"
               onClick={() => { onPdf(); setOpen(false); }}
             >
               Download PDF
@@ -333,13 +348,13 @@ function buildProjectPdfHtml(projects: Project[]): string {
 <meta charset="utf-8" />
 <title>Hedwig Projects Export</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12px; color: #181d27; margin: 32px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12px; color: var(--color-text-primary); margin: 32px; }
   h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-  p { color: #717680; margin: 0 0 20px; font-size: 11px; }
+  p { color: var(--color-text-tertiary); margin: 0 0 20px; font-size: 11px; }
   table { width: 100%; border-collapse: collapse; }
-  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #a4a7ae; padding: 8px 10px; border-bottom: 2px solid #e9eaeb; }
-  td { padding: 8px 10px; border-bottom: 1px solid #f2f4f7; }
-  tr:hover td { background: #fafafa; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); padding: 8px 10px; border-bottom: 2px solid var(--color-border); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--color-surface-tertiary); }
+  tr:hover td { background: var(--color-background); }
   @media print { body { margin: 0; } }
 </style>
 </head>

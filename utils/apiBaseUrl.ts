@@ -1,4 +1,4 @@
-const PRODUCTION_API_BASE_URL = 'https://pay.hedwigbot.xyz';
+const PRODUCTION_API_BASE_URL = 'https://hedwig-app-wuqvha-production.up.railway.app';
 
 const PRIVATE_IPV4_PATTERNS = [
     /^10\./,

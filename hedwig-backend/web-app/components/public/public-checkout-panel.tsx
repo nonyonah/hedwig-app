@@ -154,11 +154,11 @@ export function PublicCheckoutPanel({
 
   if (!activeChain || availableChains.length === 0) {
     return (
-      <div className="rounded-2xl border border-[#fecdca] bg-[#fef3f2] p-5 shadow-xs">
-        <p className="text-[13px] font-semibold text-[#717680]">
+      <div className="rounded-2xl border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] p-5 shadow-xs">
+        <p className="text-[13px] font-semibold text-[var(--color-text-tertiary)]">
           {isMiniPay ? 'MiniPay checkout unavailable for this payment' : 'Merchant wallet unavailable'}
         </p>
-        <p className="mt-1.5 text-[12px] leading-relaxed text-[#717680]">
+        <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
           {isMiniPay
             ? 'MiniPay supports Celo checkout only. Open this payment in another wallet browser if Celo is not available.'
             : 'This payment page does not have a supported merchant wallet configured yet. Please try again later.'}
@@ -179,20 +179,20 @@ export function PublicCheckoutPanel({
             <button
               type="button"
               onClick={() => setDropdownOpen((o) => !o)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 shadow-xs transition hover:bg-[#fafafa]"
+              className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 shadow-xs transition hover:bg-[var(--color-background)]"
             >
               {activeChain && (() => {
                 const meta = availableChains.find((c) => c.id === activeChain);
                 return meta ? (
                   <>
                     <Image src={meta.icon} alt={meta.label} width={20} height={20} className="rounded-full" />
-                    <span className="flex-1 text-left text-[13px] font-semibold text-[#181d27]">{meta.label}</span>
+                    <span className="flex-1 text-left text-[13px] font-semibold text-[var(--color-foreground)]">{meta.label}</span>
                   </>
                 ) : null;
               })()}
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Network</span>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Network</span>
               <svg
-                className={`h-4 w-4 text-[#a4a7ae] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                className={`h-4 w-4 text-[var(--color-text-muted)] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -200,7 +200,7 @@ export function PublicCheckoutPanel({
             </button>
 
             {dropdownOpen && (
-              <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white shadow-lg">
+              <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
                 {availableChains.map((chain) => {
                   const isActive = activeChain === chain.id;
                   return (
@@ -210,14 +210,14 @@ export function PublicCheckoutPanel({
                       onClick={() => handleChainChange(chain.id)}
                       className={`flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium transition ${
                         isActive
-                          ? 'bg-[#f8f9fc] text-[#181d27]'
-                          : 'text-[#414651] hover:bg-[#fafafa]'
+                          ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
+                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
                       }`}
                     >
                       <Image src={chain.icon} alt={chain.label} width={20} height={20} className="rounded-full" />
                       <span className="flex-1 text-left">{chain.label}</span>
                       {isActive && (
-                        <svg className="h-4 w-4 text-[#181d27]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <svg className="h-4 w-4 text-[var(--color-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -234,20 +234,20 @@ export function PublicCheckoutPanel({
             <button
               type="button"
               onClick={() => setTokenDropdownOpen((o) => !o)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 shadow-xs transition hover:bg-[#fafafa]"
+              className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 shadow-xs transition hover:bg-[var(--color-background)]"
             >
               {(() => {
                 const meta = TOKEN_OPTIONS.find((t) => t.id === activeToken) ?? TOKEN_OPTIONS[0];
                 return (
                   <>
                     <Image src={meta.icon} alt={meta.label} width={20} height={20} className="rounded-full" />
-                    <span className="flex-1 text-left text-[13px] font-semibold text-[#181d27]">{meta.label}</span>
+                    <span className="flex-1 text-left text-[13px] font-semibold text-[var(--color-foreground)]">{meta.label}</span>
                   </>
                 );
               })()}
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Token</span>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Token</span>
               <svg
-                className={`h-4 w-4 text-[#a4a7ae] transition-transform ${tokenDropdownOpen ? 'rotate-180' : ''}`}
+                className={`h-4 w-4 text-[var(--color-text-muted)] transition-transform ${tokenDropdownOpen ? 'rotate-180' : ''}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -255,7 +255,7 @@ export function PublicCheckoutPanel({
             </button>
 
             {tokenDropdownOpen && (
-              <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white shadow-lg">
+              <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
                 {visibleTokenOptions.map((opt) => {
                   const isActive = activeToken === opt.id;
                   return (
@@ -265,14 +265,14 @@ export function PublicCheckoutPanel({
                       onClick={() => handleTokenChange(opt.id)}
                       className={`flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium transition ${
                         isActive
-                          ? 'bg-[#f8f9fc] text-[#181d27]'
-                          : 'text-[#414651] hover:bg-[#fafafa]'
+                          ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
+                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
                       }`}
                     >
                       <Image src={opt.icon} alt={opt.label} width={20} height={20} className="rounded-full" />
                       <span className="flex-1 text-left">{opt.label}</span>
                       {isActive && (
-                        <svg className="h-4 w-4 text-[#181d27]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <svg className="h-4 w-4 text-[var(--color-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}

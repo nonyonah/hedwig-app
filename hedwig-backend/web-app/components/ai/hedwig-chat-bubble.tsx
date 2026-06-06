@@ -17,25 +17,26 @@ import { CreateRecurringInvoiceDialog } from '@/components/payments/create-recur
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
 import { usePostHog } from 'posthog-js/react';
+import { HedwigLogoImg as HedwigMark } from '@/components/ui/hedwig-logo';
 
-/* ── Hedwig logo image ── */
 function HedwigLogoImg({ fill = false, size = 22 }: { fill?: boolean; size?: number }) {
   if (fill) {
     return (
-      <img
-        src="/hedwig-icon.png"
+      <HedwigMark
+        variant="icon"
         alt="Hedwig"
-        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+        className="block h-full w-full object-cover object-center"
       />
     );
   }
   return (
-    <img
-      src="/hedwig-icon.png"
+    <HedwigMark
+      variant="icon"
       alt="Hedwig"
       width={size}
       height={size}
-      style={{ width: size, height: size, objectFit: 'cover', objectPosition: 'center', display: 'block', borderRadius: '50%' }}
+      className="block rounded-full object-cover object-center"
+      style={{ width: size, height: size }}
     />
   );
 }
@@ -65,9 +66,9 @@ type Message = {
 };
 
 const INTENT_META: Record<string, { label: string; color: string; Icon: any }> = {
-  invoice:           { label: 'Invoice',          color: 'bg-[#eff4ff] text-[#717680]',  Icon: FileText },
-  payment_link:      { label: 'Payment Link',      color: 'bg-[#f0fdf4] text-[#717680]',  Icon: LinkSimple },
-  recurring_invoice: { label: 'Recurring Invoice', color: 'bg-[#fdf4ff] text-[#717680]',  Icon: ArrowsClockwise },
+  invoice:           { label: 'Invoice',          color: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',  Icon: FileText },
+  payment_link:      { label: 'Payment Link',      color: 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]',  Icon: LinkSimple },
+  recurring_invoice: { label: 'Recurring Invoice', color: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',  Icon: ArrowsClockwise },
 };
 
 const EXAMPLES = [
@@ -89,7 +90,7 @@ function ActionCard({
   const { formatAmount } = useCurrency();
 
   return (
-    <div className="w-full rounded-xl border border-[#e9eaeb] bg-white p-3 shadow-xs">
+    <div className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-xs">
       <div className="mb-2.5 flex items-center gap-2">
         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${meta.color}`}>
           <Icon className="h-3 w-3" weight="bold" />
@@ -113,13 +114,13 @@ function ActionCard({
       <div className="flex gap-2">
         <button
           onClick={onConfirm}
-          className="flex-1 rounded-full bg-[#2563eb] py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+          className="flex-1 rounded-full bg-[var(--color-accent)] py-1.5 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"
         >
           {parsed.intent === 'recurring_invoice' ? 'Review & Set up' : 'Create'}
         </button>
         <button
           onClick={onDismiss}
-          className="rounded-full border border-[#d5d7da] px-3 py-1.5 text-[12px] font-semibold text-[#717680] transition hover:bg-[#f9fafb]"
+          className="rounded-full border border-[var(--color-border-input)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background)]"
         >
           Dismiss
         </button>
@@ -131,8 +132,8 @@ function ActionCard({
 function Row({ label, value, truncate }: { label: string; value: string; truncate?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-2 text-[12px]">
-      <span className="shrink-0 text-[#a4a7ae]">{label}</span>
-      <span className={`font-medium text-[#181d27] ${truncate ? 'truncate max-w-[160px]' : ''}`}>{value}</span>
+      <span className="shrink-0 text-[var(--color-text-muted)]">{label}</span>
+      <span className={`font-medium text-[var(--color-foreground)] ${truncate ? 'truncate max-w-[160px]' : ''}`}>{value}</span>
     </div>
   );
 }
@@ -369,7 +370,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 overflow-hidden rounded-full shadow-lg ring-4 ring-[#2563eb]/20 transition hover:shadow-xl active:scale-95"
+          className="fixed bottom-6 right-6 z-50 h-14 w-14 overflow-hidden rounded-full shadow-lg ring-4 ring-[var(--color-accent)]/20 transition hover:shadow-xl active:scale-95"
           aria-label="Open Hedwig AI"
         >
           <HedwigLogoImg fill />
@@ -378,20 +379,20 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
 
       {/* ── Chat panel ── */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 flex h-[580px] w-[400px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#e9eaeb]">
+        <div className="fixed bottom-6 right-6 z-50 flex h-[580px] w-[400px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
 
           {/* Header */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-[#f2f4f7] px-4 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-[#e9eaeb]">
+          <div className="flex shrink-0 items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-4 py-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
               <HedwigLogoImg size={28} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-semibold text-[#181d27]">Hedwig</p>
-              <p className="text-[11px] text-[#a4a7ae]">AI assistant</p>
+              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig</p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">AI assistant</p>
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#8d9096] transition hover:bg-[#f9fafb]"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background)]"
               aria-label="Close"
             >
               <X className="h-4 w-4" weight="bold" />
@@ -404,12 +405,12 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
             {/* Empty state */}
             {messages.length === 0 && !isParsing && (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-[#e9eaeb]">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
                   <HedwigLogoImg size={40} />
                 </div>
                 <div>
-                  <p className="text-[14px] font-semibold text-[#181d27]">What do you need?</p>
-                  <p className="mt-1 text-[13px] text-[#717680]">
+                  <p className="text-[14px] font-semibold text-[var(--color-foreground)]">What do you need?</p>
+                  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">
                     Create invoices, payment links, and recurring invoices — just describe them.
                   </p>
                 </div>
@@ -418,7 +419,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                     <button
                       key={ex}
                       onClick={() => { setInput(ex); inputRef.current?.focus(); }}
-                      className="rounded-xl border border-[#e9eaeb] bg-[#f9fafb] px-3 py-2 text-left text-[12px] text-[#535862] transition hover:border-[#2563eb] hover:bg-[#eff4ff] hover:text-[#717680]"
+                      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-left text-[12px] text-[var(--color-text-muted)] transition hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-text-tertiary)]"
                     >
                       {ex}
                     </button>
@@ -433,7 +434,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
 
                 {/* AI avatar */}
                 {msg.role === 'assistant' && (
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-[#e9eaeb]">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
                     <HedwigLogoImg size={24} />
                   </div>
                 )}
@@ -442,8 +443,8 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                   {/* Bubble */}
                   <div className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
                     msg.role === 'user'
-                      ? 'rounded-tr-sm bg-[#2563eb] text-white'
-                      : 'rounded-tl-sm bg-[#f9fafb] text-[#181d27]'
+                      ? 'rounded-tr-sm bg-[var(--color-accent)] text-white'
+                      : 'rounded-tl-sm bg-[var(--color-background)] text-[var(--color-foreground)]'
                   }`}>
                     {msg.role === 'assistant' ? formatUsdText(msg.content) : msg.content}
                   </div>
@@ -461,15 +462,15 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
 
                   {/* Creating */}
                   {msg.actionState === 'creating' && (
-                    <div className="flex items-center gap-2 rounded-xl bg-[#f9fafb] px-3 py-2 text-[12px] text-[#717680]">
-                      <SpinnerGap className="h-3.5 w-3.5 animate-spin text-[#717680]" weight="bold" />
+                    <div className="flex items-center gap-2 rounded-xl bg-[var(--color-background)] px-3 py-2 text-[12px] text-[var(--color-text-tertiary)]">
+                      <SpinnerGap className="h-3.5 w-3.5 animate-spin text-[var(--color-text-tertiary)]" weight="bold" />
                       Creating…
                     </div>
                   )}
 
                   {/* Done */}
                   {msg.actionState === 'done' && (
-                    <div className="flex items-center gap-2 rounded-xl bg-[#f0fdf4] px-3 py-2 text-[12px] text-[#717680]">
+                    <div className="flex items-center gap-2 rounded-xl bg-[var(--color-success-soft)] px-3 py-2 text-[12px] text-[var(--color-text-tertiary)]">
                       <CheckCircle className="h-3.5 w-3.5" weight="fill" />
                       {msg.actionResult}
                     </div>
@@ -477,7 +478,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
 
                   {/* Error */}
                   {msg.actionState === 'error' && (
-                    <div className="flex items-center gap-2 rounded-xl bg-[#fff1f0] px-3 py-2 text-[12px] text-[#717680]">
+                    <div className="flex items-center gap-2 rounded-xl bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-text-tertiary)]">
                       <XCircle className="h-3.5 w-3.5" weight="fill" />
                       {msg.actionResult}
                     </div>
@@ -489,13 +490,13 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
             {/* Typing indicator */}
             {isParsing && (
               <div className="flex gap-2">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-[#e9eaeb]">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
                   <HedwigLogoImg size={28} />
                 </div>
-                <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-[#f9fafb] px-3.5 py-3">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#a4a7ae] animate-bounce [animation-delay:0ms]" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#a4a7ae] animate-bounce [animation-delay:150ms]" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#a4a7ae] animate-bounce [animation-delay:300ms]" />
+                <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-[var(--color-background)] px-3.5 py-3">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-bounce [animation-delay:0ms]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-bounce [animation-delay:150ms]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-bounce [animation-delay:300ms]" />
                 </div>
               </div>
             )}
@@ -504,8 +505,8 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
           </div>
 
           {/* Input */}
-          <div className="shrink-0 border-t border-[#f2f4f7] bg-white px-3 py-3">
-            <div className="flex items-end gap-2 rounded-2xl border border-[#e9eaeb] bg-[#f9fafb] px-3.5 py-2.5">
+          <div className="shrink-0 border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-3 py-3">
+            <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-3.5 py-2.5">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -513,7 +514,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                 onKeyDown={handleKeyDown}
                 placeholder="Describe what you need…"
                 rows={1}
-                className="flex-1 resize-none bg-transparent text-[13px] text-[#181d27] placeholder:text-[#a4a7ae] outline-none"
+                className="flex-1 resize-none bg-transparent text-[13px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-muted)] outline-none"
                 style={{ maxHeight: '100px' }}
               />
               <button
@@ -521,14 +522,14 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                 disabled={!input.trim() || isParsing}
                 className={`mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition ${
                   input.trim() && !isParsing
-                    ? 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
-                    : 'bg-[#e9eaeb] text-[#a4a7ae]'
+                    ? 'bg-[var(--color-accent)] text-white hover:bg-[var(--color-primary-dark)]'
+                    : 'bg-[var(--color-border)] text-[var(--color-text-muted)]'
                 }`}
               >
                 <ArrowUp className="h-3.5 w-3.5" weight="bold" />
               </button>
             </div>
-            <p className="mt-1.5 text-center text-[10px] text-[#a4a7ae]">Enter to send · Shift+Enter for new line</p>
+            <p className="mt-1.5 text-center text-[10px] text-[var(--color-text-muted)]">Enter to send · Shift+Enter for new line</p>
           </div>
         </div>
       )}

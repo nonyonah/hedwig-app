@@ -11,7 +11,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
     <HeroUITextArea
       ref={ref}
       className={cn(
-        'min-h-[100px] w-full rounded-lg border border-[#d5d7da] bg-white px-3.5 py-2.5 text-[14px] text-[#181d27] shadow-xs outline-none placeholder:text-[#a4a7ae] focus-visible:border-[#2563eb] focus-visible:ring-2 focus-visible:ring-[#2563eb]/20 disabled:cursor-not-allowed disabled:opacity-50',
+        'min-h-[100px] w-full rounded-lg border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3.5 py-2.5 text-[14px] text-[var(--color-text-primary)] shadow-xs outline-none placeholder:text-[var(--color-text-muted)] focus-visible:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/20 disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       {...props}

@@ -1,18 +1,15 @@
-import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
+import { generateText } from 'ai';
 import { createLogger } from '../utils/logger';
 import { AsyncLimiter } from '../utils/asyncLimiter';
 
 const logger = createLogger('LLM');
 
-const SUPPORTED_PROVIDERS = ['gemini', 'openai'] as const;
-export type LLMProvider = (typeof SUPPORTED_PROVIDERS)[number];
-
 type LLMPurpose = 'general' | 'chat' | 'contract' | 'proposal';
 
 export interface LLMFilePart {
   mimeType: string;
-  data: string; // base64 payload
+  data: string;
 }
 
 export interface GenerateTextOptions {
@@ -20,8 +17,6 @@ export interface GenerateTextOptions {
   temperature?: number;
   maxOutputTokens?: number;
   purpose?: LLMPurpose;
-  useFallbacks?: boolean;
-  forceProvider?: LLMProvider;
   files?: LLMFilePart[];
 }
 
@@ -29,241 +24,382 @@ export interface GenerateObjectOptions extends GenerateTextOptions {
   schema: Record<string, unknown>;
 }
 
-function normalizeProvider(value?: string | null): LLMProvider | null {
-  if (!value) return null;
-  const normalized = value.trim().toLowerCase();
-  if ((SUPPORTED_PROVIDERS as readonly string[]).includes(normalized)) {
-    return normalized as LLMProvider;
-  }
-  return null;
+export interface LLMToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
 }
 
-function parseProviders(csv?: string | null): LLMProvider[] {
-  if (!csv) return [];
-  const unique: LLMProvider[] = [];
-  for (const raw of csv.split(',')) {
-    const provider = normalizeProvider(raw);
-    if (provider && !unique.includes(provider)) {
-      unique.push(provider);
+export interface LLMToolCall {
+  name: string;
+  id: string;
+  args: Record<string, unknown>;
+}
+
+export interface LLMToolResult {
+  name: string;
+  result: unknown;
+}
+
+export interface GenerateWithToolsOptions {
+  systemPrompt?: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+  maxIterations?: number;
+}
+
+let geminiClient: GoogleGenAI | null = null;
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  if (!geminiClient) {
+    geminiClient = new GoogleGenAI({ apiKey });
+  }
+  return geminiClient;
+}
+
+function getModel(): string {
+  return process.env.LLM_MODEL || 'gemini-2.5-flash-lite';
+}
+
+function getGatewayModel(): string {
+  return process.env.LLM_GATEWAY_MODEL || 'google/gemini-2.5-flash-lite';
+}
+
+function buildGeminiParts(prompt: string, files?: LLMFilePart[]): any[] {
+  const parts: any[] = [];
+  parts.push({ text: prompt });
+  if (files) {
+    for (const f of files) {
+      parts.push({ inlineData: { mimeType: f.mimeType, data: f.data } });
     }
   }
-  return unique;
+  return parts;
+}
+
+function buildGeminiConfig(options: GenerateTextOptions, extra?: Record<string, unknown>): any {
+  const config: any = {};
+  if (options.systemPrompt) config.systemInstruction = options.systemPrompt;
+  if (options.temperature !== undefined) config.temperature = options.temperature;
+  if (options.maxOutputTokens !== undefined) config.maxOutputTokens = options.maxOutputTokens;
+  if (extra) Object.assign(config, extra);
+  return config;
 }
 
 export class LLMService {
   private readonly outboundLimiter = new AsyncLimiter(
     Number(process.env.LLM_MAX_CONCURRENT_REQUESTS || 8),
-    Number(process.env.LLM_MAX_QUEUE_SIZE || 400)
+    Number(process.env.LLM_MAX_QUEUE_SIZE || 400),
   );
 
-  private readonly openai = process.env.OPENAI_API_KEY
-    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    : null;
-
-  private readonly genAI = process.env.GEMINI_API_KEY
-    ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-    : null;
+  private readonly gemini = getGeminiClient();
+  private readonly gatewayConfigured = !!process.env.AI_GATEWAY_API_KEY;
+  private readonly configured = !!this.gemini || this.gatewayConfigured;
 
   constructor() {
-    if (!this.isAnyProviderConfigured()) {
-      logger.warn('No LLM API keys configured. Set OPENAI_API_KEY and/or GEMINI_API_KEY.');
+    if (!this.configured) {
+      logger.warn('LLM not configured. Set GEMINI_API_KEY and/or AI_GATEWAY_API_KEY.');
     }
-  }
-
-  isProviderConfigured(provider: LLMProvider): boolean {
-    if (provider === 'openai') return !!this.openai;
-    return !!this.genAI;
   }
 
   isAnyProviderConfigured(): boolean {
-    return this.isProviderConfigured('gemini') || this.isProviderConfigured('openai');
+    return this.configured;
   }
 
-  getConfiguredProviders(): LLMProvider[] {
-    return SUPPORTED_PROVIDERS.filter((provider) => this.isProviderConfigured(provider));
+  isConfigured(): boolean {
+    return this.configured;
   }
 
-  private getPrimaryProvider(): LLMProvider {
-    return normalizeProvider(process.env.LLM_PROVIDER) ?? 'gemini';
+  isGeminiConfigured(): boolean {
+    return !!this.gemini;
   }
 
-  private getFallbackProviders(primary: LLMProvider): LLMProvider[] {
-    const fromEnv = parseProviders(process.env.LLM_FALLBACK_PROVIDERS);
-    if (fromEnv.length > 0) {
-      return fromEnv.filter((provider) => provider !== primary);
-    }
-
-    // Sensible default: whichever provider is not primary.
-    return SUPPORTED_PROVIDERS.filter((provider) => provider !== primary);
+  isGatewayConfigured(): boolean {
+    return this.gatewayConfigured;
   }
 
-  private getProviderOrder(forceProvider?: LLMProvider, useFallbacks = true): LLMProvider[] {
-    if (forceProvider) {
-      return useFallbacks
-        ? [forceProvider, ...this.getFallbackProviders(forceProvider)]
-        : [forceProvider];
-    }
-
-    const primary = this.getPrimaryProvider();
-    if (!useFallbacks) {
-      return [primary];
-    }
-    return [primary, ...this.getFallbackProviders(primary)];
-  }
-
-  private getOpenAIModel(): string {
-    return process.env.LLM_OPENAI_MODEL || 'gpt-4o-mini';
-  }
-
-  private getGeminiModelName(purpose: LLMPurpose): string {
-    if (purpose === 'chat') {
-      return process.env.LLM_GEMINI_CHAT_MODEL || process.env.LLM_GEMINI_MODEL || 'gemini-3.1-flash-lite-preview';
-    }
-    return process.env.LLM_GEMINI_MODEL || 'gemini-2.5-flash-lite';
-  }
-
-  private getGeminiClient(): GoogleGenAI {
-    if (!this.genAI) {
-      throw new Error('Gemini provider is not configured');
-    }
-    return this.genAI;
-  }
-
-  private extractGeminiText(response: { text?: string | (() => string) }): string {
-    if (typeof response.text === 'function') {
-      return response.text();
-    }
-    if (typeof response.text === 'string') {
-      return response.text;
-    }
-    return '';
-  }
-
-  private async generateWithOpenAI(prompt: string, options: GenerateTextOptions): Promise<string> {
-    if (!this.openai) {
-      throw new Error('OpenAI provider is not configured');
-    }
-
-    if (options.files && options.files.length > 0) {
-      logger.warn('OpenAI provider path received file attachments; proceeding with text-only request', {
-        fileCount: options.files.length,
-      });
-    }
-
-    const messages = options.systemPrompt
-      ? [
-          { role: 'system' as const, content: options.systemPrompt },
-          { role: 'user' as const, content: prompt },
-        ]
-      : [{ role: 'user' as const, content: prompt }];
-
-    const completion = await this.outboundLimiter.run(() =>
-      this.openai!.chat.completions.create({
-        model: this.getOpenAIModel(),
-        messages,
-        temperature: options.temperature,
-        max_tokens: options.maxOutputTokens,
-      })
-    );
-
-    const content = completion.choices[0]?.message?.content;
-    if (typeof content !== 'string' || !content.trim()) {
-      throw new Error('OpenAI returned an empty response');
-    }
-
-    return content;
-  }
-
-  private async generateWithGemini(prompt: string, options: GenerateTextOptions): Promise<string> {
-    const client = this.getGeminiClient();
-    const combinedPrompt = options.systemPrompt
-      ? prompt
-      : prompt;
-
-    const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
-      { text: combinedPrompt },
-      ...((options.files ?? []).map((file) => ({
-        inlineData: {
-          mimeType: file.mimeType,
-          data: file.data,
-        },
-      }))),
-    ];
+  private async generateWithGemini(
+    prompt: string,
+    options: GenerateTextOptions,
+  ): Promise<string> {
+    if (!this.gemini) throw new Error('Gemini is not configured');
 
     const result = await this.outboundLimiter.run(() =>
-      client.models.generateContent({
-        model: this.getGeminiModelName(options.purpose || 'general'),
-        contents: [{ role: 'user', parts }],
-        config: {
-          systemInstruction: options.systemPrompt,
-          temperature: options.temperature,
-          maxOutputTokens: options.maxOutputTokens,
-        },
-      })
+      this.gemini!.models.generateContent({
+        model: getModel(),
+        contents: [{ role: 'user', parts: buildGeminiParts(prompt, options.files) }],
+        config: buildGeminiConfig(options),
+      }),
     );
 
-    const text = this.extractGeminiText(result);
-    if (!text.trim()) {
+    const text = result.text;
+    if (!text || !text.trim()) {
       throw new Error('Gemini returned an empty response');
     }
-
     return text;
   }
 
-  async generateText(prompt: string, options: GenerateTextOptions = {}): Promise<string> {
-    const providerOrder = this.getProviderOrder(options.forceProvider, options.useFallbacks !== false);
-    let lastError: Error | null = null;
+  private async generateWithGateway(
+    prompt: string,
+    options: GenerateTextOptions,
+  ): Promise<string> {
+    const hasFiles = options.files && options.files.length > 0;
+    const messages: { role: 'user'; content: any }[] = [];
 
-    for (const provider of providerOrder) {
-      if (!this.isProviderConfigured(provider)) {
-        continue;
-      }
+    if (hasFiles) {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          ...options.files!.map((f) => ({
+            type: 'image' as const,
+            image: f.data,
+          })),
+        ],
+      });
+    } else {
+      messages.push({ role: 'user', content: prompt });
+    }
 
+    const result = await this.outboundLimiter.run(() =>
+      generateText({
+        model: getGatewayModel(),
+        system: options.systemPrompt,
+        messages,
+        temperature: options.temperature,
+        maxOutputTokens: options.maxOutputTokens,
+      }),
+    );
+
+    if (!result.text || !result.text.trim()) {
+      throw new Error('Gateway returned an empty response');
+    }
+    return result.text;
+  }
+
+  async generateText(
+    prompt: string,
+    options: GenerateTextOptions = {},
+  ): Promise<string> {
+    if (!this.configured) throw new Error('No configured LLM provider available');
+
+    if (this.gemini) {
       try {
-        if (provider === 'openai') {
-          return await this.generateWithOpenAI(prompt, options);
-        }
         return await this.generateWithGemini(prompt, options);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        lastError = err;
-        logger.warn('LLM provider failed', {
-          provider,
-          purpose: options.purpose || 'general',
-          message: err.message,
-        });
+        logger.warn('Gemini failed, falling back to AI Gateway', { message: err.message });
       }
     }
 
-    if (lastError) {
-      throw lastError;
+    if (this.gatewayConfigured) {
+      return this.generateWithGateway(prompt, options);
     }
 
     throw new Error('No configured LLM provider available');
   }
 
-  async generateObject<T>(prompt: string, options: GenerateObjectOptions): Promise<T> {
-    const client = this.getGeminiClient();
-    const response = await this.outboundLimiter.run(() =>
-      client.models.generateContent({
-        model: this.getGeminiModelName(options.purpose || 'general'),
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          systemInstruction: options.systemPrompt,
-          temperature: options.temperature,
-          maxOutputTokens: options.maxOutputTokens,
-          responseMimeType: 'application/json',
-          responseJsonSchema: options.schema,
-        },
-      })
-    );
+  async generateObject<T>(
+    prompt: string,
+    options: GenerateObjectOptions,
+  ): Promise<T> {
+    const text = await this.generateText(prompt, options);
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error('Failed to parse structured response as JSON');
+    }
+  }
 
-    const text = this.extractGeminiText(response).trim();
-    if (!text) {
-      throw new Error('Gemini returned an empty structured response');
+  async generateWithTools(
+    prompt: string,
+    tools: LLMToolDefinition[],
+    executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>,
+    options: GenerateWithToolsOptions = {},
+  ): Promise<{ text: string; toolCalls: LLMToolCall[]; toolResults: LLMToolResult[] }> {
+    const maxIterations = options.maxIterations ?? 8;
+    const toolCalls: LLMToolCall[] = [];
+    const toolResults: LLMToolResult[] = [];
+
+    if (this.gemini) {
+      try {
+        return await this.generateWithToolsGemini(prompt, tools, executeTool, options, maxIterations, toolCalls, toolResults);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.warn('Gemini tools failed, falling back to AI Gateway', { message: err.message });
+      }
     }
 
-    return JSON.parse(text) as T;
+    if (this.gatewayConfigured) {
+      return await this.generateWithToolsGateway(prompt, tools, executeTool, options, maxIterations, toolCalls, toolResults);
+    }
+
+    throw new Error('No configured LLM provider available');
+  }
+
+  private async generateWithToolsGemini(
+    prompt: string,
+    tools: LLMToolDefinition[],
+    executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>,
+    options: GenerateWithToolsOptions,
+    maxIterations: number,
+    toolCalls: LLMToolCall[],
+    toolResults: LLMToolResult[],
+  ): Promise<{ text: string; toolCalls: LLMToolCall[]; toolResults: LLMToolResult[] }> {
+    if (!this.gemini) throw new Error('Gemini is not configured');
+
+    const contents: any[] = [
+      { role: 'user', parts: [{ text: prompt }] },
+    ];
+
+    const functionDeclarations = tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    }));
+
+    const config: any = buildGeminiConfig(options as any, {
+      tools: [{ functionDeclarations }],
+    });
+
+    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+      const result = await this.outboundLimiter.run(() =>
+        this.gemini!.models.generateContent({
+          model: getModel(),
+          contents,
+          config,
+        }),
+      );
+
+      const functionCalls = result.functionCalls;
+      if (!functionCalls || functionCalls.length === 0) {
+        return { text: result.text || '', toolCalls, toolResults };
+      }
+
+      const modelParts: any[] = [];
+      if (result.text) modelParts.push({ text: result.text });
+
+      for (const fc of functionCalls) {
+        const args = (fc.args || {}) as Record<string, unknown>;
+        const tc: LLMToolCall = {
+          name: fc.name || '',
+          id: fc.id || `${fc.name}-${Date.now()}`,
+          args,
+        };
+        toolCalls.push(tc);
+
+        modelParts.push({
+          functionCall: { name: fc.name, args },
+        });
+      }
+
+      contents.push({ role: 'model', parts: modelParts });
+
+      const userParts: any[] = [];
+      for (const fc of functionCalls) {
+        try {
+          const execResult = await executeTool(fc.name || '', (fc.args || {}) as Record<string, unknown>);
+          toolResults.push({ name: fc.name || '', result: execResult });
+          userParts.push({
+            functionResponse: {
+              name: fc.name,
+              response: execResult,
+            },
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          userParts.push({
+            functionResponse: {
+              name: fc.name,
+              response: { error: message },
+            },
+          });
+        }
+      }
+
+      contents.push({ role: 'user', parts: userParts });
+    }
+
+    throw new Error(`Gemini tools exceeded ${maxIterations} iterations`);
+  }
+
+  private async generateWithToolsGateway(
+    prompt: string,
+    tools: LLMToolDefinition[],
+    executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>,
+    options: GenerateWithToolsOptions,
+    maxIterations: number,
+    toolCalls: LLMToolCall[],
+    toolResults: LLMToolResult[],
+  ): Promise<{ text: string; toolCalls: LLMToolCall[]; toolResults: LLMToolResult[] }> {
+    const toolSet: Record<string, any> = {};
+    for (const t of tools) {
+      toolSet[t.name] = {
+        description: t.description,
+        parameters: t.parameters,
+      };
+    }
+
+    let messages: any[] = [{ role: 'user', content: [{ type: 'text', text: prompt }] }];
+
+    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+      const result = await this.outboundLimiter.run(() =>
+        generateText({
+          model: getGatewayModel(),
+          system: options.systemPrompt,
+          messages,
+          tools: toolSet,
+        } as any),
+      );
+
+      const text = result.text || '';
+      const staticCalls = result.staticToolCalls;
+
+      if (!staticCalls || staticCalls.length === 0) {
+        return { text, toolCalls, toolResults };
+      }
+
+      messages = [
+        ...messages,
+        ...JSON.parse(JSON.stringify(result.response?.messages ?? [])),
+      ];
+
+      for (const tc of staticCalls) {
+        const ft: LLMToolCall = {
+          name: tc.toolName,
+          id: tc.toolCallId,
+          args: (tc.input || {}) as Record<string, unknown>,
+        };
+        toolCalls.push(ft);
+
+        try {
+          const execResult = await executeTool(ft.name, ft.args);
+          toolResults.push({ name: ft.name, result: execResult });
+          messages.push({
+            role: 'tool',
+            content: [{
+              type: 'tool-result',
+              toolCallId: ft.id,
+              toolName: ft.name,
+              output: { type: 'text', value: JSON.stringify(execResult) },
+            }],
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          messages.push({
+            role: 'tool',
+            content: [{
+              type: 'tool-result',
+              toolCallId: ft.id,
+              toolName: ft.name,
+              output: { type: 'text', value: JSON.stringify({ error: message }) },
+            }],
+          });
+        }
+      }
+    }
+
+    throw new Error(`Gateway tools exceeded ${maxIterations} iterations`);
   }
 }
 

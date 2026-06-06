@@ -27,40 +27,40 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-24 space-y-3">
-      <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">{title}</h2>
-      <div className="space-y-3 text-[14px] leading-7 text-[#535862]">{children}</div>
+      <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">{title}</h2>
+      <div className="space-y-3 text-[14px] leading-7 text-[var(--color-text-secondary)]">{children}</div>
     </section>
   );
 }
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-[#fafafa]">
+    <main className="min-h-screen bg-[var(--color-background)]">
       <div className="mx-auto w-full max-w-[980px] px-5 pb-16 pt-14 md:px-8">
-        <header className="space-y-3 border-b border-[#e9eaeb] pb-8">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">Legal</p>
-          <h1 className="text-[32px] font-bold tracking-[-0.03em] text-[#181d27]">Privacy Policy</h1>
-          <p className="text-[14px] text-[#717680]">Last updated April 02, 2026</p>
-          <p className="max-w-[760px] text-[14px] leading-7 text-[#535862]">
+        <header className="space-y-3 border-b border-[var(--color-border)] pb-8">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">Legal</p>
+          <h1 className="text-[32px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">Privacy Policy</h1>
+          <p className="text-[14px] text-[var(--color-text-tertiary)]">Last updated April 02, 2026</p>
+          <p className="max-w-[760px] text-[14px] leading-7 text-[var(--color-text-secondary)]">
             This Privacy Notice for <strong>Rift Labs</strong> (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) explains how we access,
             collect, store, use, and share your personal information when you use Hedwig services, including
-            <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">
+            <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">
               www.hedwigbot.xyz
             </a>
             and the Hedwig mobile application.
           </p>
-          <p className="text-[14px] leading-7 text-[#535862]">
+          <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
             Questions or concerns? Contact us at
-            <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="mailto:nonyonah@gmail.com">
+            <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonyonah@gmail.com">
               nonyonah@gmail.com
             </a>
             .
           </p>
         </header>
 
-        <section className="mt-10 space-y-3 rounded-2xl border border-[#e9eaeb] bg-white p-6">
-          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">Summary Of Key Points</h2>
-          <ul className="list-disc space-y-2 pl-5 text-[14px] leading-7 text-[#535862]">
+        <section className="mt-10 space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">Summary Of Key Points</h2>
+          <ul className="list-disc space-y-2 pl-5 text-[14px] leading-7 text-[var(--color-text-secondary)]">
             <li>We collect personal information you provide directly to us, including names and email addresses.</li>
             <li>We do not process sensitive personal information.</li>
             <li>We may process personal data to provide services, maintain accounts, secure our platform, and comply with law.</li>
@@ -69,14 +69,14 @@ export default function PrivacyPolicyPage() {
           </ul>
         </section>
 
-        <section className="mt-8 space-y-2 rounded-2xl border border-[#e9eaeb] bg-white p-6">
-          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">Table Of Contents</h2>
+        <section className="mt-8 space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">Table Of Contents</h2>
           <div className="flex flex-col gap-1">
             {TOC.map((entry) => (
               <a
                 key={entry.id}
                 href={`#${entry.id}`}
-                className="text-[14px] text-[#2563eb] hover:text-[#1d4ed8]"
+                className="text-[14px] text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
               >
                 {entry.title}
               </a>
@@ -84,9 +84,9 @@ export default function PrivacyPolicyPage() {
           </div>
         </section>
 
-        <div className="mt-10 space-y-10 rounded-2xl border border-[#e9eaeb] bg-white p-6 md:p-8">
+        <div className="mt-10 space-y-10 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 md:p-8">
           <Section id="infocollect" title="1. WHAT INFORMATION DO WE COLLECT?">
-            <h3 className="text-[16px] font-semibold text-[#181d27]">Personal information you disclose to us</h3>
+            <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">Personal information you disclose to us</h3>
             <p>We collect personal information that you voluntarily provide when you register on our services, request support, or contact us directly.</p>
             <p>The information we collect may include names and email addresses.</p>
             <p>We do not process sensitive personal information.</p>
@@ -122,7 +122,7 @@ export default function PrivacyPolicyPage() {
           <Section id="ai" title="5. DO WE OFFER ARTIFICIAL INTELLIGENCE-BASED PRODUCTS?">
             <p>Yes. Hedwig includes AI features such as AI bots and AI insights.</p>
             <p>
-              We may use third-party AI providers, including Google Cloud AI, to process relevant inputs and outputs needed
+              We may use third-party AI providers, including DeepSeek, to process relevant inputs and outputs needed
               to deliver these features.
             </p>
           </Section>
@@ -165,7 +165,7 @@ export default function PrivacyPolicyPage() {
           <Section id="contact" title="12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?">
             <p>
               Email:
-              <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="mailto:nonso@hedwigbot.xyz">
+              <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
                 nonso@hedwigbot.xyz
               </a>
             </p>
@@ -176,7 +176,7 @@ export default function PrivacyPolicyPage() {
             <p>
               To submit a data access, update, or deletion request, use our form:
               <a
-                className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]"
+                className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
                 href="https://app.termly.io/dsar/8b850757-c4c8-4c8c-8ea2-1b460a42c38d"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -188,10 +188,10 @@ export default function PrivacyPolicyPage() {
           </Section>
         </div>
 
-        <footer className="mt-8 text-[13px] text-[#717680]">
+        <footer className="mt-8 text-[13px] text-[var(--color-text-tertiary)]">
           This Privacy Policy was created using Termly&apos;s
           <a
-            className="ml-1 text-[#2563eb] hover:text-[#1d4ed8]"
+            className="ml-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
             href="https://termly.io/products/privacy-policy-generator/"
             target="_blank"
             rel="noopener noreferrer"

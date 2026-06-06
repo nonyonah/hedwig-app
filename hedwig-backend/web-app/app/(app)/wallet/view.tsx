@@ -7,7 +7,9 @@ import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { ClientPortal } from '@/components/ui/client-portal';
+import { PayoutPanel } from '@/components/workspace/payout-panel';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { Button } from '@/components/ui/button';
 import { hedwigApi } from '@/lib/api/client';
 import type { AccountTransaction, GatewayBalance, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
@@ -38,18 +40,18 @@ const supportedAssets: Array<{ chain: WalletAsset['chain']; symbol: string; name
 ];
 
 const TX_KIND: Record<WalletTransaction['kind'], { dot: string; bg: string; text: string }> = {
-  receive: { dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]', text: 'text-[#717680]' },
-  send: { dot: 'bg-[#f04438]', bg: 'bg-[#fff1f0]', text: 'text-[#717680]' },
-  payment: { dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]', text: 'text-[#717680]' },
-  settlement: { dot: 'bg-[#f59e0b]', bg: 'bg-[#fffaeb]', text: 'text-[#717680]' },
-  onramp: { dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]', text: 'text-[#717680]' },
-  offramp: { dot: 'bg-[#f59e0b]', bg: 'bg-[#fffaeb]', text: 'text-[#717680]' },
+  receive: { dot: 'bg-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-text-tertiary)]' },
+  send: { dot: 'bg-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-text-tertiary)]' },
+  payment: { dot: 'bg-[var(--color-primary)]', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-text-tertiary)]' },
+  settlement: { dot: 'bg-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-text-tertiary)]' },
+  onramp: { dot: 'bg-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-text-tertiary)]' },
+  offramp: { dot: 'bg-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-text-tertiary)]' },
 };
 
 const USD_TX_STATUS: Record<AccountTransaction['status'], { dot: string; label: string }> = {
-  pending: { dot: 'bg-[#f59e0b]', label: 'Pending' },
-  completed: { dot: 'bg-[#12b76a]', label: 'Completed' },
-  failed: { dot: 'bg-[#f04438]', label: 'Failed' }
+  pending: { dot: 'bg-[var(--color-warning)]', label: 'Pending' },
+  completed: { dot: 'bg-[var(--color-success)]', label: 'Completed' },
+  failed: { dot: 'bg-[var(--color-danger)]', label: 'Failed' }
 };
 
 type WalletData = {
@@ -85,6 +87,14 @@ export function WalletView({
   regionCountryCode?: string | null;
 }) {
   const { formatAmount } = useCurrency();
+
+  useAssistantPageContext('Wallet', {
+    assetsCount: initialWalletData.walletAssets.length,
+    accountsCount: initialWalletData.walletAccounts.length,
+    transactionsCount: initialWalletData.walletTransactions.length,
+    gatewayBalance: initialGatewayBalance.available,
+  });
+
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<WalletTransaction | AccountTransaction | null>(null);
   const [usdSetupState, setUsdSetupState] = useState<'idle' | 'enrolling' | 'kyc_loading' | 'error'>('idle');
@@ -158,8 +168,8 @@ export function WalletView({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[#181d27]">Revenue</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Your USDC earnings, settlements, and account balances.</p>
+          <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Revenue</h1>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Your USDC earnings, settlements, and account balances.</p>
         </div>
         <div className="shrink-0 pt-1">
           <ShareWalletDialog
@@ -179,7 +189,7 @@ export function WalletView({
             value: formatAmount(eoaUsdcTotal, { compact: true }),
             helper: 'Per-chain wallet USDC',
             icon: Wallet,
-            iconClassName: 'text-[#717680]',
+            iconClassName: 'text-[var(--color-text-tertiary)]',
           },
           {
             id: 'aggregated-usdc',
@@ -187,9 +197,9 @@ export function WalletView({
             value: formatAmount(gatewayAvailableUsdc, { compact: true }),
             helper: gatewayAutoDepositEnabled ? 'Auto-aggregation on' : 'Auto-aggregation off',
             icon: ArrowsLeftRight,
-            valueClassName: gatewayAutoDepositEnabled ? 'text-[#027a48]' : undefined,
-            iconWrapClassName: gatewayAutoDepositEnabled ? 'bg-[#ecfdf3]' : undefined,
-            iconClassName: gatewayAutoDepositEnabled ? 'text-[#12b76a]' : 'text-[#717680]',
+            valueClassName: gatewayAutoDepositEnabled ? 'text-[var(--color-success)]' : undefined,
+            iconWrapClassName: gatewayAutoDepositEnabled ? 'bg-[var(--color-success-soft)]' : undefined,
+            iconClassName: gatewayAutoDepositEnabled ? 'text-[var(--color-success)]' : 'text-[var(--color-text-tertiary)]',
           },
           ...(usdAccountsEnabled ? [{
             id: 'usd-account',
@@ -197,8 +207,8 @@ export function WalletView({
             value: formatAmount(usdAccount.balanceUsd, { compact: true }),
             helper: usdStatusLabel,
             icon: Bank,
-            valueClassName: 'text-[#717680]',
-            iconClassName: 'text-[#717680]',
+            valueClassName: 'text-[var(--color-text-tertiary)]',
+            iconClassName: 'text-[var(--color-text-tertiary)]',
           }] : []),
           {
             id: 'finality',
@@ -206,9 +216,9 @@ export function WalletView({
             value: gatewayPendingUsdc > 0 ? formatAmount(gatewayPendingUsdc, { compact: true }) : 'Clear',
             helper: gatewayPendingUsdc > 0 ? 'Pending aggregation' : 'No pending deposits',
             icon: Info,
-            valueClassName: gatewayPendingUsdc > 0 ? 'text-[#b54708]' : 'text-[#027a48]',
-            iconWrapClassName: gatewayPendingUsdc > 0 ? 'bg-[#fffaeb]' : 'bg-[#ecfdf3]',
-            iconClassName: gatewayPendingUsdc > 0 ? 'text-[#f59e0b]' : 'text-[#12b76a]',
+            valueClassName: gatewayPendingUsdc > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]',
+            iconWrapClassName: gatewayPendingUsdc > 0 ? 'bg-[var(--color-warning-soft)]' : 'bg-[var(--color-success-soft)]',
+            iconClassName: gatewayPendingUsdc > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]',
           },
           {
             id: 'total-received',
@@ -216,7 +226,7 @@ export function WalletView({
             value: formatAmount(totalReceived, { compact: true }),
             helper: 'Payments & settlements',
             icon: ArrowDown,
-            iconClassName: 'text-[#717680]',
+            iconClassName: 'text-[var(--color-text-tertiary)]',
           },
           ...(usdAccountsEnabled ? [{
             id: 'auto-settlement',
@@ -224,26 +234,26 @@ export function WalletView({
             value: usdAccount.settlementChain,
             helper: 'USD deposits settle here',
             icon: ArrowsLeftRight,
-            iconClassName: 'text-[#717680]',
+            iconClassName: 'text-[var(--color-text-tertiary)]',
           }] : []),
         ]}
         className={usdAccountsEnabled ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'}
       />
 
       {shouldShowUsdSetupCard ? (
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
+        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
           <div className="flex items-start gap-5 px-5 py-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eff4ff]">
-              <Bank className="h-5 w-5 text-[#2563eb]" weight="bold" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+              <Bank className="h-5 w-5 text-[var(--color-primary)]" weight="bold" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-[#181d27]">Set up your USD account</p>
-              <p className="mt-1 text-[13px] leading-5 text-[#717680]">
+              <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Set up your USD account</p>
+              <p className="mt-1 text-[13px] leading-5 text-[var(--color-text-tertiary)]">
                 Get a US bank account number and routing number. Clients can pay you directly by ACH
                 or wire — the funds settle as USDC in your wallet automatically.
               </p>
               {usdSetupError ? (
-                <p className="mt-2 text-[12px] text-[#b42318]">{usdSetupError}</p>
+                <p className="mt-2 text-[12px] text-[var(--color-danger)]">{usdSetupError}</p>
               ) : null}
               <div className="mt-4 flex items-center gap-3">
                 {usdSetupState === 'idle' || usdSetupState === 'error' ? (
@@ -260,15 +270,15 @@ export function WalletView({
                         variant="ghost"
                         size="sm"
                         onClick={handleRetryUsdSetup}
-                        className="text-[#717680] hover:text-[#414651]"
+                        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
                       >
                         Dismiss
                       </Button>
                     ) : null}
                   </>
                 ) : (
-                  <div className="flex items-center gap-2 text-[13px] text-[#717680]">
-                    <svg className="h-4 w-4 animate-spin text-[#2563eb]" viewBox="0 0 24 24" fill="none">
+                  <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-tertiary)]">
+                    <svg className="h-4 w-4 animate-spin text-[var(--color-primary)]" viewBox="0 0 24 24" fill="none">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
                       <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
                     </svg>
@@ -290,11 +300,11 @@ export function WalletView({
       />
 
       <div>
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
-          <div className="flex items-start justify-between gap-3 border-b border-[#e9eaeb] px-5 py-4">
+        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
             <div>
-              <p className="text-[15px] font-semibold text-[#181d27]">Recent activity</p>
-              <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
+              <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Recent activity</p>
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">
                 {usdAccountsEnabled ? 'Incoming payments, buy USDC orders, withdrawals, settlements, and USD transfers' : 'Incoming payments, buy USDC orders, withdrawals, and settlements'}
               </p>
             </div>
@@ -309,24 +319,24 @@ export function WalletView({
             ) : null}
           </div>
 
-          <div className="grid grid-cols-[1fr_100px_100px_90px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Transaction</span>
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Type</span>
-            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</span>
-            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Date</span>
+          <div className="grid grid-cols-[1fr_100px_100px_90px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Transaction</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Type</span>
+            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount</span>
+            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Date</span>
           </div>
 
           {recentWalletTx.length === 0 && recentUsdTx.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <Wallet className="h-8 w-8 text-[#d0d5dd]" weight="duotone" />
-              <p className="text-[13px] text-[#a4a7ae]">
+              <Wallet className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />
+              <p className="text-[13px] text-[var(--color-text-muted)]">
                 {usdAccountsEnabled
                   ? 'No activity yet. Transfers, payments, and settlements will appear here.'
                   : 'No activity yet. Wallet transfers and payments will appear here.'}
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-[#f9fafb]">
+            <div className="divide-y divide-[var(--color-surface-secondary)]">
               {recentWalletTx.map((tx) => {
                 const kind = TX_KIND[tx.kind] ?? TX_KIND.payment;
                 return (
@@ -334,23 +344,23 @@ export function WalletView({
                     key={tx.id}
                     type="button"
                     onClick={() => setSelectedActivity(tx)}
-                    className="grid w-full grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[#fafafa]"
+                    className="grid w-full grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-background)]"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <TokenIcon chain={tx.chain} symbol={tx.asset} label={tx.asset} size={32} />
                       <div className="min-w-0">
-                        <p className="truncate text-[13px] font-semibold capitalize text-[#181d27]">{formatTransactionTitle(tx)}</p>
-                        <p className="truncate text-[11px] text-[#a4a7ae]">{tx.counterparty || tx.chain}</p>
+                        <p className="truncate text-[13px] font-semibold capitalize text-[var(--color-foreground)]">{formatTransactionTitle(tx)}</p>
+                        <p className="truncate text-[11px] text-[var(--color-text-muted)]">{tx.counterparty || tx.chain}</p>
                       </div>
                     </div>
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${kind.bg} ${kind.text}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${kind.dot}`} />
                       <span className="capitalize">{formatTransactionKind(tx.kind)}</span>
                     </span>
-                    <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
-                      {tx.amount} <span className="text-[11px] font-normal text-[#a4a7ae]">{tx.asset}</span>
+                    <p className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">
+                      {tx.amount} <span className="text-[11px] font-normal text-[var(--color-text-muted)]">{tx.asset}</span>
                     </p>
-                    <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(tx.createdAt)}</p>
+                    <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(tx.createdAt)}</p>
                   </button>
                 );
               })}
@@ -362,23 +372,23 @@ export function WalletView({
                     key={tx.id}
                     type="button"
                     onClick={() => setSelectedActivity(tx)}
-                    className="grid w-full grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[#fafafa]"
+                    className="grid w-full grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-background)]"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ecfdf3] text-[#717680]">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]">
                         <Bank className="h-4 w-4" weight="bold" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-[13px] font-semibold text-[#181d27]">{tx.description}</p>
-                        <p className="text-[11px] text-[#a4a7ae]">USD transfer</p>
+                        <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{tx.description}</p>
+                        <p className="text-[11px] text-[var(--color-text-muted)]">USD transfer</p>
                       </div>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f4f7] px-2.5 py-1 text-[11px] font-semibold text-[#717680]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-surface-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
                       <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
                       {status.label}
                     </span>
-                    <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">{formatAmount(tx.amountUsd)}</p>
-                    <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(tx.createdAt)}</p>
+                    <p className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">{formatAmount(tx.amountUsd)}</p>
+                    <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(tx.createdAt)}</p>
                   </button>
                 );
               }) : null}
@@ -394,6 +404,7 @@ export function WalletView({
           onClose={() => setSelectedActivity(null)}
         />
       ) : null}
+      <PayoutPanel gatewayAutoDepositEnabled={gatewayAutoDepositEnabled} />
     </div>
   );
 }
@@ -418,12 +429,12 @@ function ActivityDetailPanel({
   const iconNode = isWalletActivity ? (
     <div className="relative shrink-0">
       <TokenIcon chain={activity.chain} symbol={activity.asset} label={activity.asset} size={44} />
-      <div className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5">
+      <div className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[var(--color-surface)] p-0.5">
         <ChainIcon chain={activity.chain} size={18} />
       </div>
     </div>
   ) : (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ecfdf3] text-[#717680]">
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]">
       <Bank className="h-5 w-5" weight="bold" />
     </div>
   );
@@ -433,19 +444,19 @@ function ActivityDetailPanel({
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
 
       <div
-        className="fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-white shadow-2xl animate-in slide-in-from-left-full duration-300 ease-out"
+        className="fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-[var(--color-surface)] shadow-2xl animate-in slide-in-from-left-full duration-300 ease-out"
         role="dialog"
         aria-modal="true"
         aria-label="Activity details"
       >
-        <div className="flex items-center gap-4 border-b border-[#e9eaeb] px-5 py-4">
+        <div className="flex items-center gap-4 border-b border-[var(--color-border)] px-5 py-4">
           {iconNode}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[16px] font-bold text-[#181d27]">{title}</p>
+            <p className="truncate text-[16px] font-bold text-[var(--color-foreground)]">{title}</p>
             <div className="mt-0.5 flex items-center gap-2">
-              <span className="text-[12px] text-[#a4a7ae]">{formatShortDate(activity.createdAt)}</span>
-              <span className="text-[#e9eaeb]">·</span>
-              <span className="truncate text-[12px] text-[#a4a7ae]">{chain}</span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">{formatShortDate(activity.createdAt)}</span>
+              <span className="text-[var(--color-border)]">·</span>
+              <span className="truncate text-[12px] text-[var(--color-text-muted)]">{chain}</span>
             </div>
           </div>
           <Button
@@ -460,16 +471,16 @@ function ActivityDetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</p>
-            <p className="mt-1 text-[28px] font-bold leading-none tracking-[-0.04em] text-[#181d27]">{amountLabel}</p>
-            <p className="mt-2 text-[13px] font-medium capitalize text-[#717680]">{statusLabel}</p>
+          <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount</p>
+            <p className="mt-1 text-[28px] font-bold leading-none tracking-[-0.04em] text-[var(--color-foreground)]">{amountLabel}</p>
+            <p className="mt-2 text-[13px] font-medium capitalize text-[var(--color-text-tertiary)]">{statusLabel}</p>
           </div>
 
           <div className="px-5 py-5">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Details</p>
-            <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
-              <div className="divide-y divide-[#f2f4f7] px-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Details</p>
+            <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+              <div className="divide-y divide-[var(--color-surface-tertiary)] px-4">
                 <ActivityDetailRow label="Type" value={isWalletActivity ? formatTransactionKind(activity.kind) : 'USD transfer'} />
                 <ActivityDetailRow label="Status" value={statusLabel} />
                 {isWalletActivity ? <ActivityDetailRow label="Chain" value={activity.chain} /> : null}
@@ -499,8 +510,8 @@ function ActivityDetailPanel({
 function ActivityDetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3">
-      <span className="shrink-0 text-[12px] text-[#717680]">{label}</span>
-      <span className={`text-right text-[13px] font-semibold capitalize text-[#181d27] ${mono ? 'break-all font-mono text-[11px] normal-case' : ''}`}>{value}</span>
+      <span className="shrink-0 text-[12px] text-[var(--color-text-tertiary)]">{label}</span>
+      <span className={`text-right text-[13px] font-semibold capitalize text-[var(--color-foreground)] ${mono ? 'break-all font-mono text-[11px] normal-case' : ''}`}>{value}</span>
     </div>
   );
 }
@@ -510,7 +521,7 @@ function ChainIcon({ chain, size = 24 }: { chain: string; size?: number }) {
   if (!iconSrc) {
     return (
       <div
-        className="flex shrink-0 items-center justify-center rounded-full bg-[#f2f4f7] text-[9px] font-bold text-[#717680]"
+        className="flex shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[9px] font-bold text-[var(--color-text-tertiary)]"
         style={{ width: size, height: size }}
       >
         {chain.slice(0, 2).toUpperCase()}
@@ -524,7 +535,7 @@ function TokenIcon({ chain, symbol, label, size = 32 }: { chain: string; symbol:
   const iconSrc = tokenIconByKey[`${chain}:${symbol}`];
   if (iconSrc) return <Image src={iconSrc} alt={label} width={size} height={size} className="rounded-full shrink-0" />;
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7] text-[11px] font-semibold text-[#667085]">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-muted)]">
       {symbol.slice(0, 3)}
     </div>
   );

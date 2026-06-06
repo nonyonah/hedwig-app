@@ -36,7 +36,7 @@ export function EntityTable({
                   key={`row-${rowIndex}`}
                   className={cn(
                     'border-b border-border/60 last:border-0',
-                    highlightedRowIndex === rowIndex ? 'bg-[#f8fafc]' : ''
+                    highlightedRowIndex === rowIndex ? 'bg-[var(--color-background)]' : ''
                   )}
                 >
                   {row.map((cell, cellIndex) => (
@@ -46,12 +46,12 @@ export function EntityTable({
                       ) : cell.badge && cell.href ? (
                         <Link href={cell.href} className="inline-flex items-center gap-1">
                           <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
-                          <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
+                          <ArrowUpRight className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" />
                         </Link>
                       ) : cell.badge && cell.onClick ? (
                         <button type="button" onClick={cell.onClick} className="inline-flex items-center gap-1">
                           <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
-                          <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
+                          <ArrowUpRight className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" />
                         </button>
                       ) : cell.badge ? (
                         <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
@@ -61,16 +61,16 @@ export function EntityTable({
                           onClick={cell.onClick}
                           className={cn(
                             'inline-flex items-center gap-1 font-semibold',
-                            cell.destructive ? 'text-[#717680]' : 'text-primary'
+                            cell.destructive ? 'text-[var(--color-text-tertiary)]' : 'text-primary'
                           )}
                         >
                           {cell.value}
-                          {!cell.destructive ? <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" /> : null}
+                          {!cell.destructive ? <ArrowUpRight className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" /> : null}
                         </button>
                       ) : cell.href ? (
                         <Link href={cell.href} className="inline-flex items-center gap-1 font-semibold text-primary">
                           {cell.value}
-                          <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
+                          <ArrowUpRight className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" />
                         </Link>
                       ) : (
                         <span className="font-medium">{cell.value}</span>

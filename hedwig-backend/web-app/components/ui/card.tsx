@@ -14,7 +14,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
       variant="default"
       className={cn(
         // Hedwig-specific overrides on top of HeroUI's default card styling
-        'rounded-xl bg-white text-[#181d27] shadow-xs ring-1 ring-[#e9eaeb]',
+        'rounded-xl bg-[var(--color-surface)] text-[var(--color-text-primary)] shadow-xs ring-1 ring-[var(--color-border)]',
         className
       )}
       {...props}
@@ -30,11 +30,11 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <HeroUICard.Title className={cn('text-[16px] font-semibold text-[#181d27]', className)} {...props} />;
+  return <HeroUICard.Title className={cn('text-[16px] font-semibold text-[var(--color-text-primary)]', className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <HeroUICard.Description className={cn('text-[14px] leading-5 text-[#717680]', className)} {...props} />;
+  return <HeroUICard.Description className={cn('text-[14px] leading-5 text-[var(--color-text-tertiary)]', className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

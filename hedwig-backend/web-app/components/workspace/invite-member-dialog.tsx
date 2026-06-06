@@ -54,59 +54,66 @@ export function InviteMemberDialog() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh]">
-      <div className="fixed inset-0 bg-[#181d27]/30" onClick={() => setOpen(false)} />
-      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[#f3f4f6] bg-white shadow-2xl shadow-black/10">
+      <div className="fixed inset-0 bg-[var(--color-foreground)]/30" onClick={() => setOpen(false)} />
+      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-2xl shadow-[var(--color-foreground)]/10">
         <div className="flex items-center justify-between px-5 py-4">
-          <h2 className="text-[15px] font-semibold text-[#181d27]">Invite member</h2>
+          <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Invite member</h2>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-[#f5f5f5] hover:text-[#717680]"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-placeholder)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]"
           >
             <X className="h-4 w-4" weight="bold" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="px-5 pb-5">
           <div className="mb-3">
-            <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Email address</label>
+            <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email address</label>
             <input
               ref={inputRef}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="colleague@example.com"
-              className="w-full rounded-lg border border-[#eef0f3] px-3 py-2 text-[14px] text-[#181d27] outline-none transition placeholder:text-[#c1c5cd] focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]/20"
+              className="w-full rounded-lg border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
             />
           </div>
           <div className="mb-4">
-            <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Role</label>
-            <div className="flex gap-2">
-              {(['member', 'admin'] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-[13px] font-medium transition ${
-                    role === r
-                      ? 'border-[#2563eb] bg-[#eff6ff] text-[#1d4ed8]'
-                      : 'border-[#eef0f3] text-[#525866] hover:border-[#d0d5dd]'
-                  }`}
-                >
-                  {r === 'admin' ? 'Admin' : 'Member'}
-                </button>
-              ))}
+            <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Role</label>
+            <div className="relative">
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
+                className="w-full appearance-none rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 pr-8 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+              >
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </select>
+              <svg
+                className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 6l4 4 4-4" />
+              </svg>
             </div>
-            <p className="mt-1.5 text-[12px] text-[#8d9096]">
-              {role === 'admin' ? 'Can manage members, projects, and settings.' : 'Can view and interact with workspace content.'}
+            <p className="mt-1.5 text-[12px] text-[var(--color-text-tertiary)]">
+              {role === 'admin'
+                ? 'Can manage members, projects, and settings.'
+                : 'Can view and interact with workspace content.'}
             </p>
           </div>
-          {error && <p className="mb-3 text-[12px] text-red-500">{error}</p>}
+          {error && <p className="mb-3 text-[12px] text-[var(--color-danger)]">{error}</p>}
           {success && <p className="mb-3 text-[12px] text-green-600">{success}</p>}
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#414651] transition hover:bg-[#f4f5f7]"
+              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-tertiary)]"
             >
               {success ? 'Close' : 'Cancel'}
             </button>
@@ -114,7 +121,7 @@ export function InviteMemberDialog() {
               <button
                 type="submit"
                 disabled={!email.trim() || saving}
-                className="rounded-lg bg-[#2563eb] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:opacity-50"
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
               >
                 {saving ? 'Sending...' : 'Send invitation'}
               </button>

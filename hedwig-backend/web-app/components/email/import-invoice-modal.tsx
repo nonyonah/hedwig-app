@@ -64,17 +64,17 @@ function UploadZone({ onFile }: { onFile: (f: File) => void }) {
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       className={`flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 transition ${
-        isDragging ? 'border-[#2563eb] bg-[#eff4ff]' : 'border-[#e9eaeb] bg-[#f9fafb] hover:border-[#c8cdd5] hover:bg-white'
+        isDragging ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-text-placeholder)] hover:bg-[var(--color-surface)]'
       }`}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
-        <UploadSimple className="h-5 w-5 text-[#717680]" />
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface)] shadow-sm">
+        <UploadSimple className="h-5 w-5 text-[var(--color-text-tertiary)]" />
       </span>
       <div className="text-center">
-        <p className="text-[13px] font-semibold text-[#181d27]">Drop your invoice here</p>
-        <p className="mt-0.5 text-[12px] text-[#a4a7ae]">PDF, PNG, JPG — up to 10 MB</p>
+        <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Drop your invoice here</p>
+        <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">PDF, PNG, JPG — up to 10 MB</p>
       </div>
-      <span className="rounded-full border border-[#e9eaeb] bg-white px-4 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs">
+      <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs">
         Browse files
       </span>
       <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
@@ -84,25 +84,25 @@ function UploadZone({ onFile }: { onFile: (f: File) => void }) {
 
 function LineItemsTable({ items = [] }: { items?: ParsedDocument['lineItems'] }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[#e9eaeb]">
+    <div className="overflow-hidden rounded-xl border border-[var(--color-border)]">
       <table className="w-full text-[12px]">
         <thead>
-          <tr className="border-b border-[#f2f4f7] bg-[#f9fafb]">
-            <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Description</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Qty</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Unit price</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Total</th>
+          <tr className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)]">
+            <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Description</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Qty</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Unit price</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Total</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#f9fafb]">
+        <tbody className="divide-y divide-[var(--color-background)]">
           {items.map((item, i) => (
-            <tr key={i} className="bg-white">
-              <td className="px-3 py-2.5 text-[#181d27]">{item.description}</td>
-              <td className="px-3 py-2.5 text-right text-[#717680]">{item.quantity}</td>
-              <td className="px-3 py-2.5 text-right text-[#717680]">
+            <tr key={i} className="bg-[var(--color-surface)]">
+              <td className="px-3 py-2.5 text-[var(--color-foreground)]">{item.description}</td>
+              <td className="px-3 py-2.5 text-right text-[var(--color-text-tertiary)]">{item.quantity}</td>
+              <td className="px-3 py-2.5 text-right text-[var(--color-text-tertiary)]">
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.unitPrice ?? 0)}
               </td>
-              <td className="px-3 py-2.5 text-right font-semibold text-[#181d27]">
+              <td className="px-3 py-2.5 text-right font-semibold text-[var(--color-foreground)]">
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.total ?? 0)}
               </td>
             </tr>
@@ -140,20 +140,20 @@ function SuggestionCard({
     <div
       className={`rounded-2xl border p-4 transition ${
         approved
-          ? 'border-[#abefc6] bg-[#f6fef9]'
+          ? 'border-[var(--color-success-soft)] bg-[var(--color-success-soft)]'
           : rejected
-          ? 'border-[#e9eaeb] bg-[#f9fafb] opacity-50'
-          : 'border-[#e9eaeb] bg-white'
+          ? 'border-[var(--color-border)] bg-[var(--color-background)] opacity-50'
+          : 'border-[var(--color-border)] bg-[var(--color-surface)]'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7]">
-            <Icon className="h-4 w-4 text-[#717680]" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
+            <Icon className="h-4 w-4 text-[var(--color-text-tertiary)]" />
           </span>
           <div>
             <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                 New {suggestion.entityType}
               </p>
               <span
@@ -163,14 +163,14 @@ function SuggestionCard({
                 {pct}% match
               </span>
             </div>
-            <p className="text-[13px] font-semibold text-[#181d27]">{suggestion.suggestedName}</p>
+            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{suggestion.suggestedName}</p>
           </div>
         </div>
 
         {!rejected && (
           <div className="flex shrink-0 gap-1.5">
             {approved ? (
-              <span className="flex items-center gap-1 rounded-full bg-[#ecfdf3] px-2.5 py-1 text-[11px] font-semibold text-[#027a48]">
+              <span className="flex items-center gap-1 rounded-full bg-[var(--color-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-success)]">
                 <Check className="h-3 w-3" /> Approved
               </span>
             ) : (
@@ -178,14 +178,14 @@ function SuggestionCard({
                 <button
                   type="button"
                   onClick={onApprove}
-                  className="rounded-full bg-[#2563eb] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[#1d4ed8]"
+                  className="rounded-full bg-[var(--color-accent)] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[var(--color-primary-dark)]"
                 >
                   Approve
                 </button>
                 <button
                   type="button"
                   onClick={onReject}
-                  className="rounded-full border border-[#e9eaeb] bg-white px-3 py-1 text-[11px] font-semibold text-[#414651] hover:bg-[#f9fafb]"
+                  className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
                 >
                   Skip
                 </button>
@@ -194,13 +194,13 @@ function SuggestionCard({
           </div>
         )}
         {rejected && (
-          <button type="button" onClick={onApprove} className="text-[11px] font-medium text-[#2563eb] hover:text-[#1d4ed8]">
+          <button type="button" onClick={onApprove} className="text-[11px] font-medium text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]">
             Undo
           </button>
         )}
       </div>
 
-      <p className="mt-2.5 text-[12px] leading-relaxed text-[#717680]">{suggestion.reason}</p>
+      <p className="mt-2.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">{suggestion.reason}</p>
     </div>
   );
 }
@@ -292,35 +292,35 @@ export function ImportInvoiceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-      <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-[var(--color-surface)] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#f2f4f7] px-6 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-6 py-4">
           <div className="flex items-center gap-2">
-            <Sparkle className="h-4 w-4 text-[#2563eb]" />
-            <p className="text-[14px] font-semibold text-[#181d27]">Import Invoice</p>
+            <Sparkle className="h-4 w-4 text-[var(--color-accent)]" />
+            <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Import Invoice</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-[#f2f4f7]"
+            className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-[var(--color-surface-tertiary)]"
           >
-            <X className="h-4 w-4 text-[#717680]" />
+            <X className="h-4 w-4 text-[var(--color-text-tertiary)]" />
           </button>
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-0 border-b border-[#f2f4f7] px-6 py-3">
+        <div className="flex items-center gap-0 border-b border-[var(--color-surface-tertiary)] px-6 py-3">
           {(['upload', 'review', 'confirm'] as Step[]).map((s, i) => (
             <div key={s} className="flex items-center">
-              {i > 0 && <div className="mx-2 h-px w-6 bg-[#e9eaeb]" />}
+              {i > 0 && <div className="mx-2 h-px w-6 bg-[var(--color-border)]" />}
               <div className="flex items-center gap-1.5">
                 <span
                   className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
                     step === s
-                      ? 'bg-[#2563eb] text-white'
+                      ? 'bg-[var(--color-accent)] text-white'
                       : ['review', 'confirm'].indexOf(step) > ['review', 'confirm'].indexOf(s)
-                      ? 'bg-[#12b76a] text-white'
-                      : 'bg-[#f2f4f7] text-[#a4a7ae]'
+                      ? 'bg-[var(--color-success)] text-white'
+                      : 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]'
                   }`}
                 >
                   {['review', 'confirm'].indexOf(step) > ['review', 'confirm'].indexOf(s) ? (
@@ -331,7 +331,7 @@ export function ImportInvoiceModal({
                 </span>
                 <span
                   className={`text-[11px] font-semibold capitalize ${
-                    step === s ? 'text-[#181d27]' : 'text-[#a4a7ae]'
+                    step === s ? 'text-[var(--color-foreground)]' : 'text-[var(--color-text-muted)]'
                   }`}
                 >
                   {s === 'upload' ? 'Upload' : s === 'review' ? 'Review data' : 'Suggestions'}
@@ -350,23 +350,23 @@ export function ImportInvoiceModal({
                 <>
                   <UploadZone onFile={handleFile} />
                   {extractError && (
-                    <div className="flex items-start gap-2 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5">
-                      <WarningCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#f04438]" />
-                      <p className="text-[12px] text-[#b42318]">{extractError}</p>
+                    <div className="flex items-start gap-2 rounded-xl border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2.5">
+                      <WarningCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-danger)]" />
+                      <p className="text-[12px] text-[var(--color-danger)]">{extractError}</p>
                     </div>
                   )}
                 </>
               ) : (
                 <div className="flex flex-col items-center gap-4 py-12">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eff4ff]">
-                    <Sparkle className="h-6 w-6 text-[#2563eb] animate-pulse" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)]">
+                    <Sparkle className="h-6 w-6 text-[var(--color-accent)] animate-pulse" />
                   </div>
                   <div className="text-center">
-                    <p className="text-[13px] font-semibold text-[#181d27]">Extracting invoice data…</p>
-                    <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Hedwig is reading {file?.name}</p>
+                    <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Extracting invoice data…</p>
+                    <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">Hedwig is reading {file?.name}</p>
                   </div>
-                  <div className="h-1 w-48 overflow-hidden rounded-full bg-[#f2f4f7]">
-                    <div className="h-full w-2/3 animate-pulse rounded-full bg-[#2563eb]" />
+                  <div className="h-1 w-48 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                    <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-accent)]" />
                   </div>
                 </div>
               )}
@@ -377,10 +377,10 @@ export function ImportInvoiceModal({
           {step === 'review' && parsed && (
             <div className="space-y-5 p-6">
               <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-[#12b76a]" />
-                <p className="text-[13px] font-semibold text-[#181d27]">Data extracted successfully</p>
+                <CheckCircle className="h-4 w-4 text-[var(--color-success)]" />
+                <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Data extracted successfully</p>
                 {parsed.confidence !== undefined && (
-                  <span className="ml-auto rounded-full bg-[#ecfdf3] px-2 py-0.5 text-[10px] font-semibold text-[#027a48]">
+                  <span className="ml-auto rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
                     {Math.round(parsed.confidence * 100)}% confidence
                   </span>
                 )}
@@ -394,9 +394,9 @@ export function ImportInvoiceModal({
                   parsed.amount       ? { label: 'Amount',    value: new Intl.NumberFormat('en-US', { style: 'currency', currency: parsed.currency ?? 'USD', maximumFractionDigits: 0 }).format(parsed.amount) } : null,
                   parsed.dueDate      ? { label: 'Due date',  value: new Date(parsed.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) } : null,
                 ].filter(Boolean).map((item) => (
-                  <div key={item!.label} className="rounded-xl bg-[#f9fafb] px-3 py-2.5">
-                    <p className="text-[10px] font-medium text-[#a4a7ae]">{item!.label}</p>
-                    <p className="mt-0.5 text-[12px] font-semibold text-[#181d27]">{item!.value}</p>
+                  <div key={item!.label} className="rounded-xl bg-[var(--color-background)] px-3 py-2.5">
+                    <p className="text-[10px] font-medium text-[var(--color-text-muted)]">{item!.label}</p>
+                    <p className="mt-0.5 text-[12px] font-semibold text-[var(--color-foreground)]">{item!.value}</p>
                   </div>
                 ))}
               </div>
@@ -404,15 +404,15 @@ export function ImportInvoiceModal({
               {/* Line items */}
               {parsed.lineItems && parsed.lineItems.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Line items</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Line items</p>
                   <LineItemsTable items={parsed.lineItems} />
                 </div>
               )}
 
               {suggestions.length > 0 && (
-                <div className="flex items-center gap-2 rounded-xl bg-[#eff4ff] px-3 py-2.5">
-                  <Sparkle className="h-3.5 w-3.5 shrink-0 text-[#2563eb]" />
-                  <p className="text-[12px] text-[#2563eb]">
+                <div className="flex items-center gap-2 rounded-xl bg-[var(--color-accent-soft)] px-3 py-2.5">
+                  <Sparkle className="h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]" />
+                  <p className="text-[12px] text-[var(--color-accent)]">
                     We found {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''} for linking this invoice. Review them in the next step.
                   </p>
                 </div>
@@ -423,16 +423,16 @@ export function ImportInvoiceModal({
           {/* ── Step 3: Suggestions ── */}
           {step === 'confirm' && (
             <div className="space-y-4 p-6">
-              <div className="flex items-start gap-2 rounded-xl border border-[#e9eaeb] bg-[#fafafa] px-3 py-3">
-                <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#f79009]" />
-                <p className="text-[12px] leading-relaxed text-[#414651]">
+              <div className="flex items-start gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-3">
+                <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" />
+                <p className="text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
                   <strong>You decide what gets created.</strong> We found these potential records to link your invoice to. Approve only what you want — nothing is created without your confirmation.
                 </p>
               </div>
 
               <div className="space-y-3">
                 {suggestions.length === 0 ? (
-                  <p className="py-4 text-center text-[12px] text-[#a4a7ae]">No suggestions — the document is ready to import.</p>
+                  <p className="py-4 text-center text-[12px] text-[var(--color-text-muted)]">No suggestions — the document is ready to import.</p>
                 ) : suggestions.map((s) => (
                   <SuggestionCard
                     key={s.id}
@@ -446,7 +446,7 @@ export function ImportInvoiceModal({
               </div>
 
               {pendingSuggestions.length > 0 && (
-                <p className="text-center text-[11px] text-[#a4a7ae]">
+                <p className="text-center text-[11px] text-[var(--color-text-muted)]">
                   {pendingSuggestions.length} suggestion{pendingSuggestions.length !== 1 ? 's' : ''} still pending — approve or skip to continue.
                 </p>
               )}
@@ -455,13 +455,13 @@ export function ImportInvoiceModal({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-[#f2f4f7] px-6 py-4">
+        <div className="border-t border-[var(--color-surface-tertiary)] px-6 py-4">
           {step === 'review' && (
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => { setFile(null); setParsed(null); setSuggestions([]); setStep('upload'); }}
-                className="flex items-center justify-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-4 py-2 text-[12px] font-semibold text-[#414651] transition hover:bg-[#f9fafb]"
+                className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-[12px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]"
               >
                 <Trash className="h-3.5 w-3.5" />
                 Replace
@@ -470,7 +470,7 @@ export function ImportInvoiceModal({
                 <button
                   type="button"
                   onClick={() => setStep('confirm')}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#2563eb] py-2 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--color-accent)] py-2 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"
                 >
                   Review suggestions
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -480,7 +480,7 @@ export function ImportInvoiceModal({
                   type="button"
                   onClick={handleImport}
                   disabled={isImporting}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#2563eb] py-2 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:opacity-50"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--color-accent)] py-2 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
                 >
                   <Check className="h-3.5 w-3.5" />
                   Import invoice
@@ -492,7 +492,7 @@ export function ImportInvoiceModal({
           {step === 'confirm' && (
             <div className="space-y-2">
               {approvedCount > 0 && (
-                <p className="text-center text-[11px] text-[#717680]">
+                <p className="text-center text-[11px] text-[var(--color-text-tertiary)]">
                   {approvedCount} record{approvedCount !== 1 ? 's' : ''} will be created when you import.
                 </p>
               )}
@@ -500,7 +500,7 @@ export function ImportInvoiceModal({
                 <button
                   type="button"
                   onClick={() => setStep('review')}
-                  className="flex items-center justify-center rounded-full border border-[#e9eaeb] bg-white px-4 py-2 text-[12px] font-semibold text-[#414651] transition hover:bg-[#f9fafb]"
+                  className="flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-[12px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]"
                 >
                   Back
                 </button>
@@ -508,7 +508,7 @@ export function ImportInvoiceModal({
                   type="button"
                   onClick={handleImport}
                   disabled={isImporting || pendingSuggestions.length > 0}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#2563eb] py-2 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:opacity-50"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--color-accent)] py-2 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
                 >
                   {isImporting ? (
                     <>

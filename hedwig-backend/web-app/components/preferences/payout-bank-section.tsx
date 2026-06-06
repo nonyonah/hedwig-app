@@ -63,11 +63,11 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
   const showForm = adding || editing !== null;
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-      <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-4">
+    <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+      <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-4">
         <div>
-          <h2 className="text-[16px] font-semibold text-[#181d27]">Payout banks</h2>
-          <p className="mt-0.5 text-[13px] text-[#717680]">
+          <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">Payout banks</h2>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
             Add accounts in any supported country. Clients can switch currencies on the public page.
           </p>
         </div>
@@ -80,7 +80,7 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
 
       <div className="px-5 py-5 space-y-3">
         {loading ? (
-          <p className="text-[13px] text-[#717680]">Loading…</p>
+          <p className="text-[13px] text-[var(--color-text-tertiary)]">Loading…</p>
         ) : showForm ? (
           <BankAccountForm
             accessToken={accessToken}
@@ -102,10 +102,10 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
             }}
           />
         ) : records.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#e9eaeb] bg-[#fafafa] px-4 py-8 text-center">
-            <Bank className="mx-auto h-6 w-6 text-[#a4a7ae]" weight="regular" />
-            <p className="mt-2 text-[13px] font-semibold text-[#181d27]">No payout banks yet</p>
-            <p className="mt-1 text-[12px] text-[#717680]">
+          <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-background)] px-4 py-8 text-center">
+            <Bank className="mx-auto h-6 w-6 text-[var(--color-text-muted)]" weight="regular" />
+            <p className="mt-2 text-[13px] font-semibold text-[var(--color-foreground)]">No payout banks yet</p>
+            <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
               Add a Nigerian, US, UK, or Ghanaian bank so clients can pay you by transfer.
             </p>
             <Button className="mt-3" onClick={() => setAdding(true)}>
@@ -117,25 +117,25 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
             {records.map((record) => (
               <div
                 key={record.id}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-[#e9eaeb] px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="text-[20px] leading-none">{COUNTRY_FLAG[record.country]}</span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">{record.bankName}</p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{record.bankName}</p>
                       {record.isDefault && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#eff4ff] px-2 py-0.5 text-[10px] font-semibold text-[#2563eb]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
                           Default
                         </span>
                       )}
                       {record.isVerified && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf3] px-2 py-0.5 text-[10px] font-semibold text-[#027a48]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
                           <ShieldCheck className="h-2.5 w-2.5" weight="bold" /> Verified
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-[11px] text-[#717680]">
+                    <p className="truncate text-[11px] text-[var(--color-text-tertiary)]">
                       {record.accountHolderName} · {record.currency} · {maskedAccount(record)}
                     </p>
                   </div>

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
-import { GeminiService } from '../services/gemini';
+import { DeepSeekService } from '../services/deepseek';
 import { handleAction } from '../services/actions';
 import { getOrCreateUser } from '../utils/userHelper';
 import multer from 'multer';
@@ -199,14 +199,20 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
 
         logger.debug('User projects', { count: projectContext.length });
 
-        // Process uploaded files for Gemini
-        let fileData: { mimeType: string; data: string }[] | undefined;
+        // Process uploaded files for DeepSeek (multipart via multer)
+        const fileData: { mimeType: string; data: string }[] = [];
         if (uploadedFiles && uploadedFiles.length > 0) {
-            fileData = uploadedFiles.map(file => ({
-                mimeType: file.mimetype,
-                data: file.buffer.toString('base64')
-            }));
-            logger.debug('Processed files for Gemini', { types: fileData.map(f => f.mimeType) });
+            logger.debug(`Processing ${uploadedFiles.length} uploaded file(s)`);
+            for (const file of uploadedFiles) {
+                // Validate file
+                if (!file.mimetype) continue;
+                const base64 = file.buffer.toString('base64');
+                fileData.push({
+                    mimeType: file.mimetype,
+                    data: base64,
+                });
+            }
+            logger.debug('Processed files for DeepSeek', { types: fileData.map(f => f.mimeType) });
         }
 
         // Detect and fetch content from URLs in the message
@@ -304,14 +310,14 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
         // Generate AI response
         let aiResponseObj;
         try {
-            aiResponseObj = await GeminiService.generateChatResponse(
+            aiResponseObj = await DeepSeekService.generateChatResponse(
                 enhancedMessage,
                 history,
                 fileData,
                 { beneficiaries: beneficiaryContext, clients: clientContext, projects: projectContext }
             );
-        } catch (geminiError: any) {
-            logger.error('Gemini generation failed', { error: geminiError.message });
+        } catch (deepseekError: any) {
+            logger.error('DeepSeek generation failed', { error: deepseekError.message });
             // Fallback response for fetch failures (likely network or API key issues)
             aiResponseObj = {
                 intent: 'error',

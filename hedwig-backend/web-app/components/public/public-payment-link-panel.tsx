@@ -64,31 +64,31 @@ export function PublicPaymentLinkPanel({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-[#e9eaeb] bg-white p-6 shadow-xs">
-        <p className="text-sm font-medium text-[#717680]">Pay now</p>
+      <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-xs">
+        <p className="text-sm font-medium text-[var(--color-text-tertiary)]">Pay now</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-[14px] border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#717680]">Amount</p>
-            <p className="mt-2 text-base font-semibold text-[#181d27]">{formatCurrency(amount)}</p>
+          <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Amount</p>
+            <p className="mt-2 text-base font-semibold text-[var(--color-foreground)]">{formatCurrency(amount)}</p>
           </div>
-          <div className="rounded-[14px] border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#717680]">Token</p>
-            <div className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-[#181d27]">
+          <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Token</p>
+            <div className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-[var(--color-foreground)]">
               <Image src={tokenIcon} alt={tokenLabel} width={18} height={18} className="rounded-full" />
               {tokenLabel}
             </div>
           </div>
-          <div className="rounded-[14px] border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#717680]">Network</p>
-            <div className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-[#181d27]">
+          <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Network</p>
+            <div className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-[var(--color-foreground)]">
               <Image src={chainIcon} alt={networkLabel} width={18} height={18} className="rounded-full" />
               {networkLabel}
             </div>
           </div>
         </div>
-        <div className="mt-5 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4">
-          <p className="text-sm font-medium text-[#414651]">How to pay</p>
-          <ol className="mt-3 space-y-2 text-sm leading-6 text-[#717680]">
+        <div className="mt-5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
+          <p className="text-sm font-medium text-[var(--color-text-secondary)]">How to pay</p>
+          <ol className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
             <li>1. Select the network you want to use if more than one payment option is available.</li>
             <li>2. Connect a wallet that holds the token shown for this payment.</li>
             <li>3. Confirm the exact amount and approve the transaction in your wallet.</li>

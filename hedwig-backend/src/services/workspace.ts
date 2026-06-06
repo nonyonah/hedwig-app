@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
+import { EmailService } from './email';
+import crypto from 'crypto';
 
 const logger = createLogger('WorkspaceService');
 
@@ -11,6 +13,8 @@ export interface WorkspaceMember {
   lastName?: string;
   email?: string;
   avatar?: string;
+  solanaWalletAddress?: string;
+  ethereumWalletAddress?: string;
 }
 
 export interface WorkspaceInvitation {
@@ -119,6 +123,16 @@ export const WorkspaceService = {
       role: 'owner',
     });
 
+    // MVP: Use owner's personal wallets as treasury
+    const { data: owner } = await supabase
+      .from('users').select('solana_wallet_address, ethereum_wallet_address').eq('id', userId).single();
+    if (owner?.solana_wallet_address || owner?.ethereum_wallet_address) {
+      await supabase.from('workspaces').update({
+        treasury_solana_address: owner.solana_wallet_address || null,
+        treasury_base_address: owner.ethereum_wallet_address || null,
+      }).eq('id', workspace.id);
+    }
+
     logger.info('Workspace created', { workspaceId: workspace.id, name, userId });
     return workspace;
   },
@@ -207,7 +221,7 @@ export const WorkspaceService = {
         user_id,
         role,
         joined_at,
-        user:users(first_name, last_name, email, avatar)
+        user:users(first_name, last_name, email, avatar, solana_wallet_address, ethereum_wallet_address)
       `)
       .eq('workspace_id', workspaceId);
 
@@ -221,6 +235,8 @@ export const WorkspaceService = {
       lastName: row.user?.last_name,
       email: row.user?.email,
       avatar: row.user?.avatar,
+      solanaWalletAddress: row.user?.solana_wallet_address,
+      ethereumWalletAddress: row.user?.ethereum_wallet_address,
     }));
   },
 
@@ -268,7 +284,22 @@ export const WorkspaceService = {
       throw new Error('Only owners and admins can invite members');
     }
 
-    const token = `inv_${Buffer.from(`${workspaceId}_${email}_${Date.now()}`).toString('base64url').slice(0, 32)}`;
+    const { data: workspace } = await supabase
+      .from('workspaces')
+      .select('name')
+      .eq('id', workspaceId)
+      .single();
+
+    const { data: inviter } = await supabase
+      .from('users')
+      .select('first_name, last_name, email')
+      .eq('id', userId)
+      .single();
+
+    const inviterName = [inviter?.first_name, inviter?.last_name].filter(Boolean).join(' ').trim() || inviter?.email || 'Someone';
+    const workspaceName = workspace?.name || 'a workspace';
+
+    const token = `inv_${crypto.randomBytes(24).toString('base64url')}`;
 
     const { data, error } = await supabase
       .from('workspace_invitations')
@@ -283,6 +314,20 @@ export const WorkspaceService = {
       .single();
 
     if (error) throw error;
+
+    EmailService.sendWorkspaceInvitationEmail({
+      to: email.toLowerCase().trim(),
+      workspaceName,
+      inviterName,
+      role,
+      invitationToken: token,
+    }).catch((emailError) => {
+      logger.error('Failed to send workspace invitation email', {
+        error: emailError.message,
+        inviteId: data.id,
+      });
+    });
+
     return data;
   },
 
@@ -341,8 +386,14 @@ export const WorkspaceService = {
   },
 
   async acceptInvitation(token: string, userId: string) {
+    logger.info('Accepting invitation', { token: token.slice(0, 12) + '...', userId });
     const invitation = await this.getInvitationByToken(token);
-    if (!invitation) throw new Error('Invalid or expired invitation');
+    if (!invitation) {
+      logger.warn('Invitation not found or expired', { token: token.slice(0, 12) + '...' });
+      throw new Error('Invalid or expired invitation');
+    }
+
+    logger.info('Invitation found', { workspaceId: invitation.workspace_id, email: invitation.email });
 
     const { data: existing } = await supabase
       .from('workspace_members')
@@ -352,16 +403,148 @@ export const WorkspaceService = {
       .maybeSingle();
 
     if (!existing) {
-      await supabase.from('workspace_members').insert({
+      logger.info('Adding member to workspace', { workspaceId: invitation.workspace_id, userId, role: invitation.role });
+      const { error: insertError } = await supabase.from('workspace_members').insert({
         workspace_id: invitation.workspace_id,
         user_id: userId,
         role: invitation.role,
       });
+      if (insertError) {
+        logger.error('Failed to add workspace member', { error: insertError.message });
+        throw insertError;
+      }
+      logger.info('Member added to workspace');
+    } else {
+      logger.info('Member already exists in workspace');
     }
 
     await supabase.from('workspace_invitations').update({ status: 'accepted' }).eq('id', invitation.id);
+    logger.info('Invitation marked as accepted', { invitationId: invitation.id });
+
+    // Notify the inviter
+    try {
+      const { data: newMember } = await supabase
+        .from('users')
+        .select('first_name, last_name, email')
+        .eq('id', userId)
+        .single();
+
+      const { data: inviter } = await supabase
+        .from('users')
+        .select('id, email, first_name, last_name')
+        .eq('id', invitation.invited_by)
+        .single();
+
+      const memberName = [newMember?.first_name, newMember?.last_name].filter(Boolean).join(' ') || newMember?.email || 'Someone';
+      const workspaceName = invitation.workspace?.name || 'a workspace';
+
+      // In-app notification
+      await supabase.from('notifications').insert({
+        user_id: invitation.invited_by,
+        workspace_id: invitation.workspace_id,
+        title: `${memberName} accepted your invitation`,
+        message: `${memberName} has joined ${workspaceName} as a ${invitation.role}.`,
+        type: 'workspace',
+        is_read: false,
+        metadata: {
+          workspace_id: invitation.workspace_id,
+          member_name: memberName,
+          role: invitation.role,
+        },
+      });
+
+      // Email notification
+      if (inviter?.email) {
+        await EmailService.sendInvitationAcceptedEmail({
+          to: inviter.email,
+          inviterName: [inviter.first_name, inviter.last_name].filter(Boolean).join(' ') || 'Admin',
+          memberName,
+          workspaceName,
+          role: invitation.role,
+        }).catch((e) => {
+          logger.warn('Failed to send invitation accepted email', { error: e.message });
+        });
+      }
+    } catch (notifyError: any) {
+      logger.warn('Failed to send acceptance notifications', { error: notifyError.message });
+    }
 
     return invitation;
+  },
+
+  async getPendingInvitationsByEmail(email: string) {
+    const normalized = email.toLowerCase().trim();
+    const { data, error } = await supabase
+      .from('workspace_invitations')
+      .select('*, workspace:workspaces(id, name, owner_id)')
+      .eq('email', normalized)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      logger.error('Failed to fetch pending invitations', { email: normalized, error: error.message });
+      return [];
+    }
+
+    return (data || []).filter((inv: any) => {
+      if (new Date(inv.expires_at) < new Date()) {
+        supabase.from('workspace_invitations').update({ status: 'expired' }).eq('id', inv.id).then(() => {});
+        return false;
+      }
+      return true;
+    });
+  },
+
+  async getMemberEarnings(userId: string) {
+    // Get all workspace memberships for this user
+    const { data: memberships } = await supabase
+      .from('workspace_members')
+      .select('workspace_id, role')
+      .eq('user_id', userId)
+      .neq('role', 'owner');
+
+    const workspaceIds = (memberships || []).map((m: any) => m.workspace_id);
+    if (workspaceIds.length === 0) return { totalEarned: 0, projects: [] };
+
+    // Get assigned projects and their invoice earnings
+    const { data: assignments } = await supabase
+      .from('workspace_project_assignments')
+      .select('project_id, workspace_id')
+      .eq('user_id', userId);
+
+    const projectIds = (assignments || []).map((a: any) => a.project_id);
+    if (projectIds.length === 0) return { totalEarned: 0, projects: [] };
+
+    // Get completed/approved projects with their details
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, name, status, budget')
+      .in('id', projectIds)
+      .in('status', ['COMPLETED', 'APPROVED']);
+
+    const { data: documents } = await supabase
+      .from('documents')
+      .select('id, amount, status, project_id, type')
+      .in('project_id', projectIds)
+      .eq('type', 'INVOICE')
+      .eq('status', 'PAID');
+
+    // Calculate earnings per project
+    const projectEarnings = (projects || []).map((project: any) => {
+      const projectDocs = (documents || []).filter((d: any) => d.project_id === project.id);
+      const earned = projectDocs.reduce((sum: number, d: any) => sum + parseFloat(d.amount || '0'), 0);
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        status: project.status?.toLowerCase(),
+        budgeted: parseFloat(project.budget || '0'),
+        earned,
+      };
+    });
+
+    const totalEarned = projectEarnings.reduce((sum: number, p: any) => sum + p.earned, 0);
+
+    return { totalEarned, projects: projectEarnings };
   },
 
   async getEffectiveWorkspace(userId: string, workspaceId?: string | null) {

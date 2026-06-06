@@ -68,21 +68,21 @@ function UploadZone({
         onClick={() => inputRef.current?.click()}
         className={`cursor-pointer rounded-[32px] border-2 border-dashed px-8 py-12 text-center transition ${
           dragging
-            ? 'border-[#2563eb] bg-[#eff4ff]'
-            : 'border-[#d5d7da] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] hover:border-[#98a2b3]'
+            ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]'
+            : 'border-[var(--color-border-input)] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] hover:border-[var(--color-text-placeholder)]'
         }`}
       >
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <UploadSimple className="h-6 w-6 text-[#2563eb]" />
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <UploadSimple className="h-6 w-6 text-[var(--color-accent)]" />
         </span>
-        <h3 className="mt-4 text-[20px] font-semibold tracking-[-0.03em] text-[#181d27]">
+        <h3 className="mt-4 text-[20px] font-semibold tracking-[-0.03em] text-[var(--color-foreground)]">
           Import an external invoice
         </h3>
-        <p className="mx-auto mt-2 max-w-xl text-[14px] leading-6 text-[#667085]">
+        <p className="mx-auto mt-2 max-w-xl text-[14px] leading-6 text-[var(--color-text-muted)]">
           Upload invoice attachments, manual exports, drag-and-drop files, or documents from external workflows.
           Hedwig will suggest matches and possible invoice-related actions, but nothing is created without your approval.
         </p>
-        <div className="mt-5 inline-flex rounded-full border border-[#d5d7da] bg-white px-4 py-2 text-[13px] font-semibold text-[#344054] shadow-xs">
+        <div className="mt-5 inline-flex rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs">
           Browse files
         </div>
         <input
@@ -97,7 +97,7 @@ function UploadZone({
         />
       </div>
 
-      <div className="rounded-[24px] border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-4 text-[12px] leading-6 text-[#667085]">
+      <div className="rounded-[24px] border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-4 text-[12px] leading-6 text-[var(--color-text-muted)]">
         Hedwig will use live extraction and live workspace data from your clients, projects, and invoices to generate these suggestions.
       </div>
     </div>
@@ -112,12 +112,12 @@ function ProcessingState({
   stageIndex: number;
 }) {
   return (
-    <div className="rounded-[32px] border border-[#e9eaeb] bg-white p-8 text-center shadow-sm">
-      <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#eff4ff]">
-        <Sparkle className="h-7 w-7 animate-pulse text-[#2563eb]" />
+    <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center shadow-sm">
+      <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-[var(--color-accent-soft)]">
+        <Sparkle className="h-7 w-7 animate-pulse text-[var(--color-accent)]" />
       </span>
-      <h3 className="mt-5 text-[22px] font-semibold tracking-[-0.03em] text-[#181d27]">Preparing import suggestions</h3>
-      <p className="mt-2 text-[14px] leading-6 text-[#667085]">
+      <h3 className="mt-5 text-[22px] font-semibold tracking-[-0.03em] text-[var(--color-foreground)]">Preparing import suggestions</h3>
+      <p className="mt-2 text-[14px] leading-6 text-[var(--color-text-muted)]">
         Hedwig is processing {filename || 'your document'} and preparing transparent, approval-first suggestions.
       </p>
 
@@ -130,14 +130,14 @@ function ProcessingState({
               key={stage.id}
               className={`flex items-center justify-between rounded-2xl border px-4 py-3 ${
                 done
-                  ? 'border-[#abefc6] bg-[#f6fef9]'
+                  ? 'border-[var(--color-success-soft)] bg-[var(--color-success-soft)]'
                   : active
-                  ? 'border-[#84caff] bg-[#eff8ff]'
-                  : 'border-[#e9eaeb] bg-[#fcfcfd]'
+                  ? 'border-[var(--color-accent-soft)] bg-[var(--color-accent-soft)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-background)]'
               }`}
             >
-              <span className="text-[13px] font-semibold text-[#181d27]">{stage.label}</span>
-              <span className="text-[12px] text-[#667085]">{done ? 'Done' : active ? 'In progress' : 'Queued'}</span>
+              <span className="text-[13px] font-semibold text-[var(--color-foreground)]">{stage.label}</span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">{done ? 'Done' : active ? 'In progress' : 'Queued'}</span>
             </div>
           );
         })}
@@ -156,14 +156,14 @@ function ResultState({
   invoiceId?: string;
 }) {
   return (
-    <div className="rounded-[32px] border border-[#e9eaeb] bg-white p-8 shadow-sm">
+    <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
       <div className="flex items-start gap-4">
-        <span className="flex h-14 w-14 items-center justify-center rounded-[24px] bg-[#ecfdf3]">
-          <CheckCircle className="h-7 w-7 text-[#12b76a]" />
+        <span className="flex h-14 w-14 items-center justify-center rounded-[24px] bg-[var(--color-success-soft)]">
+          <CheckCircle className="h-7 w-7 text-[var(--color-success)]" />
         </span>
         <div>
-          <h3 className="text-[24px] font-semibold tracking-[-0.03em] text-[#181d27]">Import complete</h3>
-          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#667085]">
+          <h3 className="text-[24px] font-semibold tracking-[-0.03em] text-[var(--color-foreground)]">Import complete</h3>
+          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--color-text-muted)]">
             Approved actions were executed. Redirecting you to Payments…
           </p>
         </div>
@@ -205,33 +205,33 @@ function ResultBucket({
 }) {
   const toneClass =
     tone === 'green'
-      ? 'bg-[#f6fef9] border-[#abefc6]'
+      ? 'bg-[var(--color-success-soft)] border-[var(--color-success-soft)]'
       : tone === 'blue'
-      ? 'bg-[#eff8ff] border-[#b2ddff]'
+      ? 'bg-[var(--color-accent-soft)] border-[var(--color-accent-soft)]'
       : tone === 'amber'
-      ? 'bg-[#fffaeb] border-[#fedf89]'
-      : 'bg-[#fcfcfd] border-[#e9eaeb]';
+      ? 'bg-[var(--color-warning-soft)] border-[var(--color-warning-soft)]'
+      : 'bg-[var(--color-background)] border-[var(--color-border)]';
 
   return (
     <div className={`rounded-[24px] border p-4 ${toneClass}`}>
-      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#98a2b3]">{title}</p>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-placeholder)]">{title}</p>
       {items.length ? (
-        <ul className="mt-3 space-y-2 text-[13px] text-[#181d27]">
+        <ul className="mt-3 space-y-2 text-[13px] text-[var(--color-foreground)]">
           {items.map((item) => (
-            <li key={item} className="rounded-2xl bg-white/80 px-3 py-2">
+            <li key={item} className="rounded-2xl bg-[var(--color-surface)]/80 px-3 py-2">
               {item}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-3 text-[12px] text-[#667085]">No items in this state.</p>
+        <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">No items in this state.</p>
       )}
     </div>
   );
 }
 
 const baseWrapperClass =
-  'w-full rounded-[32px] border border-[#e9eaeb] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_32px_80px_rgba(15,23,42,0.14)]';
+  'w-full rounded-[32px] border border-[var(--color-border)] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_32px_80px_rgba(15,23,42,0.14)]';
 
 export function ImportDocumentReviewFlow({
   mode = 'modal',
@@ -479,20 +479,20 @@ export function ImportDocumentReviewFlow({
 
   const body = (
     <div className={wrapperClass}>
-      <div className="border-b border-[#f2f4f7] px-6 py-5">
+      <div className="border-b border-[var(--color-surface-tertiary)] px-6 py-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#98a2b3]">Import review</p>
-            <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.03em] text-[#181d27]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-placeholder)]">Import review</p>
+            <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.03em] text-[var(--color-foreground)]">
               AI suggestions with explicit approval
             </h2>
-            <p className="mt-2 max-w-3xl text-[14px] leading-6 text-[#667085]">
+            <p className="mt-2 max-w-3xl text-[14px] leading-6 text-[var(--color-text-muted)]">
               Hedwig can extract invoice entities, suggest existing matches, and prepare create or link actions for imported invoices.
               It will never create a client, project, or invoice record without explicit user approval.
             </p>
           </div>
           {onClose ? (
-            <button type="button" onClick={step === 'result' ? closeAndEmit : onClose} className="rounded-full p-2 text-[#98a2b3] hover:bg-[#f2f4f7]">
+            <button type="button" onClick={step === 'result' ? closeAndEmit : onClose} className="rounded-full p-2 text-[var(--color-text-placeholder)] hover:bg-[var(--color-surface-tertiary)]">
               <X className="h-5 w-5" />
             </button>
           ) : null}
@@ -516,14 +516,14 @@ export function ImportDocumentReviewFlow({
             />
 
             {session.warnings.length ? (
-              <div className="rounded-[28px] border border-[#fedf89] bg-[#fffaeb] p-5">
+              <div className="rounded-[28px] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-5">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white">
-                    <WarningCircle className="h-5 w-5 text-[#f79009]" />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--color-surface)]">
+                    <WarningCircle className="h-5 w-5 text-[var(--color-warning)]" />
                   </span>
                   <div>
-                    <p className="text-[13px] font-semibold text-[#7a2e0e]">Warnings and conflict states</p>
-                    <ul className="mt-2 space-y-2 text-[13px] leading-6 text-[#9a3412]">
+                    <p className="text-[13px] font-semibold text-[var(--color-warning)]">Warnings and conflict states</p>
+                    <ul className="mt-2 space-y-2 text-[13px] leading-6 text-[var(--color-warning)]">
                       {session.warnings.map((warning) => (
                         <li key={warning}>{warning}</li>
                       ))}
@@ -533,14 +533,14 @@ export function ImportDocumentReviewFlow({
               </div>
             ) : null}
 
-            <div className="rounded-[28px] border border-[#d5d7da] bg-[#fcfcfd] p-5">
+            <div className="rounded-[28px] border border-[var(--color-border-input)] bg-[var(--color-background)] p-5">
               <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white ring-1 ring-[#e9eaeb]">
-                  <Sparkle className="h-5 w-5 text-[#2563eb]" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+                  <Sparkle className="h-5 w-5 text-[var(--color-accent)]" />
                 </span>
                 <div>
-                  <p className="text-[13px] font-semibold text-[#181d27]">Permission-first review</p>
-                  <p className="mt-1 text-[13px] leading-6 text-[#667085]">
+                  <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Permission-first review</p>
+                  <p className="mt-1 text-[13px] leading-6 text-[var(--color-text-muted)]">
                     Each suggestion shows what was detected, why it was suggested, confidence level, and available existing alternatives.
                     You can approve creation, replace with an existing record, edit the suggestion, reject it, or skip it for later.
                   </p>
@@ -579,14 +579,14 @@ export function ImportDocumentReviewFlow({
         {step === 'result' && result ? <ResultState result={result} onClose={closeAndEmit} invoiceId={createdInvoiceId} /> : null}
 
         {step === 'error' ? (
-          <div className="rounded-[32px] border border-[#fecdca] bg-[#fef3f2] p-8">
+          <div className="rounded-[32px] border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] p-8">
             <div className="flex items-start gap-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-[24px] bg-white">
-                <WarningCircle className="h-7 w-7 text-[#f04438]" />
+              <span className="flex h-14 w-14 items-center justify-center rounded-[24px] bg-[var(--color-surface)]">
+                <WarningCircle className="h-7 w-7 text-[var(--color-danger)]" />
               </span>
               <div>
-                <h3 className="text-[22px] font-semibold tracking-[-0.03em] text-[#181d27]">Import review failed</h3>
-                <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#7a271a]">
+                <h3 className="text-[22px] font-semibold tracking-[-0.03em] text-[var(--color-foreground)]">Import review failed</h3>
+                <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--color-danger)]">
                   {errorMessage || 'Something went wrong while preparing live suggestions.'}
                 </p>
                 <div className="mt-5 flex gap-2">

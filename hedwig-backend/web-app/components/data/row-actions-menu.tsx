@@ -80,7 +80,7 @@ export function RowActionsMenu({
         onClick={() => {
           setOpen((current) => !current);
         }}
-        className="flex h-8 w-8 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 hover:bg-[#f5f5f5] hover:text-[#717680]"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-text-muted)] transition duration-100 hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]"
       >
         <DotsThreeOutline className="h-4 w-4" weight="fill" />
       </button>
@@ -88,7 +88,7 @@ export function RowActionsMenu({
       {open && menuStyle ? createPortal(
         <div
           ref={menuRef}
-          className="overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb]"
+          className="overflow-hidden rounded-xl bg-[var(--color-surface)] shadow-lg ring-1 ring-[var(--color-border)]"
           style={menuStyle}
         >
           <div className="flex flex-col gap-0.5 p-1.5">
@@ -101,8 +101,8 @@ export function RowActionsMenu({
                   await item.onClick();
                 }}
                 className={cn(
-                  'flex w-full items-center rounded-md px-2.5 py-2 text-left text-[14px] font-medium transition duration-100 hover:bg-[#fafafa]',
-                  item.destructive ? 'text-[#717680] hover:bg-[#fef2f2]' : 'text-[#414651]'
+                  'flex w-full items-center rounded-md px-2.5 py-2 text-left text-[14px] font-medium transition duration-100 hover:bg-[var(--color-background)]',
+                  item.destructive ? 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-danger-soft)]' : 'text-[var(--color-text-secondary)]'
                 )}
               >
                 {item.label}

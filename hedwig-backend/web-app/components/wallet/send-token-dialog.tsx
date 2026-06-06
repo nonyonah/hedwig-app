@@ -6,38 +6,9 @@ import { ArrowRight, Check, PaperPlaneRight, SpinnerGap, Warning, X } from '@/co
 import { ClientPortal } from '@/components/ui/client-portal';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
-import { encodeFunctionData, parseUnits, isAddress } from 'viem';
-import { PublicKey, Transaction } from '@solana/web3.js';
-import { createTransferCheckedInstruction, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import {
-  getChainId,
-  NETWORK_MODE,
-  resolveEvmChainForPayment,
-  EVM_TOKENS
-} from '@/lib/payments/public-constants';
+import { isAddress } from 'viem';
+import { sendSolanaUsdc, sendEvmUsdc } from '@/lib/send/send-helpers';
 import type { WalletAsset } from '@/lib/models/entities';
-
-// Base network definitions
-const BASE_MAINNET = {
-  chainId: 8453,
-  chainIdHex: '0x2105',
-  chainName: 'Base',
-  rpcUrls: ['https://mainnet.base.org'],
-  blockExplorerUrls: ['https://basescan.org'],
-  nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }
-};
-const BASE_SEPOLIA = {
-  chainId: 84532,
-  chainIdHex: '0x14a34',
-  chainName: 'Base Sepolia',
-  rpcUrls: ['https://sepolia.base.org'],
-  blockExplorerUrls: ['https://sepolia.basescan.org'],
-  nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }
-};
-
-// Solana USDC mint addresses
-const USDC_SOL_MAINNET = new PublicKey('EPjFWdd5Au7B7WqSqqxS7ZkFvCPScoqB9Ko6z8bn8js');
-const USDC_SOL_DEVNET  = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
 type SendStep = 'form' | 'review' | 'signing' | 'done' | 'error';
 
@@ -48,7 +19,6 @@ const CHAIN_META: Record<string, { icon: string; label: string }> = {
   Arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   Polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
   Optimism: { icon: '/icons/networks/optimism.png', label: 'Optimism' },
-  Celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
 };
 
 const TOKEN_META: Record<string, { icon: string }> = {
@@ -59,8 +29,6 @@ function fmt(n: number, sym: string) {
   const dec = sym === 'USDC' ? 2 : n >= 1 ? 6 : 8;
   return `${n.toLocaleString(undefined, { maximumFractionDigits: dec })} ${sym}`;
 }
-
-type Eip1193 = { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> };
 
 export function SendTokenDialog({
   assets,
@@ -123,106 +91,23 @@ export function SendTokenDialog({
 
   const canProceed = hasBalance && recipientValid;
 
-  // ── Send EVM tx ────────────────────────────────────────────────────────────
+  // ── Send EVM tx ──
   async function sendEvm() {
-    if (!evmWallet) throw new Error('No EVM wallet connected.');
-    const provider = await evmWallet.getEthereumProvider() as Eip1193;
-
-    // 1. Detect current chain and determine correct Base network
-    const rawChainId = await provider.request({ method: 'eth_chainId' });
-    const currentChainId = typeof rawChainId === 'string'
-      ? parseInt(rawChainId, 16)
-      : Number(rawChainId);
-
-    const evmChain    = resolveEvmChainForPayment(NETWORK_MODE);
-    const targetChainId = getChainId(evmChain);
-    const targetNet   = evmChain === 'baseSepolia' ? BASE_SEPOLIA : BASE_MAINNET;
-
-    // 2. Switch wallet to the correct Base network if needed
-    if (currentChainId !== targetChainId) {
-      try {
-        await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: targetNet.chainIdHex }]
-        });
-      } catch (switchErr: unknown) {
-        // Chain not added yet — add it then switch
-        const code = typeof switchErr === 'object' && switchErr !== null && 'code' in switchErr
-          ? (switchErr as { code: unknown }).code : undefined;
-        if (code === 4902) {
-          await provider.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: targetNet.chainIdHex,
-              chainName: targetNet.chainName,
-              nativeCurrency: targetNet.nativeCurrency,
-              rpcUrls: targetNet.rpcUrls,
-              blockExplorerUrls: targetNet.blockExplorerUrls
-            }]
-          });
-          await provider.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: targetNet.chainIdHex }]
-          });
-        } else {
-          throw switchErr;
-        }
-      }
-    }
-
-    // 3. Build and send the transaction on the correct chain
-    // ERC-20 USDC — use the right contract for mainnet vs testnet
-    const usdcAddress = EVM_TOKENS[evmChain].USDC;
-    const data = encodeFunctionData({
-      abi: [{
-        type: 'function', name: 'transfer', stateMutability: 'nonpayable',
-        inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
-        outputs: [{ name: '', type: 'bool' }]
-      }],
-      functionName: 'transfer',
-      args: [recipient as `0x${string}`, parseUnits(amount, 6)]
+    return sendEvmUsdc({
+      evmWallet,
+      recipient,
+      amountUsdc: numericAmount,
+      chain: 'base',
     });
-
-    const hash = await provider.request({
-      method: 'eth_sendTransaction',
-      params: [{ from: evmWallet.address, to: usdcAddress, data, chainId: targetNet.chainIdHex }]
-    });
-    return String(hash);
   }
 
-  // ── Send Solana tx ─────────────────────────────────────────────────────────
+  // ── Send Solana tx ──
   async function sendSolana() {
-    if (!solanaWallet) throw new Error('No Solana wallet connected.');
-
-    const { Connection, clusterApiUrl } = await import('@solana/web3.js');
-
-    // Use mainnet-beta unless NEXT_PUBLIC_SOLANA_CLUSTER is explicitly 'devnet'
-    const isDevnet = process.env.NEXT_PUBLIC_SOLANA_CLUSTER === 'devnet';
-    const cluster  = isDevnet ? 'devnet' : 'mainnet-beta';
-    const usdcMint = isDevnet ? USDC_SOL_DEVNET : USDC_SOL_MAINNET;
-    const connection = new Connection(clusterApiUrl(cluster));
-
-    const senderPk    = new PublicKey(solanaWallet.address);
-    const recipientPk = new PublicKey(recipient);
-    const tx = new Transaction();
-
-    // SPL USDC transfer — transfer from sender ATA to recipient ATA
-    const senderAta    = await getAssociatedTokenAddress(usdcMint, senderPk);
-    const recipientAta = await getAssociatedTokenAddress(usdcMint, recipientPk);
-    const microUnits   = Math.round(numericAmount * 1e6);
-    tx.add(createTransferCheckedInstruction(
-      senderAta, usdcMint, recipientAta, senderPk,
-      microUnits, 6, [], TOKEN_PROGRAM_ID
-    ));
-
-    tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-    tx.feePayer = senderPk;
-
-    // Privy Solana wallet expects a serialized Uint8Array; it shows its own approval UI
-    const serialized = tx.serialize({ requireAllSignatures: false });
-    const { signedTransaction } = await solanaWallet.signTransaction({ transaction: serialized });
-    const hash = await connection.sendRawTransaction(signedTransaction);
-    return hash;
+    return sendSolanaUsdc({
+      solanaWallet,
+      recipient,
+      amountUsdc: numericAmount,
+    });
   }
 
   // ── Main send handler ──────────────────────────────────────────────────────
@@ -259,13 +144,13 @@ export function SendTokenDialog({
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={step === 'signing' ? undefined : onClose} />
 
       {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col bg-white shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col bg-[var(--color-surface)] shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#e9eaeb] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
           <div>
-            <p className="text-[15px] font-bold text-[#181d27]">Send crypto</p>
-            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
+            <p className="text-[15px] font-bold text-[var(--color-foreground)]">Send crypto</p>
+            <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">
               {step === 'form'    ? 'Choose a token and enter the recipient'  :
                step === 'review'  ? 'Review your transaction before signing'  :
                step === 'signing' ? 'Waiting for wallet confirmation…'        :
@@ -275,7 +160,7 @@ export function SendTokenDialog({
           </div>
           {step !== 'signing' && (
             <button type="button" onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e9eaeb] text-[#717680] transition hover:bg-[#f5f5f5]">
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]">
               <X className="h-4 w-4" weight="bold" />
             </button>
           )}
@@ -291,33 +176,33 @@ export function SendTokenDialog({
                 <button
                   type="button"
                   onClick={() => { setChainOpen((o) => !o); setTokenOpen(false); }}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 shadow-xs transition hover:bg-[#fafafa]"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 shadow-xs transition hover:bg-[var(--color-background)]"
                 >
                   {CHAIN_META[selectedChain]
                     ? <Image src={CHAIN_META[selectedChain].icon} alt={selectedChain} width={20} height={20} className="rounded-full" />
-                    : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
-                  <span className="flex-1 text-left text-[13px] font-semibold text-[#181d27]">
+                    : <div className="h-5 w-5 rounded-full bg-[var(--color-surface-tertiary)]" />}
+                  <span className="flex-1 text-left text-[13px] font-semibold text-[var(--color-foreground)]">
                     {CHAIN_META[selectedChain]?.label ?? selectedChain}
                   </span>
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Network</span>
-                  <svg className={`h-4 w-4 text-[#a4a7ae] transition-transform ${chainOpen ? 'rotate-180' : ''}`}
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Network</span>
+                  <svg className={`h-4 w-4 text-[var(--color-text-muted)] transition-transform ${chainOpen ? 'rotate-180' : ''}`}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {chainOpen && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white shadow-lg">
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
                     {chains.map((chain) => (
                       <button key={chain} type="button" onClick={() => handleChainSelect(chain)}
                         className={`flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium transition ${
-                          chain === selectedChain ? 'bg-[#f8f9fc] text-[#181d27]' : 'text-[#414651] hover:bg-[#fafafa]'
+                          chain === selectedChain ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
                         }`}>
                         {CHAIN_META[chain]
                           ? <Image src={CHAIN_META[chain].icon} alt={chain} width={20} height={20} className="rounded-full" />
-                          : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
+                          : <div className="h-5 w-5 rounded-full bg-[var(--color-surface-tertiary)]" />}
                         <span className="flex-1 text-left">{CHAIN_META[chain]?.label ?? chain}</span>
                         {chain === selectedChain && (
-                          <svg className="h-4 w-4 text-[#181d27]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <svg className="h-4 w-4 text-[var(--color-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
                         )}
@@ -332,37 +217,37 @@ export function SendTokenDialog({
                 <button
                   type="button"
                   onClick={() => { setTokenOpen((o) => !o); setChainOpen(false); }}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 shadow-xs transition hover:bg-[#fafafa]"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 shadow-xs transition hover:bg-[var(--color-background)]"
                 >
                   {TOKEN_META[selected?.symbol]
                     ? <Image src={TOKEN_META[selected.symbol].icon} alt={selected.symbol} width={20} height={20} className="rounded-full" />
-                    : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
-                  <span className="flex-1 text-left text-[13px] font-semibold text-[#181d27]">
+                    : <div className="h-5 w-5 rounded-full bg-[var(--color-surface-tertiary)]" />}
+                  <span className="flex-1 text-left text-[13px] font-semibold text-[var(--color-foreground)]">
                     {selected?.symbol}
                   </span>
-                  <span className="text-[11px] font-semibold text-[#a4a7ae]">
+                  <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">
                     {fmt(selected?.balance ?? 0, selected?.symbol ?? '')}
                   </span>
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae] ml-2">Token</span>
-                  <svg className={`h-4 w-4 text-[#a4a7ae] transition-transform ${tokenOpen ? 'rotate-180' : ''}`}
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)] ml-2">Token</span>
+                  <svg className={`h-4 w-4 text-[var(--color-text-muted)] transition-transform ${tokenOpen ? 'rotate-180' : ''}`}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {tokenOpen && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white shadow-lg">
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
                     {tokensForChain.map((a) => (
                       <button key={a.id} type="button" onClick={() => { setSelectedAssetId(a.id); setTokenOpen(false); }}
                         className={`flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium transition ${
-                          a.id === selected?.id ? 'bg-[#f8f9fc] text-[#181d27]' : 'text-[#414651] hover:bg-[#fafafa]'
+                          a.id === selected?.id ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
                         }`}>
                         {TOKEN_META[a.symbol]
                           ? <Image src={TOKEN_META[a.symbol].icon} alt={a.symbol} width={20} height={20} className="rounded-full" />
-                          : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
+                          : <div className="h-5 w-5 rounded-full bg-[var(--color-surface-tertiary)]" />}
                         <span className="flex-1 text-left">{a.symbol}</span>
-                        <span className="text-[12px] text-[#a4a7ae]">{fmt(a.balance, a.symbol)}</span>
+                        <span className="text-[12px] text-[var(--color-text-muted)]">{fmt(a.balance, a.symbol)}</span>
                         {a.id === selected?.id && (
-                          <svg className="h-4 w-4 text-[#181d27]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <svg className="h-4 w-4 text-[var(--color-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
                         )}
@@ -374,16 +259,16 @@ export function SendTokenDialog({
 
               {/* Recipient */}
               <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">Recipient address</label>
+                <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Recipient address</label>
                 <input
                   type="text"
                   placeholder={isSolana ? 'Solana wallet address' : '0x…'}
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value.trim())}
-                  className="w-full rounded-full border border-[#d5d7da] bg-white px-4 py-2.5 font-mono text-[13px] text-[#181d27] placeholder-[#a4a7ae] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+                  className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 font-mono text-[13px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
                 />
                 {recipient.length > 5 && !recipientValid && (
-                  <p className="mt-1 text-[11px] text-[#a4a7ae]">
+                  <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                     {isSolana ? 'Invalid Solana address' : 'Invalid EVM address'}
                   </p>
                 )}
@@ -392,9 +277,9 @@ export function SendTokenDialog({
               {/* Amount */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label className="text-[13px] font-semibold text-[#414651]">Amount</label>
+                  <label className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Amount</label>
                   <button type="button" onClick={() => setAmount(String(maxBalance))}
-                    className="text-[11px] text-[#2563eb] hover:underline">
+                    className="text-[11px] text-[var(--color-primary)] hover:underline">
                     Max: {fmt(maxBalance, selected?.symbol ?? '')}
                   </button>
                 </div>
@@ -407,14 +292,14 @@ export function SendTokenDialog({
                     max={maxBalance}
                     step="any"
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full rounded-full border border-[#d5d7da] bg-white py-2.5 pl-4 pr-16 text-[15px] font-semibold text-[#181d27] placeholder-[#d0d5dd] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+                    className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] py-2.5 pl-4 pr-16 text-[15px] font-semibold text-[var(--color-foreground)] placeholder-[var(--color-border-input)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-[#717680]">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-[var(--color-text-tertiary)]">
                     {selected?.symbol}
                   </span>
                 </div>
                 {numericAmount > maxBalance && numericAmount > 0 && (
-                  <p className="mt-1 text-[11px] text-[#a4a7ae]">Exceeds your balance</p>
+                  <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Exceeds your balance</p>
                 )}
               </div>
 
@@ -422,7 +307,7 @@ export function SendTokenDialog({
                 type="button"
                 disabled={!canProceed || !ready}
                 onClick={() => setStep('review')}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#2563eb] px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Review <ArrowRight className="h-4 w-4" weight="bold" />
               </button>
@@ -433,42 +318,42 @@ export function SendTokenDialog({
           {step === 'review' && (
             <>
               {/* Token hero */}
-              <div className="rounded-2xl border border-[#e9eaeb] bg-[#fafafa] p-5 text-center">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-5 text-center">
                 <div className="relative mx-auto mb-3 w-fit">
                   {tokenIcon
                     ? <Image src={tokenIcon} alt={selected.symbol} width={48} height={48} className="rounded-full" />
-                    : <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f2f4f7] text-[14px] font-bold text-[#667085]">{selected.symbol.slice(0,3)}</div>
+                    : <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[14px] font-bold text-[var(--color-text-muted)]">{selected.symbol.slice(0,3)}</div>
                   }
                   {chainIcon && (
                     <Image src={chainIcon} alt={selected.chain} width={18} height={18}
-                      className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-[#fafafa]" />
+                      className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-[var(--color-background)]" />
                   )}
                 </div>
-                <p className="text-[28px] font-bold tracking-[-0.04em] text-[#181d27]">{numericAmount} {selected.symbol}</p>
-                <p className="mt-1 text-[13px] text-[#717680]">on {selected.chain}</p>
+                <p className="text-[28px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">{numericAmount} {selected.symbol}</p>
+                <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">on {selected.chain}</p>
               </div>
 
               {/* Details */}
-              <div className="divide-y divide-[#f9fafb] rounded-2xl border border-[#e9eaeb] px-5">
+              <div className="divide-y divide-[var(--color-background)] rounded-2xl border border-[var(--color-border)] px-5">
                 <div className="flex items-start justify-between py-3.5 text-[13px]">
-                  <span className="text-[#717680]">To</span>
-                  <span className="ml-4 max-w-[240px] break-all text-right font-mono text-[12px] font-semibold text-[#181d27]">{recipient}</span>
+                  <span className="text-[var(--color-text-tertiary)]">To</span>
+                  <span className="ml-4 max-w-[240px] break-all text-right font-mono text-[12px] font-semibold text-[var(--color-foreground)]">{recipient}</span>
                 </div>
                 <div className="flex items-center justify-between py-3.5 text-[13px]">
-                  <span className="text-[#717680]">Network</span>
+                  <span className="text-[var(--color-text-tertiary)]">Network</span>
                   <div className="flex items-center gap-1.5">
                     {chainIcon && <Image src={chainIcon} alt={selected.chain} width={14} height={14} className="rounded-full" />}
-                    <span className="font-semibold text-[#181d27]">{selected.chain}</span>
+                    <span className="font-semibold text-[var(--color-foreground)]">{selected.chain}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between py-3.5 text-[13px]">
-                  <span className="text-[#717680]">Balance after</span>
-                  <span className="font-semibold text-[#181d27]">{fmt(maxBalance - numericAmount, selected.symbol)}</span>
+                  <span className="text-[var(--color-text-tertiary)]">Balance after</span>
+                  <span className="font-semibold text-[var(--color-foreground)]">{fmt(maxBalance - numericAmount, selected.symbol)}</span>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#fef0c7] bg-[#fffaeb] px-4 py-3.5">
-                <p className="text-[12px] leading-[1.6] text-[#717680]">
+              <div className="rounded-2xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3.5">
+                <p className="text-[12px] leading-[1.6] text-[var(--color-text-tertiary)]">
                   Your Privy wallet will ask you to confirm this transaction. Double-check the recipient address — crypto transfers cannot be reversed.
                 </p>
               </div>
@@ -477,14 +362,14 @@ export function SendTokenDialog({
                 <button
                   type="button"
                   onClick={() => setStep('form')}
-                  className="flex-1 rounded-full border border-[#d5d7da] bg-white px-5 py-3 text-[14px] font-semibold text-[#414651] transition hover:bg-[#fafafa]"
+                  className="flex-1 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-5 py-3 text-[14px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={handleSend}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#2563eb] px-5 py-3 text-[14px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8]"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-[14px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-primary-dark)]"
                 >
                   <PaperPlaneRight className="h-4 w-4" weight="bold" />
                   Sign & send
@@ -496,12 +381,12 @@ export function SendTokenDialog({
           {/* ── Signing step ── */}
           {step === 'signing' && (
             <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#eff4ff]">
-                <SpinnerGap className="h-8 w-8 animate-spin text-[#717680]" weight="bold" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+                <SpinnerGap className="h-8 w-8 animate-spin text-[var(--color-text-tertiary)]" weight="bold" />
               </div>
               <div>
-                <p className="text-[16px] font-bold text-[#181d27]">Waiting for your signature</p>
-                <p className="mt-2 text-[13px] leading-[1.6] text-[#717680]">
+                <p className="text-[16px] font-bold text-[var(--color-foreground)]">Waiting for your signature</p>
+                <p className="mt-2 text-[13px] leading-[1.6] text-[var(--color-text-tertiary)]">
                   A signing prompt has appeared in your Privy wallet. Please confirm the transaction to continue.
                 </p>
               </div>
@@ -511,23 +396,23 @@ export function SendTokenDialog({
           {/* ── Done step ── */}
           {step === 'done' && (
             <div className="flex flex-col items-center gap-5 py-12 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#ecfdf3]">
-                <Check className="h-8 w-8 text-[#717680]" weight="bold" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success-soft)]">
+                <Check className="h-8 w-8 text-[var(--color-text-tertiary)]" weight="bold" />
               </div>
               <div>
-                <p className="text-[16px] font-bold text-[#181d27]">Transaction submitted!</p>
-                <p className="mt-2 text-[13px] leading-[1.6] text-[#717680]">
+                <p className="text-[16px] font-bold text-[var(--color-foreground)]">Transaction submitted!</p>
+                <p className="mt-2 text-[13px] leading-[1.6] text-[var(--color-text-tertiary)]">
                   {numericAmount} {selected.symbol} sent to {recipient.slice(0, 8)}…{recipient.slice(-6)}
                 </p>
               </div>
               {explorerUrl && (
                 <a href={explorerUrl} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#e9eaeb] px-4 py-2.5 text-[13px] font-semibold text-[#414651] transition hover:bg-[#fafafa]">
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] px-4 py-2.5 text-[13px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]">
                   View on explorer
                 </a>
               )}
               <button type="button" onClick={onClose}
-                className="w-full rounded-full bg-[#2563eb] px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]">
+                className="w-full rounded-full bg-[var(--color-primary)] px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
                 Done
               </button>
             </div>
@@ -536,20 +421,20 @@ export function SendTokenDialog({
           {/* ── Error step ── */}
           {step === 'error' && (
             <div className="flex flex-col items-center gap-5 py-12 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#fff1f0]">
-                <Warning className="h-8 w-8 text-[#717680]" weight="bold" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-danger-soft)]">
+                <Warning className="h-8 w-8 text-[var(--color-text-tertiary)]" weight="bold" />
               </div>
               <div>
-                <p className="text-[16px] font-bold text-[#181d27]">Transaction failed</p>
-                <p className="mt-2 text-[13px] leading-[1.6] text-[#717680]">{error}</p>
+                <p className="text-[16px] font-bold text-[var(--color-foreground)]">Transaction failed</p>
+                <p className="mt-2 text-[13px] leading-[1.6] text-[var(--color-text-tertiary)]">{error}</p>
               </div>
               <div className="flex w-full gap-3">
                 <button type="button" onClick={() => setStep('review')}
-                  className="flex-1 rounded-full border border-[#d5d7da] px-5 py-3 text-[14px] font-semibold text-[#414651] transition hover:bg-[#fafafa]">
+                  className="flex-1 rounded-full border border-[var(--color-border-input)] px-5 py-3 text-[14px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]">
                   Try again
                 </button>
                 <button type="button" onClick={onClose}
-                  className="flex-1 rounded-full bg-[#181d27] px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-[#101828]">
+                  className="flex-1 rounded-full bg-[var(--color-foreground)] px-5 py-3 text-[14px] font-semibold text-[var(--color-background)] transition hover:bg-[var(--color-foreground)]">
                   Close
                 </button>
               </div>

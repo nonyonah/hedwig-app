@@ -1110,10 +1110,12 @@ async function insertSuggestion(userId: string, candidate: SuggestionCandidate):
     .single();
 
   if (error || !data) {
-    logger.warn('Failed to insert assistant suggestion', {
-      key: candidate.suggestion_key,
-      error: error?.message || 'unknown',
-    });
+    if (error?.code !== '23505') {
+      logger.warn('Failed to insert assistant suggestion', {
+        key: candidate.suggestion_key,
+        error: error?.message || 'unknown',
+      });
+    }
     return null;
   }
 

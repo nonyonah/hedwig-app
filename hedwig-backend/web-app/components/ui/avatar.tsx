@@ -19,7 +19,7 @@ export function Avatar({
   return (
     <HeroUIAvatar
       className={cn(
-        'h-8 w-8 rounded-full bg-[#e9eaeb] text-[12px] font-semibold text-[#414651]',
+        'h-8 w-8 rounded-full bg-[var(--color-border)] text-[12px] font-semibold text-[var(--color-text-secondary)]',
         className
       )}
     >

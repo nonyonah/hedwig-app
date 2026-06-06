@@ -17,6 +17,7 @@ import { extractApiErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
 import { SUGGESTION_META } from './suggestion-meta';
 import { UsageCounter } from './usage-counter';
 import { AssistantMessage } from './assistant-message';
+import { HedwigLogoImg } from '@/components/ui/hedwig-logo';
 
 interface ChatMessage {
   id: string;
@@ -328,28 +329,27 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
         onClick={onClose}
       />
 
-      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-white shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-[var(--color-surface)] shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
 
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-[#e9eaeb] px-5 py-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2563eb]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/hedwig-icon.png" alt="Hedwig" className="h-full w-full object-cover" />
+        <div className="flex items-center gap-3 border-b border-[var(--color-border)] px-5 py-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-accent)]">
+            <HedwigLogoImg variant="icon" alt="Hedwig" className="h-full w-full object-cover" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="text-[15px] font-semibold text-[#181d27]">Hedwig</p>
-              <span className="rounded-full bg-[#eff4ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#2563eb]">Beta</span>
+              <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Hedwig</p>
+              <span className="rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">Beta</span>
               <UsageCounter />
             </div>
-            <p className="text-[12px] text-[#a4a7ae]">Ask anything · Actions need your approval</p>
+            <p className="text-[12px] text-[var(--color-text-muted)]">Ask anything · Actions need your approval</p>
           </div>
           {messages.length > 0 && (
             <button
               type="button"
               onClick={clearHistory}
               title="Clear history"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#717680] transition hover:bg-[#f5f5f5]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]"
             >
               <ArrowsClockwise className="h-3.5 w-3.5" weight="bold" />
             </button>
@@ -357,7 +357,7 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#717680] transition hover:bg-[#f5f5f5]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]"
           >
             <X className="h-4 w-4" weight="bold" />
           </button>
@@ -384,21 +384,21 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
         </div>
 
         {/* Composer */}
-        <div className="border-t border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
+        <div className="border-t border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3">
           {pendingFiles.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">
               {pendingFiles.map((file, index) => (
                 <div
                   key={`${file.name}-${file.size}-${index}`}
-                  className="flex max-w-full items-center gap-2 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px]"
+                  className="flex max-w-full items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px]"
                 >
-                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-[#717680]" weight="bold" />
-                  <span className="min-w-0 max-w-[160px] truncate font-medium text-[#414651]">{file.name}</span>
-                  <span className="shrink-0 text-[11px] text-[#a4a7ae]">{Math.round(file.size / 1024)} KB</span>
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-tertiary)]" weight="bold" />
+                  <span className="min-w-0 max-w-[160px] truncate font-medium text-[var(--color-text-secondary)]">{file.name}</span>
+                  <span className="shrink-0 text-[11px] text-[var(--color-text-muted)]">{Math.round(file.size / 1024)} KB</span>
                   <button
                     type="button"
                     onClick={() => removePendingFile(index)}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f5f5f5] hover:text-[#414651]"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]"
                   >
                     <X className="h-3 w-3" weight="bold" />
                   </button>
@@ -407,7 +407,7 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
             </div>
           )}
 
-          <div className="flex items-end gap-2 rounded-2xl border border-[#e9eaeb] bg-white px-2 py-2 transition-colors focus-within:border-[#2563eb]">
+          <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-2 transition-colors focus-within:border-[var(--color-accent)]">
             <input
               ref={fileInputRef}
               type="file"
@@ -421,7 +421,7 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
               onClick={() => fileInputRef.current?.click()}
               disabled={sending || pendingFiles.length >= MAX_FILES}
               title={pendingFiles.length >= MAX_FILES ? `Up to ${MAX_FILES} files at a time` : 'Attach documents'}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#717680] transition hover:bg-[#f5f5f5] hover:text-[#414651] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Paperclip className="h-4 w-4" weight="bold" />
             </button>
@@ -432,18 +432,18 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
               onKeyDown={handleKey}
               rows={1}
               placeholder={pendingFiles.length > 0 ? 'Add a note (optional)…' : 'Ask anything…'}
-              className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] focus:outline-none"
+              className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent text-[14px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] focus:outline-none"
             />
             <button
               type="button"
               onClick={send}
               disabled={sending || (!input.trim() && pendingFiles.length === 0)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-white transition hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <PaperPlaneRight className="h-3.5 w-3.5" weight="fill" />
             </button>
           </div>
-          <p className="mt-1.5 px-1 text-[11px] text-[#a4a7ae]">
+          <p className="mt-1.5 px-1 text-[11px] text-[var(--color-text-muted)]">
             Hedwig drafts actions · You approve before anything executes.
           </p>
         </div>
@@ -477,18 +477,17 @@ function ToolIcon({ provider, index = 0, animated = false }: { provider: ToolPro
     <span
       aria-hidden="true"
       className={cn(
-        'flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e9eaeb] bg-white shadow-xs',
+        'flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs',
         animated && 'animate-pulse'
       )}
       style={animated ? { animationDelay: `${index * 120}ms` } : undefined}
     >
-      {imagePath ? (
+      {provider === 'workspace' ? (
+        <HedwigLogoImg variant="icon" alt="" className="h-3.5 w-3.5 object-cover" />
+      ) : imagePath ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imagePath} alt="" className="h-3.5 w-3.5" />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src="/hedwig-icon.png" alt="" className="h-full w-full object-cover" />
-      )}
+      ) : null}
     </span>
   );
 }
@@ -524,14 +523,14 @@ function MessageBubble({
   if (message.pending) {
     return (
       <div className="flex justify-start">
-        <div className="max-w-[85%] rounded-2xl bg-[#f5f5f5] px-4 py-3">
+        <div className="max-w-[85%] rounded-2xl bg-[var(--color-surface-secondary)] px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="sr-only">Hedwig is thinking</span>
             <ToolIconStrip providers={message.pendingProviders ?? ['workspace']} animated />
             <div className="flex items-center gap-1">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#a4a7ae]" style={{ animationDelay: '0ms' }} />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#a4a7ae]" style={{ animationDelay: '120ms' }} />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#a4a7ae]" style={{ animationDelay: '240ms' }} />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-text-muted)]" style={{ animationDelay: '0ms' }} />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-text-muted)]" style={{ animationDelay: '120ms' }} />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-text-muted)]" style={{ animationDelay: '240ms' }} />
             </div>
           </div>
         </div>
@@ -545,8 +544,8 @@ function MessageBubble({
         className={cn(
           'max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed',
           isUser
-            ? 'bg-[#2563eb] text-white'
-            : 'bg-[#f5f5f5] text-[#181d27]'
+            ? 'bg-[var(--color-accent)] text-white'
+            : 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
         )}
       >
         {isUser ? (
@@ -592,9 +591,9 @@ function AssistantActionCard({
 }) {
   if (!suggestion) {
     return (
-      <div className="rounded-xl border border-[#e9eaeb] bg-white px-3 py-2.5">
-        <div className="h-3 w-28 animate-pulse rounded-full bg-[#e9eaeb]" />
-        <div className="mt-2 h-3 w-full animate-pulse rounded-full bg-[#f2f4f7]" />
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5">
+        <div className="h-3 w-28 animate-pulse rounded-full bg-[var(--color-border)]" />
+        <div className="mt-2 h-3 w-full animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" />
       </div>
     );
   }
@@ -605,21 +604,21 @@ function AssistantActionCard({
   const completed = suggestion.status === 'approved' || suggestion.status === 'dismissed' || suggestion.status === 'rejected';
 
   return (
-    <div className="rounded-xl border border-[#d5d7da] bg-white p-3 text-left shadow-xs">
+    <div className="rounded-xl border border-[var(--color-border-input)] bg-[var(--color-surface)] p-3 text-left shadow-xs">
       <div className="flex items-start gap-2.5">
         <span className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full', meta.bg, meta.color)}>
           <Icon className="h-3.5 w-3.5" weight="bold" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">{meta.label}</p>
-          <p className="mt-0.5 text-[13px] font-semibold leading-snug text-[#181d27]">{suggestion.title}</p>
-          <p className="mt-1 text-[12px] leading-relaxed text-[#535862]">{suggestion.description}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">{meta.label}</p>
+          <p className="mt-0.5 text-[13px] font-semibold leading-snug text-[var(--color-foreground)]">{suggestion.title}</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">{suggestion.description}</p>
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {completed ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ecfdf3] px-2.5 py-1 text-[11px] font-semibold text-[#027a48]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-success)]">
             <CheckCircle className="h-3 w-3" weight="bold" />
             {suggestion.status === 'approved' ? 'Approved' : 'Dismissed'}
           </span>
@@ -629,7 +628,7 @@ function AssistantActionCard({
               type="button"
               onClick={() => onApprove(suggestion, primaryAction?.type ?? null)}
               disabled={saving}
-              className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#2563eb] px-3 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:opacity-50"
+              className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
             >
               <CheckCircle className="h-3.5 w-3.5" weight="bold" />
               {saving ? 'Approving...' : primaryAction?.label ?? 'Approve'}
@@ -638,7 +637,7 @@ function AssistantActionCard({
               type="button"
               onClick={() => onDismiss(suggestion)}
               disabled={saving}
-              className="inline-flex h-7 items-center rounded-full border border-[#e9eaeb] bg-white px-3 text-[12px] font-semibold text-[#535862] transition hover:bg-[#fafafa] disabled:opacity-50"
+              className="inline-flex h-7 items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12px] font-semibold text-[var(--color-text-muted)] transition hover:bg-[var(--color-background)] disabled:opacity-50"
             >
               Dismiss
             </button>
@@ -658,12 +657,11 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
 
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#2563eb]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/hedwig-icon.png" alt="Hedwig" className="h-full w-full object-cover" />
+      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--color-accent)]">
+        <HedwigLogoImg variant="icon" alt="Hedwig" className="h-full w-full object-cover" />
       </div>
-      <p className="mt-4 text-[15px] font-semibold text-[#181d27]">How can I help?</p>
-      <p className="mt-1 text-[12px] text-[#717680]">
+      <p className="mt-4 text-[15px] font-semibold text-[var(--color-foreground)]">How can I help?</p>
+      <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
         I can read your workspace, import documents, and draft actions in connected tools.
       </p>
       <div className="mt-6 flex w-full flex-col gap-2 px-2">
@@ -672,7 +670,7 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
             key={prompt}
             type="button"
             onClick={() => onPick(prompt)}
-            className="rounded-2xl border border-[#e9eaeb] bg-white px-4 py-2.5 text-left text-[12px] text-[#414651] transition hover:border-[#d0d5dd] hover:bg-[#fafafa]"
+            className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-left text-[12px] text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-input)] hover:bg-[var(--color-background)]"
           >
             {prompt}
           </button>

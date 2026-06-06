@@ -77,7 +77,7 @@ export function ChangeSettlementDialog({
       <button
         type="button"
         onClick={() => { setSelected(currentChain); setOpen(true); }}
-        className="text-[12px] font-semibold text-[#717680] transition hover:underline"
+        className="text-[12px] font-semibold text-[var(--color-text-tertiary)] transition hover:underline"
       >
         Change
       </button>
@@ -89,7 +89,7 @@ export function ChangeSettlementDialog({
           </DialogHeader>
 
           <DialogBody className="space-y-3">
-            <p className="text-[13px] text-[#717680]">
+            <p className="text-[13px] text-[var(--color-text-tertiary)]">
               USD deposits will automatically convert to USDC and settle to your wallet on the selected chain.
             </p>
 
@@ -102,19 +102,19 @@ export function ChangeSettlementDialog({
                   onClick={() => setSelected(option.value)}
                   className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition duration-100 ${
                     isSelected
-                      ? 'border-[#2563eb] bg-[#eff4ff]'
-                      : 'border-[#e9eaeb] bg-white hover:bg-[#fafafa]'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
+                      : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-background)]'
                   }`}
                 >
                   <Image src={option.icon} alt={option.label} width={36} height={36} className="rounded-full shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[14px] font-semibold ${isSelected ? 'text-[#717680]' : 'text-[#181d27]'}`}>
+                    <p className={`text-[14px] font-semibold ${isSelected ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-foreground)]'}`}>
                       {option.label}
                     </p>
-                    <p className="mt-0.5 text-[12px] text-[#717680]">{option.description}</p>
+                    <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{option.description}</p>
                   </div>
                   {isSelected && (
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#2563eb]">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]">
                       <Check className="h-3 w-3 text-white" weight="bold" />
                     </div>
                   )}
@@ -123,7 +123,7 @@ export function ChangeSettlementDialog({
             })}
 
             {error && (
-              <p className="rounded-xl bg-[#fef3f2] px-3 py-2 text-[12px] text-[#717680]">{error}</p>
+              <p className="rounded-xl bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-text-tertiary)]">{error}</p>
             )}
           </DialogBody>
 
@@ -131,7 +131,7 @@ export function ChangeSettlementDialog({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="inline-flex items-center justify-center rounded-full border border-[#d5d7da] bg-white px-4 py-2 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+              className="inline-flex items-center justify-center rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition hover:bg-[var(--color-background)]"
             >
               Cancel
             </button>
@@ -139,7 +139,7 @@ export function ChangeSettlementDialog({
               type="button"
               onClick={handleSave}
               disabled={isPending || selected === currentChain}
-              className="inline-flex items-center justify-center rounded-full bg-[#2563eb] px-4 py-2 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8] disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
             >
               {isPending ? 'Saving…' : 'Save changes'}
             </button>

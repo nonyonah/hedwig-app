@@ -49,7 +49,7 @@ function InlineSkeleton() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 2 }).map((_, index) => (
-        <div key={index} className="h-20 animate-pulse rounded-2xl bg-[#f9fafb]" />
+        <div key={index} className="h-20 animate-pulse rounded-2xl bg-[var(--color-background)]" />
       ))}
     </div>
   );
@@ -107,7 +107,7 @@ export function ContextualSuggestions({
 
   if (loading) {
     return (
-      <section className={cn('rounded-2xl border border-[#e9eaeb] bg-white p-4 shadow-xs', className)}>
+      <section className={cn('rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-xs', className)}>
         <InlineSkeleton />
       </section>
     );
@@ -117,10 +117,10 @@ export function ContextualSuggestions({
 
   return (
     <>
-      <section className={cn('rounded-2xl border border-[#e9eaeb] bg-white p-4 shadow-xs', className)}>
+      <section className={cn('rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-xs', className)}>
         <div className="mb-3">
-          <p className="text-[14px] font-semibold text-[#181d27]">{title}</p>
-          <p className="mt-1 text-[12px] text-[#717680]">{description}</p>
+          <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{title}</p>
+          <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">{description}</p>
         </div>
 
         <div className="space-y-2.5">
@@ -132,7 +132,7 @@ export function ContextualSuggestions({
             const primaryActionLabel = actions[0]?.label || 'Review';
 
             return (
-              <div key={suggestion.id} className="rounded-2xl bg-[#f9fafb] p-3">
+              <div key={suggestion.id} className="rounded-2xl bg-[var(--color-background)] p-3">
                 <div className="flex items-start gap-3">
                   <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', meta.bg)}>
                     <Icon className={cn('h-4 w-4', meta.color)} weight="fill" />
@@ -141,18 +141,18 @@ export function ContextualSuggestions({
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className={cn('text-[10px] font-bold uppercase tracking-wider', meta.color)}>{meta.label}</span>
                       {badges.slice(0, 2).map((badge) => (
-                        <span key={badge} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#717680] ring-1 ring-[#eaecf0]">
+                        <span key={badge} className="rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)] ring-1 ring-[var(--color-border-light)]">
                           {badge}
                         </span>
                       ))}
                     </div>
-                    <p className="mt-1 text-[13px] font-semibold text-[#181d27]">{suggestion.title}</p>
-                    <p className="mt-0.5 text-[12px] leading-relaxed text-[#717680]">{suggestion.description}</p>
+                    <p className="mt-1 text-[13px] font-semibold text-[var(--color-foreground)]">{suggestion.title}</p>
+                    <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">{suggestion.description}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setReviewTarget(suggestion)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#1d4ed8]"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[var(--color-primary-dark)]"
                       >
                         <CheckCircle className="h-3 w-3" weight="bold" />
                         {primaryActionLabel}
@@ -160,7 +160,7 @@ export function ContextualSuggestions({
                       <button
                         type="button"
                         onClick={() => void handleDismiss(suggestion.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#717680] transition-colors hover:bg-[#fef3f2] hover:text-[#b42318]"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
                       >
                         <Warning className="h-3 w-3" />
                         Dismiss

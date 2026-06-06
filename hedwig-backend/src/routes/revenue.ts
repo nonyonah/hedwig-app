@@ -7,9 +7,25 @@ import { convertToUsd } from '../services/currency';
 import { llmService } from '../services/llm';
 import { createLogger } from '../utils/logger';
 import { FREE_PLAN_LIMITS, getUserPlan } from '../services/billingRules';
+import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
 
 const logger = createLogger('Revenue');
 const router = Router();
+
+// Helper: returns true if the request should continue, false if 403 was sent
+async function guardOwnerOrAdmin(req: Request, res: Response, userId: string): Promise<boolean> {
+  const role = await getWorkspaceRole(req, userId);
+  if (!isOwnerOrAdmin(role)) {
+    res.status(403).json({ success: false, error: { message: 'Revenue data is restricted to owners and admins' } });
+    return false;
+  }
+  return true;
+}
+
+function getEffectiveWorkspaceId(req: Request, userId: string): string {
+  const wsId = req.headers['x-workspace-id'] as string;
+  return wsId || `ws_personal_${userId}`;
+}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -114,6 +130,10 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+
         const { range, gated: revenueHistoryGated } = await resolveRangeForUser(user, requestedRange);
         const start = getRangeStart(range);
         const now = new Date();
@@ -128,6 +148,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                     .from('documents')
                     .select('id,type,status,amount,created_at,updated_at,content')
                     .eq('user_id', user.id)
+                    .eq('workspace_id', effectiveWsId)
                     .in('type', ['INVOICE', 'PAYMENT_LINK'])
                     .or(`created_at.gte.${prevStartIso},updated_at.gte.${prevStartIso}`)
                     .order('updated_at', { ascending: false })
@@ -247,6 +268,8 @@ router.get('/trend', authenticate, async (req: Request, res: Response, next) => 
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
         const now = new Date();
         // Free plan: cap trend to last 30 days. Pro: full 6 months.
         const { gated: trendGated } = await resolveRangeForUser(user, '1y');
@@ -323,6 +346,8 @@ router.get('/breakdown', authenticate, async (req: Request, res: Response, next)
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
 
         const { range } = await resolveRangeForUser(user, requestedRange);
         const start = getRangeStart(range);
@@ -433,6 +458,8 @@ router.get('/payment-sources', authenticate, async (req: Request, res: Response,
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
         const { range } = await resolveRangeForUser(user, requestedRange);
         const start = getRangeStart(range);
         const startIso = start.toISOString();
@@ -512,6 +539,8 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
 
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const nowIso = new Date().toISOString();
@@ -623,6 +652,8 @@ router.get('/expenses', authenticate, async (req: Request, res: Response, next) 
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
         const expenses = await fetchPaged<any>('expenses_list', (from, to) =>
             supabase
                 .from('expenses')
@@ -648,6 +679,8 @@ router.post('/credits', authenticate, async (req: Request, res: Response, next) 
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
 
         const { amount, currency = 'USD', convertedAmountUsd, title, note = '', clientId, date } = req.body;
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -723,6 +756,8 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
         const { amount, currency = 'USD', convertedAmountUsd, category = 'other', projectId, clientId, note = '', sourceType = 'manual', date } = req.body;
 
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -784,6 +819,8 @@ router.patch('/expenses/:id', authenticate, async (req: Request, res: Response, 
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
 
         const { id } = req.params;
         const { amount, currency, convertedAmountUsd, category, projectId, clientId, note, date } = req.body;
@@ -858,6 +895,8 @@ router.delete('/expenses/:id', authenticate, async (req: Request, res: Response,
             return;
         }
 
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
         const { id } = req.params;
 
         const { error, count } = await supabase
@@ -902,7 +941,7 @@ function normalizeCurrency(currency: unknown): string | null {
   return 'USD';
 }
 
-// POST /api/revenue/import-document/analyze — upload file, classify via Gemini, no DB writes
+// POST /api/revenue/import-document/analyze — upload file, classify via DeepSeek, no DB writes
 router.post('/import-document/analyze', authenticate, upload.single('file'), async (req: Request, res: Response, next) => {
   try {
     const privyId = req.user!.id;
@@ -925,7 +964,7 @@ router.post('/import-document/analyze', authenticate, upload.single('file'), asy
       return;
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.AI_GATEWAY_API_KEY;
     if (!apiKey) {
       res.status(503).json({ success: false, error: { message: 'AI analysis is not configured. Contact support.' } });
       return;
@@ -964,8 +1003,6 @@ Rules:
 - Currency must be a 3-letter ISO code. Detect from symbols: ₦=NGN, €=EUR, £=GBP, ₵=GHS, KSh/KES, R/ZAR. Default to USD.`;
 
     const text = (await llmService.generateText(prompt, {
-      forceProvider: 'gemini',
-      useFallbacks: false,
       maxOutputTokens: 1800,
       temperature: 0.1,
       files: [{ mimeType: normalizedMime, data: base64Data }],

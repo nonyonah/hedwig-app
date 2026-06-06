@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { backendConfig } from '@/lib/auth/config';
 import { hedwigApi } from '@/lib/api/client';
 import type { BillingStatusSummary } from '@/lib/api/client';
@@ -109,20 +110,20 @@ const RANGE_LABELS: Record<InsightsRange, string> = {
 const RANGES: InsightsRange[] = ['7d', '30d', '90d', '1y'];
 
 const EXPENSE_CATEGORY_BAR: Record<string, string> = {
-  software: 'bg-[#2563eb]',
-  equipment: 'bg-[#7c3aed]',
-  marketing: 'bg-[#c2410c]',
-  travel: 'bg-[#15803d]',
-  operations: 'bg-[#717680]',
-  contractor: 'bg-[#7e22ce]',
-  subscriptions: 'bg-[#1d4ed8]',
-  other: 'bg-[#a4a7ae]',
+  software: 'bg-[var(--color-accent)]',
+  equipment: 'bg-[var(--color-accent)]',
+  marketing: 'bg-[var(--color-warning)]',
+  travel: 'bg-[var(--color-success)]',
+  operations: 'bg-[var(--color-text-tertiary)]',
+  contractor: 'bg-[var(--color-accent)]',
+  subscriptions: 'bg-[var(--color-primary-dark)]',
+  other: 'bg-[var(--color-text-muted)]',
 };
 
 const SEVERITY_STYLES = {
-  high:   { dot: 'bg-[#f04438]', bg: 'bg-[#fff1f0]', icon: 'text-[#b42318]', badge: 'text-[#b42318]', label: 'High' },
-  medium: { dot: 'bg-[#f79009]', bg: 'bg-[#fffaeb]', icon: 'text-[#b45309]', badge: 'text-[#b45309]', label: 'Medium' },
-  low:    { dot: 'bg-[#a4a7ae]', bg: 'bg-[#f2f4f7]', icon: 'text-[#717680]', badge: 'text-[#717680]', label: 'Low' },
+  high:   { dot: 'bg-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]', icon: 'text-[var(--color-danger)]', badge: 'text-[var(--color-danger)]', label: 'High' },
+  medium: { dot: 'bg-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]', icon: 'text-[var(--color-warning)]', badge: 'text-[var(--color-warning)]', label: 'Medium' },
+  low:    { dot: 'bg-[var(--color-text-muted)]', bg: 'bg-[var(--color-surface-tertiary)]', icon: 'text-[var(--color-text-tertiary)]', badge: 'text-[var(--color-text-tertiary)]', label: 'Low' },
 };
 
 /* ─── helpers ─── */
@@ -140,9 +141,9 @@ function formatTimeAgo(iso: string | null): string {
 function EarningsTooltip({ active, payload, label, formatAmount }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-[#e9eaeb] bg-white px-3 py-2 shadow-lg">
-      <p className="text-[11px] text-[#a4a7ae]">{label}</p>
-      <p className="text-[14px] font-bold text-[#181d27]">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 shadow-lg">
+      <p className="text-[11px] text-[var(--color-text-muted)]">{label}</p>
+      <p className="text-[14px] font-bold text-[var(--color-text-primary)]">
         {formatAmount(payload[0].value as number, { compact: true })}
       </p>
     </div>
@@ -160,10 +161,10 @@ function RingChart({ value, total, size = 132, strokeWidth = 10 }: {
   const c = size / 2;
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }} aria-hidden>
-      <circle cx={c} cy={c} r={r} stroke="#e9eaeb" strokeWidth={strokeWidth} fill="none" />
+      <circle cx={c} cy={c} r={r} stroke="var(--color-border)" strokeWidth={strokeWidth} fill="none" />
       <circle
         cx={c} cy={c} r={r}
-        stroke="#2563eb"
+        stroke="var(--color-accent)"
         strokeWidth={strokeWidth}
         fill="none"
         strokeDasharray={circ}
@@ -188,7 +189,7 @@ function Sparkline({ values }: { values: number[] }) {
   }).join(' ');
   return (
     <svg width={w} height={h} aria-hidden>
-      <polyline points={points} fill="none" stroke="#2563eb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={points} fill="none" stroke="var(--color-accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -211,9 +212,9 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
           <DialogDescription>Your ring progress tracks earnings toward this goal.</DialogDescription>
         </DialogHeader>
         <DialogBody>
-          <label className="block text-[13px] font-medium text-[#414651]">Monthly target</label>
-          <div className="mt-1.5 flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition duration-100 focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
-            <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[14px] font-semibold text-[#a4a7ae]">$</span>
+          <label className="block text-[13px] font-medium text-[var(--color-text-secondary)]">Monthly target</label>
+          <div className="mt-1.5 flex items-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs transition duration-100 focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-soft)]">
+            <span className="flex h-full items-center border-r border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-[14px] font-semibold text-[var(--color-text-muted)]">$</span>
             <Input
               type="number"
               min="1"
@@ -221,10 +222,10 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               placeholder="10000"
-              className="flex-1 bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none border-0 shadow-none focus-visible:ring-0"
+              className="flex-1 bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none border-0 shadow-none focus-visible:ring-0"
             />
           </div>
-          <p className="mt-2 text-[12px] text-[#a4a7ae]">Enter the USD amount you aim to earn this month.</p>
+          <p className="mt-2 text-[12px] text-[var(--color-text-muted)]">Enter the USD amount you aim to earn this month.</p>
         </DialogBody>
         <DialogFooter>
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
@@ -255,6 +256,14 @@ export function InsightsClient({
 }) {
   const { formatAmount, formatUsdText } = useCurrency();
   const { toast } = useToast();
+
+  useAssistantPageContext('Insights', {
+    monthlyTarget: initialTarget,
+    expensesCount: initialExpenses.length,
+    clientCount: clientBreakdown.length,
+    invoicesCount: invoices.length,
+  });
+
   const canViewAdvancedInsights = canUseFeature('assistant_summary_advanced', billing);
 
   const [range, setRange] = useState<InsightsRange>('30d');
@@ -355,18 +364,27 @@ export function InsightsClient({
       {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[#181d27]">Insights</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Revenue trends, expense patterns, and business intelligence.</p>
+          <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Insights</h1>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Revenue trends, expense patterns, and business intelligence.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
-          <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
+          <button
+            type="button"
+            onClick={() => setShowExportDialog(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
+          >
             <DownloadSimple className="h-4 w-4" weight="bold" />
             Export
-          </Button>
-          <Button variant="secondary" onClick={() => fetchData(range)} disabled={loading}>
+          </button>
+          <button
+            type="button"
+            onClick={() => fetchData(range)}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
+          >
             <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
             Refresh
-          </Button>
+          </button>
         </div>
         <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
       </div>
@@ -381,29 +399,28 @@ export function InsightsClient({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {RANGES.map((r) => (
-            <Button
+            <button
               key={r}
               type="button"
-              variant="outline"
               onClick={() => handleRangeChange(r)}
               className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-100 ease-linear ${
                 range === r
-                  ? 'bg-[#181d27] text-white'
-                  : 'text-[#717680] hover:bg-[#f2f4f7] hover:text-[#344054]'
+                  ? 'bg-[var(--color-text-primary)] text-[var(--color-background)]'
+                  : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]'
               }`}
             >
               {RANGE_LABELS[r]}
-            </Button>
+            </button>
           ))}
         </div>
-        <p className="text-[12px] text-[#a4a7ae]">{formatTimeAgo(data?.lastUpdatedAt ?? null)}</p>
+        <p className="text-[12px] text-[var(--color-text-muted)]">{formatTimeAgo(data?.lastUpdatedAt ?? null)}</p>
       </div>
 
       {/* ── Error state ── */}
       {error && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center ring-1 ring-[#e9eaeb] shadow-xs">
-          <p className="text-[15px] font-semibold text-[#181d27]">Could not load insights</p>
-          <p className="text-[13px] text-[#717680]">{error}</p>
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-[var(--color-surface)] px-6 py-10 text-center ring-1 ring-[var(--color-border)] shadow-xs">
+          <p className="text-[15px] font-semibold text-[var(--color-text-primary)]">Could not load insights</p>
+          <p className="text-[13px] text-[var(--color-text-tertiary)]">{error}</p>
           <Button variant="secondary" onClick={() => fetchData(range)}>Try again</Button>
         </div>
       )}
@@ -417,9 +434,9 @@ export function InsightsClient({
                 title: 'Period earnings',
                 value: loading ? '...' : formatAmount(periodEarnings, { compact: true }),
                 helper: (
-                  <span className={`flex items-center gap-1 ${earningsTrend === 'up' ? 'text-[#12b76a]' : earningsTrend === 'down' ? 'text-[#f04438]' : 'text-[#a4a7ae]'}`}>
-                    {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
-                    {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
+                  <span className={`flex items-center gap-1 ${earningsTrend === 'up' ? 'text-[var(--color-success)]' : earningsTrend === 'down' ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-muted)]'}`}>
+                    {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[var(--color-success)]" weight="bold" />}
+                    {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[var(--color-danger)]" weight="bold" />}
                     <span>{earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs previous</span>
                   </span>
                 ),
@@ -466,15 +483,15 @@ export function InsightsClient({
           />
 
           {/* ── Revenue trend chart ── */}
-          <article className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-            <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+          <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#181d27]">Revenue trend</h2>
-                <p className="mt-0.5 text-[13px] text-[#717680]">Earnings over the selected period.</p>
+                <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Revenue trend</h2>
+                <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Earnings over the selected period.</p>
               </div>
               {earningsTrend !== 'neutral' && !loading && (
                 <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                  earningsTrend === 'up' ? 'bg-[#ecfdf3] text-[#027a48]' : 'bg-[#fff1f0] text-[#b42318]'
+                  earningsTrend === 'up' ? 'bg-[var(--color-success-soft)] text-[var(--color-success)]' : 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]'
                 }`}>
                   {earningsTrend === 'up'
                     ? <ArrowUpRight className="h-3 w-3" weight="bold" />
@@ -485,11 +502,11 @@ export function InsightsClient({
             </div>
 
             {loading ? (
-              <div className="h-[180px] animate-pulse bg-[#f9fafb]" />
+              <div className="h-[180px] animate-pulse bg-[var(--color-surface-secondary)]" />
             ) : series.earnings.length < 2 ? (
               <div className="flex h-[180px] flex-col items-center justify-center gap-2 text-center">
-                <ChartBar className="h-8 w-8 text-[#e9eaeb]" weight="regular" />
-                <p className="text-[13px] text-[#a4a7ae]">Not enough data to show a trend yet.</p>
+                <ChartBar className="h-8 w-8 text-[var(--color-border)]" weight="regular" />
+                <p className="text-[13px] text-[var(--color-text-muted)]">Not enough data to show a trend yet.</p>
               </div>
             ) : (
               <div className="px-2 pb-4 pt-2">
@@ -497,21 +514,21 @@ export function InsightsClient({
                   <AreaChart data={series.earnings} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                     <defs>
                       <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.22} />
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.22} />
+                        <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid vertical={false} stroke="#f2f4f7" />
+                    <CartesianGrid vertical={false} stroke="var(--color-surface-tertiary)" />
                     <XAxis
                       dataKey="key"
-                      tick={{ fontSize: 10, fill: '#a4a7ae' }}
+                      tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
                       axisLine={false}
                       tickLine={false}
                       tickMargin={8}
                       interval="preserveStartEnd"
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: '#a4a7ae' }}
+                      tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
                       axisLine={false}
                       tickLine={false}
                       width={46}
@@ -519,16 +536,16 @@ export function InsightsClient({
                     />
                     <Tooltip
                       content={<EarningsTooltip formatAmount={formatAmount} />}
-                      cursor={{ stroke: '#2563eb', strokeWidth: 1.5, strokeDasharray: '4 2' }}
+                      cursor={{ stroke: 'var(--color-accent)', strokeWidth: 1.5, strokeDasharray: '4 2' }}
                     />
                     <Area
                       type="monotone"
                       dataKey="value"
-                      stroke="#2563eb"
+                      stroke="var(--color-accent)"
                       strokeWidth={2}
                       fill="url(#earningsGrad)"
                       dot={false}
-                      activeDot={{ r: 4, fill: '#2563eb', stroke: 'white', strokeWidth: 2 }}
+                      activeDot={{ r: 4, fill: 'var(--color-accent)', stroke: 'white', strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -539,12 +556,12 @@ export function InsightsClient({
           {/* ── Risks & recommendations ── */}
           {insightRisks.length > 0 && (
             <div>
-              <h2 className="mb-3 text-[15px] font-semibold text-[#181d27]">Risks & recommendations</h2>
+              <h2 className="mb-3 text-[15px] font-semibold text-[var(--color-text-primary)]">Risks & recommendations</h2>
               <div className={`grid gap-3 ${insightRisks.length === 1 ? 'max-w-sm' : insightRisks.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
                 {insightRisks.map((risk) => {
                   const sev = SEVERITY_STYLES[risk.severity];
                   const card = (
-                    <article className={`flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb] ${risk.actionRoute ? 'transition duration-100 ease-linear hover:bg-[#fafafa]' : ''}`}>
+                    <article className={`flex flex-col gap-3 rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)] ${risk.actionRoute ? 'transition duration-100 ease-linear hover:bg-[var(--color-background)]' : ''}`}>
                       <div className="flex items-start gap-3">
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${sev.bg}`}>
                           <Warning className={`h-4 w-4 ${sev.icon}`} weight="fill" />
@@ -555,11 +572,11 @@ export function InsightsClient({
                         </span>
                       </div>
                       <div>
-                        <p className="text-[13px] font-semibold text-[#181d27]">{risk.title}</p>
-                        <p className="mt-1 text-[12px] leading-relaxed text-[#717680]">{formatUsdText(risk.description)}</p>
+                        <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{risk.title}</p>
+                        <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">{formatUsdText(risk.description)}</p>
                       </div>
                       {risk.actionLabel && (
-                        <p className="text-[12px] font-semibold text-[#2563eb]">{risk.actionLabel} →</p>
+                        <p className="text-[12px] font-semibold text-[var(--color-accent)]">{risk.actionLabel} →</p>
                       )}
                     </article>
                   );
@@ -576,11 +593,11 @@ export function InsightsClient({
           {/* ── Monthly progress + Insights feed ── */}
           <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
 
-            <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-              <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+              <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
                 <div>
-                  <h2 className="text-[16px] font-semibold text-[#181d27]">Monthly progress</h2>
-                  <p className="mt-0.5 text-[13px] text-[#717680]">Earnings toward your monthly target.</p>
+                  <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">Monthly progress</h2>
+                  <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Earnings toward your monthly target.</p>
                 </div>
                 <Sparkline values={sparkValues} />
               </div>
@@ -589,103 +606,102 @@ export function InsightsClient({
                 <div className="relative flex items-center justify-center">
                   <RingChart value={currentMonthEarnings} total={monthlyTarget} />
                   <div className="absolute flex flex-col items-center">
-                    <p className="text-[20px] font-bold tracking-[-0.03em] text-[#181d27] leading-none">
+                    <p className="text-[20px] font-bold tracking-[-0.03em] text-[var(--color-text-primary)] leading-none">
                       {formatAmount(currentMonthEarnings, { compact: true })}
                     </p>
-                    <p className="mt-1 text-[11px] text-[#a4a7ae]">Earned</p>
+                    <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Earned</p>
                   </div>
                 </div>
 
-                <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-                  <div className="flex flex-col items-center bg-white px-4 py-3">
-                    <p className="text-[11px] text-[#a4a7ae]">{hasExceededTarget ? 'Exceeded by' : 'Remaining'}</p>
-                    <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[#027a48]' : 'text-[#181d27]'}`}>
+                <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
+                  <div className="flex flex-col items-center bg-[var(--color-surface)] px-4 py-3">
+                    <p className="text-[11px] text-[var(--color-text-muted)]">{hasExceededTarget ? 'Exceeded by' : 'Remaining'}</p>
+                    <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[var(--color-success)]' : 'text-[var(--color-text-primary)]'}`}>
                       {hasExceededTarget
                         ? `+${formatAmount(currentMonthEarnings - monthlyTarget, { compact: true })}`
                         : formatAmount(remainingAmount, { compact: true })}
                     </p>
                   </div>
-                  <div className="flex flex-col items-center bg-white px-4 py-3">
-                    <p className="text-[11px] text-[#a4a7ae]">Target</p>
-                    <p className="mt-0.5 text-[16px] font-bold tracking-[-0.03em] text-[#181d27]">
+                  <div className="flex flex-col items-center bg-[var(--color-surface)] px-4 py-3">
+                    <p className="text-[11px] text-[var(--color-text-muted)]">Target</p>
+                    <p className="mt-0.5 text-[16px] font-bold tracking-[-0.03em] text-[var(--color-text-primary)]">
                       {formatAmount(monthlyTarget, { compact: true })}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#f5f5f5] px-5 py-3">
+              <div className="flex items-center justify-between border-t border-[var(--color-surface-secondary)] px-5 py-3">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                  earningsTrend === 'up' ? 'bg-[#ecfdf3] text-[#027a48]' :
-                  earningsTrend === 'down' ? 'bg-[#fff1f0] text-[#b42318]' :
-                  'bg-[#f2f4f7] text-[#717680]'
+                  earningsTrend === 'up' ? 'bg-[var(--color-success-soft)] text-[var(--color-success)]' :
+                  earningsTrend === 'down' ? 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]' :
+                  'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]'
                 }`}>
                   {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3" weight="bold" />}
                   {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3" weight="bold" />}
                   {earningsTrend === 'neutral' && <Minus className="h-3 w-3" weight="bold" />}
                   {earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs previous period
                 </span>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => setShowTargetDialog(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#d5d7da] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-input)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
                 >
                   <Target className="h-3.5 w-3.5" weight="bold" />
                   Set target
-                </Button>
+                </button>
               </div>
             </article>
 
             {canViewAdvancedInsights ? (
-              <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-                <div className="flex items-center gap-2.5 border-b border-[#f5f5f5] px-5 py-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
-                    <Sparkle className="h-4 w-4 text-[#2563eb]" weight="fill" />
+              <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+                <div className="flex items-center gap-2.5 border-b border-[var(--color-surface-secondary)] px-5 py-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
+                    <Sparkle className="h-4 w-4 text-[var(--color-accent)]" weight="fill" />
                   </div>
                   <div>
-                    <h2 className="text-[16px] font-semibold text-[#181d27]">Insights feed</h2>
-                    <p className="mt-0.5 text-[13px] text-[#717680]">Priority updates from your account activity.</p>
+                    <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">Insights feed</h2>
+                    <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Priority updates from your account activity.</p>
                   </div>
                 </div>
 
                 {isEmpty ? (
                   <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
-                    <p className="text-[14px] font-semibold text-[#414651]">No account activity yet</p>
-                    <p className="mt-1 text-[13px] text-[#a4a7ae]">
+                    <p className="text-[14px] font-semibold text-[var(--color-text-secondary)]">No account activity yet</p>
+                    <p className="mt-1 text-[13px] text-[var(--color-text-muted)]">
                       Create an invoice, payment link, or project to start populating this feed.
                     </p>
                   </div>
                 ) : loading ? (
-                  <div className="divide-y divide-[#f5f5f5]">
+                  <div className="divide-y divide-[var(--color-surface-secondary)]">
                     {[1, 2, 3].map((i) => (
                       <div key={i} className="flex items-start gap-3 px-5 py-4 animate-pulse">
-                        <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-[#f2f4f7]" />
+                        <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-[var(--color-surface-tertiary)]" />
                         <div className="flex-1 space-y-2">
-                          <div className="h-3.5 w-2/3 rounded bg-[#f2f4f7]" />
-                          <div className="h-3 w-full rounded bg-[#f2f4f7]" />
+                          <div className="h-3.5 w-2/3 rounded bg-[var(--color-surface-tertiary)]" />
+                          <div className="h-3 w-full rounded bg-[var(--color-surface-tertiary)]" />
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="divide-y divide-[#f5f5f5]">
+                  <div className="divide-y divide-[var(--color-surface-secondary)]">
                     {insights.map((insight) => {
-                      const dotColor = insight.trend === 'up' ? 'bg-[#12b76a]' : insight.trend === 'down' ? 'bg-[#f04438]' : 'bg-[#2563eb]';
-                      const dotBg = insight.trend === 'up' ? 'bg-[#ecfdf3]' : insight.trend === 'down' ? 'bg-[#fff1f0]' : 'bg-[#eff4ff]';
+                      const dotColor = insight.trend === 'up' ? 'bg-[var(--color-success)]' : insight.trend === 'down' ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-accent)]';
+                      const dotBg = insight.trend === 'up' ? 'bg-[var(--color-success-soft)]' : insight.trend === 'down' ? 'bg-[var(--color-danger-soft)]' : 'bg-[var(--color-accent-soft)]';
                       const inner = (
-                        <div className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
+                        <div className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[var(--color-background)]">
                           <div className={`mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${dotBg}`}>
                             <span className={`h-2 w-2 rounded-full ${dotColor}`} />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[14px] font-semibold text-[#181d27]">{insight.title}</p>
-                            <p className="mt-0.5 text-[13px] text-[#717680]">{formatUsdText(insight.description)}</p>
+                            <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{insight.title}</p>
+                            <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">{formatUsdText(insight.description)}</p>
                             {insight.actionLabel && (
-                              <p className="mt-1.5 text-[12px] font-semibold text-[#2563eb]">{insight.actionLabel}</p>
+                              <p className="mt-1.5 text-[12px] font-semibold text-[var(--color-accent)]">{insight.actionLabel}</p>
                             )}
                           </div>
-                          <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] transition-colors group-hover:text-[#a4a7ae]" />
+                          <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-border-input)] transition-colors group-hover:text-[var(--color-text-muted)]" />
                         </div>
                       );
                       return insight.actionRoute ? (
@@ -709,38 +725,38 @@ export function InsightsClient({
           {/* ── Expense analysis + Client performance ── */}
           <div className="grid gap-4 lg:grid-cols-2">
 
-            <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-              <div className="border-b border-[#f5f5f5] px-5 py-4">
-                <h2 className="text-[15px] font-semibold text-[#181d27]">Expense breakdown</h2>
-                <p className="mt-0.5 text-[13px] text-[#717680]">Top categories by spend this period.</p>
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+              <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
+                <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expense breakdown</h2>
+                <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Top categories by spend this period.</p>
               </div>
 
               {expenseAnalysis.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-                  <p className="text-[13px] font-semibold text-[#414651]">No expenses recorded</p>
-                  <p className="text-[12px] text-[#a4a7ae]">Add expenses on the Revenue page to see spend patterns here.</p>
-                  <Link href="/revenue" className="mt-1 text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+                  <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">No expenses recorded</p>
+                  <p className="text-[12px] text-[var(--color-text-muted)]">Add expenses on the Revenue page to see spend patterns here.</p>
+                  <Link href="/revenue" className="mt-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]">
                     Go to Revenue →
                   </Link>
                 </div>
               ) : (
                 <div className="space-y-4 px-5 py-5">
                   {expenseAnalysis.map((item) => {
-                    const barColor = EXPENSE_CATEGORY_BAR[item.category] ?? 'bg-[#a4a7ae]';
+                    const barColor = EXPENSE_CATEGORY_BAR[item.category] ?? 'bg-[var(--color-text-muted)]';
                     return (
                       <div key={item.category}>
                         <div className="mb-1.5 flex items-center justify-between">
-                          <p className="text-[13px] font-semibold text-[#181d27]">{item.label}</p>
+                          <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{item.label}</p>
                           <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-semibold text-[#181d27]">
+                            <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                               {formatAmount(item.value, { compact: true })}
                             </span>
-                            <span className="w-8 text-right text-[11px] font-semibold text-[#a4a7ae]">
+                            <span className="w-8 text-right text-[11px] font-semibold text-[var(--color-text-muted)]">
                               {item.pct.toFixed(0)}%
                             </span>
                           </div>
                         </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
                           <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${item.pct}%` }} />
                         </div>
                       </div>
@@ -750,21 +766,21 @@ export function InsightsClient({
               )}
             </article>
 
-            <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-              <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+              <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
                 <div>
-                  <h2 className="text-[15px] font-semibold text-[#181d27]">Client performance</h2>
-                  <p className="mt-0.5 text-[13px] text-[#717680]">Revenue contribution by client.</p>
+                  <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Client performance</h2>
+                  <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Revenue contribution by client.</p>
                 </div>
-                <Link href="/clients" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+                <Link href="/clients" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]">
                   All clients <ArrowRight className="h-3.5 w-3.5" weight="bold" />
                 </Link>
               </div>
 
               {clientsByRevenue.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-                  <p className="text-[13px] font-semibold text-[#414651]">No client data yet</p>
-                  <p className="text-[12px] text-[#a4a7ae]">Send invoices to clients to see their revenue contribution.</p>
+                  <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">No client data yet</p>
+                  <p className="text-[12px] text-[var(--color-text-muted)]">Send invoices to clients to see their revenue contribution.</p>
                 </div>
               ) : (
                 <div className="space-y-4 px-5 py-5">
@@ -772,23 +788,23 @@ export function InsightsClient({
                     <div key={c.clientId}>
                       <div className="mb-1.5 flex items-center justify-between">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-semibold text-[#181d27]">{c.company || c.clientName}</p>
-                          <p className="text-[11px] text-[#a4a7ae]">{c.invoiceCount} invoice{c.invoiceCount !== 1 ? 's' : ''}</p>
+                          <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{c.company || c.clientName}</p>
+                          <p className="text-[11px] text-[var(--color-text-muted)]">{c.invoiceCount} invoice{c.invoiceCount !== 1 ? 's' : ''}</p>
                         </div>
                         <div className="ml-3 flex items-center gap-2 shrink-0">
-                          <span className="text-[13px] font-semibold text-[#181d27]">
+                          <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                             {formatAmount(c.totalRevenue, { compact: true })}
                           </span>
-                          <span className="w-9 text-right text-[11px] font-semibold text-[#a4a7ae]">
+                          <span className="w-9 text-right text-[11px] font-semibold text-[var(--color-text-muted)]">
                             {c.shareOfTotal.toFixed(0)}%
                           </span>
                         </div>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
-                        <div className="h-full rounded-full bg-[#2563eb] transition-all" style={{ width: `${c.shareOfTotal}%` }} />
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                        <div className="h-full rounded-full bg-[var(--color-accent)] transition-all" style={{ width: `${c.shareOfTotal}%` }} />
                       </div>
                       {c.shareOfTotal >= 50 && (
-                        <p className="mt-1 text-[11px] text-[#f79009]">
+                        <p className="mt-1 text-[11px] text-[var(--color-warning)]">
                           High concentration — {c.shareOfTotal.toFixed(0)}% of total revenue
                         </p>
                       )}

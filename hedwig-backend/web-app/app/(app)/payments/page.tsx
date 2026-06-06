@@ -1,5 +1,6 @@
 import { hedwigApi } from '@/lib/api/client';
 import { getCurrentSession } from '@/lib/auth/session';
+import { workspaceApiOptions } from '@/lib/workspace/server';
 import { invoices as mockInvoices, paymentLinks as mockPaymentLinks, invoiceDrafts, paymentLinkDrafts, clients as mockClients } from '@/lib/mock/data';
 import { PaymentsClient } from './view';
 
@@ -9,23 +10,25 @@ export default async function PaymentsPage({
   searchParams?: Promise<{ invoice?: string; paymentLink?: string; recurring?: string }>;
 }) {
   const session = await getCurrentSession();
+  const opts = await workspaceApiOptions(session.accessToken);
   let data = { invoices: mockInvoices, paymentLinks: mockPaymentLinks, invoiceDrafts, paymentLinkDrafts };
   try {
-    data = await hedwigApi.payments({ accessToken: session.accessToken });
+    data = await hedwigApi.payments(opts);
   } catch {
     // Fall back to mock payments if the API call fails
   }
 
   const [recurringInvoices, clients] = await Promise.all([
-    hedwigApi.recurringInvoices({ accessToken: session.accessToken }).catch(() => []),
-    hedwigApi.clients({ accessToken: session.accessToken }).catch(() => mockClients),
+    hedwigApi.recurringInvoices(opts).catch(() => []),
+    hedwigApi.clients(opts).catch(() => mockClients),
   ]);
-  const billing = await hedwigApi.billingStatus({ accessToken: session.accessToken }).catch(() => null);
+  const billing = await hedwigApi.billingStatus(opts).catch(() => null);
 
   const params = (await searchParams) ?? {};
 
   return (
     <PaymentsClient
+      key={opts.workspaceId ?? 'default'}
       accessToken={session.accessToken}
       highlightedInvoiceId={params.invoice ?? null}
       highlightedPaymentLinkId={params.paymentLink ?? null}

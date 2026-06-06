@@ -7,6 +7,8 @@ import { EmailService } from '../services/email';
 import { createLogger } from '../utils/logger';
 import { upsertCalendarEventFromSource, updateCalendarEventStatusBySource } from './calendar';
 import { checkDocumentCreationLimit, requireProFeatureAccess } from '../services/billingRules';
+import { getWorkspaceRole, isOwnerOrAdmin, getMemberAssignedProjectIds } from '../middleware/workspaceRole';
+import { getEffectiveWorkspaceId } from '../utils/workspace';
 
 const logger = createLogger('Projects');
 
@@ -58,7 +60,10 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        // Build query
+        const effectiveWsId = await getEffectiveWorkspaceId(req, user.id);
+        const role = await getWorkspaceRole(req, user.id);
+
+        // Build query — members see assigned projects only
         let query = supabase
             .from('projects')
             .select(`
@@ -66,8 +71,18 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
                 client:clients(id, name, email, company),
                 milestones(id, title, amount, due_date, status)
             `)
-            .eq('user_id', user.id)
+            .eq('workspace_id', effectiveWsId)
             .order('created_at', { ascending: false });
+
+        if (role === 'member') {
+            const assignedIds = await getMemberAssignedProjectIds(user.id, role, effectiveWsId);
+            if (!assignedIds || assignedIds.length === 0) {
+                res.json({ success: true, data: { projects: [] } });
+                return;
+            }
+            query = query.in('id', assignedIds);
+        }
+        // Owner and admin see all projects in the workspace — no user_id filter
 
         // Filter by status if provided
         if (status && typeof status === 'string') {
@@ -115,6 +130,19 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             }
         }
 
+        // Fetch member payouts if user is a member
+        let payoutsByProject: Record<string, number | null> = {};
+        if (role === 'member' && projectIds.length > 0) {
+            const { data: payouts } = await supabase
+                .from('workspace_project_assignments')
+                .select('project_id, payout_amount')
+                .eq('user_id', user.id)
+                .in('project_id', projectIds);
+            (payouts || []).forEach((p: any) => {
+                payoutsByProject[p.project_id] = p.payout_amount;
+            });
+        }
+
         // Format projects with milestone progress
         const formattedProjects = (projects || []).map(project => {
             const milestones = project.milestones || [];
@@ -134,9 +162,10 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
                 client: project.client,
                 title: project.name,
                 description: project.description,
-                status: project.status?.toLowerCase() || 'ongoing',
-                budget: project.budget,
-                currency: project.currency,
+            status: project.status?.toLowerCase() || 'ongoing',
+            budget: role === 'member' ? null : project.budget,
+            memberPayout: payoutsByProject[project.id] ?? null,
+            currency: project.currency,
                 startDate: project.start_date,
                 deadline: project.deadline || project.end_date,
                 createdAt: project.created_at,
@@ -184,7 +213,11 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        const { data: project, error } = await supabase
+        const workspaceId = await getEffectiveWorkspaceId(req, user.id);
+        const role = await getWorkspaceRole(req, user.id);
+
+        // Build query — members find via assignment, owners/admins by ownership
+        let projectQuery = supabase
             .from('projects')
             .select(`
                 *,
@@ -192,8 +225,24 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
                 milestones(id, title, amount, due_date, status, invoice_id, created_at, updated_at)
             `)
             .eq('id', id)
-            .eq('user_id', user.id)
-            .single();
+            .eq('workspace_id', workspaceId);
+
+        if (role === 'member') {
+            const { data: assignment } = await supabase
+                .from('workspace_project_assignments')
+                .select('project_id')
+                .eq('project_id', id)
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (!assignment) {
+                res.status(404).json({ success: false, error: { message: 'Project not found' } });
+                return;
+            }
+        } else {
+            projectQuery = projectQuery.eq('user_id', user.id);
+        }
+
+        const { data: project, error } = await projectQuery.single();
 
         if (error || !project) {
             res.status(404).json({
@@ -201,6 +250,18 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
                 error: { message: 'Project not found' },
             });
             return;
+        }
+
+        // Look up member's personal payout for this project
+        let memberPayout: number | null = null;
+        if (role === 'member') {
+            const { data: assignment } = await supabase
+                .from('workspace_project_assignments')
+                .select('payout_amount')
+                .eq('project_id', id)
+                .eq('user_id', user.id)
+                .maybeSingle();
+            memberPayout = assignment?.payout_amount ?? null;
         }
 
         const milestones = project.milestones || [];
@@ -240,7 +301,8 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             title: project.name,
             description: project.description,
             status: project.status?.toLowerCase() || 'ongoing',
-            budget: project.budget,
+            budget: role === 'member' ? null : project.budget,
+            memberPayout,
             currency: project.currency,
             startDate: project.start_date,
             deadline: project.deadline || project.end_date,
@@ -305,6 +367,12 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        const role = await getWorkspaceRole(req, user.id);
+        if (!isOwnerOrAdmin(role)) {
+            res.status(403).json({ success: false, error: { message: 'Only owners and admins can create projects' } });
+            return;
+        }
+
         // If no clientId, try to find or create client
         if (!clientId) {
             if (!req.body.clientName) {
@@ -320,7 +388,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             const { id: foundClientId, isNew } = await ClientService.getOrCreateClient(
                 user.id,
                 clientName,
-                clientEmail
+                clientEmail,
+                { workspaceId: await getEffectiveWorkspaceId(req, user.id) }
             );
             
             clientId = foundClientId;
@@ -337,7 +406,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        // Verify client belongs to user (implicit if we just found/created it, but good check if passed externally)
+        // Verify client belongs to user — allow clients from any workspace
         const { data: client, error: clientError } = await supabase
             .from('clients')
             .select('id, name, email, company')
@@ -355,6 +424,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             .insert({
                 client_id: clientId,
                 user_id: user.id,
+                workspace_id: await getEffectiveWorkspaceId(req, user.id),
                 name: title,
                 description,
                 start_date: startDate,
@@ -442,7 +512,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         } else {
             let generatedContent = '';
             try {
-                const { GeminiService } = await import('../services/gemini');
+                const { llmService } = await import('../services/llm');
                 const { data: fullUser } = await supabase
                     .from('users')
                     .select('first_name, last_name, email')
@@ -479,7 +549,7 @@ ${milestoneSection}
 
 GENERATE THE CONTRACT NOW, starting with the title.`;
 
-                generatedContent = (await GeminiService.generateText(contractPrompt) || '')
+                generatedContent = (await llmService.generateText(contractPrompt) || '')
                     .replace(/<think>[\s\S]*?<\/think>/gi, '')
                     .replace(/```(json|markdown)?\n?|\n?```/g, '')
                     .replace(/^(Here is|Sure|Certainly).+?\n\n/si, '')
@@ -509,6 +579,7 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                     user_id: user.id,
                     client_id: clientId,
                     project_id: project.id,
+                    workspace_id: await getEffectiveWorkspaceId(req, user.id),
                     type: 'CONTRACT',
                     title: `${project.name} Contract`,
                     amount: totalAmount,
@@ -579,6 +650,7 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                         user_id: user.id,
                         client_id: clientId,
                         project_id: project.id,
+                        workspace_id: await getEffectiveWorkspaceId(req, user.id),
                         type: 'INVOICE',
                         title: `Invoice: ${milestone.title}`,
                         amount: milestone.amount,
@@ -662,9 +734,9 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
  * PUT /api/projects/:id
  * Update a project
  */
-router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
+    router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { id } = req.params;
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
         const { title, description, status, startDate, deadline, budget, currency } = req.body;
         const privyId = req.user!.id;
 
@@ -686,21 +758,176 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
         if (budget !== undefined) updateData.budget = budget;
         if (currency !== undefined) updateData.currency = currency;
 
-        const { data: project, error } = await supabase
+        const role = await getWorkspaceRole(req, user.id);
+        const workspaceId = await getEffectiveWorkspaceId(req, user.id);
+
+        // Validate status transitions
+        if (status !== undefined) {
+            const newStatus = status.toUpperCase();
+            const validMemberStatuses = ['REVIEW'];
+            if (role === 'member' && !validMemberStatuses.includes(newStatus)) {
+                res.status(403).json({ success: false, error: { message: 'Members can only mark projects as review' } });
+                return;
+            }
+            if (['COMPLETED', 'CANCELLED'].includes(newStatus) && role !== 'owner') {
+                res.status(403).json({ success: false, error: { message: 'Only the workspace owner can complete or cancel projects' } });
+                return;
+            }
+        }
+
+        // Members can only update status, not other fields
+        if (role === 'member' && (title !== undefined || description !== undefined || startDate !== undefined || deadline !== undefined || budget !== undefined || currency !== undefined)) {
+            res.status(403).json({ success: false, error: { message: 'Members can only update project status' } });
+            return;
+        }
+
+        // Build update query — members find via assignment, owners/admins by ownership
+        let updateQuery = supabase
             .from('projects')
             .update(updateData)
             .eq('id', id)
-            .eq('user_id', user.id)
-            .select()
-            .single();
+            .eq('workspace_id', workspaceId);
+
+        if (role === 'member') {
+            const { data: assignment } = await supabase
+                .from('workspace_project_assignments')
+                .select('project_id')
+                .eq('project_id', id)
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (!assignment) {
+                res.status(403).json({ success: false, error: { message: 'You are not assigned to this project' } });
+                return;
+            }
+        } else {
+            updateQuery = updateQuery.eq('user_id', user.id);
+        }
+
+        const { data: project, error } = await updateQuery.select().single();
 
         if (error || !project) {
+            logger.warn('Project update failed', { id, userId: user.id, role, error: error?.message || 'project not found', updateData });
             res.status(404).json({
                 success: false,
                 error: { message: 'Project not found or update failed' },
             });
             return;
         }
+
+        // Send notifications based on status transition
+        if (status && role) {
+            try {
+                const adminName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'Admin';
+                const newStatus = project.status;
+
+                // Get assignees for this project
+                const { data: assignees } = await supabase
+                    .from('workspace_project_assignments')
+                    .select('user_id, payout_amount')
+                    .eq('project_id', id);
+
+                const assigneeIds = (assignees || []).map((a: any) => a.user_id);
+
+                if (newStatus === 'REVIEW' && role === 'member') {
+                    // Member submitted → notify admins
+                    const memberName = adminName;
+                    const memberPayout = assignees?.find((a: any) => a.user_id === user.id)?.payout_amount;
+
+                    const { data: admins } = await supabase
+                        .from('workspace_members')
+                        .select('user_id')
+                        .eq('workspace_id', workspaceId)
+                        .in('role', ['owner', 'admin']);
+
+                    const adminIds = (admins || []).map((a: any) => a.user_id);
+                    for (const adminId of adminIds) {
+                        await supabase.from('notifications').insert({
+                            user_id: adminId, workspace_id: workspaceId,
+                            title: `${memberName} submitted work for review`,
+                            message: `${memberName} marked "${project.name}" as complete.${memberPayout ? ` Payout: $${Number(memberPayout).toLocaleString()}` : ''}`,
+                            type: 'project', is_read: false,
+                            metadata: { project_id: id, member_name: memberName, status: 'REVIEW' },
+                        });
+                    }
+
+                    const { data: adminUsers } = await supabase
+                        .from('users').select('id, email, first_name, last_name').in('id', adminIds);
+                    for (const admin of (adminUsers || [])) {
+                        if (!admin.email) continue;
+                        await EmailService.sendProjectReviewEmail({
+                            to: admin.email,
+                            adminName: [admin.first_name, admin.last_name].filter(Boolean).join(' ') || 'Admin',
+                            memberName,
+                            projectName: project.name,
+                            projectId: id,
+                        }).catch(() => {});
+                    }
+                } else if (newStatus === 'APPROVED' && (role === 'owner' || role === 'admin')) {
+                    // Admin approved → notify assignees
+                    for (const a of (assignees || [])) {
+                        await supabase.from('notifications').insert({
+                            user_id: a.user_id, workspace_id: workspaceId,
+                            title: `${adminName} approved "${project.name}"`,
+                            message: `Your work on "${project.name}" has been approved.${a.payout_amount ? ` Your payout: $${Number(a.payout_amount).toLocaleString()}` : ''}`,
+                            type: 'project', is_read: false,
+                            metadata: { project_id: id, admin_name: adminName, status: 'APPROVED' },
+                        });
+                    }
+                    // Notify owners too
+                    const { data: owners } = await supabase
+                        .from('workspace_members').select('user_id').eq('workspace_id', workspaceId).eq('role', 'owner');
+                    for (const o of (owners || [])) {
+                        if (assigneeIds.includes(o.user_id)) continue;
+                        await supabase.from('notifications').insert({
+                            user_id: o.user_id, workspace_id: workspaceId,
+                            title: `${adminName} approved "${project.name}"`,
+                            message: `"${project.name}" has been approved by ${adminName}.`,
+                            type: 'project', is_read: false,
+                            metadata: { project_id: id },
+                        });
+                    }
+                } else if (newStatus === 'CHANGES_REQUESTED' && (role === 'owner' || role === 'admin')) {
+                    // Admin requested changes → notify assignees
+                    for (const a of (assignees || [])) {
+                        await supabase.from('notifications').insert({
+                            user_id: a.user_id, workspace_id: workspaceId,
+                            title: `${adminName} requested changes on "${project.name}"`,
+                            message: `${adminName} has requested changes on "${project.name}". Please review and resubmit.`,
+                            type: 'project', is_read: false,
+                            metadata: { project_id: id, admin_name: adminName, status: 'CHANGES_REQUESTED' },
+                        });
+                    }
+                } else if (newStatus === 'COMPLETED' && role === 'owner') {
+                    // Owner completed → notify assignees with payout info
+                    for (const a of (assignees || [])) {
+                        const payoutInfo = a.payout_amount ? ` Your payout: $${Number(a.payout_amount).toLocaleString()}.` : '';
+                        await supabase.from('notifications').insert({
+                            user_id: a.user_id, workspace_id: workspaceId,
+                            title: `"${project.name}" has been completed`,
+                            message: `The project "${project.name}" has been completed by ${adminName}.${payoutInfo}`,
+                            type: 'project', is_read: false,
+                            metadata: { project_id: id, status: 'COMPLETED' },
+                        });
+
+                        // Email assignee
+                        const { data: assigneeUser } = await supabase
+                            .from('users').select('email, first_name').eq('id', a.user_id).single();
+                        if (assigneeUser?.email) {
+                            EmailService.sendProjectCompletedEmail({
+                                to: assigneeUser.email,
+                                memberName: [assigneeUser.first_name].filter(Boolean).join(' ') || 'Team member',
+                                projectName: project.name,
+                                payoutAmount: a.payout_amount ? Number(a.payout_amount) : 0,
+                            }).catch(() => {});
+                        }
+                    }
+                }
+            } catch (notifyError: any) {
+                logger.warn('Notification failed', { error: notifyError.message });
+            }
+        }
+
+        // Keep calendar deadline event in sync when deadline/title/status changes
 
         // Keep calendar deadline event in sync when deadline/title/status changes
         const { data: projectClient } = await supabase
@@ -924,7 +1151,8 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
             .from('projects')
             .delete()
             .eq('id', projectId)
-            .eq('user_id', user.id);
+            .eq('user_id', user.id)
+            .eq('workspace_id', await getEffectiveWorkspaceId(req, user.id));
 
         if (error) {
             throw new Error(`Failed to delete project: ${error.message}`);
@@ -937,6 +1165,162 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
             success: true,
             message: 'Project deleted successfully',
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/projects/:id/assign
+ * Assign a member to a project (owner/admin only)
+ */
+router.post('/:id/assign', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+        const { userId, payoutAmount } = req.body;
+        const privyId = req.user!.id;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        if (!userId) {
+            res.status(400).json({ success: false, error: { message: 'userId is required' } });
+            return;
+        }
+
+        const role = await getWorkspaceRole(req, user.id);
+        if (!isOwnerOrAdmin(role)) {
+            res.status(403).json({ success: false, error: { message: 'Only owners and admins can assign members' } });
+            return;
+        }
+
+        const { data: project, error: projectError } = await supabase
+            .from('projects')
+            .select('id, workspace_id')
+            .eq('id', id)
+            .single();
+
+        if (projectError || !project) {
+            res.status(404).json({ success: false, error: { message: 'Project not found' } });
+            return;
+        }
+
+        const wsId = project.workspace_id || await getEffectiveWorkspaceId(req, user.id);
+
+        const { error } = await supabase
+            .from('workspace_project_assignments')
+            .insert({
+                workspace_id: wsId,
+                project_id: id,
+                user_id: userId,
+                assigned_by: user.id,
+                payout_amount: payoutAmount ? parseFloat(payoutAmount) : null,
+            });
+
+        if (error) {
+            if (error.code === '23505') {
+                res.status(409).json({ success: false, error: { message: 'Member is already assigned to this project' } });
+                return;
+            }
+            throw error;
+        }
+
+        // Notify the assigned member via email
+        try {
+            const { data: assignedUser } = await supabase
+                .from('users')
+                .select('email, first_name, last_name')
+                .eq('id', userId)
+                .single();
+
+            const { data: projectDetails } = await supabase
+                .from('projects')
+                .select('name, budget')
+                .eq('id', id)
+                .single();
+
+            const { data: workspace } = await supabase
+                .from('workspaces')
+                .select('name')
+                .eq('id', wsId)
+                .single();
+
+            if (assignedUser?.email) {
+                const payout = payoutAmount ? parseFloat(payoutAmount) : 0;
+                await EmailService.sendProjectAssignmentEmail({
+                    to: assignedUser.email,
+                    memberName: [assignedUser.first_name, assignedUser.last_name].filter(Boolean).join(' ') || 'Team member',
+                    projectName: projectDetails?.name || 'a project',
+                    workspaceName: workspace?.name || 'a workspace',
+                    payoutAmount: payout,
+                    projectId: id,
+                }).catch((e: any) => logger.warn('Failed to send assignment email', { error: e.message }));
+            }
+        } catch (notifyError: any) {
+            logger.warn('Failed to send assignment notification', { error: notifyError.message });
+        }
+
+        res.json({ success: true, message: 'Member assigned to project' });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * DELETE /api/projects/:id/assign/:userId
+ * Remove a member from a project (owner/admin only)
+ */
+router.delete('/:id/assign/:userId', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+        const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+        const privyId = req.user!.id;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const role = await getWorkspaceRole(req, user.id);
+        if (!isOwnerOrAdmin(role)) {
+            res.status(403).json({ success: false, error: { message: 'Only owners and admins can remove assignments' } });
+            return;
+        }
+
+        const { error } = await supabase
+            .from('workspace_project_assignments')
+            .delete()
+            .eq('project_id', id)
+            .eq('user_id', userId);
+
+        if (error) throw error;
+
+        res.json({ success: true, message: 'Member removed from project' });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * GET /api/projects/:id/assignments
+ * List assigned members on a project
+ */
+router.get('/:id/assignments', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+        const { data, error } = await supabase
+            .from('workspace_project_assignments')
+            .select('user_id, assigned_by, created_at, payout_amount')
+            .eq('project_id', id);
+
+        if (error) throw error;
+
+        res.json({ success: true, data: { assignments: data || [] } });
     } catch (error) {
         next(error);
     }

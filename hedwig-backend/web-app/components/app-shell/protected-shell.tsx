@@ -27,6 +27,7 @@ export async function ProtectedShell({ children }: { children: ReactNode }) {
     id: shellUser?.id ? `ws_personal_${shellUser.id}` : 'ws_personal',
     name: fallbackFullName,
     slug: fallbackFullName.toLowerCase().replace(/\s+/g, '-'),
+    type: 'personal' as const,
     plan: 'beta' as const,
     timezone: 'UTC',
   };

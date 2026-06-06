@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Sparkle } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { isOnPaidPlan } from '@/lib/billing/feature-gates';
 import {
@@ -119,20 +120,20 @@ export function PricingPageClient({
   };
 
   return (
-    <main className="min-h-screen bg-[#fafafa]">
+    <main className="min-h-screen bg-[var(--color-background)]">
       {/* Nav */}
-      <nav className="sticky top-0 z-40 border-b border-[#eef0f3] bg-white/90 backdrop-blur-xl">
+      <nav className="sticky top-0 z-40 border-b border-[var(--color-border-light)] bg-[var(--color-surface)]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/hedwig-logo.png" alt="Hedwig" width={28} height={28} priority />
-            <span className="text-[14px] font-semibold text-[#181d27]">Hedwig</span>
+            <HedwigLogo width={28} height={28} priority />
+            <span className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig</span>
           </Link>
           <div className="flex items-center gap-5">
-            <Link href="/" className="text-[13px] text-[#717680] hover:text-[#181d27] transition-colors">Overview</Link>
-            <span className="text-[13px] font-medium text-[#181d27]">Pricing</span>
+            <Link href="/" className="text-[13px] text-[var(--color-text-tertiary)] hover:text-[var(--color-foreground)] transition-colors">Overview</Link>
+            <span className="text-[13px] font-medium text-[var(--color-foreground)]">Pricing</span>
             <Link
               href={accessToken ? '/dashboard' : '/sign-in'}
-              className="inline-flex h-8 items-center rounded-full border border-[#d5d7da] px-3.5 text-[13px] font-medium text-[#344054] hover:bg-[#f9fafb] transition-colors"
+              className="inline-flex h-8 items-center rounded-full border border-[var(--color-border-input)] px-3.5 text-[13px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] transition-colors"
             >
               {accessToken ? 'Open app' : 'Sign in'}
             </Link>
@@ -141,23 +142,23 @@ export function PricingPageClient({
       </nav>
 
       {/* Hero */}
-      <section className="bg-white border-b border-[#f1f2f4]">
+      <section className="bg-[var(--color-surface)] border-b border-[var(--color-surface-tertiary)]">
         <div className="mx-auto max-w-[1100px] px-6 py-16 text-center">
-          <h1 className="text-[40px] font-bold tracking-[-0.04em] text-[#181d27]">
+          <h1 className="text-[40px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">
             Simple pricing. No surprises.
           </h1>
-          <p className="mt-3 text-[15px] text-[#667085] max-w-[480px] mx-auto leading-relaxed">
+          <p className="mt-3 text-[15px] text-[var(--color-text-muted)] max-w-[480px] mx-auto leading-relaxed">
             Start free. Upgrade to Starter for recurring invoices and full history, or go Pro for AI, automations, and integrations.
           </p>
 
           {/* Toggle */}
           <div className="mt-8 inline-flex items-center gap-3">
-            <div className="inline-flex rounded-full bg-[#f2f4f7] p-0.5">
+            <div className="inline-flex rounded-full bg-[var(--color-surface-tertiary)] p-0.5">
               <button
                 type="button"
                 onClick={() => setInterval('monthly')}
                 className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition-all ${
-                  interval === 'monthly' ? 'bg-white text-[#181d27] shadow-sm' : 'text-[#717680] hover:text-[#414651]'
+                  interval === 'monthly' ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
                 Monthly
@@ -166,14 +167,14 @@ export function PricingPageClient({
                 type="button"
                 onClick={() => setInterval('annual')}
                 className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition-all ${
-                  interval === 'annual' ? 'bg-white text-[#181d27] shadow-sm' : 'text-[#717680] hover:text-[#414651]'
+                  interval === 'annual' ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
                 Annual
               </button>
             </div>
             {interval === 'annual' && (
-              <span className="inline-flex items-center rounded-full bg-[#ecfdf3] px-2.5 py-1 text-[11px] font-semibold text-[#027a48]">
+              <span className="inline-flex items-center rounded-full bg-[var(--color-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-success)]">
                 Save 20%
               </span>
             )}
@@ -186,22 +187,22 @@ export function PricingPageClient({
         <div className="grid gap-4 lg:grid-cols-3">
 
           {/* Free */}
-          <article className="rounded-2xl border border-[#e9eaeb] bg-white p-6">
-            <div className="border-b border-[#f2f4f7] pb-5 mb-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Free</p>
+          <article className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+            <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Free</p>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">$0</span>
-                <span className="text-[13px] text-[#a4a7ae]">/ month</span>
+                <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">$0</span>
+                <span className="text-[13px] text-[var(--color-text-muted)]">/ month</span>
               </div>
-              <p className="mt-1.5 text-[13px] text-[#667085]">Core tools to manage clients, invoices, and payments.</p>
+              <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">Core tools to manage clients, invoices, and payments.</p>
             </div>
             <div className="space-y-3 mb-6">
               {FREE_PLAN_FEATURES.map((item) => (
                 <div key={item} className="flex items-center gap-2.5">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7]">
-                    <Check className="h-2.5 w-2.5 text-[#717680]" weight="bold" />
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
+                    <Check className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" weight="bold" />
                   </span>
-                  <span className="text-[13px] text-[#414651]">{item}</span>
+                  <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
                 </div>
               ))}
             </div>
@@ -213,39 +214,39 @@ export function PricingPageClient({
           </article>
 
           {/* Starter — always shown as highlighted Recommended plan */}
-          <article className="relative rounded-2xl border border-[#2563eb] bg-white p-6 ring-1 ring-[#2563eb]/10">
+          <article className="relative rounded-2xl border border-[var(--color-primary)] bg-[var(--color-surface)] p-6 ring-1 ring-[var(--color-primary)]/10">
             <div className="absolute right-5 top-5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#2563eb] px-2.5 py-1 text-[11px] font-semibold text-white">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary)] px-2.5 py-1 text-[11px] font-semibold text-white">
                 <Sparkle className="h-2.5 w-2.5" weight="fill" />
                 Recommended
               </span>
             </div>
-            <div className="border-b border-[#f2f4f7] pb-5 mb-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Starter</p>
+            <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">Starter</p>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">{priceFor('starter').value}</span>
-                <span className="text-[13px] text-[#a4a7ae]">{priceFor('starter').suffix}</span>
+                <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">{priceFor('starter').value}</span>
+                <span className="text-[13px] text-[var(--color-text-muted)]">{priceFor('starter').suffix}</span>
                 {priceFor('starter').compareAt && (
                   <>
-                    <span className="mx-1 text-[13px] text-[#a4a7ae]">—</span>
-                    <span className="text-[13px] text-[#a4a7ae] line-through">{priceFor('starter').compareAt}</span>
+                    <span className="mx-1 text-[13px] text-[var(--color-text-muted)]">—</span>
+                    <span className="text-[13px] text-[var(--color-text-muted)] line-through">{priceFor('starter').compareAt}</span>
                   </>
                 )}
               </div>
-              <p className="mt-1.5 text-[13px] text-[#667085]">{priceFor('starter').helper} · cancel anytime.</p>
+              <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">{priceFor('starter').helper} · cancel anytime.</p>
               {plan === 'free' && (
-                <p className="mt-1 text-[12px] font-medium text-[#027a48]">7-day free trial included</p>
+                <p className="mt-1 text-[12px] font-medium text-[var(--color-success)]">7-day free trial included</p>
               )}
             </div>
             <div className="space-y-3 mb-6">
               {[...FREE_PLAN_FEATURES, ...STARTER_PLAN_FEATURES].map((item, i) => (
                 <div key={item} className="flex items-center gap-2.5">
-                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${i < FREE_PLAN_FEATURES.length ? 'bg-[#f2f4f7]' : 'bg-[#eff4ff]'}`}>
-                    <Check className={`h-2.5 w-2.5 font-bold ${i < FREE_PLAN_FEATURES.length ? 'text-[#717680]' : 'text-[#2563eb]'}`} weight="bold" />
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${i < FREE_PLAN_FEATURES.length ? 'bg-[var(--color-surface-tertiary)]' : 'bg-[var(--color-accent-soft)]'}`}>
+                    <Check className={`h-2.5 w-2.5 font-bold ${i < FREE_PLAN_FEATURES.length ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-primary)]'}`} weight="bold" />
                   </span>
-                  <span className="text-[13px] text-[#414651]">{item}</span>
+                  <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
                   {i >= FREE_PLAN_FEATURES.length && (
-                    <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[#2563eb]">Starter</span>
+                    <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-primary)]">Starter</span>
                   )}
                 </div>
               ))}
@@ -259,32 +260,32 @@ export function PricingPageClient({
                 {buttonFor('starter')}
               </Button>
               {plan === 'free' && (
-                <p className="text-center text-[11px] text-[#717680]">7 days free · then {priceFor('starter').value}{priceFor('starter').suffix} · cancel anytime</p>
+                <p className="text-center text-[11px] text-[var(--color-text-tertiary)]">7 days free · then {priceFor('starter').value}{priceFor('starter').suffix} · cancel anytime</p>
               )}
             </div>
           </article>
 
           {/* Pro */}
-          <article className={`relative rounded-2xl border bg-white p-6 ring-1 ${
+          <article className={`relative rounded-2xl border bg-[var(--color-surface)] p-6 ring-1 ${
             plan === 'pro'
-              ? 'border-[#7c3aed] ring-[#7c3aed]/10'
-              : 'border-[#e9eaeb] ring-transparent'
+              ? 'border-[var(--color-accent)] ring-[var(--color-accent)]/10'
+              : 'border-[var(--color-border)] ring-transparent'
           }`}>
-            <div className="border-b border-[#f2f4f7] pb-5 mb-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#7c3aed]">Pro</p>
+            <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-accent)]">Pro</p>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">{priceFor('pro').value}</span>
-                <span className="text-[13px] text-[#a4a7ae]">{priceFor('pro').suffix}</span>
+                <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">{priceFor('pro').value}</span>
+                <span className="text-[13px] text-[var(--color-text-muted)]">{priceFor('pro').suffix}</span>
                 {priceFor('pro').compareAt && (
                   <>
-                    <span className="mx-1 text-[13px] text-[#a4a7ae]">—</span>
-                    <span className="text-[13px] text-[#a4a7ae] line-through">{priceFor('pro').compareAt}</span>
+                    <span className="mx-1 text-[13px] text-[var(--color-text-muted)]">—</span>
+                    <span className="text-[13px] text-[var(--color-text-muted)] line-through">{priceFor('pro').compareAt}</span>
                   </>
                 )}
               </div>
-              <p className="mt-1.5 text-[13px] text-[#667085]">{priceFor('pro').helper} · cancel anytime.</p>
+              <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">{priceFor('pro').helper} · cancel anytime.</p>
               {plan === 'free' && (
-                <p className="mt-1 text-[12px] font-medium text-[#027a48]">7-day free trial included</p>
+                <p className="mt-1 text-[12px] font-medium text-[var(--color-success)]">7-day free trial included</p>
               )}
             </div>
             <div className="space-y-3 mb-6">
@@ -295,23 +296,23 @@ export function PricingPageClient({
                 const isStarter = i < freeCount + starterCount;
                 let circleBg: string, checkColor: string;
                 if (isFree) {
-                  circleBg = 'bg-[#f2f4f7]';
-                  checkColor = 'text-[#717680]';
+                  circleBg = 'bg-[var(--color-surface-tertiary)]';
+                  checkColor = 'text-[var(--color-text-tertiary)]';
                 } else if (isStarter) {
-                  circleBg = 'bg-[#eff4ff]';
-                  checkColor = 'text-[#2563eb]';
+                  circleBg = 'bg-[var(--color-accent-soft)]';
+                  checkColor = 'text-[var(--color-primary)]';
                 } else {
-                  circleBg = 'bg-[#f3e8ff]';
-                  checkColor = 'text-[#7c3aed]';
+                  circleBg = 'bg-[var(--color-accent-soft)]';
+                  checkColor = 'text-[var(--color-accent)]';
                 }
                 return (
                   <div key={item} className="flex items-center gap-2.5">
                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${circleBg}`}>
                       <Check className={`h-2.5 w-2.5 font-bold ${checkColor}`} weight="bold" />
                     </span>
-                    <span className="text-[13px] text-[#414651]">{item}</span>
+                    <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
                     {!isFree && !isStarter && (
-                      <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[#7c3aed]">Pro</span>
+                      <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-accent)]">Pro</span>
                     )}
                   </div>
                 );
@@ -326,7 +327,7 @@ export function PricingPageClient({
                 {buttonFor('pro')}
               </Button>
               {plan === 'free' && (
-                <p className="text-center text-[11px] text-[#717680]">7 days free · then {priceFor('pro').value}{priceFor('pro').suffix} · cancel anytime</p>
+                <p className="text-center text-[11px] text-[var(--color-text-tertiary)]">7 days free · then {priceFor('pro').value}{priceFor('pro').suffix} · cancel anytime</p>
               )}
             </div>
           </article>
@@ -339,12 +340,12 @@ export function PricingPageClient({
               <button
                 type="button"
                 onClick={openSubscriptionManagement}
-                className="text-[12px] font-semibold text-[#717680] hover:text-[#414651] transition-colors"
+                className="text-[12px] font-semibold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
               >
                 Manage subscription
               </button>
             ) : (
-              <p className="text-[12px] text-[#717680]">
+              <p className="text-[12px] text-[var(--color-text-tertiary)]">
                 Subscription managed on mobile — open the app to make changes.
               </p>
             )}
@@ -352,29 +353,29 @@ export function PricingPageClient({
         ) : null}
 
         {info || checkoutId ? (
-          <p className="mt-4 text-center text-[12px] text-[#717680]">
+          <p className="mt-4 text-center text-[12px] text-[var(--color-text-tertiary)]">
             {info || 'Checkout completed. Subscription sync is in progress.'}
           </p>
         ) : null}
-        {error ? <p className="mt-4 text-center text-[12px] text-[#b42318]">{error}</p> : null}
+        {error ? <p className="mt-4 text-center text-[12px] text-[var(--color-danger)]">{error}</p> : null}
       </section>
 
       {/* Comparison table */}
       <section className="mx-auto max-w-[1100px] px-6 pb-16">
-        <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
-          <div className="grid grid-cols-[1fr_100px_100px_100px] border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Feature</p>
-            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Free</p>
-            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Starter</p>
-            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#7c3aed]">Pro</p>
+        <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+          <div className="grid grid-cols-[1fr_100px_100px_100px] border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Feature</p>
+            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Free</p>
+            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">Starter</p>
+            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[var(--color-accent)]">Pro</p>
           </div>
-          <div className="divide-y divide-[#f9fafb]">
+          <div className="divide-y divide-[var(--color-surface-secondary)]">
             {PLAN_COMPARISON_ROWS.map((row) => (
               <div key={row.feature} className="grid grid-cols-[1fr_100px_100px_100px] items-center px-5 py-3.5">
-                <p className="text-[13px] text-[#414651]">{row.feature}</p>
-                <p className="text-center text-[12px] font-medium text-[#717680]">{row.free}</p>
-                <p className="text-center text-[12px] font-semibold text-[#2563eb]">{row.starter}</p>
-                <p className="text-center text-[12px] font-semibold text-[#7c3aed]">{row.pro}</p>
+                <p className="text-[13px] text-[var(--color-text-secondary)]">{row.feature}</p>
+                <p className="text-center text-[12px] font-medium text-[var(--color-text-tertiary)]">{row.free}</p>
+                <p className="text-center text-[12px] font-semibold text-[var(--color-primary)]">{row.starter}</p>
+                <p className="text-center text-[12px] font-semibold text-[var(--color-accent)]">{row.pro}</p>
               </div>
             ))}
           </div>

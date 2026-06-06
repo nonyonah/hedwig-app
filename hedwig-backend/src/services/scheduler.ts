@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { supabase } from '../lib/supabase';
-import { GeminiService } from './gemini';
+import { DeepSeekService } from './deepseek';
 import { EmailService } from './email';
 import NotificationService from './notifications';
 import BackendAnalytics from './analytics';
@@ -618,7 +618,7 @@ export const SchedulerService = {
             }
 
             logger.info('Sending dormant user nudges', { count: candidates.length });
-            const creativeCopy = await GeminiService.generateReengagementNudge({
+            const creativeCopy = await DeepSeekService.generateReengagementNudge({
                 kind: 'dormant_3day',
             });
 
@@ -734,7 +734,7 @@ export const SchedulerService = {
                         'control'
                     );
                     if (!copyByVariant[variant]) {
-                        copyByVariant[variant] = await GeminiService.generateReengagementNudge({
+                        copyByVariant[variant] = await DeepSeekService.generateReengagementNudge({
                             kind: 'kyc_24h',
                             variant,
                         });
@@ -858,7 +858,7 @@ export const SchedulerService = {
                     );
 
                     if (!copyByVariant[variant]) {
-                        copyByVariant[variant] = await GeminiService.generateReengagementNudge({
+                        copyByVariant[variant] = await DeepSeekService.generateReengagementNudge({
                             kind: 'feature_highlight',
                             variant,
                         });
@@ -1604,7 +1604,7 @@ export const SchedulerService = {
             for (const { user, clientName } of eligible) {
                 try {
                     const firstName = String(user.first_name || '').trim();
-                    const copy = await GeminiService.generateReengagementNudge({
+                    const copy = await DeepSeekService.generateReengagementNudge({
                         kind: 'client_reactivation',
                         context: { clientName },
                     });
@@ -1710,7 +1710,7 @@ export const SchedulerService = {
 
             logger.info('Sending recurring invoice upsell nudges', { count: eligible.length });
 
-            const copy = await GeminiService.generateReengagementNudge({ kind: 'recurring_setup' });
+            const copy = await DeepSeekService.generateReengagementNudge({ kind: 'recurring_setup' });
 
             await processInBatches(eligible, SCHEDULER_CONCURRENCY, async (user) => {
                 try {
@@ -1803,7 +1803,7 @@ export const SchedulerService = {
 
             logger.info('Sending integration teaser nudges', { count: candidates.length, integration: integration.name });
 
-            const copy = await GeminiService.generateReengagementNudge({
+            const copy = await DeepSeekService.generateReengagementNudge({
                 kind: 'integration_teaser',
                 context: integration.context,
             });
@@ -2322,7 +2322,7 @@ export const SchedulerService = {
             const senderName = `${doc.user?.first_name || 'Hedwig'} ${doc.user?.last_name || ''}`.trim();
 
             // Generate AI Content
-            const aiResponse = await GeminiService.generatePaymentReminder(
+            const aiResponse = await DeepSeekService.generatePaymentReminder(
                 clientName,
                 `${doc.amount} ${doc.currency || 'USDC'}`,
                 daysSinceCreation,

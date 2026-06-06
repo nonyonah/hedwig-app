@@ -1,6 +1,7 @@
 
 import { Resend } from 'resend';
 import { createLogger } from '../utils/logger';
+import { supabase } from '../lib/supabase';
 
 const logger = createLogger('EmailService');
 
@@ -1579,4 +1580,445 @@ export const EmailService = {
             return false;
         }
     },
+
+    async sendWorkspaceInvitationEmail(data: {
+        to: string;
+        workspaceName: string;
+        inviterName: string;
+        role: string;
+        invitationToken: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping workspace invitation email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const inviteUrl = `${APP_URL}/join?token=${encodeURIComponent(data.invitationToken)}`;
+        const roleLabel = data.role === 'admin' ? 'Admin' : 'Member';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapeHtml(data.inviterName)} invited you to ${escapeHtml(data.workspaceName)}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Workspace invitation</p>
+                    <h1 class="heading">${escapeHtml(data.inviterName)} invited you to ${escapeHtml(data.workspaceName)}</h1>
+                    <p class="description">
+                        ${escapeHtml(data.inviterName)} has invited you to join <strong>${escapeHtml(data.workspaceName)}</strong> as a <strong>${escapeHtml(roleLabel)}</strong> on Hedwig.
+                    </p>
+                    <p class="description">
+                        With Hedwig, you can manage clients, send invoices and payment links, track revenue, and get paid in stablecoins — together as a team.
+                    </p>
+                    <div style="text-align:center;margin:28px 0;">
+                        <a href="${inviteUrl}" style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                            Join workspace
+                        </a>
+                    </div>
+                    <p class="description" style="font-size:13px;color:#717680;">
+                        This invitation expires in 7 days. If you were not expecting this, you can safely ignore it.
+                    </p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `${escapeHtml(data.inviterName)} invited you to ${escapeHtml(data.workspaceName)}`,
+                html,
+            });
+            logger.info('Workspace invitation email sent', { to: data.to, workspace: data.workspaceName });
+            return true;
+        } catch (error) {
+            logger.error('Workspace invitation email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+            });
+            return false;
+        }
+    },
+
+    async sendProjectCompletedEmail(data: {
+        to: string;
+        memberName: string;
+        projectName: string;
+        payoutAmount: number;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const payoutStr = data.payoutAmount > 0 ? `Your payout: $${data.payoutAmount.toLocaleString()}` : '';
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `"${escapeHtml(data.projectName)}" has been completed`,
+                html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+                    <h2 style="color:#181d27">Project completed</h2>
+                    <p><strong>${escapeHtml(data.projectName)}</strong> has been completed. ${escapeHtml(payoutStr)}</p>
+                </div>`,
+            });
+        } catch (error) {
+            logger.error('Project completed email failed', { error: (error as Error).message });
+        }
+    },
+
+    async sendPayoutEmail(data: {
+        to: string;
+        memberName: string;
+        amount: number;
+        workspaceName: string;
+        reason?: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const reasonStr = data.reason ? `for ${escapeHtml(data.reason)}` : '';
+        const walletUrl = `${APP_URL}/wallet`;
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `You received $${data.amount.toLocaleString()} USDC from ${escapeHtml(data.workspaceName)}`,
+                html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+                    <h2 style="color:#181d27;margin-bottom:8px">Payout received</h2>
+                    <p style="font-size:28px;font-weight:700;color:#2563eb;margin:8px 0">$${data.amount.toLocaleString()} USDC</p>
+                    <p style="color:#525866">From <strong>${escapeHtml(data.workspaceName)}</strong> ${reasonStr}</p>
+                    <p style="color:#8d9096;font-size:13px">The funds will be sent to your wallet shortly.</p>
+                    <a href="${walletUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px">View wallet</a>
+                </div>`,
+            });
+        } catch (error) {
+            logger.error('Payout email failed', { error: (error as Error).message });
+        }
+    },
+
+    async sendMilestoneCompletedEmail(data: {
+        to: string;
+        memberName: string;
+        milestoneTitle: string;
+        projectName: string;
+        projectId: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const projectUrl = `${APP_URL}/projects/${data.projectId}`;
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `${escapeHtml(data.memberName)} completed "${escapeHtml(data.milestoneTitle)}"`,
+                html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+                    <h2 style="color:#181d27">Milestone completed</h2>
+                    <p><strong>${escapeHtml(data.memberName)}</strong> marked <strong>${escapeHtml(data.milestoneTitle)}</strong> as complete in <strong>${escapeHtml(data.projectName)}</strong>.</p>
+                    <a href="${projectUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">View project</a>
+                </div>`,
+            });
+        } catch (error) {
+            logger.error('Milestone email failed', { error: (error as Error).message });
+        }
+    },
+
+    async sendProjectReviewEmail(data: {
+        to: string;
+        adminName: string;
+        memberName: string;
+        projectName: string;
+        projectId: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const projectUrl = `${APP_URL}/projects/${data.projectId}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${escapeHtml(data.projectName)} ready for review</title>
+        ${EMAIL_FONT_HEAD}<style>${SHARED_STYLES}</style></head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Project review</p>
+                    <h1 class="heading">${escapeHtml(data.projectName)} is ready for review</h1>
+                    <p class="description"><strong>${escapeHtml(data.memberName)}</strong> has marked this project as complete and it is awaiting your approval.</p>
+                    <div style="text-align:center;margin:28px 0;">
+                        <a href="${projectUrl}" style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">Review project</a>
+                    </div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body></html>`;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `${escapeHtml(data.memberName)} submitted ${escapeHtml(data.projectName)} for review`,
+                html,
+            });
+        } catch (error) {
+            logger.error('Project review email failed', { error: (error as Error).message, to: data.to });
+        }
+    },
+
+    async sendProjectReviewNotification(data: {
+        adminIds: string[];
+        projectName: string;
+        memberName: string;
+        projectId: string;
+        workspaceId: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping project review notification.');
+            return;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const projectUrl = `${APP_URL}/projects/${data.projectId}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${escapeHtml(data.projectName)} ready for review</title>
+        ${EMAIL_FONT_HEAD}<style>${SHARED_STYLES}</style></head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Project review</p>
+                    <h1 class="heading">${escapeHtml(data.projectName)} is ready for review</h1>
+                    <p class="description"><strong>${escapeHtml(data.memberName)}</strong> has marked this project as complete and it is awaiting your approval.</p>
+                    <div style="text-align:center;margin:28px 0;">
+                        <a href="${projectUrl}" style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                            Review project
+                        </a>
+                    </div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>`;
+
+        for (const adminId of data.adminIds) {
+            const { data: admin } = await supabase
+                .from('users')
+                .select('email, first_name, last_name')
+                .eq('id', adminId)
+                .single();
+
+            if (!admin?.email) continue;
+
+            try {
+                await resend.emails.send({
+                    from: 'Hedwig <team@hedwigbot.xyz>',
+                    to: [admin.email],
+                    subject: `${escapeHtml(data.memberName)} submitted ${escapeHtml(data.projectName)} for review`,
+                    html,
+                });
+                logger.info('Project review notification sent', { to: admin.email });
+            } catch (error) {
+                logger.error('Project review notification failed', { error: (error as Error).message, to: admin.email });
+            }
+        }
+    },
+
+    async sendProjectApprovalNotification(data: {
+        userId: string;
+        projectName: string;
+        approvedBy: string;
+        projectId: string;
+    }): Promise<void> {
+        await sendProjectOutcomeEmail(data, 'approved', 'has been approved');
+    },
+
+    async sendProjectChangesRequestedNotification(data: {
+        userId: string;
+        projectName: string;
+        adminName: string;
+        projectId: string;
+    }): Promise<void> {
+        await sendProjectOutcomeEmail(
+            { ...data, approvedBy: data.adminName },
+            'changes_requested',
+            'needs changes'
+        );
+    },
+
+    async sendInvitationAcceptedEmail(data: {
+        to: string;
+        inviterName: string;
+        memberName: string;
+        workspaceName: string;
+        role: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const settingsUrl = `${APP_URL}/workspace/settings`;
+        const roleLabel = data.role === 'admin' ? 'Admin' : 'Member';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${escapeHtml(data.memberName)} accepted your invitation</title>
+        ${EMAIL_FONT_HEAD}<style>${SHARED_STYLES}</style></head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Invitation accepted</p>
+                    <h1 class="heading">${escapeHtml(data.memberName)} joined ${escapeHtml(data.workspaceName)}</h1>
+                    <p class="description">
+                        <strong>${escapeHtml(data.memberName)}</strong> has accepted your invitation and joined <strong>${escapeHtml(data.workspaceName)}</strong> as a <strong>${escapeHtml(roleLabel)}</strong>.
+                    </p>
+                    <div style="text-align:center;margin:28px 0;">
+                        <a href="${settingsUrl}" style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                            View workspace members
+                        </a>
+                    </div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body></html>`;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `${escapeHtml(data.memberName)} accepted your invitation`,
+                html,
+            });
+        } catch (error) {
+            logger.error('Invitation accepted email failed', { error: (error as Error).message });
+        }
+    },
+
+    async sendProjectAssignmentEmail(data: {
+        to: string;
+        memberName: string;
+        projectName: string;
+        workspaceName: string;
+        payoutAmount: number;
+        projectId: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const projectUrl = `${APP_URL}/projects/${data.projectId}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>You've been assigned to ${escapeHtml(data.projectName)}</title>
+        ${EMAIL_FONT_HEAD}<style>${SHARED_STYLES}</style></head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Project assignment</p>
+                    <h1 class="heading">You've been assigned to ${escapeHtml(data.projectName)}</h1>
+                    <p class="description">
+                        You've been assigned to <strong>${escapeHtml(data.projectName)}</strong> in <strong>${escapeHtml(data.workspaceName)}</strong>.
+                        ${data.payoutAmount > 0 ? `<br/><strong style="color:#181d27;">Your payout: $${escapeHtml(data.payoutAmount.toLocaleString())}</strong>` : ''}
+                    </p>
+                    <p class="description" style="font-size:13px;color:#717680;">
+                        Open the project to track milestones, log time, and mark work as complete when ready for review.
+                    </p>
+                    <div style="text-align:center;margin:28px 0;">
+                        <a href="${projectUrl}" style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                            View project
+                        </a>
+                    </div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body></html>`;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `You've been assigned to ${escapeHtml(data.projectName)}`,
+                html,
+            });
+        } catch (error) {
+            logger.error('Project assignment email failed', { error: (error as Error).message });
+        }
+    },
+
 };
+// Shared helper for project outcome emails
+async function sendProjectOutcomeEmail(
+    data: { userId: string; projectName: string; approvedBy: string; projectId: string },
+    outcome: string,
+    verb: string
+): Promise<void> {
+    if (!process.env.RESEND_API_KEY) return;
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const projectUrl = `${APP_URL}/projects/${data.projectId}`;
+
+    const outcomeLabel = outcome === 'approved' ? 'Approved' : 'Changes requested';
+    const name = data.approvedBy || 'An admin';
+
+    const html = `
+    <!DOCTYPE html><html>
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(data.projectName)} ${verb}</title>
+    ${EMAIL_FONT_HEAD}<style>${SHARED_STYLES}</style></head>
+    <body style="font-family:${EMAIL_FONT_FAMILY};">
+        <div class="container">
+            <div class="header">${LOGO_HTML}</div>
+            <div class="content">
+                <p class="eyebrow">${outcomeLabel}</p>
+                <h1 class="heading">${escapeHtml(data.projectName)} ${verb}</h1>
+                <p class="description"><strong>${escapeHtml(name)}</strong> has ${outcome === 'approved' ? 'approved' : 'requested changes on'} your work on <strong>${escapeHtml(data.projectName)}</strong>.</p>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="${projectUrl}" style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                        View project
+                    </a>
+                </div>
+            </div>
+            <div class="footer"><p>${FOOTER_NOTE}</p></div>
+        </div>
+    </body></html>`;
+
+    const { data: user } = await supabase
+        .from('users')
+        .select('email, first_name, last_name')
+        .eq('id', data.userId)
+        .single();
+
+    if (!user?.email) return;
+
+    try {
+        await resend.emails.send({
+            from: 'Hedwig <team@hedwigbot.xyz>',
+            to: [user.email],
+            subject: `${escapeHtml(data.projectName)} ${verb}`,
+            html,
+        });
+        logger.info('Project outcome notification sent', { to: user.email, outcome });
+    } catch (error) {
+        logger.error('Project outcome notification failed', { error: (error as Error).message });
+    }
+}
+

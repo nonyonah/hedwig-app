@@ -22,13 +22,13 @@ export function ReviewDecisionModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-[28px] bg-[var(--color-surface)] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-[18px] font-semibold tracking-[-0.02em] text-[#181d27]">{title}</h3>
-            <p className="mt-2 text-[14px] leading-6 text-[#667085]">{description}</p>
+            <h3 className="text-[18px] font-semibold tracking-[-0.02em] text-[var(--color-foreground)]">{title}</h3>
+            <p className="mt-2 text-[14px] leading-6 text-[var(--color-text-muted)]">{description}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-[#98a2b3] hover:bg-[#f2f4f7]">
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-[var(--color-text-placeholder)] hover:bg-[var(--color-surface-tertiary)]">
             <X className="h-4 w-4" />
           </button>
         </div>

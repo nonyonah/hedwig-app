@@ -56,13 +56,13 @@ function CopyableRow({ label, value, mono, big }: { label: string; value: string
 
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
-      <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{label}</span>
       <div className="flex items-center gap-2">
         <span
           className={
             mono
-              ? `font-mono tabular-nums text-[#181d27] ${big ? 'text-[16px] font-bold tracking-[0.04em]' : 'text-[13px]'}`
-              : 'text-right text-[13px] font-semibold text-[#181d27]'
+              ? `font-mono tabular-nums text-[var(--color-foreground)] ${big ? 'text-[16px] font-bold tracking-[0.04em]' : 'text-[13px]'}`
+              : 'text-right text-[13px] font-semibold text-[var(--color-foreground)]'
           }
         >
           {value}
@@ -70,7 +70,7 @@ function CopyableRow({ label, value, mono, big }: { label: string; value: string
         <button
           type="button"
           onClick={handleCopy}
-          className="shrink-0 rounded-md border border-[#e9eaeb] px-2 py-1 text-[10px] font-semibold text-[#414651] transition-colors hover:bg-[#fafafa]"
+          className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-background)]"
         >
           {copied ? 'Copied' : 'Copy'}
         </button>
@@ -84,12 +84,12 @@ function PayoutCard({ bank }: { bank: PublicBankAccountPayout }) {
     <div className="px-4 py-3">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-[16px] leading-none">{COUNTRY_FLAG[bank.country]}</span>
-        <span className="text-[12px] text-[#717680]">
+        <span className="text-[12px] text-[var(--color-text-tertiary)]">
           {COUNTRY_LABEL[bank.country]} · {bank.currency}
         </span>
       </div>
 
-      <div className="divide-y divide-[#f2f4f7]">
+      <div className="divide-y divide-[var(--color-surface-tertiary)]">
         <CopyableRow label="Bank" value={bank.bank_name} />
         <CopyableRow label="Account name" value={bank.account_holder_name} />
         <CopyableRow label="Account no." value={bank.account_number} mono big />
@@ -103,7 +103,7 @@ function PayoutCard({ bank }: { bank: PublicBankAccountPayout }) {
         />
       </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-[#a4a7ae]">
+      <p className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
         After paying, share the transfer reference with {bank.account_holder_name.split(' ')[0]} so they can mark this invoice as paid in Hedwig.
       </p>
     </div>
@@ -138,14 +138,14 @@ export function PublicBankPayout({
   if (!selected) return null;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-[#f2f4f7] px-4 py-3">
+    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--color-surface-tertiary)] px-4 py-3">
         <div className="flex items-center gap-2">
-          <Bank className="h-3.5 w-3.5 text-[#414651]" weight="bold" />
-          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#414651]">Pay by bank transfer</p>
+          <Bank className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" weight="bold" />
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Pay by bank transfer</p>
         </div>
         {selected.is_verified ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf3] px-2 py-0.5 text-[10px] font-semibold text-[#027a48]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
             <ShieldCheck className="h-2.5 w-2.5" weight="bold" />
             Verified
           </span>
@@ -153,12 +153,12 @@ export function PublicBankPayout({
       </div>
 
       {accounts.length > 1 ? (
-        <div className="border-b border-[#f2f4f7] bg-[#fafafa] px-4 py-3">
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+        <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-4 py-3">
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
             Choose currency
           </label>
           <select
-            className="h-9 w-full rounded-md border border-[#e9eaeb] bg-white px-2 text-[13px] text-[#181d27] focus:border-[#2563eb] focus:outline-none"
+            className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
             value={selected.id || `${selected.country}-0`}
             onChange={(e) => setSelectedId(e.target.value)}
           >

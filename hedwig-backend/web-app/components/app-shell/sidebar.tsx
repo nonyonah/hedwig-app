@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getUserback } from '@userback/widget';
 import { Question, SidebarSimple } from '@/components/ui/lucide-icons';
-import { navigationGroups } from '@/lib/utils/navigation';
+import { navigationGroups, type WorkspaceRole } from '@/lib/utils/navigation';
 import { cn } from '@/lib/utils';
 import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 
 export function AppSidebar({
   collapsed,
@@ -24,6 +25,8 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const lockedRouteSet = new Set(lockedRoutes);
+  const { activeWorkspace } = useWorkspaceContext();
+  const role: WorkspaceRole = (activeWorkspace?.role as WorkspaceRole) ?? 'owner';
   const sidebarWidth = collapsed ? 'w-[64px]' : 'w-[220px]';
   const placeholderWidth = collapsed ? 'w-[64px]' : 'w-[220px]';
 
@@ -50,12 +53,12 @@ export function AppSidebar({
 
     return (
     <aside className={cn(
-      'flex h-full flex-col overflow-y-auto border-r border-[#f3f4f6] bg-[#fcfcfd] transition-[width] duration-200 ease-out',
+      'flex h-full flex-col overflow-y-auto border-r border-[var(--color-border-light)] bg-[var(--color-background)] transition-[width] duration-200 ease-out',
       effectiveWidth
     )}>
       {/* Workspace header */}
       <div className={cn(
-        'flex h-12 shrink-0 items-center border-b border-[#f3f4f6]',
+        'flex h-12 shrink-0 items-center border-b border-[var(--color-border-light)]',
         effectiveCollapsed ? 'justify-center px-0' : 'justify-between px-3'
       )}>
         <WorkspaceSwitcher collapsed={effectiveCollapsed} onOpenCreate={() => {
@@ -67,7 +70,7 @@ export function AppSidebar({
             onClick={forceExpanded ? onCloseMobile : onToggle}
             aria-label={forceExpanded ? 'Close sidebar' : 'Collapse sidebar'}
             className={cn(
-              'h-7 w-7 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-[#f5f5f5] hover:text-[#717680]',
+              'h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-placeholder)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]',
               forceExpanded ? 'flex' : 'hidden lg:flex'
             )}
           >
@@ -81,10 +84,10 @@ export function AppSidebar({
         {navigationGroups.map((group, groupIndex) => (
           <div key={`group-${groupIndex}`}>
             {groupIndex > 0 && (
-              <div className={cn('my-1.5 h-px bg-[#f4f5f7]', effectiveCollapsed ? 'mx-1' : 'mx-0')} />
+              <div className={cn('my-1.5 h-px bg-[var(--color-surface-tertiary)]', effectiveCollapsed ? 'mx-1' : 'mx-0')} />
             )}
             <ul className="flex flex-col gap-0.5">
-              {group.items.filter((item) => !lockedRouteSet.has(item.href)).map((item) => {
+              {group.items.filter((item) => !lockedRouteSet.has(item.href) && item.roles.includes(role)).map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 const Icon = item.icon;
                 return (
@@ -98,14 +101,14 @@ export function AppSidebar({
                         'group flex w-full select-none items-center rounded-md transition duration-100 ease-linear',
                         effectiveCollapsed ? 'justify-center p-2' : 'px-2.5 py-1.5',
                         active
-                          ? 'bg-[#f4f5f7] text-[#181d27]'
-                          : 'text-[#8d9096] hover:bg-[#f8f9fb] hover:text-[#414651]'
+                          ? 'bg-[var(--color-surface-tertiary)] text-[var(--color-foreground)]'
+                          : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
                       )}
                     >
                       <Icon
                         className={cn(
                           'h-4 w-4 shrink-0',
-                          active ? 'text-[#414651]' : 'text-[#c1c5cd] group-hover:text-[#8d9096]',
+                          active ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]',
                           !effectiveCollapsed && 'mr-2.5'
                         )}
                         weight={active ? 'bold' : 'regular'}
@@ -113,13 +116,13 @@ export function AppSidebar({
                       {!effectiveCollapsed && (
                         <span className={cn(
                           'flex-1 truncate text-[13px] font-medium',
-                          active ? 'font-semibold text-[#181d27]' : 'text-[#525866] group-hover:text-[#252b37]'
+                          active ? 'font-semibold text-[var(--color-foreground)]' : 'text-[var(--color-text-tertiary)] group-hover:text-[var(--color-foreground)]'
                         )}>
                           {item.title}
                         </span>
                       )}
                       {!effectiveCollapsed && typeof item.count === 'number' && (
-                        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-[#a4a7ae]">
+                        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-[var(--color-text-muted)]">
                           {item.count}
                         </span>
                       )}
@@ -133,7 +136,7 @@ export function AppSidebar({
       </nav>
 
       {/* Footer */}
-      <div className={cn('flex shrink-0 flex-col gap-0.5 border-t border-[#f3f4f6] py-2', effectiveCollapsed ? 'px-2' : 'px-3')}>
+      <div className={cn('flex shrink-0 flex-col gap-0.5 border-t border-[var(--color-border-light)] py-2', effectiveCollapsed ? 'px-2' : 'px-3')}>
         <a
           href="https://help.hedwigbot.xyz"
           target="_blank"
@@ -141,13 +144,13 @@ export function AppSidebar({
           title={effectiveCollapsed ? 'Help Center' : undefined}
           onClick={onNavigate}
           className={cn(
-            'group flex w-full select-none items-center rounded-md text-[#c1c5cd] transition duration-100 ease-linear hover:bg-[#f8f9fb] hover:text-[#717680]',
+            'group flex w-full select-none items-center rounded-md text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]',
             effectiveCollapsed ? 'justify-center p-2' : 'px-2.5 py-1.5'
           )}
         >
           <Question className={cn('h-4 w-4 shrink-0', !effectiveCollapsed && 'mr-2.5')} weight="regular" />
           {!effectiveCollapsed && (
-            <span className="text-[13px] font-medium text-[#8d9096] group-hover:text-[#525866]">
+            <span className="text-[13px] font-medium text-[var(--color-text-tertiary)] group-hover:text-[var(--color-text-tertiary)]">
               Help Center
             </span>
           )}
@@ -157,13 +160,13 @@ export function AppSidebar({
           title="Give feedback"
           onClick={handleFeedbackClick}
           className={cn(
-            'group flex w-full select-none items-center rounded-md text-[#c1c5cd] transition duration-100 ease-linear hover:bg-[#f8f9fb] hover:text-[#717680]',
+            'group flex w-full select-none items-center rounded-md text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]',
             effectiveCollapsed ? 'justify-center p-2' : 'px-2.5 py-1.5'
           )}
         >
           <Question className={cn('h-4 w-4 shrink-0', !effectiveCollapsed && 'mr-2.5')} weight="regular" />
           {!effectiveCollapsed && (
-            <span className="text-[13px] font-medium text-[#8d9096] group-hover:text-[#525866]">
+            <span className="text-[13px] font-medium text-[var(--color-text-tertiary)] group-hover:text-[var(--color-text-tertiary)]">
               Give feedback
             </span>
           )}
@@ -182,7 +185,7 @@ export function AppSidebar({
           <button
             type="button"
             aria-label="Close sidebar"
-            className="absolute inset-0 bg-[#181d27]/30"
+            className="absolute inset-0 bg-[var(--color-foreground)]/30"
             onClick={onCloseMobile}
           />
           <div className="relative h-full shadow-2xl shadow-black/20">

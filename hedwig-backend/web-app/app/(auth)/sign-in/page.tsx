@@ -5,6 +5,7 @@ import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/react-
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import { Input } from '@/components/ui/input';
 import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
@@ -219,19 +220,19 @@ export default function SignInPage() {
 
   /* ── layout shell ── */
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 py-16">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-surface)] px-6 py-16">
       <div className={`w-full ${stage === 'bank' ? 'max-w-[620px]' : 'max-w-[340px]'}`}>
 
         {/* Logo mark */}
-        <div className="mb-8">
-          <Image src="/hedwig-logo.png" alt="Hedwig" width={32} height={32} priority />
+        <div className="mb-5">
+          <HedwigLogo width={32} height={32} priority />
         </div>
 
         {/* ── Landing ── */}
         {stage === 'landing' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Try Hedwig yourself</h1>
-            <p className="mt-2 text-[13px] text-[#717680]">
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Try Hedwig yourself</h1>
+            <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
               Create a professional invoice for your next client. No card required.
             </p>
 
@@ -241,7 +242,7 @@ export default function SignInPage() {
                 variant="outline"
                 size="default"
                 onClick={() => handleOAuth('google')}
-                className="w-full rounded-full bg-[#fafafa] text-[#414651] hover:bg-[#f5f5f5] border-[#e9eaeb] h-10"
+                className="w-full rounded-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
               >
                 <span className="flex w-full items-center">
                   <span className="flex w-11 justify-start pl-3">
@@ -252,7 +253,7 @@ export default function SignInPage() {
                       <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
                     </svg>
                   </span>
-                  <span className="flex-1 text-center text-[14px] font-medium text-[#181d27]">Continue with Google</span>
+                  <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Google</span>
                   <span className="w-11" />
                 </span>
               </Button>
@@ -262,13 +263,13 @@ export default function SignInPage() {
                 variant="outline"
                 size="default"
                 onClick={() => handleOAuth('apple')}
-                className="w-full rounded-full bg-[#fafafa] text-[#414651] hover:bg-[#f5f5f5] border-[#e9eaeb] h-10"
+                className="w-full rounded-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
               >
                 <span className="flex w-full items-center">
                   <span className="flex w-11 justify-start pl-3">
                     <Image src="/icons/apple-logo.svg" alt="Apple" width={18} height={18} className="shrink-0" />
                   </span>
-                  <span className="flex-1 text-center text-[14px] font-medium text-[#181d27]">Continue with Apple</span>
+                  <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Apple</span>
                   <span className="w-11" />
                 </span>
               </Button>
@@ -277,15 +278,15 @@ export default function SignInPage() {
 
             {/* Divider */}
             <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-[#f2f4f7]" />
-              <span className="text-[12px] text-[#c1c5cd]">or</span>
-              <div className="h-px flex-1 bg-[#f2f4f7]" />
+              <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
+              <span className="text-[12px] text-[var(--color-text-placeholder)]">or</span>
+              <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
             </div>
 
             {/* Email */}
             <div className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Email</label>
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email</label>
                 <Input
                   type="email"
                   autoComplete="email"
@@ -298,7 +299,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -308,17 +309,17 @@ export default function SignInPage() {
                 size="default"
                 disabled={isSendingCode || !emailInput.trim()}
                 onClick={handleSendCode}
-                className="w-full rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8] h-10 text-[14px]"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSendingCode ? 'Sending…' : 'Continue'}
               </Button>
             </div>
 
-            <p className="mt-6 text-center text-[12px] text-[#c1c5cd]">
+            <p className="mt-6 text-center text-[12px] text-[var(--color-text-placeholder)]">
               By continuing, you agree to our{' '}
-              <a href="/terms" className="underline hover:text-[#717680]">Terms</a>
+              <a href="/terms" className="underline hover:text-[var(--color-text-tertiary)]">Terms</a>
               {' & '}
-              <a href="/privacy" className="underline hover:text-[#717680]">Privacy</a>.
+              <a href="/privacy" className="underline hover:text-[var(--color-text-tertiary)]">Privacy</a>.
             </p>
           </div>
         )}
@@ -336,15 +337,15 @@ export default function SignInPage() {
               Back
             </Button>
 
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Check your inbox</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Check your inbox</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
               We sent a 6-digit code to{' '}
-              <span className="font-medium text-[#535862]">{emailInput}</span>.
+              <span className="font-medium text-[var(--color-text-secondary)]">{emailInput}</span>.
             </p>
 
             <div className="mt-8 space-y-3">
               <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Verification code</label>
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Verification code</label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -360,7 +361,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -370,7 +371,7 @@ export default function SignInPage() {
                 size="default"
                 disabled={isVerifying || otp.length < 6}
                 onClick={handleVerifyOtp}
-                className="w-full rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8] h-10 text-[14px]"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isVerifying ? 'Verifying…' : 'Continue'}
               </Button>
@@ -395,21 +396,21 @@ export default function SignInPage() {
         {/* ── Loading ── */}
         {stage === 'loading' && (
           <div className="py-12 text-center">
-            <SpinnerGap className="mx-auto h-6 w-6 animate-spin text-[#2563eb]" weight="bold" />
-            <p className="mt-4 text-[14px] text-[#a4a7ae]">{loadingLabel}</p>
+            <SpinnerGap className="mx-auto h-6 w-6 animate-spin text-[var(--color-primary)]" weight="bold" />
+            <p className="mt-4 text-[14px] text-[var(--color-text-muted)]">{loadingLabel}</p>
           </div>
         )}
 
         {/* ── Error ── */}
         {stage === 'error' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Something went wrong</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">{errorMessage || 'Please try again.'}</p>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Something went wrong</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">{errorMessage || 'Please try again.'}</p>
             <Button
               variant="default"
               size="default"
               onClick={() => { setStage('landing'); setErrorMessage(''); }}
-              className="mt-8 w-full rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8] h-10 text-[14px]"
+              className="mt-8 w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
             >
               Try again
             </Button>
@@ -419,13 +420,13 @@ export default function SignInPage() {
         {/* ── Profile ── */}
         {stage === 'profile' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Tell us about yourself</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">This helps Hedwig prepare client-ready documents with your name.</p>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Tell us about yourself</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">This helps Hedwig prepare client-ready documents with your name.</p>
 
             <div className="mt-8 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">First name</label>
+                  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">First name</label>
                   <Input
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
@@ -434,7 +435,7 @@ export default function SignInPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Last name</label>
+                  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Last name</label>
                   <Input
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
@@ -445,16 +446,16 @@ export default function SignInPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-[#414651]">Email</label>
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email</label>
                 <Input
                   value={email}
                   disabled
-                  className="h-10 rounded-xl bg-[#fafafa] text-[#a4a7ae]"
+                  className="h-10 rounded-xl bg-[var(--color-background)] text-[var(--color-text-muted)]"
                 />
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -464,12 +465,12 @@ export default function SignInPage() {
                 size="default"
                 disabled={isSubmitting}
                 onClick={submitProfile}
-                className="w-full rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8] h-10 text-[14px]"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSubmitting ? 'Saving…' : 'Continue'}
               </Button>
 
-              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 3</p>
+              <p className="text-center text-[12px] text-[var(--color-text-placeholder)]">Step 1 of 3</p>
             </div>
           </div>
         )}
@@ -487,14 +488,14 @@ export default function SignInPage() {
               Back
             </Button>
 
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Set a monthly goal</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Set a monthly goal</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
               This helps you track your earnings. You can always change it later.
             </p>
 
             <div className="mt-8 space-y-4">
-              <div className="rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
                   Monthly target (USD)
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-3">
@@ -502,23 +503,23 @@ export default function SignInPage() {
                     variant="default"
                     size="sm"
                     onClick={() => setMonthlyTarget((p) => Math.max(0, p - 500))}
-                    className="h-10 w-10 rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
+                    className="h-10 w-10 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
                   >
                     <svg width="16" height="2" viewBox="0 0 16 2" fill="none">
                       <path d="M1 1h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                   </Button>
                   <div className="min-w-[140px] text-center">
-                    <p className="text-[36px] font-light leading-none tracking-[-0.03em] text-[#181d27]">
+                    <p className="text-[36px] font-light leading-none tracking-[-0.03em] text-[var(--color-foreground)]">
                       {monthlyTarget.toLocaleString('en-US')}
                     </p>
-                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">USD/month</p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">USD/month</p>
                   </div>
                   <Button
                     variant="default"
                     size="sm"
                     onClick={() => setMonthlyTarget((p) => p + 500)}
-                    className="h-10 w-10 rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
+                    className="h-10 w-10 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -545,7 +546,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -555,7 +556,7 @@ export default function SignInPage() {
                 size="default"
                 disabled={isSavingTarget}
                 onClick={handleSaveTarget}
-                className="w-full rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8] h-10 text-[14px]"
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSavingTarget ? 'Saving…' : 'Continue'}
               </Button>
@@ -570,7 +571,7 @@ export default function SignInPage() {
               </Button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 2 of 3</p>
+            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 2 of 3</p>
           </div>
         )}
 
@@ -578,19 +579,19 @@ export default function SignInPage() {
         {stage === 'bank' && (
           <div>
             <div className="mb-6 text-center">
-              <span className="inline-flex rounded-full bg-[#eff4ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">
+              <span className="inline-flex rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">
                 Final step
               </span>
-              <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[#181d27]">
+              <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">
                 Add your payout bank
               </h1>
-              <p className="mt-2 text-[13px] leading-5 text-[#717680]">
+              <p className="mt-2 text-[13px] leading-5 text-[var(--color-text-tertiary)]">
                 This lets clients see exactly where to pay you by bank transfer. You can skip this for now,
                 but adding it now makes your first invoice ready to send.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
               <BankAccountForm
                 accessToken={token}
                 initial={null}
@@ -623,7 +624,7 @@ export default function SignInPage() {
               </Button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 3 of 3</p>
+            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 3 of 3</p>
           </div>
         )}
 

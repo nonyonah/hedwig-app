@@ -9,6 +9,11 @@ const logger = createLogger('NotificationsRoute');
 
 const router = Router();
 
+function getEffectiveWorkspaceId(req: Request, userId: string): string {
+  const wsId = req.headers['x-workspace-id'] as string;
+  return wsId || `ws_personal_${userId}`;
+}
+
 const toObject = (value: unknown): Record<string, any> => {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
         return value as Record<string, any>;
@@ -480,13 +485,15 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             return;
         }
 
-        const internalUserId = userData.id; // This is the email (nonyonah@gmail.com)
+        const internalUserId = userData.id;
+        const effectiveWsId = getEffectiveWorkspaceId(req, internalUserId);
         logger.debug('Fetching notifications');
 
         const { data: notifications, error, count } = await supabase
             .from('notifications')
             .select('*', { count: 'exact' })
             .eq('user_id', internalUserId)
+            .eq('workspace_id', effectiveWsId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -537,10 +544,13 @@ router.get('/unread-count', authenticate, async (req: Request, res: Response) =>
             return;
         }
 
+        const effectiveWsId = getEffectiveWorkspaceId(req, userData.id);
+
         const { count, error } = await supabase
             .from('notifications')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userData.id)
+            .eq('workspace_id', effectiveWsId)
             .eq('is_read', false);
 
         if (error) {

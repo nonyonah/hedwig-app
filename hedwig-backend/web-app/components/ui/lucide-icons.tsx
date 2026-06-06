@@ -136,6 +136,7 @@ export const SignOut = makeIcon('Logout01Icon');
 export const Signature = makeIcon('SignatureIcon');
 export const Sparkle = makeIcon('SparklesIcon');
 export const SpinnerGap = makeIcon('Loading03Icon');
+export const Square = makeIcon('SquareIcon', 'StopIcon');
 export const Sun = makeIcon('Sun03Icon');
 export const Target = makeIcon('Target01Icon');
 export const Trash = makeIcon('Delete02Icon');

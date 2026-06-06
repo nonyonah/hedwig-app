@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { formatShortDate } from '@/lib/utils';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 import type {
@@ -54,9 +55,9 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 };
 
 const ALERT_STYLES = {
-  high: { badge: 'bg-[#fff1f0] text-[#b42318]', dot: 'bg-[#f04438]' },
-  medium: { badge: 'bg-[#fffaeb] text-[#b45309]', dot: 'bg-[#f79009]' },
-  low: { badge: 'bg-[#f2f4f7] text-[#717680]', dot: 'bg-[#a4a7ae]' }
+  high: { badge: 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]', dot: 'bg-[var(--color-danger)]' },
+  medium: { badge: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]', dot: 'bg-[var(--color-warning)]' },
+  low: { badge: 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]', dot: 'bg-[var(--color-text-muted)]' }
 } as const;
 
 function getDefaultCustomRange() {
@@ -264,11 +265,11 @@ function EmptySection({
   actionRoute?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#d5d7da] bg-[#fafafa] px-5 py-8 text-center">
-      <p className="text-[14px] font-semibold text-[#181d27]">{title}</p>
-      <p className="mt-1 text-[13px] text-[#717680]">{description}</p>
+    <div className="rounded-2xl border border-dashed border-[var(--color-border-input)] bg-[var(--color-background)] px-5 py-8 text-center">
+      <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{title}</p>
+      <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">{description}</p>
       {actionLabel && actionRoute ? (
-        <Link href={actionRoute} className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+        <Link href={actionRoute} className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]">
           {actionLabel}
           <ArrowRight className="h-3.5 w-3.5" weight="bold" />
         </Link>
@@ -288,6 +289,12 @@ export function TaxWorkspaceClient({
 }) {
   const { toast } = useToast();
   const { formatAmount } = useCurrency();
+
+  useAssistantPageContext('Tax', {
+    regionCount: initialData.regions.length,
+    incomesCount: initialData.incomes.length,
+    expensesCount: initialData.expenses.length,
+  });
 
   const [period, setPeriod] = useState<TaxPeriodPreset>('quarterly');
   const [regionCode, setRegionCode] = useState(initialData.regions[0]?.code || 'US');
@@ -491,13 +498,13 @@ export function TaxWorkspaceClient({
         <head>
           <title>Hedwig Tax Summary</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 32px; color: #181d27; }
+            body { font-family: Arial, sans-serif; margin: 32px; color: var(--color-foreground); }
             h1, h2 { margin: 0 0 8px; }
             p { color: #535862; }
             .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
-            .card { border: 1px solid #e9eaeb; border-radius: 16px; padding: 16px; }
+            .card { border: 1px solid var(--color-border); border-radius: 16px; padding: 16px; }
             table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-            td, th { padding: 8px 0; border-bottom: 1px solid #f2f4f7; font-size: 13px; }
+            td, th { padding: 8px 0; border-bottom: 1px solid var(--color-surface-tertiary); font-size: 13px; }
           </style>
         </head>
         <body>
@@ -533,8 +540,8 @@ export function TaxWorkspaceClient({
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[#181d27]">Tax</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">
+          <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Tax</h1>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">
             Prepare clean tax records from your Hedwig income and expenses without leaving the workspace.
           </p>
         </div>
@@ -551,16 +558,16 @@ export function TaxWorkspaceClient({
       </div>
 
       {initialError ? (
-        <div className="rounded-2xl border border-[#f5d7b0] bg-[#fffaeb] px-4 py-3">
+        <div className="rounded-2xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white">
-              <Warning className="h-4 w-4 text-[#b45309]" weight="regular" />
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface)]">
+              <Warning className="h-4 w-4 text-[var(--color-warning)]" weight="regular" />
             </div>
             <div>
-              <p className="text-[13px] font-semibold text-[#181d27]">
+              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">
                 {sourceState === 'error' ? 'Live tax data is unavailable' : 'Live tax data is partially available'}
               </p>
-              <p className="mt-1 text-[13px] text-[#717680]">{initialError}</p>
+              <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">{initialError}</p>
             </div>
           </div>
         </div>
@@ -573,65 +580,66 @@ export function TaxWorkspaceClient({
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+        <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[15px] font-semibold text-[#181d27]">Tax period</p>
-              <p className="mt-1 text-[13px] text-[#717680]">Switch between filing views or define a custom reporting range.</p>
+              <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Tax period</p>
+              <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Switch between filing views or define a custom reporting range.</p>
             </div>
-            <span className="rounded-full bg-[#f2f4f7] px-3 py-1 text-[11px] font-semibold text-[#535862]">
+            <span className="rounded-full bg-[var(--color-surface-tertiary)] px-3 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]">
               {pagePeriodLabel}
             </span>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {(Object.keys(PERIOD_LABELS) as TaxPeriodPreset[]).map((option) => (
-              <button
+              <Button
                 key={option}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setPeriod(option)}
-                className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition ${
+                className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold ${
                   period === option
-                    ? 'bg-[#181d27] text-white'
-                    : 'text-[#717680] hover:bg-[#f2f4f7] hover:text-[#344054]'
+                    ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
+                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
                 {PERIOD_LABELS[option]}
-              </button>
+              </Button>
             ))}
           </div>
 
           {period === 'custom' ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
-                <p className="mb-1 text-[12px] font-semibold text-[#414651]">From</p>
+                <p className="mb-1 text-[12px] font-semibold text-[var(--color-text-secondary)]">From</p>
                 <input
                   type="date"
                   value={customRange.from}
                   onChange={(event) => setCustomRange((current) => ({ ...current, from: event.target.value }))}
-                  className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                 />
               </div>
               <div>
-                <p className="mb-1 text-[12px] font-semibold text-[#414651]">To</p>
+                <p className="mb-1 text-[12px] font-semibold text-[var(--color-text-secondary)]">To</p>
                 <input
                   type="date"
                   value={customRange.to}
                   onChange={(event) => setCustomRange((current) => ({ ...current, to: event.target.value }))}
-                  className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                 />
               </div>
             </div>
           ) : null}
         </section>
 
-        <section className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+        <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[15px] font-semibold text-[#181d27]">Region</p>
-              <p className="mt-1 text-[13px] text-[#717680]">Choose the filing region you want to prepare this workspace for.</p>
+              <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Region</p>
+              <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Choose the filing region you want to prepare this workspace for.</p>
             </div>
-            <span className="rounded-full bg-[#fff1f0] px-3 py-1 text-[11px] font-semibold text-[#b42318]">
+            <span className="rounded-full bg-[var(--color-danger-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--color-danger)]">
               This is not tax advice
             </span>
           </div>
@@ -640,7 +648,7 @@ export function TaxWorkspaceClient({
             <select
               value={regionCode}
               onChange={(event) => setRegionCode(event.target.value)}
-              className="rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+              className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
             >
               {initialData.regions.map((region) => (
                 <option key={region.code} value={region.code}>
@@ -649,11 +657,11 @@ export function TaxWorkspaceClient({
               ))}
             </select>
 
-            <div className="rounded-xl bg-[#f9fafb] px-4 py-3">
-              <p className="text-[12px] font-semibold text-[#414651]">
+            <div className="rounded-xl bg-[var(--color-surface-secondary)] px-4 py-3">
+              <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
                 {selectedRegion?.filingLabel || 'Rough estimate'}{selectedRegion?.roughTaxRate ? ` • ${Math.round(selectedRegion.roughTaxRate * 100)}% benchmark` : ''}
               </p>
-              <p className="mt-1 text-[12px] text-[#717680]">{selectedRegion?.disclaimer || 'This is not tax advice.'}</p>
+              <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">{selectedRegion?.disclaimer || 'This is not tax advice.'}</p>
             </div>
           </div>
         </section>
@@ -679,10 +687,10 @@ export function TaxWorkspaceClient({
       ) : (
         <>
           <div className="grid gap-4 xl:grid-cols-2">
-            <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-              <div className="border-b border-[#f5f5f5] px-5 py-4">
-                <h2 className="text-[15px] font-semibold text-[#181d27]">Income summary</h2>
-                <p className="mt-1 text-[13px] text-[#717680]">See what was collected, what is still outstanding, and where taxable income is coming from.</p>
+            <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+              <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
+                <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Income summary</h2>
+                <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">See what was collected, what is still outstanding, and where taxable income is coming from.</p>
               </div>
 
               <AttachedStatGrid
@@ -691,14 +699,14 @@ export function TaxWorkspaceClient({
                   { id: 'income-pending', title: 'Pending income', value: formatAmount(pendingIncome) },
                   { id: 'income-taxable', title: 'Taxable income estimate', value: formatAmount(taxableIncomeEstimate) },
                 ]}
-                className="sm:grid-cols-3 rounded-none bg-[#f2f4f7] ring-0"
+                className="sm:grid-cols-3 rounded-none bg-[var(--color-surface-tertiary)] ring-0"
               />
 
               <div className="grid gap-4 px-5 py-4 lg:grid-cols-2">
                 <div>
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[12px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Income by client</p>
-                    <Link href="/clients" className="text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">View clients</Link>
+                    <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Income by client</p>
+                    <Link href="/clients" className="text-[12px] font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]">View clients</Link>
                   </div>
                   {incomeByClient.length === 0 ? (
                     <EmptySection title="No paid client income yet" description="Paid invoices will appear here once revenue is settled." />
@@ -708,16 +716,16 @@ export function TaxWorkspaceClient({
                         <div key={item.id}>
                           <div className="mb-1 flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-[13px] font-semibold text-[#181d27]">{item.label}</p>
-                              <p className="text-[11px] text-[#a4a7ae]">{item.count} record{item.count === 1 ? '' : 's'}</p>
+                              <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{item.label}</p>
+                              <p className="text-[11px] text-[var(--color-text-muted)]">{item.count} record{item.count === 1 ? '' : 's'}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-[13px] font-semibold text-[#181d27]">{formatAmount(item.amountUsd)}</p>
-                              <p className="text-[11px] text-[#a4a7ae]">{item.shareOfTotal}%</p>
+                              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{formatAmount(item.amountUsd)}</p>
+                              <p className="text-[11px] text-[var(--color-text-muted)]">{item.shareOfTotal}%</p>
                             </div>
                           </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
-                            <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${Math.min(item.shareOfTotal, 100)}%` }} />
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                            <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${Math.min(item.shareOfTotal, 100)}%` }} />
                           </div>
                         </div>
                       ))}
@@ -727,23 +735,23 @@ export function TaxWorkspaceClient({
 
                 <div>
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[12px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Income by project</p>
-                    <Link href="/projects" className="text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">View projects</Link>
+                    <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Income by project</p>
+                    <Link href="/projects" className="text-[12px] font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]">View projects</Link>
                   </div>
                   {incomeByProject.length === 0 ? (
                     <EmptySection title="No project income yet" description="Attach invoices to projects to get a cleaner filing breakdown." />
                   ) : (
                     <div className="space-y-2">
                       {incomeByProject.slice(0, 5).map((item, index) => (
-                        <div key={item.id} className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-[#fafafa]">
-                          <span className="w-4 shrink-0 text-[11px] font-semibold text-[#c1c5cd]">{index + 1}</span>
+                        <div key={item.id} className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-[var(--color-background)]">
+                          <span className="w-4 shrink-0 text-[11px] font-semibold text-[var(--color-text-placeholder)]">{index + 1}</span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-semibold text-[#181d27]">{item.label}</p>
-                            <p className="text-[11px] text-[#a4a7ae]">{item.sublabel || 'Unassigned client'}</p>
+                            <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{item.label}</p>
+                            <p className="text-[11px] text-[var(--color-text-muted)]">{item.sublabel || 'Unassigned client'}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[13px] font-semibold text-[#181d27]">{formatAmount(item.amountUsd)}</p>
-                            <p className="text-[11px] text-[#a4a7ae]">{item.count} invoice{item.count === 1 ? '' : 's'}</p>
+                            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{formatAmount(item.amountUsd)}</p>
+                            <p className="text-[11px] text-[var(--color-text-muted)]">{item.count} invoice{item.count === 1 ? '' : 's'}</p>
                           </div>
                         </div>
                       ))}
@@ -753,27 +761,28 @@ export function TaxWorkspaceClient({
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-              <div className="border-b border-[#f5f5f5] px-5 py-4">
+            <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+              <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-[15px] font-semibold text-[#181d27]">Expense summary</h2>
-                    <p className="mt-1 text-[13px] text-[#717680]">Review recorded business costs, category totals, and what currently looks deductible.</p>
+                    <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Expense summary</h2>
+                    <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Review recorded business costs, category totals, and what currently looks deductible.</p>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {DEDUCTIBLE_FILTERS.map((option) => (
-                      <button
+                      <Button
                         key={option.value}
-                        type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setDeductibleFilter(option.value)}
-                        className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
+                        className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${
                           deductibleFilter === option.value
-                            ? 'bg-[#181d27] text-white'
-                            : 'bg-[#f9fafb] text-[#717680] hover:bg-[#f2f4f7]'
+                            ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
+                            : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)]'
                         }`}
                       >
                         {option.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -785,7 +794,7 @@ export function TaxWorkspaceClient({
                   { id: 'expense-categorized', title: 'Categorized expenses', value: formatAmount(totalExpenses - sum(uncategorizedExpenses.map((expense) => expense.convertedAmountUsd))) },
                   { id: 'expense-uncategorized', title: 'Uncategorized expenses', value: formatAmount(sum(uncategorizedExpenses.map((expense) => expense.convertedAmountUsd))) },
                 ]}
-                className="sm:grid-cols-3 rounded-none bg-[#f2f4f7] ring-0"
+                className="sm:grid-cols-3 rounded-none bg-[var(--color-surface-tertiary)] ring-0"
               />
 
               <div className="px-5 py-4">
@@ -809,16 +818,16 @@ export function TaxWorkspaceClient({
                         <div key={category.category}>
                           <div className="mb-1 flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-[13px] font-semibold text-[#181d27]">{category.label}</p>
-                              <p className="text-[11px] text-[#a4a7ae]">{category.count} record{category.count === 1 ? '' : 's'}</p>
+                              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{category.label}</p>
+                              <p className="text-[11px] text-[var(--color-text-muted)]">{category.count} record{category.count === 1 ? '' : 's'}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-[13px] font-semibold text-[#181d27]">{formatAmount(totalForView)}</p>
-                              <p className="text-[11px] text-[#a4a7ae]">{pct.toFixed(0)}%</p>
+                              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{formatAmount(totalForView)}</p>
+                              <p className="text-[11px] text-[var(--color-text-muted)]">{pct.toFixed(0)}%</p>
                             </div>
                           </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
-                            <div className="h-full rounded-full bg-[#181d27]" style={{ width: `${Math.min(pct, 100)}%` }} />
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                            <div className="h-full rounded-full bg-[var(--color-foreground)]" style={{ width: `${Math.min(pct, 100)}%` }} />
                           </div>
                         </div>
                       );
@@ -829,10 +838,10 @@ export function TaxWorkspaceClient({
             </section>
           </div>
 
-          <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-            <div className="border-b border-[#f5f5f5] px-5 py-4">
-              <h2 className="text-[15px] font-semibold text-[#181d27]">Deduction review</h2>
-              <p className="mt-1 text-[13px] text-[#717680]">Clean up uncategorized expenses before export by attaching the right category, client, project, and deduction status.</p>
+          <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+            <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
+              <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Deduction review</h2>
+              <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Clean up uncategorized expenses before export by attaching the right category, client, project, and deduction status.</p>
             </div>
 
             {uncategorizedExpenses.length === 0 ? (
@@ -843,24 +852,24 @@ export function TaxWorkspaceClient({
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
-                    <tr className="border-b border-[#f2f4f7] bg-[#fafafa]">
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Expense</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Category</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Deductible</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Client</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Project</th>
+                    <tr className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)]">
+                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Expense</th>
+                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Category</th>
+                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Deductible</th>
+                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Client</th>
+                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Project</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#f9fafb]">
+                  <tbody className="divide-y divide-[var(--color-surface-secondary)]">
                     {uncategorizedExpenses.map((expense) => (
                       <tr key={expense.id}>
                         <td className="px-4 py-3 align-top">
-                          <p className="text-[13px] font-semibold text-[#181d27]">{expense.title}</p>
-                          <p className="mt-1 text-[11px] text-[#a4a7ae]">
+                          <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{expense.title}</p>
+                          <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                             {formatShortDate(expense.date)} • {formatAmount(expense.convertedAmountUsd)}
                           </p>
                           {expense.receiptStatus === 'missing' ? (
-                            <span className="mt-2 inline-flex rounded-full bg-[#fff1f0] px-2.5 py-1 text-[11px] font-semibold text-[#b42318]">
+                            <span className="mt-2 inline-flex rounded-full bg-[var(--color-danger-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-danger)]">
                               Receipt missing
                             </span>
                           ) : null}
@@ -869,7 +878,7 @@ export function TaxWorkspaceClient({
                           <select
                             value={expense.category}
                             onChange={(event) => handleExpenseUpdate(expense.id, { category: event.target.value as ExpenseCategory })}
-                            className="w-full min-w-[140px] rounded-xl border border-[#e9eaeb] px-3 py-2 text-[12px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                            className="w-full min-w-[140px] rounded-xl border border-[var(--color-border)] px-3 py-2 text-[12px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                           >
                             {(Object.keys(CATEGORY_LABELS) as ExpenseCategory[]).map((category) => (
                               <option key={category} value={category}>
@@ -884,8 +893,8 @@ export function TaxWorkspaceClient({
                             onClick={() => handleExpenseUpdate(expense.id, { isDeductible: !expense.isDeductible })}
                             className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
                               expense.isDeductible
-                                ? 'bg-[#ecfdf3] text-[#027a48]'
-                                : 'bg-[#f2f4f7] text-[#717680]'
+                                ? 'bg-[var(--color-success-soft)] text-[var(--color-success)]'
+                                : 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]'
                             }`}
                           >
                             {expense.isDeductible ? 'Deductible' : 'Non-deductible'}
@@ -895,7 +904,7 @@ export function TaxWorkspaceClient({
                           <select
                             value={expense.clientId || ''}
                             onChange={(event) => handleExpenseUpdate(expense.id, { clientId: event.target.value || null })}
-                            className="w-full min-w-[160px] rounded-xl border border-[#e9eaeb] px-3 py-2 text-[12px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                            className="w-full min-w-[160px] rounded-xl border border-[var(--color-border)] px-3 py-2 text-[12px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                           >
                             <option value="">No client</option>
                             {initialData.clients.map((client) => (
@@ -909,7 +918,7 @@ export function TaxWorkspaceClient({
                           <select
                             value={expense.projectId || ''}
                             onChange={(event) => handleExpenseUpdate(expense.id, { projectId: event.target.value || null })}
-                            className="w-full min-w-[180px] rounded-xl border border-[#e9eaeb] px-3 py-2 text-[12px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                            className="w-full min-w-[180px] rounded-xl border border-[var(--color-border)] px-3 py-2 text-[12px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                           >
                             <option value="">No project</option>
                             {initialData.projects.map((project) => (
@@ -928,13 +937,13 @@ export function TaxWorkspaceClient({
           </section>
 
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <section className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+            <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-[15px] font-semibold text-[#181d27]">Tax estimate</h2>
-                  <p className="mt-1 text-[13px] text-[#717680]">A rough filing snapshot based on paid income and the expenses currently marked deductible.</p>
+                  <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Tax estimate</h2>
+                  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">A rough filing snapshot based on paid income and the expenses currently marked deductible.</p>
                 </div>
-                <span className="rounded-full bg-[#fff1f0] px-3 py-1 text-[11px] font-semibold text-[#b42318]">
+                <span className="rounded-full bg-[var(--color-danger-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--color-danger)]">
                   This is not tax advice
                 </span>
               </div>
@@ -948,19 +957,19 @@ export function TaxWorkspaceClient({
                 className="mt-5 sm:grid-cols-3"
               />
 
-              <div className="mt-4 rounded-2xl bg-[#f9fafb] px-4 py-3">
-                <p className="text-[12px] font-semibold text-[#414651]">
+              <div className="mt-4 rounded-2xl bg-[var(--color-surface-secondary)] px-4 py-3">
+                <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
                   {selectedRegion?.label || 'Selected region'} estimate
                 </p>
-                <p className="mt-1 text-[12px] text-[#717680]">
+                <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
                   Hedwig uses paid revenue and your current deductible toggle to build a rough estimate for planning. Review this with a qualified tax professional before filing.
                 </p>
               </div>
             </section>
 
-            <section className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
-              <h2 className="text-[15px] font-semibold text-[#181d27]">Tax alerts</h2>
-              <p className="mt-1 text-[13px] text-[#717680]">Hedwig highlights issues that could slow down filing or make the summary less reliable.</p>
+            <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+              <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Tax alerts</h2>
+              <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Hedwig highlights issues that could slow down filing or make the summary less reliable.</p>
 
               {alerts.length === 0 ? (
                 <div className="mt-4">
@@ -969,13 +978,13 @@ export function TaxWorkspaceClient({
               ) : (
                 <div className="mt-4 space-y-3">
                   {alerts.map((alert) => (
-                    <div key={alert.id} className="rounded-2xl border border-[#f2f4f7] bg-[#fafafa] px-4 py-3">
+                    <div key={alert.id} className="rounded-2xl border border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
                           <span className={`mt-1 h-2.5 w-2.5 rounded-full ${ALERT_STYLES[alert.severity].dot}`} />
                           <div>
-                            <p className="text-[13px] font-semibold text-[#181d27]">{alert.title}</p>
-                            <p className="mt-1 text-[12px] text-[#717680]">{alert.description}</p>
+                            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{alert.title}</p>
+                            <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">{alert.description}</p>
                           </div>
                         </div>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${ALERT_STYLES[alert.severity].badge}`}>
@@ -989,11 +998,11 @@ export function TaxWorkspaceClient({
             </section>
           </div>
 
-          <section className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+          <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#181d27]">Export</h2>
-                <p className="mt-1 text-[13px] text-[#717680]">Download records for your accountant or open a printable filing summary from this exact period and region view.</p>
+                <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Export</h2>
+                <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Download records for your accountant or open a printable filing summary from this exact period and region view.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={exportCsv}>

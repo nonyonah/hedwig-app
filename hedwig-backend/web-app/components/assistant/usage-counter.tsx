@@ -47,21 +47,21 @@ export function UsageCounter() {
 
   return (
     <div className="group relative">
-      <div className="flex items-center gap-2 rounded-md bg-[#f8f9fb] px-2.5 py-1.5">
-        <span className="text-[11px] font-medium text-[#717680]">
+      <div className="flex items-center gap-2 rounded-md bg-[var(--color-surface-secondary)] px-2.5 py-1.5">
+        <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">
           {aiPrompts.current}/{aiPrompts.limit}
         </span>
-        <div className="h-1.5 w-12 overflow-hidden rounded-full bg-[#e9eaeb]">
+        <div className="h-1.5 w-12 overflow-hidden rounded-full bg-[var(--color-border)]">
           <div
             className={cn(
               'h-full rounded-full transition-all duration-300',
-              isLow ? 'bg-[#dc2626]' : 'bg-[#2563eb]',
+              isLow ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-accent)]',
             )}
             style={{ width: `${pct}%` }}
           />
         </div>
       </div>
-      <div className="absolute -top-1 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-[#181d27] px-3 py-1.5 text-[11px] text-white shadow-lg group-hover:block">
+      <div className="absolute -top-1 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-[var(--color-text-primary)] px-3 py-1.5 text-[11px] text-white shadow-lg group-hover:block">
         {aiPrompts.remaining} AI prompts remaining this month
       </div>
     </div>

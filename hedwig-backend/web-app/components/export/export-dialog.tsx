@@ -99,7 +99,7 @@ export function ExportDialog({
         <DialogBody className="space-y-5">
           {/* Type selector */}
           <div>
-            <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">
+            <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
               Data type
             </label>
             <div className="space-y-2">
@@ -110,18 +110,18 @@ export function ExportDialog({
                   onClick={() => setExportType(t.value)}
                   className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
                     exportType === t.value
-                      ? 'border-[#2563eb] bg-[#eff4ff]'
-                      : 'border-[#e9eaeb] bg-white hover:bg-[#fafafa]'
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]'
+                      : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-background)]'
                   }`}
                 >
                   <div className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-all ${
-                    exportType === t.value ? 'border-[#2563eb] bg-[#2563eb]' : 'border-[#d0d5dd]'
+                    exportType === t.value ? 'border-[var(--color-accent)] bg-[var(--color-accent)]' : 'border-[var(--color-border-input)]'
                   }`} />
                   <div>
-                    <p className={`text-[13px] font-semibold ${exportType === t.value ? 'text-[#2563eb]' : 'text-[#181d27]'}`}>
+                    <p className={`text-[13px] font-semibold ${exportType === t.value ? 'text-[var(--color-accent)]' : 'text-[var(--color-foreground)]'}`}>
                       {t.label}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{t.description}</p>
+                    <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{t.description}</p>
                   </div>
                 </button>
               ))}
@@ -130,29 +130,29 @@ export function ExportDialog({
 
           {/* Date range */}
           <div>
-            <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">
+            <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
               Date range
             </label>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="mb-1 text-[11px] text-[#717680]">From</p>
+                <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">From</p>
                 <input
                   type="date"
                   value={dateFrom}
                   max={dateTo}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                 />
               </div>
               <div>
-                <p className="mb-1 text-[11px] text-[#717680]">To</p>
+                <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">To</p>
                 <input
                   type="date"
                   value={dateTo}
                   min={dateFrom}
                   max={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                 />
               </div>
             </div>
@@ -161,17 +161,17 @@ export function ExportDialog({
           {/* Optional filters — shown for invoices only */}
           {exportType === 'invoices' && (
             <div>
-              <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">
-                Filters <span className="normal-case font-normal text-[#c1c5cd]">(optional)</span>
+              <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                Filters <span className="normal-case font-normal text-[var(--color-text-placeholder)]">(optional)</span>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 {clients.length > 0 && (
                   <div>
-                    <p className="mb-1 text-[11px] text-[#717680]">Client</p>
+                    <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">Client</p>
                     <select
                       value={clientId}
                       onChange={(e) => setClientId(e.target.value)}
-                      className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                      className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                     >
                       <option value="">All clients</option>
                       {clients.map((c) => (
@@ -181,11 +181,11 @@ export function ExportDialog({
                   </div>
                 )}
                 <div>
-                  <p className="mb-1 text-[11px] text-[#717680]">Status</p>
+                  <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">Status</p>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]"
+                    className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                   >
                     {STATUS_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -197,11 +197,11 @@ export function ExportDialog({
           )}
 
           {/* File info */}
-          <div className="rounded-xl bg-[#f9fafb] px-4 py-3">
-            <p className="text-[11px] text-[#717680]">
-              Output: <span className="font-semibold text-[#181d27]">hedwig-{exportType}-{dateFrom}-to-{dateTo}.csv</span>
+          <div className="rounded-xl bg-[var(--color-background)] px-4 py-3">
+            <p className="text-[11px] text-[var(--color-text-tertiary)]">
+              Output: <span className="font-semibold text-[var(--color-foreground)]">hedwig-{exportType}-{dateFrom}-to-{dateTo}.csv</span>
             </p>
-            <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
+            <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
               ISO dates · numeric amounts · accountant-ready headers
             </p>
           </div>

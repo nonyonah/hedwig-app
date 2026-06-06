@@ -25,6 +25,7 @@ export const workspace: Workspace = {
   id: 'ws_hedwig',
   name: 'Hedwig Studio',
   slug: 'hedwig-studio',
+  type: 'organization',
   plan: 'beta',
   timezone: 'Africa/Lagos'
 };
@@ -90,6 +91,7 @@ export const projects: Project[] = [
     name: 'Creator payout dashboard',
     status: 'active',
     budgetUsd: 12000,
+    memberPayout: null,
     progress: 72,
     nextDeadlineAt: '2026-03-18T09:00:00.000Z',
     ownerName: 'Chinonso Onah'
@@ -101,6 +103,7 @@ export const projects: Project[] = [
     name: 'Treasury reporting portal',
     status: 'paused',
     budgetUsd: 6800,
+    memberPayout: null,
     progress: 43,
     nextDeadlineAt: '2026-03-22T09:00:00.000Z',
     ownerName: 'Chinonso Onah'
@@ -112,6 +115,7 @@ export const projects: Project[] = [
     name: 'Stablecoin billing revamp',
     status: 'active',
     budgetUsd: 14500,
+    memberPayout: null,
     progress: 88,
     nextDeadlineAt: '2026-03-15T13:00:00.000Z',
     ownerName: 'Chinonso Onah'

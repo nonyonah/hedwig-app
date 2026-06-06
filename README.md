@@ -48,7 +48,7 @@
 | Backend API | Express (Node.js), TypeScript |
 | Database | Supabase (PostgreSQL) |
 | Auth | Privy (embedded wallets + social login) |
-| AI | Google Gemini (assistant, summarization, nudges) |
+| AI | DeepSeek (assistant, summarization, nudges) |
 | File storage | Cloudflare R2 (documents, email attachments) |
 | Payments | Polar (web subscriptions), RevenueCat (mobile subscriptions) |
 | Notifications | OneSignal (push), Resend (email) |
@@ -130,7 +130,7 @@ npm run dev          # starts on port 3001
 |---|---|
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Database access |
 | `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | Auth token verification |
-| `GEMINI_API_KEY` | AI assistant + email summarization |
+| `DEEPSEEK_API_KEY` | AI assistant + email summarization |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Gmail + Google Calendar OAuth |
 | `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | Slack workspace OAuth |
 | `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Cloudflare R2 file storage |

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import { redirect } from 'next/navigation';
 import { hedwigApi } from '@/lib/api/client';
 import { getCurrentSession } from '@/lib/auth/session';
@@ -14,14 +14,14 @@ export default async function OnboardingBankAccountPage() {
   const existing = await hedwigApi.listBankAccounts({ accessToken: session.accessToken }).catch(() => [] as Awaited<ReturnType<typeof hedwigApi.listBankAccounts>>);
 
   return (
-    <main className="min-h-screen bg-[#f7f8fa]">
-      <header className="border-b border-[#e9eaeb] bg-white">
+    <main className="min-h-screen bg-[var(--color-surface-secondary)]">
+      <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <Image src="/hedwig-logo.png" alt="Hedwig" width={28} height={28} priority />
-            <span className="text-[14px] font-semibold text-[#181d27]">Hedwig</span>
+            <HedwigLogo width={28} height={28} priority />
+            <span className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig</span>
           </Link>
-          <Link href="/dashboard" className="text-[12px] text-[#717680] hover:text-[#414651]">
+          <Link href="/dashboard" className="text-[12px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
             Skip for now
           </Link>
         </div>
@@ -29,19 +29,19 @@ export default async function OnboardingBankAccountPage() {
 
       <div className="mx-auto max-w-2xl px-6 py-10">
         <div className="mb-6 text-center">
-          <span className="inline-flex rounded-full bg-[#eff4ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">
+          <span className="inline-flex rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">
             One last step
           </span>
-          <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[#181d27]">
+          <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">
             Add your payout bank
           </h1>
-          <p className="mt-2 text-[13px] text-[#717680]">
+          <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
             Clients see this on every invoice and payment link, so they can pay you by bank transfer in addition to crypto.
             You can change this later in Settings.
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white p-6 shadow-xs ring-1 ring-[#e9eaeb]">
+        <div className="rounded-2xl bg-[var(--color-surface)] p-6 shadow-xs ring-1 ring-[var(--color-border)]">
           <OnboardingBankAccountClient
             accessToken={session.accessToken}
             initial={existing}

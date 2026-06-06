@@ -30,7 +30,7 @@ export function ListCard({
             <div
               className={cn(
                 'flex items-start justify-between gap-4 rounded-lg px-2 py-2',
-                highlightedId === item.id ? 'bg-[#f8fafc]' : ''
+                highlightedId === item.id ? 'bg-[var(--color-background)]' : ''
               )}
             >
               <div className="min-w-0">
@@ -41,7 +41,7 @@ export function ListCard({
                 {item.meta ? <p className="text-sm font-medium text-muted-foreground">{item.meta}</p> : null}
                 {item.href ? (
                   <Link className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary" href={item.href}>
-                    Open <ArrowRight className="h-4 w-4 text-[#72706b]" weight="bold" />
+                    Open <ArrowRight className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="bold" />
                   </Link>
                 ) : null}
               </div>

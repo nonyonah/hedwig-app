@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { getOrCreateUser } from '../utils/userHelper';
 import { WorkspaceService } from '../services/workspace';
+import { getWorkspaceRole } from '../middleware/workspaceRole';
 
 const router = Router();
 
@@ -70,6 +71,57 @@ router.get('/current', authenticate, async (req: Request, res: Response, next) =
     const workspace = active ? await WorkspaceService.getWorkspace(active.id, user.id) : null;
 
     res.json({ success: true, data: { workspace } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/workspaces/my-invitations
+ * Returns pending invitations for the authenticated user (matched by email)
+ */
+router.get('/my-invitations', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user || !user.email) {
+      res.json({ success: true, data: { invitations: [] } });
+      return;
+    }
+
+    const invitations = await WorkspaceService.getPendingInvitationsByEmail(user.email);
+
+    res.json({
+      success: true,
+      data: {
+        invitations: invitations.map((inv: any) => ({
+          id: inv.id,
+          workspaceId: inv.workspace_id,
+          workspaceName: inv.workspace?.name,
+          role: inv.role,
+          token: inv.token,
+          expiresAt: inv.expires_at,
+        })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/workspaces/my-earnings
+ * Returns earnings summary for the authenticated member
+ */
+router.get('/my-earnings', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const earnings = await WorkspaceService.getMemberEarnings(user.id);
+
+    res.json({ success: true, data: earnings });
   } catch (error) {
     next(error);
   }
@@ -364,6 +416,107 @@ router.post('/invitations/:token/accept', authenticate, async (req: Request, res
       return;
     }
     next(error);
+  }
+});
+
+/**
+ * GET /api/workspaces/:id/treasury
+ * Get workspace treasury balance
+ */
+router.get('/:id/treasury', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const id = getParam(req, 'id');
+    const { TreasuryService } = await import('../services/treasury');
+    const balance = await TreasuryService.getBalance(id);
+    res.json({ success: true, data: balance });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/workspaces/:id/treasury/payout
+ * Initiate a payout from treasury to members (owner/admin only)
+ */
+router.post('/:id/treasury/payout', authenticate, async (req: Request, res: Response, _next) => {
+  try {
+    const id = getParam(req, 'id');
+    const { items } = req.body;
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const role = await getWorkspaceRole(req, user.id);
+    if (role !== 'owner' && role !== 'admin') {
+      res.status(403).json({ success: false, error: { message: 'Only owners and admins can initiate payouts' } });
+      return;
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ success: false, error: { message: 'At least one payout item is required' } });
+      return;
+    }
+
+    const { TreasuryService } = await import('../services/treasury');
+    const payout = await TreasuryService.initiatePayout(id, user.id, items);
+
+    res.json({ success: true, data: { payout } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: { message: error.message || 'Payout failed' } });
+  }
+});
+
+/**
+ * GET /api/workspaces/:id/treasury/payouts
+ * Get payout history for workspace
+ */
+router.get('/:id/treasury/payouts', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const id = getParam(req, 'id');
+    const { TreasuryService } = await import('../services/treasury');
+    const payouts = await TreasuryService.getPayouts(id);
+    res.json({ success: true, data: { payouts } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/workspaces/:id/treasury/payouts/:payoutId/items/:itemId
+ * Update a payout item with on-chain tx hash and status
+ */
+router.patch('/:id/treasury/payouts/:payoutId/items/:itemId', authenticate, async (req: Request, res: Response, _next) => {
+  try {
+    void getParam(req, 'id'); // workspace id — validated by route middleware
+    const payoutId = getParam(req, 'payoutId');
+    const itemId = getParam(req, 'itemId');
+    const { status, tx_hash } = req.body;
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const role = await getWorkspaceRole(req, user.id);
+    if (role !== 'owner' && role !== 'admin') {
+      res.status(403).json({ success: false, error: { message: 'Only owners and admins can update payouts' } });
+      return;
+    }
+
+    const { TreasuryService } = await import('../services/treasury');
+    const updatedItem = await TreasuryService.updatePayoutItem(payoutId, itemId, { status, tx_hash });
+
+    // If all items are now completed or failed, update the parent payout status
+    const payout = await TreasuryService.getPayout(payoutId);
+    if (payout && payout.items) {
+      const allDone = payout.items.every((item: any) => item.status === 'completed' || item.status === 'failed');
+      const anyFailed = payout.items.some((item: any) => item.status === 'failed');
+      if (allDone) {
+        await TreasuryService.updatePayoutStatus(payoutId, anyFailed ? 'partial' : 'completed');
+      }
+    }
+
+    res.json({ success: true, data: { item: updatedItem } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: { message: error.message || 'Update failed' } });
   }
 });
 
