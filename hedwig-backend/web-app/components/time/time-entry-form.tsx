@@ -169,8 +169,8 @@ export function TimeEntryForm({
           </div>
 
           <div className="flex gap-3 border-t border-[var(--color-border)] px-5 py-4">
-            <Button variant="ghost" size="md" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button variant="default" size="md" onClick={handleSave} disabled={saving} className="flex-1">
+            <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="default" onClick={handleSave} disabled={saving} className="flex-1">
               {saving ? 'Saving…' : isEditing ? 'Update' : 'Save entry'}
             </Button>
           </div>

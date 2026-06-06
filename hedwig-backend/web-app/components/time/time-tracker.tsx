@@ -45,7 +45,7 @@ export function TimeTracker({
                 </p>
               </div>
             </div>
-            <Button variant="destructive" size="md" onClick={onStop}>
+            <Button variant="destructive" onClick={onStop}>
               <Square className="h-4 w-4" weight="bold" /> Stop
             </Button>
           </div>
@@ -64,7 +64,7 @@ export function TimeTracker({
                   className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
                 />
               </div>
-              <Button variant="default" size="md" onClick={() => onStart(projectId || undefined, description || undefined)}>
+              <Button variant="default" onClick={() => onStart(projectId || undefined, description || undefined)}>
                 <Play className="h-4 w-4" weight="bold" /> Start
               </Button>
             </div>
