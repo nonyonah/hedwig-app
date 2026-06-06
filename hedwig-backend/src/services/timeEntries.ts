@@ -1,7 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { createLogger } from '../utils/logger';
-
-const logger = createLogger('TimeEntries');
 
 export interface CreateTimeEntryInput {
   projectId?: string;
@@ -197,18 +194,18 @@ export const TimeEntriesService = {
       .eq('workspace_id', workspaceId)
       .gte('start_time', monthStr);
 
-    const rows = entries || [];
+    const rows = (entries || []) as any[];
 
     const secs = (since: string) =>
       rows
-        .filter(r => r.start_time >= since)
-        .reduce((s, r) => s + (r.duration_seconds || 0), 0);
+        .filter((r: any) => r.start_time >= since)
+        .reduce((s: number, r: any) => s + (r.duration_seconds || 0), 0);
 
     const hoursToday = secs(todayStr) / 3600;
     const hoursThisWeek = secs(weekStr) / 3600;
     const hoursThisMonth = secs(monthStr) / 3600;
 
-    const billableAmount = rows.reduce((s, r) => {
+    const billableAmount = rows.reduce((s: number, r: any) => {
       if (r.duration_seconds && r.hourly_rate) {
         return s + (r.duration_seconds / 3600) * Number(r.hourly_rate);
       }
@@ -219,15 +216,15 @@ export const TimeEntriesService = {
     const projectMap = new Map<string, { id: string; name: string; hours: number }>();
 
     for (const r of rows) {
-      const hrs = (r.duration_seconds || 0) / 3600;
+      const hrs: number = (r.duration_seconds || 0) / 3600;
       if (r.project?.client) {
-        const c = r.project.client as any;
+        const c: any = r.project.client;
         const existing = clientMap.get(c.id);
         if (existing) existing.hours += hrs;
         else clientMap.set(c.id, { id: c.id, name: c.name, hours: hrs });
       }
       if (r.project) {
-        const p = r.project as any;
+        const p: any = r.project;
         const existing = projectMap.get(p.id);
         if (existing) existing.hours += hrs;
         else projectMap.set(p.id, { id: p.id, name: p.name, hours: hrs });

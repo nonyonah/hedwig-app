@@ -609,8 +609,8 @@ export function getHedwigNativeTools(): AgentToolDefinition[] {
 
         if (action === 'query') {
           const entries = await TimeEntriesService.list(context.userId, workspaceId, {
-            from: args.dateFrom,
-            to: args.dateTo,
+            from: args.dateFrom as string | undefined,
+            to: args.dateTo as string | undefined,
           });
           const total = entries.reduce((s, e) => s + (e.durationSeconds || 0), 0) / 3600;
           const billable = entries.reduce((s, e) => s + (e.billableAmount || 0), 0);
