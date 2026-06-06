@@ -18,7 +18,7 @@ export function TimeTracker({
   onStart,
   onStop,
 }: {
-  activeEntry: { project?: { name: string; client?: { name: string } }; description?: string } | null;
+  activeEntry: { project?: { name: string; client?: { name: string } }; description?: string | null } | null;
   elapsed: number;
   onStart: (projectId?: string, description?: string) => void;
   onStop: () => void;
