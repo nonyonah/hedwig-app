@@ -23,7 +23,7 @@ import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { useAssistantSidebar } from '@/components/providers/assistant-sidebar-provider';
 
 type AppTopbarProps = {
-  collapsed: boolean;
+  sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onOpenMobileSidebar: () => void;
   unreadCount: number;
@@ -35,7 +35,7 @@ type AppTopbarProps = {
   };
 };
 
-export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
+export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const createRef = useRef<HTMLDivElement | null>(null);
   const { activeWorkspace } = useWorkspaceContext();
@@ -83,16 +83,14 @@ export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unr
         >
           <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
         </button>
-        {collapsed && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            aria-label="Expand sidebar"
-            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-placeholder)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)] lg:flex"
-          >
-            <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-placeholder)] transition hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)] lg:flex"
+        >
+          <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
+        </button>
         <TopbarTitle />
       </div>
 

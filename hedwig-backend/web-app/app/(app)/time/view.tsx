@@ -46,7 +46,7 @@ export function TimeView({
   initialSummary: TimeSummary;
 }) {
   const { activeWorkspace } = useWorkspaceContext();
-  const toast = useToast();
+  const { toast } = useToast();
   const isPersonal = activeWorkspace?.type === 'personal';
 
   const [entries, setEntries] = useState<TimeEntry[]>(initialEntries);

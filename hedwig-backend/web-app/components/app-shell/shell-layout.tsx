@@ -15,7 +15,7 @@ import { CreateWorkspaceDialog } from '@/components/workspace/create-workspace-d
 import { InviteMemberDialog } from '@/components/workspace/invite-member-dialog';
 import type { Workspace } from '@/lib/models/entities';
 
-const STORAGE_KEY = 'hedwig-web-sidebar-collapsed';
+const STORAGE_KEY = 'hedwig-web-sidebar-open';
 
 type ShellLayoutProps = {
   children: ReactNode;
@@ -32,16 +32,16 @@ type ShellLayoutProps = {
 };
 
 export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, lockedRoutes = [], fallbackWorkspace }: ShellLayoutProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    setCollapsed(stored === 'true');
+    setSidebarOpen(stored !== 'false');
   }, []);
 
   const toggleSidebar = () => {
-    setCollapsed((current) => {
+    setSidebarOpen((current) => {
       const next = !current;
       window.localStorage.setItem(STORAGE_KEY, String(next));
       return next;
@@ -70,15 +70,15 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
           >
             <div className="flex min-h-screen">
               <AppSidebar
-                collapsed={collapsed}
+                open={sidebarOpen}
                 onToggle={toggleSidebar}
                 lockedRoutes={lockedRoutes}
                 mobileOpen={mobileSidebarOpen}
                 onCloseMobile={() => setMobileSidebarOpen(false)}
               />
-              <div className="flex min-w-0 flex-1 flex-col transition-[padding,width] duration-200 ease-out">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <AppTopbar
-                  collapsed={collapsed}
+                  sidebarOpen={sidebarOpen}
                   onToggleSidebar={toggleSidebar}
                   onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
                   unreadCount={unreadCount}
