@@ -13,7 +13,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
    -------------------------------------------------------------------------- */
 
 const buttonVariants = cva(
-  'rounded-full font-semibold',
+  'rounded-full font-semibold inline-flex items-center justify-center',
   {
     variants: {
       variant: {

@@ -68,7 +68,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
             accessToken={accessToken ?? null}
             fallbackWorkspace={fallbackWorkspace ?? { id: 'ws_personal', name: user.fullName || 'My Workspace', slug: 'my-workspace', type: 'personal', plan: 'beta', timezone: 'UTC' }}
           >
-            <div className="flex min-h-screen">
+            <div className="flex h-screen overflow-hidden">
               <AppSidebar
                 open={sidebarOpen}
                 onToggle={toggleSidebar}
@@ -76,7 +76,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
                 mobileOpen={mobileSidebarOpen}
                 onCloseMobile={() => setMobileSidebarOpen(false)}
               />
-              <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <AppTopbar
                   sidebarOpen={sidebarOpen}
                   onToggleSidebar={toggleSidebar}
@@ -85,7 +85,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
                   accessToken={accessToken}
                   user={user}
                 />
-                <main className="flex-1 px-4 py-5 lg:px-6 lg:py-6">{children}</main>
+                <main className="flex-1 overflow-y-auto px-4 py-5 lg:px-6 lg:py-6">{children}</main>
               </div>
               <AssistantSidebar />
             </div>

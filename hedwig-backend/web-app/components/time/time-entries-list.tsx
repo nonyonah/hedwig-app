@@ -21,10 +21,12 @@ export function TimeEntriesList({
   grouped,
   onEdit,
   onDelete,
+  onView,
 }: {
   grouped: Map<string, TimeEntry[]>;
   onEdit: (entry: TimeEntry) => void;
   onDelete: (id: string) => void;
+  onView?: (entry: TimeEntry) => void;
 }) {
   return (
     <div className="divide-y divide-[var(--color-surface-secondary)]">
@@ -35,10 +37,11 @@ export function TimeEntriesList({
           </div>
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {entries.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[var(--color-background)]"
-              >
+                <div
+                  key={entry.id}
+                  onClick={() => onView?.(entry)}
+                  className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[var(--color-background)] cursor-pointer"
+                >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
@@ -72,7 +75,7 @@ export function TimeEntriesList({
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
-                      onClick={() => onEdit(entry)}
+                      onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
                       className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
                       aria-label="Edit entry"
                     >
@@ -80,7 +83,7 @@ export function TimeEntriesList({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onDelete(entry.id)}
+                      onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
                       className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
                       aria-label="Delete entry"
                     >

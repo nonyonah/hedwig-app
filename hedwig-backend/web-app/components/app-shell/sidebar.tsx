@@ -85,7 +85,7 @@ export function AppSidebar({
     <>
       {/* Desktop: always rendered for CSS transition */}
       <div className={cn(
-        'hidden shrink-0 flex-col border-r border-[var(--color-border-light)] bg-[var(--color-background)] transition-all duration-300 ease-out lg:flex',
+        'hidden shrink-0 flex-col border-r border-[var(--color-border-light)] bg-[var(--color-background)] transition-all duration-300 ease-out lg:flex lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto',
         open ? 'w-[220px] opacity-100' : 'w-0 overflow-hidden opacity-0 border-r-0'
       )}>
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border-light)] px-3">

@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClockCountdown, Plus, Receipt } from '@/components/ui/lucide-icons';
+import { ClockCountdown, Plus, Receipt, X } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { ClientPortal } from '@/components/ui/client-portal';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
@@ -34,6 +35,7 @@ export function TimeView({
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [viewedEntry, setViewedEntry] = useState<TimeEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   const opts = { accessToken, disableMockFallback: true } as any;
@@ -63,9 +65,9 @@ export function TimeView({
     } catch {}
   }, []);
 
-  const handleStart = async (projectId?: string, description?: string) => {
+  const handleStart = async (projectId?: string, description?: string, rate?: number) => {
     try {
-      const res = await hedwigApi.createTimeEntry({ projectId, description, status: 'running' }, opts);
+      const res = await hedwigApi.createTimeEntry({ projectId, description, hourlyRate: rate, status: 'running' }, opts);
       setActiveEntry(res.entry);
       toast({ type: 'success', title: 'Timer started' });
     } catch (err: any) { toast({ type: 'error', title: err.message }); }
@@ -185,7 +187,7 @@ export function TimeView({
               </p>
             </div>
           </div>
-          <TimeEntriesList grouped={grouped} onEdit={handleEdit} onDelete={handleDelete} />
+          <TimeEntriesList grouped={grouped} onEdit={handleEdit} onDelete={handleDelete} onView={setViewedEntry} />
           {unbilledEntries.length > 0 && (
             <div className="border-t border-[var(--color-border)] px-5 py-3">
               <Button variant="default" onClick={() => setShowInvoiceDialog(true)}>
@@ -220,6 +222,68 @@ export function TimeView({
           accessToken={accessToken}
           onClose={() => setShowInvoiceDialog(false)}
         />
+      )}
+
+      {viewedEntry && (
+        <ClientPortal>
+          <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={() => setViewedEntry(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] animate-in fade-in-0 zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+                <div>
+                  <p className="text-[15px] font-bold text-[var(--color-foreground)]">Time entry</p>
+                  <p className="text-[12px] text-[var(--color-text-muted)]">
+                    {viewedEntry.durationSeconds ? `${Math.floor(viewedEntry.durationSeconds / 3600)}h ${Math.floor((viewedEntry.durationSeconds % 3600) / 60)}m` : '—'}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setViewedEntry(null)} className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]">
+                  <X className="h-4 w-4" weight="bold" />
+                </button>
+              </div>
+              <div className="divide-y divide-[var(--color-surface-secondary)] px-5">
+                <div className="flex items-start justify-between py-3.5 text-[13px]">
+                  <span className="text-[var(--color-text-tertiary)]">Project</span>
+                  <span className="font-semibold text-[var(--color-foreground)]">{viewedEntry.project?.name || '—'}</span>
+                </div>
+                <div className="flex items-start justify-between py-3.5 text-[13px]">
+                  <span className="text-[var(--color-text-tertiary)]">Client</span>
+                  <span className="font-semibold text-[var(--color-foreground)]">{viewedEntry.project?.client?.name || '—'}</span>
+                </div>
+                <div className="flex items-start justify-between py-3.5 text-[13px]">
+                  <span className="text-[var(--color-text-tertiary)]">Description</span>
+                  <span className="font-semibold text-[var(--color-foreground)] text-right max-w-[200px]">{viewedEntry.description || '—'}</span>
+                </div>
+                <div className="flex items-center justify-between py-3.5 text-[13px]">
+                  <span className="text-[var(--color-text-tertiary)]">Duration</span>
+                  <span className="font-semibold text-[var(--color-foreground)]">
+                    {viewedEntry.durationSeconds ? `${Math.floor(viewedEntry.durationSeconds / 3600)}h ${Math.floor((viewedEntry.durationSeconds % 3600) / 60)}m` : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3.5 text-[13px]">
+                  <span className="text-[var(--color-text-tertiary)]">Rate</span>
+                  <span className="font-semibold text-[var(--color-foreground)]">
+                    {viewedEntry.hourlyRate ? `$${Number(viewedEntry.hourlyRate).toFixed(2)}/hr` : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3.5 text-[13px]">
+                  <span className="text-[var(--color-text-tertiary)]">Billable</span>
+                  <span className="font-semibold text-[var(--color-foreground)]">
+                    {viewedEntry.billableAmount ? `$${Number(viewedEntry.billableAmount).toFixed(2)}` : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3.5 text-[13px]">
+                  <span className="text-[var(--color-text-tertiary)]">Date</span>
+                  <span className="font-semibold text-[var(--color-foreground)]">
+                    {new Date(viewedEntry.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+              <div className="border-t border-[var(--color-border)] px-5 py-4">
+                <Button variant="ghost" onClick={() => setViewedEntry(null)} className="w-full">Close</Button>
+              </div>
+            </div>
+          </div>
+        </ClientPortal>
       )}
     </div>
   );
