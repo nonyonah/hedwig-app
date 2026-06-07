@@ -52,6 +52,7 @@ export function InvoiceFromTimeDialog({
         description: selected.map(e =>
           `${e.description || 'Work'} (${fmtDuration(e.durationSeconds)})`
         ).join('; '),
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       }, { accessToken, disableMockFallback: true });
       setDone(true);
     } catch (err: any) {
