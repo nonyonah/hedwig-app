@@ -212,6 +212,12 @@
   background: rgba(59, 130, 246, 0.25);
 }
 
+/* ── Select dropdown arrow spacing ──────────────────────────────────── */
+
+select {
+  padding-right: 2.25rem;
+}
+
 /* ── Animations ──────────────────────────────────────────────────────── */
 
 @keyframes fadeUp {

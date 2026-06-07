@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClockCountdown, Plus } from '@/components/ui/lucide-icons';
+import { ClockCountdown, Plus, Receipt } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { hedwigApi } from '@/lib/api/client';
@@ -10,6 +10,7 @@ import { TimeTracker } from '@/components/time/time-tracker';
 import { TimeEntryForm } from '@/components/time/time-entry-form';
 import { TimeEntriesList } from '@/components/time/time-entries-list';
 import { TimeSummaryCards } from '@/components/time/time-summary-cards';
+import { InvoiceFromTimeDialog } from '@/components/time/invoice-from-time-dialog';
 import type { TimeEntry, TimeSummary } from '@/components/time/types';
 
 export function TimeView({
@@ -133,6 +134,10 @@ export function TimeView({
     return map;
   }, [entries]);
 
+  const unbilledEntries = useMemo(() =>
+    entries.filter(e => e.status === 'stopped' && (e.durationSeconds || 0) > 0),
+  [entries]);
+
   if (!isPersonal) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -181,6 +186,13 @@ export function TimeView({
             </div>
           </div>
           <TimeEntriesList grouped={grouped} onEdit={handleEdit} onDelete={handleDelete} />
+          {unbilledEntries.length > 0 && (
+            <div className="border-t border-[var(--color-border)] px-5 py-3">
+              <Button variant="default" onClick={() => setShowInvoiceDialog(true)}>
+                <Receipt className="h-3.5 w-3.5" weight="bold" /> Generate invoice ({unbilledEntries.length})
+              </Button>
+            </div>
+          )}
         </div>
       ) : !activeEntry ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -199,6 +211,14 @@ export function TimeView({
           onClose={() => { setShowEntryForm(false); setEditingEntry(null); }}
           accessToken={accessToken}
           workspaceId={activeWorkspace?.id}
+        />
+      )}
+
+      {showInvoiceDialog && (
+        <InvoiceFromTimeDialog
+          entries={unbilledEntries}
+          accessToken={accessToken}
+          onClose={() => setShowInvoiceDialog(false)}
         />
       )}
     </div>

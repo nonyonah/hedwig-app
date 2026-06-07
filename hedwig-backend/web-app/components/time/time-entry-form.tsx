@@ -85,7 +85,7 @@ export function TimeEntryForm({
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Project</label>
               <select value={projectId} onChange={e => setProjectId(e.target.value)}
-                className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
+                className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
                 <option value="">No project</option>
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>{p.name}{p.client ? ` (${p.client.name})` : ''}</option>
