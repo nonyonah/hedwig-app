@@ -1105,12 +1105,10 @@ export const SchedulerService = {
             const now = Date.now();
             const ONE_HOUR_MS = 60 * 60 * 1000;
             const ONE_DAY_MS = 24 * ONE_HOUR_MS;
-            const THREE_DAYS_MS = 3 * ONE_DAY_MS;
-            const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
-            const NUDGE_CADENCE_MS = 48 * ONE_HOUR_MS; // min gap between nudges per user
+            const FOURTEEN_DAYS_MS = 14 * ONE_DAY_MS;
+            const NUDGE_CADENCE_MS = 72 * ONE_HOUR_MS;
 
-            // Users who registered between 1 h and 7 days ago — still in the onboarding window
-            const windowStart = new Date(now - SEVEN_DAYS_MS).toISOString();
+            const windowStart = new Date(now - FOURTEEN_DAYS_MS).toISOString();
             const windowEnd   = new Date(now - ONE_HOUR_MS).toISOString();
 
             const { data: users, error } = await supabase
@@ -1129,7 +1127,6 @@ export const SchedulerService = {
                 return;
             }
 
-            // Filter: skip users who were nudged recently
             const eligible = users.filter((user: any) => {
                 const lastNudgeMs = this.timestampMs(user.last_onboarding_nudge_at);
                 if (lastNudgeMs !== null && (now - lastNudgeMs) < NUDGE_CADENCE_MS) return false;
@@ -1141,8 +1138,6 @@ export const SchedulerService = {
                 return;
             }
 
-            // For each candidate, check if they have created a real payment workflow.
-            // A client alone is useful, but it does not prove they reached first value.
             const inactive: any[] = [];
             await processInBatches(eligible, SCHEDULER_CONCURRENCY, async (user) => {
                 const { count: paymentWorkflowCount } = await supabase
@@ -1165,35 +1160,59 @@ export const SchedulerService = {
 
             await processInBatches(inactive, SCHEDULER_CONCURRENCY, async (user) => {
                 try {
+                    const { count: priorNudges } = await supabase
+                        .from('notifications')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', user.id)
+                        .eq('metadata->>nudge_type', 'onboarding_incomplete');
+
+                    const nudgeCount = priorNudges ?? 0;
+
+                    if (nudgeCount >= 4) {
+                        logger.debug('User already received all 4 onboarding nudges', { userId: user.id });
+                        return;
+                    }
+
+                    const nudgeStage: 'day0' | 'day3' | 'day7' | 'day14' =
+                        nudgeCount === 0 ? 'day0'
+                            : nudgeCount === 1 ? 'day3'
+                                : nudgeCount === 2 ? 'day7'
+                                    : 'day14';
+
                     const firstName = String(user.first_name || '').trim();
-                    const ageMs = now - (this.timestampMs(user.created_at) ?? now);
-                    const nudgeStage: 'day0' | 'day1' | 'day3' =
-                        ageMs > THREE_DAYS_MS ? 'day3' : ageMs > ONE_DAY_MS ? 'day1' : 'day0';
 
-                    const pushTitle =
-                        nudgeStage === 'day3'
-                            ? 'Want help setting up your first client?'
-                            : nudgeStage === 'day1'
-                                ? 'Create your first invoice in 60 seconds'
-                                : 'Send your first payment request';
-                    const pushBody =
-                        nudgeStage === 'day3'
-                            ? 'Hedwig can help you turn one real client into a payable invoice or payment link.'
-                            : nudgeStage === 'day1'
-                                ? 'Freelancers lose time chasing payment details. Hedwig helps prevent that.'
-                                : (firstName ? `${firstName}, start with one client and one payment request. No card required.` : 'Start with one client and one payment request. No card required.');
+                    const stagePushConfig: Record<string, { pushTitle: string; pushBody: string }> = {
+                        day0: {
+                            pushTitle: 'Your first invoice takes 90 seconds',
+                            pushBody: firstName
+                                ? `${firstName}, get paid by anyone, anywhere — no bank details, no waiting.`
+                                : 'Get paid by anyone, anywhere — no bank details, no waiting.',
+                        },
+                        day3: {
+                            pushTitle: 'The real cost of waiting to get paid',
+                            pushBody: 'Payment links settle in minutes. One percent when you withdraw.',
+                        },
+                        day7: {
+                            pushTitle: 'Someone in Lagos got paid before lunch today',
+                            pushBody: 'Invoice sent, client paid, funds landed. No middlemen.',
+                        },
+                        day14: {
+                            pushTitle: 'This is my last message',
+                            pushBody: 'Two minutes. One invoice. See if Hedwig works for you.',
+                        },
+                    };
 
-                    // Push notification
+                    const pushCopy = stagePushConfig[nudgeStage];
+
                     await NotificationService.notifyUser(user.id, {
-                        title: pushTitle,
-                        body: pushBody,
+                        title: pushCopy.pushTitle,
+                        body: pushCopy.pushBody,
                         data: {
                             type: 'onboarding_incomplete',
                             route: '/(drawer)/(tabs)',
                         },
                     });
 
-                    // Email
                     if (user.email) {
                         await EmailService.sendOnboardingIncompleteEmail({
                             to: user.email,
@@ -1202,17 +1221,15 @@ export const SchedulerService = {
                         });
                     }
 
-                    // In-app notification
                     await supabase.from('notifications').insert({
                         user_id: user.id,
                         type: 'announcement',
-                        title: pushTitle,
-                        message: pushBody,
+                        title: pushCopy.pushTitle,
+                        message: pushCopy.pushBody,
                         metadata: { nudge_type: 'onboarding_incomplete', nudge_stage: nudgeStage },
                         is_read: false,
                     });
 
-                    // Record nudge timestamp
                     await supabase
                         .from('users')
                         .update({ last_onboarding_nudge_at: new Date().toISOString() })

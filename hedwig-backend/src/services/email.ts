@@ -1253,7 +1253,7 @@ export const EmailService = {
         to: string;
         firstName: string;
         isSecondNudge?: boolean;
-        nudgeStage?: 'day0' | 'day1' | 'day3';
+        nudgeStage?: 'day0' | 'day3' | 'day7' | 'day14';
     }): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
             logger.warn('RESEND_API_KEY is not set. Skipping onboarding nudge email.');
@@ -1261,30 +1261,52 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const name = data.firstName || 'there';
-        const dashboardUrl = `${APP_URL}/dashboard`;
+        const paymentsUrl = `${APP_URL}/payments`;
         const nudgeStage = data.nudgeStage || (data.isSecondNudge ? 'day3' : 'day0');
 
-        const subject =
-            nudgeStage === 'day3'
-                ? 'Want help setting up your first client?'
-                : nudgeStage === 'day1'
-                    ? 'Create your first invoice in 60 seconds'
-                    : 'Send your first payment request';
+        const stageConfig: Record<string, {
+            subject: string;
+            eyebrow: string;
+            heading: string;
+            body: string;
+            cta: string;
+            url: string;
+        }> = {
+            day0: {
+                subject: 'Your first invoice takes 90 seconds',
+                eyebrow: 'Getting started',
+                heading: 'Your first invoice takes 90 seconds',
+                body: `You built something worth paying for. Hedwig gives you a way to get paid by anyone, anywhere — without chasing clients, sharing bank details, or waiting two weeks for a transfer to clear. No setup. You already have a wallet.`,
+                cta: 'Create your first invoice',
+                url: `${paymentsUrl}?create=invoice`,
+            },
+            day3: {
+                subject: 'The real cost of waiting to get paid',
+                eyebrow: 'The math',
+                heading: 'The real cost of waiting to get paid',
+                body: `A $2,000 payment from a US client through Payoneer costs you roughly $40 in fees. Then your bank holds it for 3 to 5 days. That math doesn't work for anyone running a business. Hedwig's payment links settle in minutes. One percent when you withdraw, nothing else.`,
+                cta: 'Create a payment link',
+                url: `${paymentsUrl}?create=payment-link`,
+            },
+            day7: {
+                subject: 'Someone in Lagos got paid before lunch today',
+                eyebrow: 'What\'s possible',
+                heading: 'Someone in Lagos got paid before lunch today',
+                body: `A designer in Yaba sent an invoice at 9:47am. Her client in Toronto opened it, paid by card, and the funds landed before her second meeting. No follow-up emails. No "the transfer is still processing." That's how it works when you remove the middlemen.`,
+                cta: 'Create your first invoice',
+                url: `${paymentsUrl}?create=invoice`,
+            },
+            day14: {
+                subject: 'This is my last email',
+                eyebrow: 'One last thing',
+                heading: 'This is my last email',
+                body: `You signed up two weeks ago. You haven't created an invoice yet. That's fine — maybe the timing wasn't right. Every week you wait is another week of paying fees you don't need to pay and waiting for money you've already earned. Two minutes. One invoice. See if it works for you.`,
+                cta: 'Create an invoice in 2 minutes',
+                url: `${paymentsUrl}?create=invoice`,
+            },
+        };
 
-        const heading =
-            nudgeStage === 'day3'
-                ? 'Want help setting up your first client?'
-                : nudgeStage === 'day1'
-                    ? 'Create your first invoice in 60 seconds'
-                    : 'Send your first payment request';
-
-        const body =
-            nudgeStage === 'day3'
-                ? `Hi ${name}, if Hedwig felt useful but you weren't sure where to start, begin with one real client. Add their details, create a payable invoice or payment link, and you will have a cleaner way to follow up until the money lands.`
-                : nudgeStage === 'day1'
-                    ? `Hi ${name}, freelancers lose time when payment details are scattered across chats and email. Hedwig helps you send a clear invoice or payment link clients can act on quickly.`
-                    : `Hi ${name}, welcome to Hedwig. Start with one client and one payment request so your next invoice looks professional and is easy to pay. No card required.`;
+        const config = stageConfig[nudgeStage] || stageConfig.day0;
 
         const html = `
         <!DOCTYPE html>
@@ -1292,7 +1314,7 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${subject}</title>
+            <title>${config.subject}</title>
             ${EMAIL_FONT_HEAD}
             <style>${SHARED_STYLES}</style>
         </head>
@@ -1300,11 +1322,11 @@ export const EmailService = {
             <div class="container">
                 <div class="header">${LOGO_HTML}</div>
                 <div class="content">
-                    <p class="eyebrow">Getting started</p>
-                    <h1 class="heading">${heading}</h1>
-                    <p class="description">${body}</p>
+                    <p class="eyebrow">${config.eyebrow}</p>
+                    <h1 class="heading">${config.heading}</h1>
+                    <p class="description">${config.body}</p>
                     <div class="btn-container">
-                        <a href="${dashboardUrl}" class="btn">Open Hedwig</a>
+                        <a href="${config.url}" class="btn">${config.cta}</a>
                     </div>
                     <hr class="divider" />
                     <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">You're receiving this because you recently created a Hedwig account. If you'd rather not hear from us, you can ignore this email.</p>
@@ -1319,7 +1341,7 @@ export const EmailService = {
             await resend.emails.send({
                 from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
-                subject,
+                subject: config.subject,
                 html,
             });
             logger.info('Onboarding nudge email sent', { to: data.to, nudgeStage });

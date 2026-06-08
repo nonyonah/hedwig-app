@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowSquareOut,
@@ -394,20 +393,16 @@ function InvoicePanel({
           <Button variant="secondary" onClick={onCopyLink}>
             <CopySimple className="h-4 w-4" /> Copy link
           </Button>
-          <Button variant="secondary" asChild>
-            <Link href={publicUrl} target="_blank" rel="noreferrer">
-              <ArrowSquareOut className="h-4 w-4" /> Open page
-            </Link>
+          <Button variant="secondary" onClick={() => window.open(publicUrl, '_blank', 'noreferrer')}>
+            <ArrowSquareOut className="h-4 w-4" /> Open page
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={onEmail}>
             <Envelope className="h-4 w-4" /> Email
           </Button>
-          <Button variant="secondary" asChild>
-            <Link href={`${publicUrl}?print=1`} target="_blank" rel="noreferrer">
-              <DownloadSimple className="h-4 w-4" /> PDF
-            </Link>
+          <Button variant="secondary" onClick={() => window.open(`${publicUrl}?print=1`, '_blank', 'noreferrer')}>
+            <DownloadSimple className="h-4 w-4" /> PDF
           </Button>
         </div>
         {invoice.status !== 'paid' && (
@@ -478,10 +473,8 @@ function PaymentLinkPanel({
           <Button variant="secondary" onClick={onCopyLink}>
             <CopySimple className="h-4 w-4" /> Copy link
           </Button>
-          <Button variant="secondary" asChild>
-            <Link href={publicUrl} target="_blank" rel="noreferrer">
-              <ArrowSquareOut className="h-4 w-4" /> Open page
-            </Link>
+          <Button variant="secondary" onClick={() => window.open(publicUrl, '_blank', 'noreferrer')}>
+            <ArrowSquareOut className="h-4 w-4" /> Open page
           </Button>
         </div>
         <Button variant="secondary" className="w-full" onClick={onEmail}>
@@ -531,10 +524,8 @@ function RecurringPanel({ item, onClose }: { item: RecurringInvoice; onClose: ()
         </div>
       </div>
       <div className="border-t border-[var(--color-border)] px-6 py-5">
-        <Button variant="secondary" className="w-full" asChild>
-          <Link href={`/payments?recurring=${item.id}`}>
-            <ArrowSquareOut className="h-4 w-4" /> Open in Payments
-          </Link>
+        <Button variant="secondary" className="w-full" onClick={() => { window.location.href = `/payments?recurring=${item.id}`; }}>
+          <ArrowSquareOut className="h-4 w-4" /> Open in Payments
         </Button>
       </div>
     </>

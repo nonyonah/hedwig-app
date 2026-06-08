@@ -665,11 +665,9 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Session and account lifecycle actions.</p>
           </div>
           <div className="flex flex-wrap gap-3 px-5 py-4">
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/sign-out">
-                <SignOut className="h-4 w-4" weight="bold" />
-                Log out
-              </Link>
+            <Button size="sm" variant="secondary" onClick={() => router.push('/sign-out')}>
+              <SignOut className="h-4 w-4" weight="bold" />
+              Log out
             </Button>
             <Button size="sm" variant="destructive" onClick={openDeleteDialog}>
               <Trash className="h-4 w-4" weight="bold" />

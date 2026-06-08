@@ -121,6 +121,7 @@ export function PaymentsClient({
   highlightedInvoiceId,
   highlightedPaymentLinkId,
   highlightedRecurringId,
+  createAction,
   recurringInvoices = [],
   clients = [],
   billing,
@@ -131,6 +132,7 @@ export function PaymentsClient({
   highlightedInvoiceId?: string | null;
   highlightedPaymentLinkId?: string | null;
   highlightedRecurringId?: string | null;
+  createAction?: 'invoice' | 'payment-link';
   recurringInvoices?: RecurringInvoice[];
   clients?: Client[];
   billing: BillingStatusSummary | null;
@@ -144,6 +146,19 @@ export function PaymentsClient({
     paymentLinksCount: paymentLinks.length,
     recurringCount: recurringInvoices.length,
   });
+
+  useEffect(() => {
+    if (!createAction) return;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', {
+        detail: { flow: createAction },
+      }));
+      const url = new URL(window.location.href);
+      url.searchParams.delete('create');
+      window.history.replaceState({}, '', url.toString());
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [createAction]);
 
   const canUseRecurringAutomation = canUseFeature('recurring_invoice_automation', billing);
 

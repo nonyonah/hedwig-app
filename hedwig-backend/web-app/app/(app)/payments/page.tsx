@@ -7,7 +7,7 @@ import { PaymentsClient } from './view';
 export default async function PaymentsPage({
   searchParams
 }: {
-  searchParams?: Promise<{ invoice?: string; paymentLink?: string; recurring?: string }>;
+  searchParams?: Promise<{ invoice?: string; paymentLink?: string; recurring?: string; create?: string }>;
 }) {
   const session = await getCurrentSession();
   const opts = await workspaceApiOptions(session.accessToken);
@@ -26,6 +26,11 @@ export default async function PaymentsPage({
 
   const params = (await searchParams) ?? {};
 
+  const createAction =
+    params.create === 'invoice' || params.create === 'payment-link'
+      ? (params.create as 'invoice' | 'payment-link')
+      : undefined;
+
   return (
     <PaymentsClient
       key={opts.workspaceId ?? 'default'}
@@ -33,6 +38,7 @@ export default async function PaymentsPage({
       highlightedInvoiceId={params.invoice ?? null}
       highlightedPaymentLinkId={params.paymentLink ?? null}
       highlightedRecurringId={params.recurring ?? null}
+      createAction={createAction}
       invoices={data.invoices}
       paymentLinks={data.paymentLinks}
       recurringInvoices={recurringInvoices}
