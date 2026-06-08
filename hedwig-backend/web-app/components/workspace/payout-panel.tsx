@@ -11,6 +11,15 @@ import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 import { PayoutReviewDialog, type PayoutLineItem } from './payout-review-dialog';
 import { CHAIN_LABELS, type SendChain } from '@/lib/send/send-helpers';
+import Image from 'next/image';
+
+const CHAIN_ICONS: Record<string, string> = {
+  solana: '/icons/networks/solana.png',
+  base: '/icons/networks/base.png',
+  arbitrum: '/icons/networks/arbitrum.png',
+  polygon: '/icons/networks/polygon.png',
+  optimism: '/icons/networks/optimism.png',
+};
 
 const SUPPORTED_CHAINS: SendChain[] = ['solana', 'base', 'arbitrum', 'polygon', 'optimism'];
 
@@ -253,17 +262,28 @@ export function PayoutPanel({
                     </span>
 
                     {/* Chain selector */}
-                    <select
-                      value={item.chain}
-                      onChange={e => updateItem(i, 'chain', e.target.value as SendChain)}
-                      className="w-[85px] shrink-0 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[11px] text-[var(--color-foreground)] outline-none"
-                    >
-                      {SUPPORTED_CHAINS.map(c => (
-                        <option key={c} value={c} disabled={!getAddressForChain(m!, c)}>
-                          {CHAIN_LABELS[c]}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative w-[100px] shrink-0">
+                      {item.chain && CHAIN_ICONS[item.chain] && (
+                        <Image
+                          src={CHAIN_ICONS[item.chain]}
+                          alt={CHAIN_LABELS[item.chain] || item.chain}
+                          width={14} height={14}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full"
+                        />
+                      )}
+                      <select
+                        value={item.chain}
+                        onChange={e => updateItem(i, 'chain', e.target.value as SendChain)}
+                        className="w-full rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] py-1.5 text-[11px] text-[var(--color-foreground)] outline-none"
+                        style={{ paddingLeft: item.chain ? '28px' : '8px', paddingRight: '8px' }}
+                      >
+                        {SUPPORTED_CHAINS.map(c => (
+                          <option key={c} value={c} disabled={!getAddressForChain(m!, c)}>
+                            {CHAIN_LABELS[c]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
                     <div className="flex items-center gap-1">
                       <span className="text-[12px] text-[var(--color-text-tertiary)]">$</span>

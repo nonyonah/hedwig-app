@@ -87,7 +87,7 @@ export const TreasuryService = {
     const { data: payout, error } = await supabase
       .from('workspace_payouts')
       .insert({ workspace_id: workspaceId, initiated_by: userId, total_amount: totalAmount, status: 'pending' })
-      .select('*, items:workspace_payout_items(*)')
+      .select()
       .single();
     if (error) throw error;
 
@@ -98,6 +98,12 @@ export const TreasuryService = {
     }));
     const { error: itemsError } = await supabase.from('workspace_payout_items').insert(payoutItems);
     if (itemsError) throw itemsError;
+
+    // Fetch the inserted items so the frontend can reference their IDs
+    const { data: insertedItems } = await supabase
+      .from('workspace_payout_items')
+      .select('id, user_id, amount, status')
+      .eq('payout_id', payout.id);
 
     const { data: workspace } = await supabase.from('workspaces').select('name').eq('id', workspaceId).single();
     for (const item of items) {
@@ -110,7 +116,7 @@ export const TreasuryService = {
         }).catch(e => logger.warn('Payout email failed', { error: e.message }));
       }
     }
-    return payout;
+    return { ...payout, items: insertedItems || [] };
   },
 
   async getPayouts(workspaceId: string) {
