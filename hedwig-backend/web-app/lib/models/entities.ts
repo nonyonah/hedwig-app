@@ -135,7 +135,7 @@ export interface Milestone {
   projectId: EntityId;
   name: string;
   dueAt: string;
-  status: 'upcoming' | 'due_soon' | 'done' | 'late';
+  status: 'upcoming' | 'due_soon' | 'done' | 'late' | 'pending' | 'invoiced' | 'paid';
   amountUsd?: number;
   invoiceId?: string;
 }
