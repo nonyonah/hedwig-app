@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { X, LinkSimple, CheckCircle, SpinnerGap } from '@/components/ui/lucide-icons';
+import { X, LinkSimple, CheckCircle, SpinnerGap, Wallet } from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { PaymentLink } from '@/lib/models/entities';
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
 
 export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Props) {
   const { toast } = useToast();
+  const { activeWorkspace } = useWorkspaceContext();
+  const isOrganization = activeWorkspace?.type === 'organization';
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
@@ -179,6 +182,13 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
                 />
                 <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Link will be emailed to this address when provided.</p>
               </div>
+
+              {isOrganization && (
+                <div className="flex items-center gap-2 rounded-lg bg-[var(--color-accent-soft)] px-3.5 py-2.5 text-[11px] text-[var(--color-text-secondary)]">
+                  <Wallet className="h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]" weight="fill" />
+                  <span>Payment will be received into your workspace treasury</span>
+                </div>
+              )}
             </div>
 
             {/* Footer */}

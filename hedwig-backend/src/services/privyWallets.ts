@@ -12,7 +12,7 @@ export type PrivyWalletAddresses = {
 
 let privyNodeClient: PrivyNodeClient | null = null;
 
-function getPrivyNodeClient(): PrivyNodeClient {
+export function getPrivyNodeClient(): PrivyNodeClient {
     if (privyNodeClient) return privyNodeClient;
 
     const appId = process.env.PRIVY_APP_ID;

@@ -19,7 +19,7 @@ interface WorkspaceContextValue {
   error: string | null;
   accessToken: string | null;
   switchWorkspace: (id: string) => Promise<void>;
-  createWorkspace: (name: string) => Promise<WorkspaceWithMembership>;
+  createWorkspace: (name: string, type?: 'personal' | 'organization') => Promise<WorkspaceWithMembership>;
   refresh: () => Promise<void>;
 }
 
@@ -110,7 +110,7 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
     applyActiveWorkspace(found, true);
   }, [workspaces, activeWorkspace?.id, applyActiveWorkspace]);
 
-  const createWorkspace = useCallback(async (name: string): Promise<WorkspaceWithMembership> => {
+  const createWorkspace = useCallback(async (name: string, type: 'personal' | 'organization' = 'organization'): Promise<WorkspaceWithMembership> => {
     if (!tokenRef.current) throw new Error('No access token');
     const res = await fetch(`${backendConfig.apiBaseUrl}/api/workspaces`, {
       method: 'POST',
@@ -119,7 +119,7 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
         'Content-Type': 'application/json',
         'x-workspace-id': readActiveWorkspaceIdFromStorage() ?? fallbackWorkspace.id,
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, type }),
     });
     if (!res.ok) throw new Error('Failed to create workspace');
     const body = await res.json();

@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
 import { ComposioIntegrations } from '@/components/preferences/composio-integrations';
 import { PayoutBankSection } from '@/components/preferences/payout-bank-section';
+import { AutoSettlementSection } from '@/components/preferences/auto-settlement-section';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
@@ -566,6 +567,8 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
         </SettingsSection>
 
         <PayoutBankSection accessToken={accessToken} />
+
+        <AutoSettlementSection accessToken={accessToken} />
 
         <ComposioIntegrations />
 

@@ -7,13 +7,14 @@ import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 export function CreateWorkspaceDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [type, setType] = useState<'organization' | 'personal'>('organization');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { createWorkspace } = useWorkspaceContext();
 
   useEffect(() => {
-    const handler = () => { setOpen(true); setName(''); setError(null); };
+    const handler = () => { setOpen(true); setName(''); setType('organization'); setError(null); };
     window.addEventListener('hedwig:open-create-workspace', handler);
     return () => window.removeEventListener('hedwig:open-create-workspace', handler);
   }, []);
@@ -28,7 +29,7 @@ export function CreateWorkspaceDialog() {
     setSaving(true);
     setError(null);
     try {
-      await createWorkspace(name.trim());
+      await createWorkspace(name.trim(), type);
       setOpen(false);
       setName('');
     } catch (err) {
@@ -66,8 +67,19 @@ export function CreateWorkspaceDialog() {
               className="w-full rounded-lg border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
               maxLength={100}
             />
-            {error && <p className="mt-1.5 text-[12px] text-[var(--color-danger)]">{error}</p>}
           </div>
+          <div className="mb-4">
+            <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Workspace type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as 'organization' | 'personal')}
+              className="w-full rounded-lg border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20 bg-[var(--color-surface)]"
+            >
+              <option value="organization">Organization — for teams and businesses</option>
+              <option value="personal">Personal — for solo freelancers</option>
+            </select>
+          </div>
+          {error && <p className="mb-3 text-[12px] text-[var(--color-danger)]">{error}</p>}
           <div className="flex justify-end gap-2">
             <button
               type="button"

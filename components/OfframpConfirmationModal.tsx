@@ -752,6 +752,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
 
                 const directTxHash = await provider.request({
                     method: 'eth_sendTransaction',
+                    sponsor: true,
                     params: [{
                         from: walletAddress,
                         to: destConfig.usdc,

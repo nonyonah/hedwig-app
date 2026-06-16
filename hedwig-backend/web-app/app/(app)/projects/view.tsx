@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { ArrowRight, DownloadSimple, Plus, Trash } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { Client, Project } from '@/lib/models/entities';
@@ -48,9 +48,18 @@ export function ProjectsClient({
   const [filter, setFilter] = useState('all');
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [linearSyncingProject, setLinearSyncingProject] = useState<string | null>(null);
+  const [linkedProjects, setLinkedProjects] = useState<Record<string, { linearProjectId: string; linearUrl: string; syncedAt: string }>>({});
   const { activeWorkspace } = useWorkspaceContext();
   const canCreate = !activeWorkspace || activeWorkspace.role !== 'member';
   const isMember = activeWorkspace?.role === 'member';
+
+  useEffect(() => {
+    fetch('/api/integrations/composio/linear/links')
+      .then((r) => r.json())
+      .then((p) => { if (p.success && p.data?.projects) setLinkedProjects(p.data.projects); })
+      .catch(() => {});
+  }, []);
 
   const activeCount = useMemo(() => projects.filter((p) => p.status === 'active').length, [projects]);
   const completedCount = useMemo(() => projects.filter((p) => p.status === 'completed').length, [projects]);
@@ -102,6 +111,77 @@ export function ProjectsClient({
       setIsDeleting(false);
     }
   };
+
+  const handleCreateLinear = useCallback(async (project: Project) => {
+    setLinearSyncingProject(project.id);
+    try {
+      const resp = await fetch('/api/integrations/composio/linear/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: project.name,
+          description: '',
+          dueDate: project.nextDeadlineAt || '',
+          hedwigProjectId: project.id,
+        }),
+      });
+      const payload = await resp.json();
+      if (payload.success && payload.data?.success) {
+        const ms = payload.data.milestonesSynced;
+        const msg = ms && ms > 0 ? `Project created in Linear with ${ms} milestone${ms !== 1 ? 's' : ''}.` : 'Project created in Linear.';
+        toast({ type: 'success', title: 'Synced to Linear', message: msg });
+        setLinkedProjects((prev) => ({
+          ...prev,
+          [project.id]: {
+            linearProjectId: payload.data.externalId || '',
+            linearUrl: payload.data.url || '',
+            syncedAt: new Date().toISOString(),
+          },
+        }));
+      } else {
+        const err = payload.data?.error || payload.error || '';
+        if (err.includes('not connected')) {
+          toast({ type: 'info', title: 'Linear not connected', message: 'Connect Linear in Settings first.' });
+        } else {
+          toast({ type: 'error', title: 'Linear create failed', message: err || 'Please try again.' });
+        }
+      }
+    } catch {
+      toast({ type: 'error', title: 'Linear create failed', message: 'Could not reach the server.' });
+    } finally {
+      setLinearSyncingProject(null);
+    }
+  }, [toast]);
+
+  const handleSyncLinearStatus = useCallback(async (project: Project) => {
+    setLinearSyncingProject(project.id);
+    try {
+      const resp = await fetch('/api/integrations/composio/linear/sync-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hedwigProjectId: project.id }),
+      });
+      const payload = await resp.json();
+      if (payload.success && payload.data?.success) {
+        const label = payload.data.linearStatus || 'synced';
+        const updated = payload.data.hedwigStatusUpdated;
+        toast({ type: 'success', title: 'Synced', message: `Linear: ${label}${updated ? ' · Hedwig status updated' : ''}` });
+      } else {
+        const err = payload.data?.error || payload.error || '';
+        if (err.includes('not connected')) {
+          toast({ type: 'info', title: 'Linear not connected', message: 'Connect Linear in Settings first.' });
+        } else if (err.includes('not linked')) {
+          toast({ type: 'info', title: 'Not linked to Linear', message: 'Create the project in Linear first.' });
+        } else {
+          toast({ type: 'error', title: 'Linear sync failed', message: err || 'Please try again.' });
+        }
+      }
+    } catch {
+      toast({ type: 'error', title: 'Linear sync failed', message: 'Could not reach the server.' });
+    } finally {
+      setLinearSyncingProject(null);
+    }
+  }, [toast]);
 
   return (
     <div className="space-y-4">
@@ -165,7 +245,7 @@ export function ProjectsClient({
         </div>
 
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
+        <div className="grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
           <ColHead>Project</ColHead>
           <ColHead>Status</ColHead>
           <ColHead>Contract</ColHead>
@@ -173,6 +253,7 @@ export function ProjectsClient({
           <ColHead right>Budget</ColHead>
           <ColHead right>Deadline</ColHead>
           <span />
+          <span className="flex justify-end" />
         </div>
 
         {/* Rows */}
@@ -188,7 +269,7 @@ export function ProjectsClient({
               return (
                 <div
                   key={project.id}
-                  className="group grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]"
+                  className="group grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]"
                 >
                   <Link href={`/projects/${project.id}`} className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
@@ -226,7 +307,40 @@ export function ProjectsClient({
                       : formatAmount(project.budgetUsd, { compact: true })}
                   </p>
                   <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(project.nextDeadlineAt)}</p>
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-1">
+                    {project.id in linkedProjects ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSyncLinearStatus(project)}
+                        disabled={linearSyncingProject === project.id}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-success)] transition hover:bg-[var(--color-success-soft)] disabled:opacity-30"
+                        title="Re-sync project status with Linear"
+                      >
+                        {linearSyncingProject === project.id ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                            <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+                          </svg>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleCreateLinear(project)}
+                        disabled={linearSyncingProject === project.id}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] transition hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)] disabled:opacity-30"
+                        title="Sync with Linear"
+                      >
+                        {linearSyncingProject === project.id ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                            <path d="M3 12c0-4.97 4.03-9 9-9s9 4.03 9 9-4.03 9-9 9-9-4.03-9-9zm2.5 0c0 3.59 2.91 6.5 6.5 6.5s6.5-2.91 6.5-6.5-2.91-6.5-6.5-6.5-6.5 2.91-6.5 6.5zM12 7v5l4 2" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

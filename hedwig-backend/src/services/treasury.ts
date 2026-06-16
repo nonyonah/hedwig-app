@@ -1,69 +1,311 @@
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { EmailService } from './email';
-import { Connection, PublicKey } from '@solana/web3.js';
-import { createPublicClient, http, erc20Abi, formatUnits } from 'viem';
+import { getPrivyNodeClient } from './privyWallets';
 
 const logger = createLogger('TreasuryService');
 
 const IS_TESTNET = process.env.NETWORK_MODE !== 'production';
-const SOLANA_RPC = IS_TESTNET
-  ? 'https://api.devnet.solana.com'
-  : (process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
-const USDC_MINT = new PublicKey(
-  IS_TESTNET
-    ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-    : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-);
-const solanaConnection = new Connection(SOLANA_RPC);
+const PRIVY_CHAIN = IS_TESTNET ? 'base_sepolia' as const : 'base' as const;
 
-const BASE_RPC = process.env.BASE_RPC_URL || (IS_TESTNET ? 'https://sepolia.base.org' : 'https://mainnet.base.org');
-const USDC_BASE = IS_TESTNET ? '0x036CbD53842c5426634e792954fAF63d3bC69b8D' : '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`;
-const baseClient = createPublicClient({ transport: http(BASE_RPC) });
+function formatUsd(usdcAmount: number): string {
+  return usdcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function readPrivyUsdcBalance(privyWalletId: string): Promise<number> {
+  try {
+    const privy = getPrivyNodeClient();
+    const response = await privy.wallets().balance.get(privyWalletId, {
+      asset: 'usdc',
+      chain: PRIVY_CHAIN,
+    });
+    logger.info('Privy balance API response', {
+      walletId: privyWalletId?.slice(0, 10) + '...',
+      chain: PRIVY_CHAIN,
+      balancesCount: response?.balances?.length ?? 0,
+      balances: response?.balances,
+    });
+    if (!response?.balances) return 0;
+    const usdc = response.balances.find((b) => b.asset === 'usdc');
+    if (usdc && usdc.raw_value) {
+      const val = parseInt(usdc.raw_value, 10) / Math.pow(10, usdc.raw_value_decimals || 6);
+      return val;
+    }
+    return 0;
+  } catch (e: any) {
+    logger.error('Failed to read USDC balance via Privy', { walletId: privyWalletId?.slice(0, 10) + '...', error: e?.message, chain: PRIVY_CHAIN });
+    return 0;
+  }
+}
+
+async function resolvePrivyWalletIdByAddress(address: string): Promise<string | null> {
+  try {
+    const privy = getPrivyNodeClient();
+    for await (const w of privy.wallets().list({ chain_type: 'ethereum' })) {
+      if (w.address.toLowerCase() === address.toLowerCase()) return w.id;
+    }
+  } catch (e: any) {
+    logger.error('Failed to resolve wallet ID by address', { address, error: e?.message });
+  }
+  return null;
+}
 
 export const TreasuryService = {
-  async getBalance(workspaceId: string) {
-    const { data: workspace } = await supabase
-      .from('workspaces')
-      .select('treasury_solana_address, treasury_base_address')
-      .eq('id', workspaceId)
-      .single();
+  async createTreasuryWallet(workspaceId: string): Promise<{ address: string; id: string; privyWalletId: string } | null> {
+    const { data: existing } = await supabase
+      .from('treasury_wallets')
+      .select('id, privy_wallet_address, privy_wallet_id')
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
 
-    let solBalance = 0, usdcSolBalance = 0, usdcBaseBalance = 0;
+    if (existing?.privy_wallet_address) {
+      return { address: existing.privy_wallet_address, id: existing.id, privyWalletId: existing.privy_wallet_id };
+    }
 
-    if (workspace?.treasury_solana_address) {
+    try {
+      const privy = getPrivyNodeClient();
+      const wallet = await privy.wallets().create({
+        chain_type: 'ethereum',
+      });
+
+      // Try with privy_wallet_id first, fallback without it
+      let insertResult: any;
       try {
-        const pubkey = new PublicKey(workspace.treasury_solana_address);
-        const lamports = await solanaConnection.getBalance(pubkey);
-        solBalance = lamports / 1e9;
-        const tokenAccounts = await solanaConnection.getTokenAccountsByOwner(pubkey, { mint: USDC_MINT }).catch(() => ({ value: [] }));
-        if (tokenAccounts.value.length > 0) {
-          const info = await solanaConnection.getTokenAccountBalance(tokenAccounts.value[0].pubkey);
-          usdcSolBalance = info.value.uiAmount || 0;
+        insertResult = await supabase.from('treasury_wallets').insert({
+          workspace_id: workspaceId,
+          privy_wallet_address: wallet.address,
+          privy_wallet_id: wallet.id,
+          is_active: true,
+        }).select().single();
+      } catch {
+        insertResult = await supabase.from('treasury_wallets').insert({
+          workspace_id: workspaceId,
+          privy_wallet_address: wallet.address,
+          is_active: true,
+        }).select().single();
+        // Then update with wallet ID
+        try {
+          await supabase.from('treasury_wallets').update({ privy_wallet_id: wallet.id }).eq('id', insertResult.data.id);
+        } catch { /* still no column */ }
+      }
+
+      const { data, error } = insertResult;
+
+      if (error) {
+        logger.error('Failed to store treasury wallet', { workspaceId, error: error.message });
+        return null;
+      }
+
+      logger.info('Created treasury wallet', { workspaceId, address: wallet.address, walletId: wallet.id });
+      return { address: wallet.address, id: data.id, privyWalletId: wallet.id };
+    } catch (error: any) {
+      logger.error('Failed to create treasury wallet via Privy', {
+        workspaceId,
+        error: error?.message || 'Unknown error',
+      });
+      return null;
+    }
+  },
+
+  async ensureTreasuryWallet(workspaceId: string): Promise<{ address: string; privyWalletId: string } | null> {
+    const { data: existing } = await supabase
+      .from('treasury_wallets')
+      .select('privy_wallet_address, privy_wallet_id')
+      .eq('workspace_id', workspaceId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (existing?.privy_wallet_address) {
+      let privyWalletId = existing.privy_wallet_id;
+      if (!privyWalletId) {
+        privyWalletId = await resolvePrivyWalletIdByAddress(existing.privy_wallet_address);
+        if (privyWalletId) {
+          try {
+            await supabase.from('treasury_wallets').update({ privy_wallet_id: privyWalletId })
+              .eq('workspace_id', workspaceId);
+          } catch { /* column may not exist */ }
         }
-      } catch { /* noop */ }
+      }
+      return { address: existing.privy_wallet_address, privyWalletId: privyWalletId || '' };
     }
 
-    if (workspace?.treasury_base_address) {
-      try {
-        const raw = await baseClient.readContract({
-          address: USDC_BASE,
-          abi: erc20Abi as any,
-          functionName: 'balanceOf',
-          args: [workspace.treasury_base_address as `0x${string}`],
-        });
-        usdcBaseBalance = Number(formatUnits(raw as bigint, 6));
-      } catch { /* noop */ }
+    const created = await this.createTreasuryWallet(workspaceId);
+    if (created) return { address: created.address, privyWalletId: created.privyWalletId };
+    return null;
+  },
+
+  async getBalance(workspaceId: string, walletAddress?: string) {
+    let address = walletAddress || null;
+    let privyWalletId: string | null = null;
+
+    // Look up wallet info from DB (always — even if address was passed in)
+    const { data: treasuryWallet } = await supabase
+      .from('treasury_wallets')
+      .select('privy_wallet_address, privy_wallet_id')
+      .eq('workspace_id', workspaceId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (treasuryWallet?.privy_wallet_address) {
+      address = address || treasuryWallet.privy_wallet_address;
+      privyWalletId = treasuryWallet.privy_wallet_id || null;
+    } else if (!address) {
+      const { data: ws } = await supabase
+        .from('workspaces')
+        .select('treasury_base_address')
+        .eq('id', workspaceId)
+        .maybeSingle();
+      address = ws?.treasury_base_address || null;
     }
+
+    // Resolve wallet ID from Privy if missing
+    if (address && !privyWalletId) {
+      privyWalletId = await resolvePrivyWalletIdByAddress(address);
+      if (privyWalletId) {
+        try {
+          await supabase.from('treasury_wallets').update({ privy_wallet_id: privyWalletId })
+            .eq('workspace_id', workspaceId);
+        } catch { /* column may not exist */ }
+      }
+    }
+
+    if (!address) {
+      return {
+        treasuryAddress: null,
+        balanceUsdc: '0',
+        balanceUsd: '0.00',
+        reservedUsdc: '0',
+        availableUsdc: '0',
+        recentTransactions: [],
+        totalUsdc: 0,
+        testnet: IS_TESTNET,
+        _debug: { hasAddress: false, hasWalletId: false, chain: PRIVY_CHAIN },
+      };
+    }
+
+    // Fetch balance via Privy + DB queries in parallel
+    const [baseResult, reservedResult, txsResult] = await Promise.all([
+      privyWalletId ? readPrivyUsdcBalance(privyWalletId) : Promise.resolve(0),
+      supabase
+        .from('treasury_transactions')
+        .select('usdc_amount')
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'pending_convert'),
+      supabase
+        .from('treasury_transactions')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+
+    const totalUsdc = baseResult;
+    const rawUsdcString = Math.round(totalUsdc * 1e6).toString();
+
+    const reservedUsdc = ((reservedResult.data || []) as any[]).reduce(
+      (sum: number, r: any) => sum + parseFloat(r.usdc_amount || '0'), 0
+    );
+    const availableUsdc = Math.max(0, totalUsdc - reservedUsdc);
+
+    const recentTransactions = ((txsResult.data || []) as any[]).map((tx: any) => ({
+      id: tx.id,
+      type: tx.type,
+      source: tx.source,
+      originalAmount: tx.original_amount ? String(tx.original_amount) : null,
+      originalCurrency: tx.original_currency || null,
+      usdcAmount: String(tx.usdc_amount),
+      usdAmount: formatUsd(parseFloat(tx.usdc_amount)),
+      status: tx.status,
+      createdAt: tx.created_at,
+    }));
 
     return {
-      solanaAddress: workspace?.treasury_solana_address || null,
-      baseAddress: workspace?.treasury_base_address || null,
-      solBalance,
-      usdcSolBalance,
-      usdcBaseBalance,
-      totalUsdc: usdcSolBalance + usdcBaseBalance,
+      treasuryAddress: address,
+      balanceUsdc: rawUsdcString,
+      balanceUsd: formatUsd(totalUsdc),
+      reservedUsdc: Math.round(reservedUsdc * 1e6).toString(),
+      availableUsdc: Math.round(availableUsdc * 1e6).toString(),
+      recentTransactions,
+      totalUsdc,
+      testnet: IS_TESTNET,
+      _debug: { hasAddress: !!address, hasWalletId: !!privyWalletId, chain: PRIVY_CHAIN },
     };
+  },
+
+  async getBalanceForChains(privyWalletId: string) {
+    const results: Record<string, number> = {};
+    const chains = ['base', 'arbitrum', 'polygon', 'optimism', 'celo'] as const;
+    // Privy uses full chain names for mainnet, _sepolia suffixes for testnet
+    const privyChainMap: Record<string, string> = IS_TESTNET ? {
+      base: 'base_sepolia', arbitrum: 'arbitrum_sepolia', polygon: 'polygon_amoy',
+      optimism: 'optimism_sepolia', celo: 'celo',
+    } : {
+      base: 'base', arbitrum: 'arbitrum', polygon: 'polygon',
+      optimism: 'optimism', celo: 'celo',
+    };
+
+    for (const key of chains) {
+      try {
+        const privy = getPrivyNodeClient();
+        const response = await privy.wallets().balance.get(privyWalletId, {
+          asset: 'usdc',
+          chain: privyChainMap[key] as any,
+        });
+        const bal = response?.balances?.find((b: any) => b.asset === 'usdc');
+        results[key] = bal ? parseInt(bal.raw_value, 10) / Math.pow(10, bal.raw_value_decimals || 6) : 0;
+      } catch { results[key] = 0; }
+    }
+
+    return results;
+  },
+
+  async recordTransaction(params: {
+    workspaceId: string;
+    type: 'inflow' | 'payroll_out' | 'manual_transfer';
+    source: 'ngn_account' | 'usd_account' | 'direct_crypto' | 'manual' | 'invoice' | 'payment_link';
+    usdcAmount: number;
+    originalAmount?: number;
+    originalCurrency?: string;
+    conversionRate?: number;
+    status?: 'pending' | 'completed' | 'failed' | 'pending_convert';
+    referenceId?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('treasury_transactions')
+      .insert({
+        workspace_id: params.workspaceId,
+        type: params.type,
+        source: params.source,
+        usdc_amount: params.usdcAmount,
+        original_amount: params.originalAmount ?? null,
+        original_currency: params.originalCurrency ?? null,
+        conversion_rate: params.conversionRate ?? null,
+        status: params.status || 'completed',
+        reference_id: params.referenceId ?? null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('Failed to record treasury transaction', { error: error.message, ...params });
+      throw error;
+    }
+    return data;
+  },
+
+  async updateTransactionStatus(
+    transactionId: string,
+    status: 'pending' | 'completed' | 'failed' | 'pending_convert'
+  ) {
+    const { data, error } = await supabase
+      .from('treasury_transactions')
+      .update({ status })
+      .eq('id', transactionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   async initiatePayout(
@@ -99,7 +341,6 @@ export const TreasuryService = {
     const { error: itemsError } = await supabase.from('workspace_payout_items').insert(payoutItems);
     if (itemsError) throw itemsError;
 
-    // Fetch the inserted items so the frontend can reference their IDs
     const { data: insertedItems } = await supabase
       .from('workspace_payout_items')
       .select('id, user_id, amount, status')
@@ -116,6 +357,18 @@ export const TreasuryService = {
         }).catch(e => logger.warn('Payout email failed', { error: e.message }));
       }
     }
+
+    // Record as treasury transaction
+    try {
+      await this.recordTransaction({
+        workspaceId,
+        type: 'payroll_out',
+        source: 'manual',
+        usdcAmount: totalAmount,
+        status: 'pending',
+      });
+    } catch { /* non-critical */ }
+
     return { ...payout, items: insertedItems || [] };
   },
 

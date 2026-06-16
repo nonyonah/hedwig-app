@@ -114,8 +114,9 @@ export async function sendEvmUsdc({
   const net = EVM_NETWORKS[evmChainKey];
   const hash = await provider.request({
     method: 'eth_sendTransaction',
+    sponsor: true,
     params: [{ from: evmWallet.address, to: usdcAddress, data, chainId: net.chainIdHex }],
-  });
+  } as any);
   return String(hash);
 }
 

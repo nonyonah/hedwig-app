@@ -34,6 +34,7 @@ export interface AgentRunRequest {
   tools?: AgentToolDefinition[];
   responseSchema?: Record<string, unknown>;
   maxIterations?: number;
+  conversationHistory?: { role: string; content: string }[];
 }
 
 export interface AgentRunResult<TStructured = unknown> {

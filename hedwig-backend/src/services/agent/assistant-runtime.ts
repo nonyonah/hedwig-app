@@ -2,6 +2,7 @@ import { createLogger } from '../../utils/logger';
 import { hedwigAgentOrchestrator } from './orchestrator';
 import { approveAssistantSuggestion } from './assistant-approval-executor';
 import { getComposioToolsForUser, getHedwigNativeTools } from './composio-tools';
+import { getCommercialToolsForUser } from './composio-commercial-tools';
 import { refreshConnectionsForUser } from '../composio';
 import {
   buildNotificationSuggestions,
@@ -205,9 +206,12 @@ const CHAT_SYSTEM_INSTRUCTION = [
   '  • workspace_get_milestone_details (project milestones + linked milestone invoice)',
   '  • workspace_get_transaction_history (crypto transactions + offramp/onramp orders — use for revenue, deposit/withdrawal, and settlement questions)',
   '  • workspace_get_client_insights (client revenue rankings)',
-  '  • workspace_get_project_details (projects with budget + linked invoices)',
+  '  • workspace_get_project_details (projects with budget + linked invoices + linearLinked flag — tells you if a project is synced to Linear)',
   '  • workspace_get_expense_breakdown (expenses + transaction fees)',
   '  • workspace_get_calendar_context (upcoming due dates, milestones, calendar events)',
+  'Also available when connected:',
+  '  • sync_linear_project_status (bidirectional sync of project/milestone status between Hedwig and a linked Linear project — for syncing progress or checking what changed)',
+  '  • create_linear_project (create a Linear project from a Hedwig project — use once per project, after that sync_linear_project_status handles updates)',
   'Always use these tools for workspace facts; never guess from chat history or uploaded attachment content.',
   'CLIENT RESOLUTION: when the user mentions a client name, call workspace_get_client_insights to confirm the client exists in the database before referencing them. Do not infer client identity from previously uploaded documents — the canonical source is the clients table reachable through workspace_get_client_insights.',
   'INTENT DECISION TREE — pick exactly one tool per user request:',
@@ -220,6 +224,8 @@ const CHAT_SYSTEM_INSTRUCTION = [
   '  • User asks about deposits, withdrawals, onramp, offramp, crypto received, bank transfers, or revenue from settlements → workspace_get_transaction_history with the appropriate direction filter.',
   '  • User mentions a date, deadline, meeting, or milestone schedule → workspace_get_calendar_context first, then if a write is needed, calendar_create_event (Composio, staged for approval).',
   '  • User asks "what should I bill for", "what items are in this brief", or wants line-item breakdown without a target → respond with suggested items in plain text; do not stage an invoice until the user picks the target.',
+  '  • User asks about Linear, syncing a project to Linear, project status in Linear, or "what changed in Linear" → first call workspace_get_project_details to check if the project has linearLinked=true. If yes, call sync_linear_project_status. If linearLinked is false or missing, offer to call create_linear_project first.',
+  '  • User asks to push a Hedwig project to Linear, connect to Linear, or create a Linear project → call create_linear_project. After creation, tell the user the project is linked and they can use sync_linear_project_status for ongoing updates.',
   'For highest-paying-client or client revenue ranking questions with an explicit time window, call workspace_get_client_insights with the exact lookbackDays value: 90 for last 90 days, 180 for last 180 days, 365 for last 1 year. Do not answer from cached client totals.',
   'You also have read+write access to connected external tools (Gmail, Calendar, Drive, Docs).',
   'CLIENT RESEARCH FORMAT: when researching a company or client, answer with Company Summary, Industry, Products or Services, Potential Freelancer Opportunities, and Key Notes.',
@@ -251,21 +257,23 @@ export async function runAgentChat(params: {
   const { userId, history, userMessage } = params;
   await refreshConnectionsForUser(userId);
   const externalTools = await getComposioToolsForUser(userId, { includeWrites: true });
+  const commercialTools = await getCommercialToolsForUser(userId);
   const workspaceTools = createWorkspaceAnalysisTools();
   const hedwigNativeTools = getHedwigNativeTools();
 
-  // Compose history into a single user message — orchestrator only takes one.
-  const composedMessage = history.length > 0
-    ? `${history.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}\nUSER: ${userMessage}`
-    : userMessage;
+  // Keep last 6 exchanges (12 messages) for context
+  const conversationHistory = history.length > 0
+    ? history.slice(-12).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', content: m.content }))
+    : undefined;
 
   try {
     const result = await hedwigAgentOrchestrator.run<unknown>({
       userId,
       role: 'dispatcher',
       instruction: CHAT_SYSTEM_INSTRUCTION,
-      userMessage: composedMessage,
-      tools: [...workspaceTools, ...hedwigNativeTools, ...externalTools],
+      userMessage,
+      conversationHistory,
+      tools: [...workspaceTools, ...hedwigNativeTools, ...externalTools, ...commercialTools],
       maxIterations: 8,
     });
 

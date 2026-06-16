@@ -42,6 +42,9 @@ import calendarRoutes from './routes/calendar';
 import recurringRoutes from './routes/recurring';
 import kycRoutes from './routes/kyc';
 import diditWebhookRoutes from './routes/diditWebhook';
+import offrampV2Routes from './routes/offrampV2';
+import settlementPreferencesRoutes from './routes/settlementPreferences';
+import externalRecipientsRoutes from './routes/externalRecipients';
 import blockradarWebhookRoutes from './routes/blockradarWebhook';
 import creationBoxRoutes from './routes/creation-box';
 import solanaRpcRoutes from './routes/solanaRpc';
@@ -57,6 +60,7 @@ import currencyRoutes from './routes/currency';
 import assistantRoutes from './routes/assistant';
 import bankAccountRoutes from './routes/bankAccount';
 import workspaceRoutes from './routes/workspaces';
+import payrollRoutes from './routes/payroll';
 import timeRoutes from './routes/time';
 import { warmRateSnapshot } from './services/currency';
 
@@ -493,6 +497,10 @@ app.use('/api/webhooks/circle-gateway', (req, _res, next) => {
 });
 app.use('/api/webhooks/circle-gateway', circleGatewayWebhookRoutes);
 app.use('/api/webhooks/didit', diditWebhookRoutes);
+
+app.use('/api/offramp-v2', financialLimiter, offrampV2Routes);
+app.use('/api/settlement-preferences', settlementPreferencesRoutes);
+app.use('/api/external-recipients', externalRecipientsRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 app.use('/api/webhooks/revenuecat', revenuecatWebhookRoutes);
 app.use('/api/webhooks/payments', paymentWebhooksRoutes);
@@ -529,6 +537,14 @@ app.use('/api/currency', currencyRoutes);
 app.use('/api/assistant', insightsLimiter, assistantRoutes);
 app.use('/api/bank-account', financialLimiter, bankAccountRoutes);
 app.use('/api/workspaces', workspaceRoutes);
+app.use('/api/workspaces/:id/payroll', payrollRoutes);
+
+// Inngest — disabled; cron handles scheduled payroll for now.
+// Re-enable by uncommenting below and setting INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY.
+// if (process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY) {
+//   const inngestRoutes = require('./routes/inngest').default;
+//   app.use('/api/inngest', inngestRoutes);
+// }
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

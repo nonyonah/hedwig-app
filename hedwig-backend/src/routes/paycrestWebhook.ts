@@ -570,6 +570,30 @@ router.post('/', async (req: Request, res: Response) => {
             logger.error('Failed to update order status', { error: updateError.message });
         }
 
+        // Handle auto-settlement offramp event — update linked payroll_item
+        if (resolvedOrder.offramp_source === 'auto_settle') {
+            const { data: payrollItems } = await supabase
+                .from('payroll_items')
+                .select('id')
+                .eq('auto_settle_offramp_order_id', resolvedOrder.id)
+                .limit(1);
+
+            const payrollItemId = payrollItems?.[0]?.id;
+            if (payrollItemId) {
+                let autoSettleStatus: string;
+                switch (newStatus) {
+                    case 'PENDING': autoSettleStatus = 'pending'; break;
+                    case 'PROCESSING': autoSettleStatus = 'processing'; break;
+                    case 'COMPLETED': autoSettleStatus = 'completed'; break;
+                    case 'FAILED': autoSettleStatus = 'failed'; break;
+                    default: autoSettleStatus = 'processing';
+                }
+                await supabase.from('payroll_items').update({
+                    auto_settle_status: autoSettleStatus,
+                }).eq('id', payrollItemId);
+            }
+        }
+
         const statusChanged = previousStatus !== newStatus;
 
         if (statusChanged) {

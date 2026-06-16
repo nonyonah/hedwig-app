@@ -2365,4 +2365,110 @@ export const hedwigApi = {
       method: 'DELETE',
     });
   },
+
+  // ── Offramp v2 ────────────────────────────────────────────────
+
+  async offrampV2Orders(options?: ApiOptions) {
+    return request<{ orders: any[] }>('/api/offramp-v2/orders', options);
+  },
+
+  async createOfframpV2Order(payload: {
+    amount: number;
+    token: string;
+    network: string;
+    currency: string;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    returnAddress: string;
+    memo?: string;
+    metadata?: Record<string, any>;
+    workspaceId?: string;
+  }, options?: ApiOptions) {
+    return request<{ order: any }>('/api/offramp-v2/orders', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async offrampV2Order(id: string, options?: ApiOptions) {
+    return request<{ order: any }>(`/api/offramp-v2/orders/${id}`, options);
+  },
+
+  async offrampV2Rates(token: string, amount: number, currency: string, network: string, options?: ApiOptions) {
+    return request<{ rate: any }>(`/api/offramp-v2/rates?token=${token}&amount=${amount}&currency=${currency}&network=${network}`, options);
+  },
+
+  async offrampV2Institutions(currency: string, options?: ApiOptions) {
+    return request<{ institutions: any[] }>(`/api/offramp-v2/institutions/${currency}`, options);
+  },
+
+  async verifyOfframpV2Account(payload: { institution: string; accountIdentifier: string; currency: string; metadata?: Record<string, any> }, options?: ApiOptions) {
+    return request<{ verified: boolean; accountName: string; accountNumber: string }>('/api/offramp-v2/verify-account', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // ── Settlement preferences ─────────────────────────────────────
+
+  async getSettlementPreferences(options?: ApiOptions) {
+    return request<{ preferences: any }>('/api/settlement-preferences', options);
+  },
+
+  async setSettlementPreferences(payload: {
+    autoSettle: boolean;
+    bankAccount: {
+      institution: string;
+      accountIdentifier: string;
+      accountName: string;
+      currency: string;
+      metadata?: Record<string, any>;
+    } | null;
+  }, options?: ApiOptions) {
+    return request<{ preferences: any }>('/api/settlement-preferences', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // ── External payroll recipients ────────────────────────────────
+
+  async externalRecipients(workspaceId: string, options?: ApiOptions) {
+    return request<{ recipients: any[] }>(`/api/external-recipients/${workspaceId}`, options);
+  },
+
+  async createExternalRecipient(workspaceId: string, payload: {
+    displayName: string;
+    walletAddress: string;
+    notes?: string;
+  }, options?: ApiOptions) {
+    return request<{ recipient: any }>(`/api/external-recipients/${workspaceId}`, options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateExternalRecipient(workspaceId: string, recipientId: string, payload: {
+    displayName?: string;
+    walletAddress?: string;
+    notes?: string;
+    isActive?: boolean;
+  }, options?: ApiOptions) {
+    return request<{ recipient: any }>(`/api/external-recipients/${workspaceId}/${recipientId}`, options, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteExternalRecipient(workspaceId: string, recipientId: string, options?: ApiOptions) {
+    return request<{ success: boolean }>(`/api/external-recipients/${workspaceId}/${recipientId}`, options, {
+      method: 'DELETE',
+    });
+  },
 };

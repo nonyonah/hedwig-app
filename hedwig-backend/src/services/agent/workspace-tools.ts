@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAllLinkedProjects } from '../composioCommercial';
 import type { AgentToolDefinition } from './types';
 
 export interface AssistantEventPayload {
@@ -660,7 +661,7 @@ export function createClientInsightsTool(): AgentToolDefinition {
 export function createProjectDetailsTool(): AgentToolDefinition {
   return {
     name: 'workspace_get_project_details',
-    description: 'Fetch Hedwig projects by status with budgets, deadlines, client names, and related invoice totals.',
+    description: 'Fetch Hedwig projects by status with budgets, deadlines, client names, linearLinked boolean, and related invoice totals.',
     parameters: {
       type: 'object',
       properties: {
@@ -698,6 +699,12 @@ export function createProjectDetailsTool(): AgentToolDefinition {
         totals.set(doc.project_id, current);
       }
 
+      let linkedProjectIds = new Set<string>();
+      try {
+        const linked = await getAllLinkedProjects(context.userId);
+        linkedProjectIds = new Set(Object.keys(linked.projects));
+      } catch { }
+
       return {
         status: status.toLowerCase(),
         count: data?.length ?? 0,
@@ -712,6 +719,7 @@ export function createProjectDetailsTool(): AgentToolDefinition {
           clientName: project.clients?.name ?? null,
           clientEmail: project.clients?.email ?? null,
           updatedAt: project.updated_at,
+          linearLinked: linkedProjectIds.has(project.id),
           ...(totals.get(project.id) ?? { paidUsd: 0, outstandingUsd: 0, invoiceCount: 0 }),
         })),
       };

@@ -101,12 +101,12 @@ export const WorkspaceService = {
     }));
   },
 
-  async createWorkspace(userId: string, name: string) {
+  async createWorkspace(userId: string, name: string, type: 'personal' | 'organization' = 'organization') {
     const { data: workspace, error } = await supabase
       .from('workspaces')
       .insert({
         name: name.trim(),
-        type: 'organization',
+        type,
         owner_id: userId,
       })
       .select()
@@ -123,14 +123,24 @@ export const WorkspaceService = {
       role: 'owner',
     });
 
-    // MVP: Use owner's personal wallets as treasury
-    const { data: owner } = await supabase
-      .from('users').select('solana_wallet_address, ethereum_wallet_address').eq('id', userId).single();
-    if (owner?.solana_wallet_address || owner?.ethereum_wallet_address) {
-      await supabase.from('workspaces').update({
-        treasury_solana_address: owner.solana_wallet_address || null,
-        treasury_base_address: owner.ethereum_wallet_address || null,
-      }).eq('id', workspace.id);
+    if (workspace.type === 'organization') {
+      try {
+        const { TreasuryService } = await import('./treasury');
+        const result = await TreasuryService.createTreasuryWallet(workspace.id);
+        if (result) {
+          await supabase.from('workspaces').update({
+            treasury_base_address: result.address,
+          }).eq('id', workspace.id);
+          logger.info('Treasury wallet created for workspace', { workspaceId: workspace.id, address: result.address });
+        } else {
+          logger.warn('Treasury wallet creation deferred', { workspaceId: workspace.id });
+        }
+      } catch (walletError: any) {
+        logger.warn('Failed to create treasury wallet, will retry async', {
+          workspaceId: workspace.id,
+          error: walletError?.message || 'Unknown error',
+        });
+      }
     }
 
     logger.info('Workspace created', { workspaceId: workspace.id, name, userId });

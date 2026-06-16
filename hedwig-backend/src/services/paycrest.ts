@@ -3,7 +3,6 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Paycrest');
 
-const PAYCREST_API_URL = process.env.PAYCREST_API_URL || 'https://api.paycrest.io/v1';
 const PAYCREST_API_URL_V2 = process.env.PAYCREST_API_URL_V2 || 'https://api.paycrest.io/v2';
 const PAYCREST_API_KEY = process.env.PAYCREST_API_KEY;
 
@@ -11,17 +10,7 @@ if (!PAYCREST_API_KEY) {
     logger.warn('PAYCREST_API_KEY is not defined. Offramp features will not work.');
 }
 
-// Paycrest v1 client (offramp + legacy endpoints)
-const paycrestClient: AxiosInstance = axios.create({
-    baseURL: PAYCREST_API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-        'API-Key': PAYCREST_API_KEY || '',
-    },
-    timeout: 30000,
-});
-
-// Paycrest v2 client (onramp uses the unified source/destination order shape)
+// Paycrest v2 client (unified source/destination order shape)
 const paycrestClientV2: AxiosInstance = axios.create({
     baseURL: PAYCREST_API_URL_V2,
     headers: {
@@ -73,6 +62,7 @@ export interface OfframpOrderRequest {
     recipient: BankDetails;
     returnAddress: string; // User's wallet address for refunds
     reference?: string;
+    metadata?: Record<string, string>; // KES Till/Paybill: { channel, businessNumber? }
 }
 
 export interface OfframpOrderResponse {
@@ -215,7 +205,7 @@ export class PaycrestService {
         }
 
         try {
-            const response = await paycrestClient.get(`/institutions/${currency.toUpperCase()}`);
+            const response = await paycrestClientV2.get(`/institutions/${currency.toUpperCase()}`);
             const institutions = this.normalizeInstitutions(response.data);
 
             if (institutions.length > 0) {
@@ -473,6 +463,7 @@ export class PaycrestService {
                             accountIdentifier: orderData.recipient.accountIdentifier,
                             accountName: orderData.recipient.accountName,
                             memo: orderData.recipient.memo || 'Payment',
+                            ...(orderData.metadata ? { metadata: orderData.metadata } : {}),
                         },
                     },
                     reference: orderData.reference || `ref-${Date.now()}`,

@@ -5,6 +5,7 @@ import {
   ChartBar,
   ClockCountdown,
   CreditCard,
+  CurrencyDollar,
   Faders,
   FolderSimple,
   House,
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/lucide-icons';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member';
+export type WorkspaceType = 'personal' | 'organization';
 
 export interface NavItem {
   title: string;
@@ -22,6 +24,8 @@ export interface NavItem {
   count: null;
   muted: boolean;
   roles: WorkspaceRole[];
+  /** Only show when active workspace matches one of these types. Omit to show always. */
+  workspaceTypes?: WorkspaceType[];
 }
 
 export const navigationGroups = [
@@ -38,7 +42,7 @@ export const navigationGroups = [
     items: [
       { title: 'Clients', href: '/clients', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Projects', href: '/projects', icon: FolderSimple, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
-      { title: 'Time', href: '/time', icon: ClockCountdown, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
+      { title: 'Time', href: '/time', icon: ClockCountdown, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
       { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
   },
@@ -46,8 +50,9 @@ export const navigationGroups = [
     label: 'Money',
     items: [
       { title: 'Revenue', href: '/revenue', icon: ChartBar, count: null, muted: false, roles: ['owner', 'admin'] },
+      { title: 'Payroll', href: '/workspace/payroll', icon: CurrencyDollar, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
-      { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
+      { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
     ]
   },
   {

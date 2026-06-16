@@ -737,6 +737,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
         if (tokenSymbol === sourceConfig.nativeSymbol) {
             const txHash = await provider.request({
                 method: 'eth_sendTransaction',
+                sponsor: true,
                 params: [{
                     from: fromAddress,
                     to: data.recipient as `0x${string}`,
@@ -754,6 +755,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
         const transferData = buildErc20TransferData(data.recipient, data.amount);
         const txHash = await provider.request({
             method: 'eth_sendTransaction',
+            sponsor: true,
             params: [{
                 from: fromAddress,
                 to: sourceConfig.usdc,

@@ -117,11 +117,17 @@ export function AssistantSidebar() {
         ? { page: pageContext.page, route: pageContext.route, data: pageContext.data }
         : undefined;
 
+      const history = messages
+        .filter((m) => !m.pending)
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }));
+
       const resp = await fetch('/api/assistant/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
+          history,
           attachmentId,
           context: contextPayload,
         }),

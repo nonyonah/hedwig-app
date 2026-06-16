@@ -2,8 +2,8 @@
 
 import Image from 'next/image';
 import { useCallback, useMemo, useState } from 'react';
-import { ArrowsLeftRight, ArrowDown, Bank, Info, Wallet, X } from '@/components/ui/lucide-icons';
-import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
+import { ArrowsLeftRight, ArrowDown, Bank, Info, ShareNetwork, Wallet, X } from '@/components/ui/lucide-icons';
+import { useFundWallet } from '@privy-io/react-auth';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { ClientPortal } from '@/components/ui/client-portal';
@@ -12,6 +12,8 @@ import { useCurrency } from '@/components/providers/currency-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { Button } from '@/components/ui/button';
 import { hedwigApi } from '@/lib/api/client';
+import { OfframpModal } from '@/components/wallet/offramp-modal';
+import { OnrampModal } from '@/components/wallet/onramp-modal';
 import type { AccountTransaction, GatewayBalance, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatShortDate } from '@/lib/utils';
 
@@ -87,6 +89,7 @@ export function WalletView({
   regionCountryCode?: string | null;
 }) {
   const { formatAmount } = useCurrency();
+  const { fundWallet } = useFundWallet();
 
   useAssistantPageContext('Wallet', {
     assetsCount: initialWalletData.walletAssets.length,
@@ -97,6 +100,8 @@ export function WalletView({
 
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<WalletTransaction | AccountTransaction | null>(null);
+  const [offrampOpen, setOfframpOpen] = useState(false);
+  const [onrampOpen, setOnrampOpen] = useState(false);
   const [usdSetupState, setUsdSetupState] = useState<'idle' | 'enrolling' | 'kyc_loading' | 'error'>('idle');
   const [usdSetupError, setUsdSetupError] = useState('');
   const usdAccount = initialAccountsData.usdAccount;
@@ -171,13 +176,22 @@ export function WalletView({
           <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Revenue</h1>
           <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Your USDC earnings, settlements, and account balances.</p>
         </div>
-        <div className="shrink-0 pt-1">
-          <ShareWalletDialog
-            baseAddress={baseAccount?.address ?? null}
-            solanaAddress={solanaAccount?.address ?? null}
-            usdAccountsEnabled={usdAccountsEnabled}
-            usdAccount={usdAccount}
-          />
+        <div className="shrink-0 pt-1 flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setOnrampOpen(true)}>
+            <Bank className="h-4 w-4" weight="bold" /> Fund via Bank
+          </Button>
+          {baseAccount?.address && (
+            <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>
+              <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => {
+            if (baseAccount?.address) {
+              fundWallet({ address: baseAccount.address, options: { chain: { id: 8453 } as any } });
+            }
+          }}>
+            <ShareNetwork className="h-4 w-4" weight="bold" /> Receive
+          </Button>
         </div>
       </div>
 
@@ -405,6 +419,19 @@ export function WalletView({
         />
       ) : null}
       <PayoutPanel gatewayAutoDepositEnabled={gatewayAutoDepositEnabled} />
+      <OnrampModal
+        open={onrampOpen}
+        onClose={() => setOnrampOpen(false)}
+        accessToken={accessToken}
+      />
+      <OfframpModal
+        open={offrampOpen}
+        onClose={() => setOfframpOpen(false)}
+        source="personal"
+        returnAddress={baseAccount?.address || ''}
+        maxAmount={eoaUsdcTotal}
+        accessToken={accessToken}
+      />
     </div>
   );
 }

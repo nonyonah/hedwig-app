@@ -26,6 +26,7 @@ export function AppSidebar({
   const lockedRouteSet = new Set(lockedRoutes);
   const { activeWorkspace } = useWorkspaceContext();
   const role: WorkspaceRole = (activeWorkspace?.role as WorkspaceRole) ?? 'owner';
+  const wsType = (activeWorkspace?.type as 'personal' | 'organization' | undefined) ?? 'personal';
 
   const handleFeedbackClick = () => {
     const widget = getUserback();
@@ -41,7 +42,7 @@ export function AppSidebar({
         <div key={`group-${groupIndex}`}>
           {groupIndex > 0 && <div className="my-1.5 h-px bg-[var(--color-surface-tertiary)]" />}
           <ul className="flex flex-col gap-0.5">
-            {group.items.filter(i => !lockedRouteSet.has(i.href) && i.roles.includes(role)).map(item => {
+            {group.items.filter(i => !lockedRouteSet.has(i.href) && i.roles.includes(role) && (!i.workspaceTypes || i.workspaceTypes.includes(wsType))).map(item => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
               return (

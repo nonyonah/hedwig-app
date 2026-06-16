@@ -1986,6 +1986,139 @@ export const EmailService = {
         }
     },
 
+    async sendPayrollReceivedEmail(data: {
+        to: string;
+        memberName: string;
+        amountUsd: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const walletUrl = `${APP_URL}/wallet`;
+        const subject = `$${data.amountUsd} payment received`;
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapeHtml(subject)}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Payment received</p>
+                    <h1 class="heading">Payment arrived, ${escapeHtml(data.memberName)}</h1>
+                    <p class="description">A payment has been sent to your workspace wallet.</p>
+                    <div class="card">
+                        <p class="amount-label">Amount</p>
+                        <p class="amount-value">$${escapeHtml(data.amountUsd)}</p>
+                    </div>
+                    <p class="description" style="font-size:13px;color:#717680;margin-top:0;">
+                        The funds are available in your Hedwig wallet now.
+                    </p>
+                    <div class="btn-container">
+                        <a href="${walletUrl}" class="btn">View wallet</a>
+                    </div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body></html>`;
+        try {
+            await resend.emails.send({ from: 'Hedwig <team@hedwigbot.xyz>', to: [data.to], subject, html });
+        } catch (error) {
+            logger.error('Payroll received email failed', { error: (error as Error).message });
+        }
+    },
+
+    async sendPayrollCompleteEmail(data: {
+        to: string;
+        adminName: string;
+        totalRan: number;
+        successCount: number;
+        failedCount: number;
+        payrollRunId: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const treasuryUrl = `${APP_URL}/workspace/payroll`;
+        const allSucceeded = data.failedCount === 0;
+        const subject = allSucceeded
+            ? `Payroll complete — ${data.successCount}/${data.totalRan} sent`
+            : `Payroll complete — ${data.successCount} sent, ${data.failedCount} failed`;
+        const resultLine = allSucceeded
+            ? `<p style="font-size:13px;color:#535862;margin:12px 0 0;">All <strong>${data.totalRan}</strong> payments were sent successfully.</p>`
+            : `<p style="font-size:13px;color:#535862;margin:12px 0 0;"><strong>${data.successCount}</strong> succeeded &middot; <strong style="color:#e53e3e;">${data.failedCount}</strong> failed</p>`;
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapeHtml(subject)}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Payroll complete</p>
+                    <h1 class="heading">Payroll run finished</h1>
+                    <p class="description">Your payroll run has been processed. Here's a summary of the results.</p>
+                    <div class="card" style="text-align:center;">
+                        <p class="amount-label">Payments sent</p>
+                        <p class="amount-value">${data.successCount}<span style="font-size:20px;font-weight:600;color:#535862;"> / ${data.totalRan}</span></p>
+                        ${resultLine}
+                    </div>
+                    <div class="btn-container">
+                        <a href="${treasuryUrl}" class="btn">View payroll</a>
+                    </div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body></html>`;
+        try {
+            await resend.emails.send({ from: 'Hedwig <team@hedwigbot.xyz>', to: [data.to], subject, html });
+        } catch (error) {
+            logger.error('Payroll complete email failed', { error: (error as Error).message });
+        }
+    },
+
+    async sendPayrollSkippedEmail(data: {
+        to: string;
+        adminName: string;
+        deficit: string;
+        nextRunAt: string;
+    }): Promise<void> {
+        if (!process.env.RESEND_API_KEY) return;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const payrollUrl = `${APP_URL}/workspace/payroll`;
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Scheduled payroll skipped</title>
+        ${EMAIL_FONT_HEAD}<style>${SHARED_STYLES}</style></head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Payroll skipped</p>
+                    <h1 class="heading">Scheduled payroll could not run</h1>
+                    <p class="description">Your scheduled payroll couldn't be processed — there aren't enough funds in your treasury. You need <strong>$${escapeHtml(data.deficit)}</strong> more.</p>
+                    <p class="description" style="font-size:13px;color:#717680;">The next attempt will be on <strong>${escapeHtml(new Date(data.nextRunAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</strong> at 09:00 UTC. Add funds before then to avoid another skip.</p>
+                    <div class="btn-container"><a href="${payrollUrl}" class="btn">View payroll</a></div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body></html>`;
+        try { await resend.emails.send({ from: 'Hedwig <team@hedwigbot.xyz>', to: [data.to], subject: 'Scheduled payroll skipped — insufficient funds', html }); }
+        catch (error) { logger.error('Payroll skipped email failed', { error: (error as Error).message }); }
+    },
+
 };
 // Shared helper for project outcome emails
 async function sendProjectOutcomeEmail(

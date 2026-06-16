@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ArrowLeft, CalendarBlank, CheckCircle, CurrencyDollar, FolderSimple, Info, NotePencil, Target } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,10 +34,11 @@ const PROJ_STATUS = {
 } as const;
 
 const MILESTONE_STATUS = {
-  upcoming: { label: 'Upcoming', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
-  due_soon: { label: 'Due soon', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  pending:  { label: 'Pending',  bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  upcoming: { label: 'Pending',  bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
   done:     { label: 'Done',     bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
-  late:     { label: 'Late',     bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
+  invoiced: { label: 'Invoiced', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  paid:     { label: 'Paid',     bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
 } as const;
 
 const INV_STATUS = {
@@ -119,6 +120,15 @@ export function ProjectDetailClient({
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [editOpen, setEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingLinear, setIsCreatingLinear] = useState(false);
+  const [linearLinked, setLinearLinked] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/integrations/composio/linear/link/${project.id}`)
+      .then((r) => r.json())
+      .then((p) => { if (p.success) setLinearLinked(p.data?.linked ?? false); })
+      .catch(() => {});
+  }, [project.id]);
   const [form, setForm] = useState({
     title: initialProject.name,
     budget: `${initialProject.budgetUsd || ''}`,
@@ -192,7 +202,69 @@ export function ProjectDetailClient({
     }
   };
 
-  const completedMilestones = milestoneList.filter((m) => m.status === 'done').length;
+  const handleCreateLinear = useCallback(async () => {
+    setIsCreatingLinear(true);
+    try {
+      const resp = await fetch('/api/integrations/composio/linear/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: project.name,
+          description: '',
+          dueDate: project.nextDeadlineAt || '',
+          hedwigProjectId: project.id,
+        }),
+      });
+      const payload = await resp.json();
+      if (payload.success && payload.data?.success) {
+        setLinearLinked(true);
+        const ms = payload.data.milestonesSynced;
+        const msg = ms && ms > 0 ? `Project created in Linear with ${ms} milestone${ms !== 1 ? 's' : ''}.` : 'Project created in Linear.';
+        toast({ type: 'success', title: 'Synced to Linear', message: msg });
+      } else {
+        const err = payload.data?.error || payload.error || '';
+        if (err.includes('not connected')) {
+          toast({ type: 'info', title: 'Linear not connected', message: 'Connect Linear in Settings first.' });
+        } else {
+          toast({ type: 'error', title: 'Linear create failed', message: err || 'Please try again.' });
+        }
+      }
+    } catch {
+      toast({ type: 'error', title: 'Linear create failed', message: 'Could not reach the server.' });
+    } finally {
+      setIsCreatingLinear(false);
+    }
+  }, [project, toast]);
+
+  const handleSyncLinearStatus = useCallback(async () => {
+    setIsCreatingLinear(true);
+    try {
+      const resp = await fetch('/api/integrations/composio/linear/sync-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hedwigProjectId: project.id }),
+      });
+      const payload = await resp.json();
+      if (payload.success && payload.data?.success) {
+        const label = payload.data.linearStatus || 'synced';
+        const updated = payload.data.hedwigStatusUpdated;
+        toast({ type: 'success', title: 'Synced', message: `Linear: ${label}${updated ? ' · Hedwig status updated' : ''}` });
+      } else {
+        const err = payload.data?.error || payload.error || '';
+        if (err.includes('not connected')) {
+          toast({ type: 'info', title: 'Linear not connected', message: 'Connect Linear in Settings first.' });
+        } else {
+          toast({ type: 'error', title: 'Linear sync failed', message: err || 'Please try again.' });
+        }
+      }
+    } catch {
+      toast({ type: 'error', title: 'Linear sync failed', message: 'Could not reach the server.' });
+    } finally {
+      setIsCreatingLinear(false);
+    }
+  }, [project.id, toast]);
+
+  const completedMilestones = milestoneList.filter((m) => m.status === 'done' || m.status === 'paid' || m.status === 'invoiced').length;
   const highlightedMilestone = milestoneList.find((m) => m.id === highlightedMilestoneId) ?? null;
   const s = PROJ_STATUS[project.status] ?? PROJ_STATUS.active;
 
@@ -253,6 +325,21 @@ export function ProjectDetailClient({
               }}
             />
             <div className="h-5 w-px bg-[var(--color-border-light)]" />
+            {linearLinked ? (
+              <Button size="sm" variant="secondary" onClick={handleSyncLinearStatus} disabled={isCreatingLinear} title="Re-sync project status with Linear">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                  <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+                </svg>
+                {isCreatingLinear ? 'Syncing…' : 'Synced'}
+              </Button>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={handleCreateLinear} disabled={isCreatingLinear} title="Sync with Linear">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                  <path d="M3 12c0-4.97 4.03-9 9-9s9 4.03 9 9-4.03 9-9 9-9-4.03-9-9zm2.5 0c0 3.59 2.91 6.5 6.5 6.5s6.5-2.91 6.5-6.5-2.91-6.5-6.5-6.5-6.5 2.91-6.5 6.5zM12 7v5l4 2" />
+                </svg>
+                {isCreatingLinear ? 'Creating…' : 'Sync with Linear'}
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={openEdit}>
               <NotePencil className="h-3.5 w-3.5" weight="bold" />
               Edit
@@ -318,8 +405,8 @@ export function ProjectDetailClient({
                 </thead>
                 <tbody className="divide-y divide-[var(--color-surface-secondary)]">
                   {milestoneList.map((m) => {
-                    const ms = MILESTONE_STATUS[m.status] ?? MILESTONE_STATUS.upcoming;
-                    const canComplete = m.status !== 'done' && !m.invoiceId;
+                    const ms = MILESTONE_STATUS[m.status] ?? { label: m.status, bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
+                    const canComplete = (m.status === 'pending' || m.status === 'done' || m.status === 'upcoming') && !m.invoiceId;
                     const canApprove = m.status === 'done' && !m.invoiceId && canManage;
                     const isCompleting = completingIds.has(m.id);
                     return (

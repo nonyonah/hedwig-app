@@ -169,6 +169,45 @@ export const SchedulerService = {
             withLock('gmail-import-sync', hourlyLockTtl, () => this.syncConnectedGmailInboxes())
                 .catch((e) => logger.error('gmail-import-sync lock error', { error: e?.message }));
         });
+
+        // ── Scheduled payroll ──
+        // Test/dev: every 1 min. Production: every 15 min.
+        const pollInterval = process.env.NODE_ENV !== 'production' ? '* * * * *' : '*/15 * * * *';
+        cron.schedule(pollInterval, () => {
+            this.pollScheduledPayroll().catch((e) =>
+                logger.error('scheduled-payroll-poll error', { error: e?.message }));
+        });
+    },
+
+    async pollScheduledPayroll() {
+        const now = new Date().toISOString();
+        const { data: dues } = await supabase
+            .from('scheduled_payrolls')
+            .select('id')
+            .eq('status', 'active')
+            .lte('next_run_at', now)
+            .limit(20);
+
+        if (!dues || dues.length === 0) return;
+
+        const { PayrollService } = await import('./payroll');
+        for (const s of dues) {
+            // Per-schedule lock — prevents the same schedule from executing twice
+            withLock(`payroll-sched:${s.id}`, 1800, async () => {
+                // Re-fetch to ensure it wasn't already processed by another instance
+                const { data: fresh } = await supabase
+                    .from('scheduled_payrolls')
+                    .select('id, next_run_at, status')
+                    .eq('id', s.id)
+                    .single();
+                if (!fresh || fresh.status !== 'active' || new Date(fresh.next_run_at) > new Date()) {
+                    return; // Already processed or not due yet
+                }
+                await PayrollService.executeScheduledRun(s.id);
+            }).catch((e: any) => {
+                logger.error('Scheduled payroll execution failed', { scheduleId: s.id, error: e?.message });
+            });
+        }
     },
 
     timestampMs(value: string | null | undefined): number | null {

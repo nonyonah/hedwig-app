@@ -31,6 +31,15 @@ import {
   refreshConnectionStatus as refreshComposioStatus,
   revokeConnection as revokeComposioConnection,
 } from '../services/composio';
+import {
+  exportRevenueToQuickBooks,
+  pushEntriesToXero,
+  createLinearProject,
+  syncLinearProjectStatus,
+  getLinearProjectLink,
+  getAllLinkedProjects,
+  unlinkLinearProject,
+} from '../services/composioCommercial';
 import { createLogger } from '../utils/logger';
 import { requireProFeatureAccess } from '../services/billingRules';
 
@@ -769,6 +778,117 @@ router.delete('/composio/connect/:provider', async (req: Request, res: Response)
   }
 });
 
+// ── Composio commercial sync routes ──────────────────────────────────────
+
+router.post('/composio/quickbooks/sync', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  try {
+    const result = await exportRevenueToQuickBooks({
+      userId,
+      revenueData: req.body,
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('QuickBooks sync failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'QuickBooks sync failed' });
+  }
+});
+
+router.post('/composio/xero/push', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  try {
+    const result = await pushEntriesToXero({
+      userId,
+      entries: req.body.entries ?? [],
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Xero push failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Xero push failed' });
+  }
+});
+
+router.post('/composio/linear/create', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  try {
+    const result = await createLinearProject({
+      userId,
+      projectData: req.body,
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Linear create failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Linear create failed' });
+  }
+});
+
+router.post('/composio/linear/sync-status', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  try {
+    const result = await syncLinearProjectStatus({
+      userId,
+      hedwigProjectId: req.body.hedwigProjectId,
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Linear sync status failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Linear sync failed' });
+  }
+});
+
+router.get('/composio/linear/link/:hedwigProjectId', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  try {
+    const result = await getLinearProjectLink({
+      userId,
+      hedwigProjectId: String(req.params.hedwigProjectId),
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Linear link lookup failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Linear link lookup failed' });
+  }
+});
+
+router.delete('/composio/linear/link/:hedwigProjectId', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  try {
+    const result = await unlinkLinearProject({
+      userId,
+      hedwigProjectId: String(req.params.hedwigProjectId),
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Linear unlink failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Linear unlink failed' });
+  }
+});
+
+router.get('/composio/linear/links', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  try {
+    const result = await getAllLinkedProjects(userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Linear links lookup failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Linear links lookup failed' });
+  }
+});
+
 // POST /api/integrations/extract-payment-details — DeepSeek Vision payment details extraction
 router.post('/extract-payment-details', upload.single('file'), async (req: Request, res: Response) => {
   const userId = await getUserId(req);
@@ -803,6 +923,43 @@ router.post('/extract-payment-details', upload.single('file'), async (req: Reque
   } catch (err: any) {
     logger.error('extract-payment-details error', { err });
     res.status(500).json({ success: false, error: err.message ?? 'Extraction failed' });
+  }
+});
+
+router.post('/suggest-milestones', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  const { description, budget, deadline } = req.body as { description?: string; budget?: string; deadline?: string };
+
+  if (!description && !budget) {
+    res.status(400).json({ success: false, error: 'Description or budget required' });
+    return;
+  }
+
+  try {
+    const prompt = `You are a project manager assistant. Based on the project information below, suggest 3-5 milestones as a JSON array of objects with "title" (string), "amount" (number in USD), and "dueDate" (string in YYYY-MM-DD format relative to the deadline, or 30 days from now if no deadline given).
+
+Only return valid JSON, nothing else.
+
+Project description: ${description || 'N/A'}
+Budget: $${budget || 'N/A'}
+Deadline: ${deadline || 'N/A'}`;
+
+    const result = await llmService.generateText(prompt, { temperature: 0.7 });
+    const text = result.trim();
+    const jsonStart = text.indexOf('[');
+    const jsonEnd = text.lastIndexOf(']');
+    let milestones: Array<{ title: string; amount: number; dueDate: string }> = [];
+
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      milestones = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+    }
+
+    res.json({ success: true, data: { milestones } });
+  } catch (err: any) {
+    logger.error('suggest-milestones error', { err });
+    res.status(500).json({ success: false, error: err.message ?? 'Suggestion failed' });
   }
 });
 

@@ -19,6 +19,43 @@ const logger = createLogger('Documents');
 
 const router = Router();
 
+/**
+ * Resolve payment destination for invoices and payment links.
+ * If the effective workspace is a real organization workspace with an active
+ * treasury wallet, route payments to the treasury. Otherwise, route to the
+ * creator's personal wallet.
+ */
+async function resolvePaymentDestination(
+  workspaceId: string,
+  user: any,
+): Promise<{ paymentDestination: string; destinationWalletAddress: string | null }> {
+  // Personal workspace → route to personal wallet
+  if (workspaceId.startsWith('ws_personal_') || !workspaceId) {
+    return {
+      paymentDestination: 'personal',
+      destinationWalletAddress: user.ethereum_wallet_address || null,
+    };
+  }
+
+    // Organization workspace → try treasury wallet
+    const { TreasuryService } = await import('../services/treasury');
+    const treasury = await TreasuryService.ensureTreasuryWallet(workspaceId);
+
+  if (treasury?.address) {
+    return {
+      paymentDestination: 'treasury',
+      destinationWalletAddress: treasury.address,
+    };
+  }
+
+  // Treasury wallet not ready yet — log and fall back to personal
+  logger.warn('Treasury wallet not ready for workspace, falling back to personal', { workspaceId });
+  return {
+    paymentDestination: 'personal',
+    destinationWalletAddress: user.ethereum_wallet_address || null,
+  };
+}
+
 async function guardOwnerOrAdmin(req: Request, res: Response, userId: string): Promise<boolean> {
   const role = await getWorkspaceRole(req, userId);
   if (!isOwnerOrAdmin(role)) {
@@ -177,6 +214,10 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             if (!resolvedEmail && client?.email) resolvedEmail = client.email;
         }
 
+        // Resolve workspace & payment destination
+        const workspaceId = await getEffectiveWorkspaceId(req, user.id);
+        const destination = await resolvePaymentDestination(workspaceId, user);
+
         // Create invoice record
         const { data: doc, error } = await supabase
             .from('documents')
@@ -184,13 +225,15 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 user_id: user.id,
                 client_id: clientId,
                 project_id: projectId || null,
-                workspace_id: await getEffectiveWorkspaceId(req, user.id),
+                workspace_id: workspaceId,
                 type: 'INVOICE',
                 title: providedTitle || `Invoice for ${clientName || 'Services'}`,
                 amount: parseFloat(amount),
                 description: description,
                 status: isPaid ? 'PAID' : 'DRAFT',
                 chain: String(chain || 'BASE').toUpperCase(),
+                payment_destination: destination.paymentDestination,
+                destination_wallet_address: destination.destinationWalletAddress,
                 content: {
                     recipient_email: resolvedEmail,
                     client_name: clientName,
@@ -327,19 +370,25 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             if (!resolvedEmail && client?.email) resolvedEmail = client.email;
         }
 
+        // Resolve workspace & payment destination
+        const workspaceId = await getEffectiveWorkspaceId(req, user.id);
+        const destination = await resolvePaymentDestination(workspaceId, user);
+
         // Create payment link record (payment_link_url will be updated after we have the ID)
         const { data: doc, error } = await supabase
             .from('documents')
             .insert({
                 user_id: user.id,
                 client_id: clientId,
-                workspace_id: await getEffectiveWorkspaceId(req, user.id),
+                workspace_id: workspaceId,
                 type: 'PAYMENT_LINK',
                 title: providedTitle || (clientName ? `Payment Link for ${clientName}` : null) || (resolvedEmail ? `Payment Link for ${resolvedEmail.split('@')[0]}` : null) || 'Payment Link',
                 amount: parseFloat(amount),
                 currency: currency || 'USDC',
                 chain: String(chain || 'BASE').toUpperCase(),
                 status: 'DRAFT',
+                payment_destination: destination.paymentDestination,
+                destination_wallet_address: destination.destinationWalletAddress,
                 content: {
                     recipient_email: resolvedEmail,
                     client_name: clientName,
@@ -486,18 +535,24 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 if (!resolvedEmailInv && client?.email) resolvedEmailInv = client.email;
             }
 
+            // Resolve workspace & payment destination
+            const wsId = await getEffectiveWorkspaceId(req, user.id);
+            const dest = await resolvePaymentDestination(wsId, user);
+
             const { data: doc, error } = await supabase
                 .from('documents')
                 .insert({
                     user_id: user.id,
                     client_id: clientId,
                     project_id: projectId || null,
-                    workspace_id: await getEffectiveWorkspaceId(req, user.id),
+                    workspace_id: wsId,
                     type: 'INVOICE',
                     title: title || `Invoice for ${clientName || 'Services'}`,
                     amount: parseFloat(amount),
                     description: description,
                     status: 'DRAFT',
+                    payment_destination: dest.paymentDestination,
+                    destination_wallet_address: dest.destinationWalletAddress,
                     content: {
                         recipient_email: resolvedEmailInv,
                         client_name: clientName,
@@ -595,17 +650,23 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 if (!resolvedEmailPl && client?.email) resolvedEmailPl = client.email;
             }
 
+            // Resolve workspace & payment destination
+            const wsId = await getEffectiveWorkspaceId(req, user.id);
+            const dest = await resolvePaymentDestination(wsId, user);
+
             const { data: doc, error } = await supabase
                 .from('documents')
                 .insert({
                     user_id: user.id,
                     client_id: clientId,
-                    workspace_id: await getEffectiveWorkspaceId(req, user.id),
+                    workspace_id: wsId,
                     type: 'PAYMENT_LINK',
                     title: title || (clientName ? `Payment Link for ${clientName}` : null) || (resolvedEmailPl ? `Payment Link for ${resolvedEmailPl.split('@')[0]}` : null) || 'Payment Link',
                     amount: parseFloat(amount),
                     currency: currency || 'USDC',
                     status: 'DRAFT',
+                    payment_destination: dest.paymentDestination,
+                    destination_wallet_address: dest.destinationWalletAddress,
                     content: {
                         recipient_email: resolvedEmailPl,
                         client_name: clientName,
@@ -1222,6 +1283,27 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
         }
 
         logger.info('Document marked as paid');
+
+        // Record treasury transaction if payment was routed to workspace treasury
+        if (updatedDoc.payment_destination === 'treasury' && updatedDoc.workspace_id) {
+            try {
+                const { TreasuryService } = await import('../services/treasury');
+                await TreasuryService.recordTransaction({
+                    workspaceId: updatedDoc.workspace_id,
+                    type: 'inflow',
+                    source: updatedDoc.type === 'INVOICE' ? 'invoice' : 'payment_link',
+                    usdcAmount: Number(updatedDoc.amount),
+                    status: 'completed',
+                    referenceId: updatedDoc.id,
+                });
+                logger.info('Treasury transaction recorded for document payment', { docId: updatedDoc.id });
+            } catch (txError) {
+                logger.error('Failed to record treasury transaction for document payment', {
+                    error: txError instanceof Error ? txError.message : 'Unknown',
+                    docId: updatedDoc.id,
+                });
+            }
+        }
 
         // Send notifications to the document owner
         try {

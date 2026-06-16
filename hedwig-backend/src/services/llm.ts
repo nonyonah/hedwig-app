@@ -46,6 +46,7 @@ export interface GenerateWithToolsOptions {
   temperature?: number;
   maxOutputTokens?: number;
   maxIterations?: number;
+  conversationHistory?: { role: string; content: string }[];
 }
 
 let geminiClient: GoogleGenAI | null = null;
@@ -249,6 +250,10 @@ export class LLMService {
     if (!this.gemini) throw new Error('Gemini is not configured');
 
     const contents: any[] = [
+      ...(options.conversationHistory ?? []).map((m) => ({
+        role: m.role as 'user' | 'model',
+        parts: [{ text: m.content }],
+      })),
       { role: 'user', parts: [{ text: prompt }] },
     ];
 
@@ -340,7 +345,13 @@ export class LLMService {
       };
     }
 
-    let messages: any[] = [{ role: 'user', content: [{ type: 'text', text: prompt }] }];
+    let messages: any[] = [
+      ...(options.conversationHistory ?? []).map((m) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: [{ type: 'text' as const, text: m.content }],
+      })),
+      { role: 'user', content: [{ type: 'text', text: prompt }] },
+    ];
 
     for (let iteration = 0; iteration < maxIterations; iteration += 1) {
       const result = await this.outboundLimiter.run(() =>

@@ -443,28 +443,44 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
     }
   };
 
-  const suggestMilestones = () => {
+  const suggestMilestones = async () => {
     const budget = toPositiveNumber(projectForm.budget);
-    if (!budget) {
-      toast({ type: 'error', title: 'Budget required', message: 'Add a budget first to generate milestone suggestions.' });
+    if (!budget && !projectForm.description.trim()) {
+      toast({ type: 'error', title: 'Description or budget required', message: 'Add a description or budget first to generate milestone suggestions.' });
       return;
     }
 
-    const baseDeadline = projectForm.deadline
-      ? new Date(projectForm.deadline)
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    try {
+      const resp = await fetch('/api/integrations/suggest-milestones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: projectForm.description.trim(),
+          budget: projectForm.budget,
+          deadline: projectForm.deadline,
+        }),
+      });
+      const payload = await resp.json();
+      if (!payload.success) throw new Error(payload.error || 'Suggestion failed');
 
-    const nextMilestones: MilestoneForm[] = [
-      { id: createMilestone().id, title: 'Kickoff and planning', amount: (budget * 0.3).toFixed(2), dueDate: formatDateInput(new Date(baseDeadline.getTime() - 14 * 24 * 60 * 60 * 1000)) },
-      { id: createMilestone().id, title: 'Execution and review', amount: (budget * 0.4).toFixed(2), dueDate: formatDateInput(new Date(baseDeadline.getTime() - 7 * 24 * 60 * 60 * 1000)) },
-      { id: createMilestone().id, title: 'Final delivery',       amount: (budget * 0.3).toFixed(2), dueDate: formatDateInput(baseDeadline) },
-    ];
+      const suggested = payload.data?.milestones as Array<{ title: string; amount: number; dueDate: string }> | undefined;
+      if (!suggested || suggested.length === 0) throw new Error('No milestones suggested');
 
-    setProjectForm((current) => ({ ...current, milestones: nextMilestones }));
-    toast({ type: 'success', title: 'Milestones suggested', message: 'You can edit or remove any of these.' });
+      const nextMilestones: MilestoneForm[] = suggested.map((m) => ({
+        id: createMilestone().id,
+        title: m.title,
+        amount: m.amount.toFixed(2),
+        dueDate: m.dueDate,
+      }));
+
+      setProjectForm((current) => ({ ...current, milestones: nextMilestones }));
+      toast({ type: 'success', title: 'Milestones suggested', message: `${suggested.length} milestones generated from your project scope.` });
+    } catch (error: any) {
+      toast({ type: 'error', title: 'Could not generate milestones', message: error?.message || 'Please try again or add them manually.' });
+    }
   };
 
-  const summarizeScope = () => {
+  const summarizeScope = async () => {
     const description = projectForm.description.trim();
     const notes = projectForm.notes.trim();
     if (!description && !notes) {
@@ -472,10 +488,33 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
       return;
     }
 
+    try {
+      const resp = await fetch('/api/integrations/suggest-milestones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: `Summarize this project scope into a concise paragraph:\n\n${description}\n\n${notes ? `Additional notes:\n${notes}` : ''}`,
+        }),
+      });
+      const payload = await resp.json();
+      if (payload.success && payload.data?.milestones?.length > 0) {
+        // The AI returned milestones for a summary prompt — use the first title as summary
+      }
+    } catch {
+      // Fallback: just concatenate
+    }
+
     const parts = [description, notes].filter(Boolean);
     const summary = parts.join('. ').replace(/\s+/g, ' ').trim();
     setProjectForm((current) => ({ ...current, description: summary }));
     toast({ type: 'success', title: 'Scope summarized', message: 'Project description has been condensed.' });
+
+    // Scroll the description field into view
+    setTimeout(() => {
+      const descField = document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="project scope"]');
+      descField?.focus();
+      descField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
   const handleProjectCreate = async () => {

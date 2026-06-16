@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { CaretDown, Check, X, PencilSimple, ArrowsClockwise } from '@/components/ui/lucide-icons';
+import { ExternalRecipientsPanel } from '@/components/workspace/external-recipients-panel';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
@@ -409,6 +410,13 @@ export default function WorkspaceSettingsPage() {
           </div>
         </section>
       )}
+
+      {/* External recipients */}
+      <section className="mb-8">
+        <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+          <ExternalRecipientsPanel workspaceId={activeWorkspace?.id || ''} accessToken={accessToken} />
+        </div>
+      </section>
 
       {/* Danger zone — delete workspace (org only) */}
       {isOwner && isOrg && (

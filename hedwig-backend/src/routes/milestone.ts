@@ -413,7 +413,7 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
             }
         }
 
-        if (milestone.status !== 'pending' && milestone.status !== 'done') {
+        if (milestone.status !== 'pending' && milestone.status !== 'done' && milestone.status !== 'upcoming') {
             res.status(400).json({
                 success: false,
                 error: { message: 'Milestone already completed' }

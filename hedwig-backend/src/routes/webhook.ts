@@ -237,6 +237,27 @@ async function processPrivyFundsEvent(event: PrivyFundsEvent) {
             } else {
                 const normalizedType = String(document.type || '').toLowerCase();
                 await markCalendarEventCompleted(normalizedType.includes('payment') ? 'payment_link' : 'invoice', document.id);
+
+                // If this document routes to a workspace treasury, record the inflow
+                if (document.payment_destination === 'treasury' && document.workspace_id) {
+                    try {
+                        const { TreasuryService } = await import('../services/treasury');
+                        await TreasuryService.recordTransaction({
+                            workspaceId: document.workspace_id,
+                            type: 'inflow',
+                            source: document.type === 'INVOICE' ? 'invoice' : 'payment_link',
+                            usdcAmount: document.amount,
+                            status: 'completed',
+                            referenceId: document.id,
+                        });
+                        logger.info('Treasury transaction recorded from webhook', { docId: document.id });
+                    } catch (txError) {
+                        logger.error('Failed to record treasury transaction from webhook', {
+                            error: txError instanceof Error ? txError.message : 'Unknown',
+                            docId: document.id,
+                        });
+                    }
+                }
             }
         }
 

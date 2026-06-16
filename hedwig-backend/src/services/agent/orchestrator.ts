@@ -41,6 +41,7 @@ export class HedwigAgentOrchestrator {
       {
         systemPrompt: request.instruction,
         maxIterations: request.maxIterations ?? 8,
+        conversationHistory: request.conversationHistory,
       },
     );
 

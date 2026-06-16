@@ -10,7 +10,10 @@ type Provider =
   | 'gmail'
   | 'google_calendar'
   | 'google_drive'
-  | 'google_docs';
+  | 'google_docs'
+  | 'quickbooks'
+  | 'xero'
+  | 'linear';
 
 interface ConnectionView {
   provider: Provider;
@@ -28,6 +31,9 @@ const ICON_PATH: Record<Provider, string> = {
   google_calendar: '/icons/google-calendar.svg',
   google_drive: '/icons/google-drive.svg',
   google_docs: '/icons/google-docs.svg',
+  quickbooks: '/icons/quickbooks.png',
+  xero: '/icons/xero.png',
+  linear: '/icons/linear.svg',
 };
 
 const STATUS_CONFIG: Record<
@@ -218,8 +224,11 @@ export function ComposioIntegrations() {
 }
 
 const PLACEHOLDER_CONNECTIONS: ConnectionView[] = [
-  { provider: 'gmail',           label: 'Gmail',           description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
-  { provider: 'google_calendar', label: 'Google Calendar', description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
-  { provider: 'google_drive',    label: 'Google Drive',    description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
-  { provider: 'google_docs',     label: 'Google Docs',     description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
+  { provider: 'gmail',           label: 'Gmail',                 description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
+  { provider: 'google_calendar', label: 'Google Calendar',       description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
+  { provider: 'google_drive',    label: 'Google Drive',          description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
+  { provider: 'google_docs',     label: 'Google Docs',           description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
+  { provider: 'quickbooks',      label: 'QuickBooks',            description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
+  { provider: 'xero',            label: 'Xero',                  description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
+  { provider: 'linear',          label: 'Linear',                description: '—', connected: false, status: 'not_connected', accountLabel: null, lastSyncedAt: null, tools: [] },
 ];

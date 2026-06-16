@@ -37,7 +37,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
   try {
-    const { name } = req.body;
+    const { name, type } = req.body;
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
     if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
@@ -47,7 +47,9 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
       return;
     }
 
-    const workspace = await WorkspaceService.createWorkspace(user.id, name);
+    const wsType = (type === 'personal') ? 'personal' : 'organization';
+
+    const workspace = await WorkspaceService.createWorkspace(user.id, name, wsType);
 
     res.json({ success: true, data: { workspace } });
   } catch (error) {
@@ -421,13 +423,37 @@ router.post('/invitations/:token/accept', authenticate, async (req: Request, res
 
 /**
  * GET /api/workspaces/:id/treasury
- * Get workspace treasury balance
+ * Get workspace treasury balance with transactions.
+ * Admin-only. Auto-creates treasury wallet for legacy workspaces.
  */
 router.get('/:id/treasury', authenticate, async (req: Request, res: Response, next) => {
   try {
     const id = getParam(req, 'id');
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' }); return; }
+
+    const workspace = await WorkspaceService.getWorkspace(id, user.id);
+    if (!workspace) {
+      res.status(404).json({ error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' });
+      return;
+    }
+
+    if (workspace.role !== 'owner' && workspace.role !== 'admin') {
+      res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' });
+      return;
+    }
+
     const { TreasuryService } = await import('../services/treasury');
-    const balance = await TreasuryService.getBalance(id);
+
+    const wallet = await TreasuryService.ensureTreasuryWallet(id);
+    if (!wallet) {
+      res.status(202).json({ error: 'Treasury wallet not yet created', code: 'TREASURY_PENDING' });
+      return;
+    }
+
+    const balance = await TreasuryService.getBalance(id, wallet.address);
+
     res.json({ success: true, data: balance });
   } catch (error) {
     next(error);
