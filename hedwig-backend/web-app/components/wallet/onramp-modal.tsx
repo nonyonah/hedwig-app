@@ -24,7 +24,7 @@ interface OnrampModalProps {
 }
 
 export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
-  const { addToast } = useToast();
+  const { toast: addToast } = useToast();
   const [step, setStep] = useState<Step>('kyc');
   const [kycStatus, setKycStatus] = useState<string | null>(null);
   const [startingKyc, setStartingKyc] = useState(false);
@@ -316,9 +316,9 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
                   Continue <ArrowRight className="ml-1 h-4 w-4" weight="bold" />
                 </Button>
               ) : kycStatus === 'pending' ? (
-                <Button variant="default" size="sm" loading={checkingKyc} onClick={handleCheckKyc}>Check status</Button>
+                <Button variant="default" size="sm" disabled={checkingKyc} onClick={handleCheckKyc}>Check status</Button>
               ) : (
-                <Button variant="default" size="sm" loading={startingKyc} onClick={handleStartKyc}>Start verification</Button>
+                <Button variant="default" size="sm" disabled={startingKyc} onClick={handleStartKyc}>Start verification</Button>
               )}
             </>
           )}

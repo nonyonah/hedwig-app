@@ -17,7 +17,7 @@ interface Recipient {
 }
 
 export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspaceId: string; accessToken: string | null }) {
-  const { addToast } = useToast();
+  const { toast: addToast } = useToast();
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +56,7 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
         setDisplayName('');
         setWalletAddress('');
         setNotes('');
-        addToast({ title: 'Added', description: 'External recipient added.', variant: 'success' });
+        addToast({ title: 'Added', message: 'External recipient added.', type: 'success' });
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to add recipient');
@@ -74,7 +74,7 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
         setRecipients(prev => prev.map(r => r.id === recipient.id ? res.data : r));
       }
     } catch {
-      addToast({ title: 'Failed', description: 'Could not update recipient.', variant: 'error' });
+      addToast({ title: 'Failed', message: 'Could not update recipient.', type: 'error' });
     }
   }, [workspaceId, accessToken, addToast]);
 
@@ -82,9 +82,9 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
     try {
       await hedwigApi.deleteExternalRecipient(workspaceId, recipientId, { accessToken, disableMockFallback: true });
       setRecipients(prev => prev.filter(r => r.id !== recipientId));
-      addToast({ title: 'Removed', description: 'Recipient removed.', variant: 'success' });
+      addToast({ title: 'Removed', message: 'Recipient removed.', type: 'success' });
     } catch {
-      addToast({ title: 'Failed', description: 'Could not remove recipient.', variant: 'error' });
+      addToast({ title: 'Failed', message: 'Could not remove recipient.', type: 'error' });
     }
   }, [workspaceId, accessToken, addToast]);
 
@@ -143,7 +143,7 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
           {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
           <div className="flex items-center justify-end gap-3">
             <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button variant="default" size="sm" disabled={!displayName || !walletAddress || saving} loading={saving} onClick={handleCreate}>
+            <Button variant="default" size="sm" disabled={!displayName || !walletAddress || saving} onClick={handleCreate}>
               Add recipient
             </Button>
           </div>

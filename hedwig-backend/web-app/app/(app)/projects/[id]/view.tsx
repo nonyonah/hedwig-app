@@ -36,9 +36,11 @@ const PROJ_STATUS = {
 const MILESTONE_STATUS = {
   pending:  { label: 'Pending',  bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
   upcoming: { label: 'Pending',  bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
-  done:     { label: 'Done',     bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
-  invoiced: { label: 'Invoiced', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
-  paid:     { label: 'Paid',     bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  due_soon: { label: 'Due soon', bg: 'bg-[var(--color-warning-soft)]',     text: 'text-[var(--color-warning)]' },
+  done:     { label: 'Done',     bg: 'bg-[var(--color-success-soft)]',     text: 'text-[var(--color-success)]' },
+  invoiced: { label: 'Invoiced', bg: 'bg-[var(--color-accent-soft)]',      text: 'text-[var(--color-accent)]' },
+  paid:     { label: 'Paid',     bg: 'bg-[var(--color-success-soft)]',     text: 'text-[var(--color-success)]' },
+  late:     { label: 'Late',     bg: 'bg-[var(--color-danger-soft)]',      text: 'text-[var(--color-danger)]' },
 } as const;
 
 const INV_STATUS = {

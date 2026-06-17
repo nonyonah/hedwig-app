@@ -29,7 +29,7 @@ interface OfframpModalProps {
 }
 
 export function OfframpModal({ open, onClose, source, workspaceId, returnAddress, maxAmount, accessToken }: OfframpModalProps) {
-  const { addToast } = useToast();
+  const { toast: addToast } = useToast();
   const [step, setStep] = useState<Step>('kyc');
   const [kycStatus, setKycStatus] = useState<string | null>(null);
   const [startingKyc, setStartingKyc] = useState(false);
@@ -189,7 +189,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
       }, { accessToken: null });
       if (res?.success) {
         setStep('success');
-        addToast({ title: 'Withdrawal started', description: 'Your funds are being sent to your bank.', variant: 'success' });
+        addToast({ title: 'Withdrawal started', message: 'Your funds are being sent to your bank.', type: 'success' });
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to create withdrawal');
@@ -369,9 +369,9 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   Continue <ArrowRight className="ml-1 h-4 w-4" weight="bold" />
                 </Button>
               ) : kycStatus === 'pending' ? (
-                <Button variant="default" size="sm" loading={checkingKyc} onClick={handleCheckKyc}>Check status</Button>
+                <Button variant="default" size="sm" disabled={checkingKyc} onClick={handleCheckKyc}>Check status</Button>
               ) : (
-                <Button variant="default" size="sm" loading={startingKyc} onClick={handleStartKyc}>Start verification</Button>
+                <Button variant="default" size="sm" disabled={startingKyc} onClick={handleStartKyc}>Start verification</Button>
               )}
             </>
           )}

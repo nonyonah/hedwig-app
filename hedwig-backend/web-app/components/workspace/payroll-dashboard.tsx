@@ -569,11 +569,11 @@ function AddFundsButton() {
                       Continue <ArrowRight className="ml-1 h-4 w-4" weight="bold" />
                     </Button>
                   ) : kycStatus === 'pending' ? (
-                    <Button variant="default" size="sm" loading={checkingKyc} onClick={handleCheckKyc}>
-                      Check status
-                    </Button>
-                  ) : (
-                    <Button variant="default" size="sm" loading={startingKyc} onClick={handleStartKyc}>
+        <Button variant="default" size="sm" disabled={checkingKyc} onClick={handleCheckKyc}>
+          Check status
+        </Button>
+      ) : (
+        <Button variant="default" size="sm" disabled={startingKyc} onClick={handleStartKyc}>
                       Start verification
                     </Button>
                   )}
