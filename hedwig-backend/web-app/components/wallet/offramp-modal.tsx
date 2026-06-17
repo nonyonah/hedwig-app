@@ -92,8 +92,8 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
 
   useEffect(() => {
     if (!currency) return;
-    hedwigApi.offrampV2Institutions(currency).then((res: any) => {
-      setInstitutions(res?.data || res?.institutions || []);
+    hedwigApi.offrampV2Institutions(currency, { accessToken }).then((res: any) => {
+      setInstitutions(res || []);
     }).catch(() => {});
   }, [currency]);
 
@@ -101,8 +101,8 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
     if (!amount || parseFloat(amount) <= 0) return setRate(null);
     const timer = setTimeout(async () => {
       try {
-        const res: any = await hedwigApi.offrampV2Rates('USDC', parseFloat(amount), currency, 'base');
-        const rateVal = res?.data?.rate;
+        const res: any = await hedwigApi.offrampV2Rates('USDC', parseFloat(amount), currency, 'base', { accessToken });
+        const rateVal = res?.rate;
         if (rateVal && typeof rateVal === 'string') {
           const fiat = parseFloat(amount) * parseFloat(rateVal);
           setRate(fiat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -123,9 +123,9 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
         institution,
         accountIdentifier,
         currency,
-      });
-      if (res?.data?.accountName) {
-        setAccountName(res.data.accountName);
+      }, { accessToken });
+      if (res?.accountName) {
+        setAccountName(res.accountName);
         setAccountResolved(true);
       }
     } catch (err: any) {
@@ -186,7 +186,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
         returnAddress,
         memo: memo || undefined,
         workspaceId: source === 'workspace' ? workspaceId : undefined,
-      }, { accessToken: null });
+      }, { accessToken });
       if (res?.success) {
         setStep('success');
         addToast({ title: 'Withdrawal started', message: 'Your funds are being sent to your bank.', type: 'success' });

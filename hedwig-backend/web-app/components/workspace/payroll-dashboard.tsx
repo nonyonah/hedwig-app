@@ -984,6 +984,7 @@ function AddFundsButton() {
         workspaceId={activeWorkspace?.id || ''}
         returnAddress={treasury?.treasuryAddress || ''}
         maxAmount={parseFloat(treasury?.availableUsd?.replace(/[^0-9.]/g, '') || '0')}
+        accessToken={accessToken}
       />
     </div>
   );
