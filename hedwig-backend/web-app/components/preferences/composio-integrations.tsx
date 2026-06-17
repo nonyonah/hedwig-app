@@ -48,6 +48,8 @@ const STATUS_CONFIG: Record<
   not_connected: { label: 'Not connected', dot: 'bg-[var(--color-border-input)]', text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-background)]' },
 };
 
+const COMING_SOON = new Set<Provider>(['quickbooks', 'xero']);
+
 function StatusPill({ status }: { status: ConnectionView['status'] }) {
   const cfg = STATUS_CONFIG[status];
   return (
@@ -164,17 +166,26 @@ export function ComposioIntegrations() {
       )}
 
       <div className="divide-y divide-[var(--color-surface-tertiary)]">
-        {(loading ? PLACEHOLDER_CONNECTIONS : connections).map((connection) => (
+        {(loading ? PLACEHOLDER_CONNECTIONS : connections).map((connection) => {
+          const isComingSoon = COMING_SOON.has(connection.provider);
+          return (
           <div key={connection.provider} className="flex items-center justify-between gap-4 px-5 py-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={ICON_PATH[connection.provider]} alt={connection.label} className="h-5 w-5" />
+                <img src={ICON_PATH[connection.provider]} alt={connection.label} className={`h-5 w-5 ${connection.provider === 'linear' ? 'invert dark:invert-0' : ''}`} />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{connection.label}</p>
-                  <StatusPill status={connection.status} />
+                  {isComingSoon ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-surface-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-border-input)]" />
+                      Coming soon
+                    </span>
+                  ) : (
+                    <StatusPill status={connection.status} />
+                  )}
                 </div>
                 <p className="mt-0.5 truncate text-[12px] text-[var(--color-text-tertiary)]">
                   {connection.accountLabel
@@ -195,7 +206,11 @@ export function ComposioIntegrations() {
             </div>
 
             <div className="shrink-0">
-              {connection.connected ? (
+              {isComingSoon ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface-tertiary)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-tertiary)] opacity-60">
+                  Coming soon
+                </span>
+              ) : connection.connected ? (
                 <button
                   type="button"
                   onClick={() => handleDisconnect(connection.provider)}
@@ -217,7 +232,8 @@ export function ComposioIntegrations() {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
