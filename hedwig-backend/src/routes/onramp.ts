@@ -43,6 +43,11 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       res.status(400).json({ error: 'Currency not supported', code: 'UNSUPPORTED_CURRENCY' }); return;
     }
 
+    const amountNum = parseFloat(amount);
+    if (Number.isNaN(amountNum) || amountNum < 0.10) {
+      res.status(400).json({ error: 'Minimum deposit is 0.10 in selected currency', code: 'MINIMUM_AMOUNT' }); return;
+    }
+
     // Verify refund account
     try {
       await PaycrestService.verifyBankAccount(

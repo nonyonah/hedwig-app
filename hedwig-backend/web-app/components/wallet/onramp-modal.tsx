@@ -151,11 +151,13 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
     setLoading(true); setError('');
     try {
       const d: any = await api('api/onramp/orders', 'POST', {
-        currency,
         amount: parseFloat(amount),
-        providerId: institution,
-        accountIdentifier,
-        accountName,
+        currency,
+        refundAccount: {
+          institution,
+          accountIdentifier,
+          accountName,
+        },
       });
       if (d.data?.providerAccount) {
         setOrder(d.data);

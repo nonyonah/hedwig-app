@@ -42,6 +42,11 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       res.status(400).json({ error: 'Currency not supported', code: 'UNSUPPORTED_CURRENCY' }); return;
     }
 
+    const amountNum = parseFloat(usdcAmount);
+    if (Number.isNaN(amountNum) || amountNum < 0.10) {
+      res.status(400).json({ error: 'Minimum withdrawal is 0.10 USDC', code: 'MINIMUM_AMOUNT' }); return;
+    }
+
     // Resolve source wallet
     let sourceWalletAddress: string;
     let sourceWalletId: string | null = null;
@@ -93,7 +98,6 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       res.status(502).json({ error: 'Could not check balance', code: 'BALANCE_CHECK_FAILED' }); return;
     }
 
-    const amountNum = parseFloat(usdcAmount);
     if (balance < amountNum) {
       res.status(402).json({ error: 'Insufficient balance', code: 'INSUFFICIENT_BALANCE', data: { balance, required: amountNum } }); return;
     }
