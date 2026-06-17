@@ -2373,17 +2373,17 @@ export const hedwigApi = {
   },
 
   async createOfframpV2Order(payload: {
-    amount: number;
-    token: string;
-    network: string;
-    currency: string;
-    bankName: string;
-    accountNumber: string;
-    accountName: string;
-    returnAddress: string;
-    memo?: string;
-    metadata?: Record<string, any>;
+    source: 'personal' | 'workspace';
     workspaceId?: string;
+    usdcAmount: string;
+    fiatCurrency: string;
+    recipient: {
+      institution: string;
+      accountIdentifier: string;
+      accountName: string;
+      memo?: string;
+      metadata?: Record<string, any>;
+    };
   }, options?: ApiOptions) {
     return request<{ order: any }>('/api/offramp-v2/orders', options, {
       method: 'POST',

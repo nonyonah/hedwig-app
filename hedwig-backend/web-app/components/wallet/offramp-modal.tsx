@@ -176,18 +176,18 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
     setError('');
     try {
       const res: any = await hedwigApi.createOfframpV2Order({
-        amount: parseFloat(amount),
-        token: 'USDC',
-        network: 'base',
-        currency,
-        bankName: institution,
-        accountNumber: accountIdentifier,
-        accountName,
-        returnAddress,
-        memo: memo || undefined,
+        source,
         workspaceId: source === 'workspace' ? workspaceId : undefined,
+        usdcAmount: amount,
+        fiatCurrency: currency,
+        recipient: {
+          institution,
+          accountIdentifier,
+          accountName,
+          memo: memo || undefined,
+        },
       }, { accessToken });
-      if (res?.success) {
+      if (res?.orderId) {
         setStep('success');
         addToast({ title: 'Withdrawal started', message: 'Your funds are being sent to your bank.', type: 'success' });
       }
@@ -196,7 +196,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
     } finally {
       setLoading(false);
     }
-  }, [amount, institution, accountIdentifier, accountName, returnAddress, memo, currency, source, workspaceId, addToast]);
+  }, [amount, institution, accountIdentifier, accountName, memo, currency, source, workspaceId, addToast, accessToken]);
 
   if (!open) return null;
 
