@@ -57,7 +57,7 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
           dueDate: form.dueDate,
           recipientEmail: form.recipientEmail || undefined
         },
-        { accessToken, disableMockFallback: true }
+        { accessToken, workspaceId: activeWorkspace?.id, disableMockFallback: true }
       );
       toast({ type: 'success', title: 'Invoice created', message: `${invoice.number} was created successfully.` });
       onCreated(invoice);

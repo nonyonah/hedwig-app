@@ -5,6 +5,7 @@ import { X, Receipt, SpinnerGap } from '@/components/ui/lucide-icons';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { Button } from '@/components/ui/button';
 import { hedwigApi } from '@/lib/api/client';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { TimeEntry } from '@/components/time/types';
 
 function fmtDuration(seconds: number | null): string {
@@ -28,6 +29,7 @@ export function InvoiceFromTimeDialog({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(entries.map(e => e.id)));
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const { activeWorkspace } = useWorkspaceContext();
 
   const selected = entries.filter(e => selectedIds.has(e.id));
   const totalHours = selected.reduce((s, e) => s + (e.durationSeconds || 0), 0) / 3600;
@@ -53,7 +55,7 @@ export function InvoiceFromTimeDialog({
           `${e.description || 'Work'} (${fmtDuration(e.durationSeconds)})`
         ).join('; '),
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      }, { accessToken, disableMockFallback: true });
+      }, { accessToken, workspaceId: activeWorkspace?.id, disableMockFallback: true });
       setDone(true);
     } catch (err: any) {
       alert(err?.message || 'Failed to create invoice');

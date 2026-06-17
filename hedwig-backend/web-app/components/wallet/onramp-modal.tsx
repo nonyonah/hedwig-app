@@ -60,6 +60,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
 
   const resetForm = useCallback(() => {
     setStep('kyc');
+    setCurrency('NGN');
     setAmount('');
     setRate(null);
     setInstitution('');
@@ -87,9 +88,9 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
   }, [open, api]);
 
   useEffect(() => {
-    if (!currency) return;
+    if (!currency || !open) return;
     api(`api/onramp/institutions/${currency}`).then((d: any) => setInstitutions(d.data || [])).catch(() => {});
-  }, [currency, api]);
+  }, [currency, open, api]);
 
   useEffect(() => {
     if (!amount || parseFloat(amount) <= 0) return setRate(null);

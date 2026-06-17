@@ -65,9 +65,11 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
 
   const resetForm = useCallback(() => {
     setStep('kyc')
+    setCurrency('NGN')
     setAmount('')
     setRate(null)
     setInstitution('')
+    setInstitutions([])
     setAccountIdentifier('')
     setAccountName('')
     setAccountResolved(false)
@@ -91,11 +93,11 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
   }, [open, api]);
 
   useEffect(() => {
-    if (!currency) return;
+    if (!currency || !open) return;
     hedwigApi.offrampV2Institutions(currency, { accessToken }).then((res: any) => {
       setInstitutions(res || []);
     }).catch(() => {});
-  }, [currency]);
+  }, [currency, open]);
 
   useEffect(() => {
     if (!amount || parseFloat(amount) <= 0) return setRate(null);

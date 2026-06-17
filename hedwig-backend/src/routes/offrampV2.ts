@@ -94,16 +94,27 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
 
       const privyChain = process.env.NETWORK_MODE === 'testnet' ? 'base_sepolia' : 'base';
       const response = await privy.wallets().balance.get(foundWallet.id, { asset: 'usdc', chain: privyChain }) as any;
+      logger.info('Offramp balance check', {
+        walletId: foundWallet.id?.slice(0, 10),
+        address: sourceWalletAddress,
+        chain: privyChain,
+        balances: response?.balances,
+      });
       const usdcEntry = response?.balances?.find((b: any) => b.asset === 'usdc');
       const rawValue = usdcEntry?.raw_value || '0';
       const decimals = usdcEntry?.raw_value_decimals ?? 6;
-      balance = parseInt(rawValue, 10) / Math.pow(10, decimals);
-    } catch {
+      balance = Number(rawValue) / Math.pow(10, decimals);
+    } catch (e: any) {
+      logger.error('Balance check failed', { error: e?.message, address: sourceWalletAddress });
       res.status(502).json({ error: 'Could not check balance', code: 'BALANCE_CHECK_FAILED' }); return;
     }
 
     if (Math.round(balance * 100) < Math.round(amountNum * 100)) {
-      res.status(402).json({ error: 'Insufficient balance', code: 'INSUFFICIENT_BALANCE', data: { balance, required: amountNum } }); return;
+      res.status(402).json({
+        error: 'Insufficient balance',
+        code: 'INSUFFICIENT_BALANCE',
+        data: { balance: Math.round(balance * 100) / 100, required: amountNum }
+      }); return;
     }
 
     // Fetch rate

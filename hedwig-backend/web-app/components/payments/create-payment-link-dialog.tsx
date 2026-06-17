@@ -58,7 +58,7 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
           recipientEmail: form.recipientEmail || undefined,
           currency: 'USDC'
         },
-        { accessToken, disableMockFallback: true }
+        { accessToken, workspaceId: activeWorkspace?.id, disableMockFallback: true }
       );
       toast({ type: 'success', title: 'Payment link created', message: `${link.title} is ready to share.` });
       onCreated(link);
