@@ -9,7 +9,7 @@ import { base } from 'viem/chains';
 
 const logger = createLogger('Payroll');
 
-const IS_TESTNET = process.env.NETWORK_MODE !== 'production';
+const IS_TESTNET = process.env.NETWORK_MODE === 'testnet';
 const PRIVY_CHAIN = IS_TESTNET ? 'base_sepolia' as const : 'base' as const;
 const PRIVY_API = 'https://api.privy.io';
 

@@ -5,7 +5,7 @@ import { getPrivyNodeClient } from './privyWallets';
 
 const logger = createLogger('TreasuryService');
 
-const IS_TESTNET = process.env.NETWORK_MODE !== 'production';
+const IS_TESTNET = process.env.NETWORK_MODE === 'testnet';
 const PRIVY_CHAIN = IS_TESTNET ? 'base_sepolia' as const : 'base' as const;
 
 function formatUsd(usdcAmount: number): string {

@@ -11,7 +11,7 @@ const logger = createLogger('Transactions');
 
 const router = Router();
 
-const IS_TESTNET = process.env.NETWORK_MODE === 'testnet' || process.env.SOLANA_NETWORK === 'testnet' || process.env.BASE_RPC_URL?.includes('sepolia');
+const IS_TESTNET = process.env.NETWORK_MODE === 'testnet' || process.env.SOLANA_NETWORK === 'testnet';
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || '';
 

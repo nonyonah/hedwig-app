@@ -322,7 +322,7 @@ function toBytes32Address(address: string): Hex {
 }
 
 export function getGatewayNetwork(): 'testnet' | 'mainnet' {
-    return process.env.GATEWAY_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+    return process.env.GATEWAY_NETWORK === 'testnet' ? 'testnet' : 'mainnet';
 }
 
 export function getGatewayApiBaseUrl(): string {
