@@ -81,7 +81,7 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
     // Check balance
     let balance: number;
     try {
-      // Fetch USDC balance
+      // Fetch USDC balance via Privy
       const privy = getPrivyNodeClient();
       let foundWallet: any = null;
       for await (const w of privy.wallets().list({ chain_type: 'ethereum' })) {
@@ -91,14 +91,18 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
         }
       }
       if (!foundWallet) { res.status(400).json({ error: 'Wallet not found', code: 'WALLET_NOT_FOUND' }); return; }
-      const response = await privy.wallets().balance.get(foundWallet.id, { asset: 'usdc', chain: 'base' }) as any;
-      const usdcBalance = parseFloat(response?.data?.amount || response?.amount || '0');
-      balance = usdcBalance;
+
+      const privyChain = process.env.NETWORK_MODE === 'testnet' ? 'base_sepolia' : 'base';
+      const response = await privy.wallets().balance.get(foundWallet.id, { asset: 'usdc', chain: privyChain }) as any;
+      const usdcEntry = response?.balances?.find((b: any) => b.asset === 'usdc');
+      const rawValue = usdcEntry?.raw_value || '0';
+      const decimals = usdcEntry?.raw_value_decimals ?? 6;
+      balance = parseInt(rawValue, 10) / Math.pow(10, decimals);
     } catch {
       res.status(502).json({ error: 'Could not check balance', code: 'BALANCE_CHECK_FAILED' }); return;
     }
 
-    if (balance < amountNum) {
+    if (Math.round(balance * 100) < Math.round(amountNum * 100)) {
       res.status(402).json({ error: 'Insufficient balance', code: 'INSUFFICIENT_BALANCE', data: { balance, required: amountNum } }); return;
     }
 
