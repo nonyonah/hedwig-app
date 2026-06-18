@@ -174,7 +174,7 @@ async function triggerAutoSettlement(
     );
 
     // Create offramp order record
-    const { data: offrampOrder } = await supabase.from('offramp_orders').insert({
+    await supabase.from('offramp_orders').insert({
       user_id: recipientUserId,
       paycrest_order_id: paycrestOrder.id,
       status: 'PROCESSING',
@@ -190,7 +190,7 @@ async function triggerAutoSettlement(
       bank_name: bankAccount.institution,
       account_number: bankAccount.accountIdentifier,
       account_name: bankAccount.accountName,
-    }).select().single();
+    });
 
     // Update payroll item
     await supabase.from('payroll_items').update({
