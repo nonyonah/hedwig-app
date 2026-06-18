@@ -176,7 +176,6 @@ async function triggerAutoSettlement(
     // Create offramp order record
     const { data: offrampOrder } = await supabase.from('offramp_orders').insert({
       user_id: recipientUserId,
-      offramp_source: 'auto_settle',
       paycrest_order_id: paycrestOrder.id,
       status: 'PROCESSING',
       chain: 'BASE',
@@ -191,14 +190,11 @@ async function triggerAutoSettlement(
       bank_name: bankAccount.institution,
       account_number: bankAccount.accountIdentifier,
       account_name: bankAccount.accountName,
-      reference,
     }).select().single();
 
     // Update payroll item
     await supabase.from('payroll_items').update({
-      auto_settle_triggered: true,
-      auto_settle_status: 'processing',
-      auto_settle_offramp_order_id: offrampOrder?.id || null,
+      tx_hash: txHash,
     }).eq('id', payrollItemId);
 
     // Notify recipient
@@ -220,7 +216,7 @@ async function triggerAutoSettlement(
 
     // Mark as failed — USDC stays in wallet
     await supabase.from('payroll_items').update({
-      auto_settle_status: 'failed',
+      status: 'failed',
     }).eq('id', payrollItemId);
 
     // Notify user

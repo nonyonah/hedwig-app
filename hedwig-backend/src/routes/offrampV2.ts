@@ -106,14 +106,6 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       res.status(502).json({ error: 'Could not check balance', code: 'BALANCE_CHECK_FAILED' }); return;
     }
 
-    if (Math.round(balance * 100) < Math.round(amountNum * 100)) {
-      res.status(402).json({
-        error: 'Insufficient balance',
-        code: 'INSUFFICIENT_BALANCE',
-        data: { balance: Math.round(balance * 100) / 100, required: amountNum }
-      }); return;
-    }
-
     // Fetch rate
     let rate: string;
     try {
@@ -166,27 +158,43 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       }
     }
 
+    if (!walletId) {
+      res.status(500).json({ error: 'Could not resolve source wallet for transfer', code: 'WALLET_NOT_RESOLVED' });
+      return;
+    }
+
     // Transfer USDC to Paycrest receive address
     let txHash: string | null = null;
-    if (walletId) {
-      try {
-        const totalAmount = amountNum + paycrestOrder.senderFee + paycrestOrder.transactionFee;
-        const resTransfer = await fetch(`${process.env.PRIVY_API_URL || 'https://api.privy.io'}/v1/wallets/${walletId}/transfer`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${Buffer.from(`${process.env.PRIVY_APP_ID}:${process.env.PRIVY_APP_SECRET}`).toString('base64')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            source: { asset: 'usdc', chain: 'base', amount: String(totalAmount) },
-            destination: { address: paycrestOrder.receiveAddress },
-          }),
-        });
-        const txData = await resTransfer.json();
-        txHash = txData?.data?.hash || txData?.txHash || txData?.hash || null;
-      } catch (e) {
-        logger.error('USDC transfer failed', { error: e });
+    {
+      const totalAmount = amountNum + paycrestOrder.senderFee + paycrestOrder.transactionFee;
+      if (Math.round(balance * 100) < Math.round(totalAmount * 100)) {
+        res.status(402).json({
+          error: 'Insufficient balance',
+          code: 'INSUFFICIENT_BALANCE',
+          data: { balance: Math.round(balance * 100) / 100, required: totalAmount }
+        }); return;
       }
+      const privyChain = process.env.NETWORK_MODE === 'testnet' ? 'base_sepolia' : 'base';
+      const resTransfer = await fetch(`https://api.privy.io/v1/wallets/${walletId}/transfer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${process.env.PRIVY_APP_ID}:${process.env.PRIVY_APP_SECRET}`).toString('base64')}`,
+          'Content-Type': 'application/json',
+          'privy-app-id': process.env.PRIVY_APP_ID!,
+        },
+        body: JSON.stringify({
+          source: { asset: 'usdc', chain: privyChain, amount: String(totalAmount) },
+          destination: { address: paycrestOrder.receiveAddress },
+        }),
+      });
+      if (!resTransfer.ok) {
+        const errBody = await resTransfer.text();
+        logger.error('Privy transfer failed', { status: resTransfer.status, body: errBody });
+        res.status(502).json({ error: 'USDC transfer failed', code: 'TRANSFER_FAILED', details: errBody });
+        return;
+      }
+      const txData = await resTransfer.json();
+      txHash = txData?.transaction_hash || txData?.id || txData?.data?.hash || null;
     }
 
     // Insert into DB
