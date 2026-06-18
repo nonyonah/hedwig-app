@@ -6,10 +6,15 @@ import PaycrestService from '../services/paycrest';
 import { createLogger } from '../utils/logger';
 import { getPrivyNodeClient } from '../services/privyWallets';
 import crypto from 'crypto';
+import { encodeFunctionData, parseUnits, getAddress } from 'viem';
 
 const logger = createLogger('OfframpV2');
 const router = Router();
 
+const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const USDC_BASE_SEPOLIA_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+const CHAIN_ID = process.env.NETWORK_MODE === 'testnet' ? 84532 : 8453;
+const PRIVY_CHAIN_CAIP = `eip155:${CHAIN_ID}`;
 const SUPPORTED_CURRENCIES = ['NGN', 'KES', 'UGX', 'TZS', 'MWK', 'BRL'];
 
 async function requireAdmin(workspaceId: string, userId: string): Promise<boolean> {
@@ -163,7 +168,7 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       return;
     }
 
-    // Transfer USDC to Paycrest receive address
+    // Transfer USDC to Paycrest receive address via Privy SDK (handles authorization signature internally)
     let txHash: string | null = null;
     {
       const totalAmount = amountNum + paycrestOrder.senderFee + paycrestOrder.transactionFee;
@@ -174,27 +179,39 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
           data: { balance: Math.round(balance * 100) / 100, required: totalAmount }
         }); return;
       }
-      const privyChain = process.env.NETWORK_MODE === 'testnet' ? 'base_sepolia' : 'base';
-      const resTransfer = await fetch(`https://api.privy.io/v1/wallets/${walletId}/transfer`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${process.env.PRIVY_APP_ID}:${process.env.PRIVY_APP_SECRET}`).toString('base64')}`,
-          'Content-Type': 'application/json',
-          'privy-app-id': process.env.PRIVY_APP_ID!,
-        },
-        body: JSON.stringify({
-          source: { asset: 'usdc', chain: privyChain, amount: String(totalAmount) },
-          destination: { address: paycrestOrder.receiveAddress },
-        }),
+      const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
+      const privy = getPrivyNodeClient();
+      const transferData = encodeFunctionData({
+        abi: [{
+          name: 'transfer', type: 'function',
+          inputs: [
+            { name: 'to', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+          outputs: [{ name: '', type: 'bool' }],
+          stateMutability: 'nonpayable',
+        }],
+        functionName: 'transfer',
+        args: [getAddress(paycrestOrder.receiveAddress), parseUnits(String(totalAmount), 6)],
       });
-      if (!resTransfer.ok) {
-        const errBody = await resTransfer.text();
-        logger.error('Privy transfer failed', { status: resTransfer.status, body: errBody });
-        res.status(502).json({ error: 'USDC transfer failed', code: 'TRANSFER_FAILED', details: errBody });
+      try {
+        const rpcResult = await privy.wallets().rpc(walletId, {
+          method: 'eth_sendTransaction',
+          caip2: PRIVY_CHAIN_CAIP,
+          params: {
+            transaction: {
+              to: usdcAddress,
+              data: transferData,
+              chain_id: CHAIN_ID,
+            },
+          },
+        });
+        txHash = rpcResult.data.hash;
+      } catch (e: any) {
+        logger.error('Privy transfer failed', { error: e?.message, walletId: walletId?.slice(0, 10) });
+        res.status(502).json({ error: 'USDC transfer failed', code: 'TRANSFER_FAILED', details: e?.message });
         return;
       }
-      const txData = await resTransfer.json();
-      txHash = txData?.transaction_hash || txData?.id || txData?.data?.hash || null;
     }
 
     // Insert into DB

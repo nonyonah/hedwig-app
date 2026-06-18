@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { getPrivyNodeClient } from './privyWallets';
 import crypto from 'crypto';
-import { isAddress, getAddress } from 'viem';
+import { isAddress, getAddress, encodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createWalletClient, http, parseUnits } from 'viem';
 import { base } from 'viem/chains';
@@ -11,9 +11,12 @@ const logger = createLogger('Payroll');
 
 const IS_TESTNET = process.env.NETWORK_MODE === 'testnet';
 const PRIVY_CHAIN = IS_TESTNET ? 'base_sepolia' as const : 'base' as const;
-const PRIVY_API = 'https://api.privy.io';
+
 
 const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const USDC_BASE_SEPOLIA_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+const CHAIN_ID = IS_TESTNET ? 84532 : 8453;
+const PRIVY_CHAIN_CAIP = `eip155:${CHAIN_ID}`;
 
 const PREVIEW_EXPIRY_SECONDS = 300;
 
@@ -40,40 +43,40 @@ function formatUsd(amount: number): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function getPrivyAuth(): string {
-  const appId = process.env.PRIVY_APP_ID;
-  const appSecret = process.env.PRIVY_APP_SECRET;
-  if (!appId || !appSecret) throw new Error('Privy app credentials not configured');
-  return Buffer.from(`${appId}:${appSecret}`).toString('base64');
-}
-
 async function sendUsdcIndividually(
   privyWalletId: string,
   toAddress: string,
   amountUsdc: number,
 ): Promise<{ txHash: string }> {
-  const res = await fetch(`${PRIVY_API}/v1/wallets/${privyWalletId}/transfer`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${getPrivyAuth()}`,
-      'Content-Type': 'application/json',
-      'privy-app-id': process.env.PRIVY_APP_ID!,
-    },
-    body: JSON.stringify({
-      source: { asset: 'usdc', chain: PRIVY_CHAIN, amount: String(amountUsdc) },
-      destination: { address: toAddress },
-    }),
+  const privy = getPrivyNodeClient();
+  const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
+  const transferData = encodeFunctionData({
+    abi: [{
+      name: 'transfer', type: 'function',
+      inputs: [
+        { name: 'to', type: 'address' },
+        { name: 'amount', type: 'uint256' },
+      ],
+      outputs: [{ name: '', type: 'bool' }],
+      stateMutability: 'nonpayable',
+    }],
+    functionName: 'transfer',
+    args: [getAddress(toAddress), parseUnits(String(amountUsdc), 6)],
   });
 
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Privy transfer failed (${res.status}): ${errBody}`);
-  }
+  const rpcResult = await privy.wallets().rpc(privyWalletId, {
+    method: 'eth_sendTransaction',
+    caip2: PRIVY_CHAIN_CAIP,
+    params: {
+      transaction: {
+        to: usdcAddress,
+        data: transferData,
+        chain_id: CHAIN_ID,
+      },
+    },
+  });
 
-  const body = await res.json();
-  const txHash = body?.transaction_hash || body?.id;
-  if (!txHash) throw new Error('No transaction hash returned from Privy transfer');
-  return { txHash };
+  return { txHash: rpcResult.data.hash };
 }
 
 /**
