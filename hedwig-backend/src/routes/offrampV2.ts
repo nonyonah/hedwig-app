@@ -50,7 +50,6 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
     // Resolve source wallet
     let sourceWalletAddress: string;
     let sourceWalletId: string | null = null;
-    let offrampSource: string;
 
     if (source === 'workspace') {
       if (!workspaceId) { res.status(400).json({ error: 'workspaceId required for workspace offramp', code: 'MISSING_WORKSPACE' }); return; }
@@ -61,11 +60,9 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       if (!tw?.privy_wallet_address) { res.status(400).json({ error: 'No treasury wallet', code: 'NO_TREASURY_WALLET' }); return; }
       sourceWalletAddress = tw.privy_wallet_address;
       sourceWalletId = tw.privy_wallet_id;
-      offrampSource = 'workspace';
     } else {
       if (!user.ethereum_wallet_address) { res.status(400).json({ error: 'No wallet address', code: 'NO_WALLET' }); return; }
       sourceWalletAddress = user.ethereum_wallet_address;
-      offrampSource = 'personal';
     }
 
     // Verify recipient account
@@ -196,7 +193,6 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
     const { data: dbOrder, error } = await supabase.from('offramp_orders').insert({
       user_id: user.id,
       workspace_id: workspaceId || null,
-      offramp_source: offrampSource,
       paycrest_order_id: paycrestOrder.id,
       status: txHash ? 'PROCESSING' : 'PENDING',
       chain: 'BASE',
@@ -212,9 +208,6 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       account_number: recipient.accountIdentifier,
       account_name: recipient.accountName || verifyResult.accountName,
       memo: recipient.memo || null,
-      reference,
-      valid_until: paycrestOrder.validUntil,
-      recipient,
     }).select().single();
 
     if (error) throw error;
