@@ -30,6 +30,9 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
+# Strip dev dependencies (not needed at runtime, saves space)
+RUN npm prune --omit=dev --legacy-peer-deps
+
 # Final stage for app image
 FROM base
 

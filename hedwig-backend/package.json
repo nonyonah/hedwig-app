@@ -62,7 +62,6 @@
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "pdfkit": "^0.17.2",
-    "puppeteer": "^23.11.1",
     "rate-limit-redis": "^4.3.1",
     "resend": "^6.5.2",
     "viem": "^2.21.54",
