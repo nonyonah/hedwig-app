@@ -13,7 +13,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
    -------------------------------------------------------------------------- */
 
 const buttonVariants = cva(
-  'rounded-full font-semibold inline-flex flex-row items-center justify-center gap-1.5',
+  'rounded-full font-semibold inline-flex flex-row items-center justify-center gap-1.5 touch-manipulation',
   {
     variants: {
       variant: {
@@ -82,6 +82,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           isDisabled={disabled}
           className={hedwigClassName}
           onPress={onClick as any}
+          onClick={onClick as any}
           {...(props as any)}
           asChild={true as any}
         >
@@ -99,6 +100,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         isDisabled={disabled}
         className={hedwigClassName}
         onPress={onClick as any}
+        onClick={onClick as any}
         {...(props as any)}
       >
         {children}
