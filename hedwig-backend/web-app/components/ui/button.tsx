@@ -82,7 +82,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           isDisabled={disabled}
           className={hedwigClassName}
           onPress={onClick as any}
-          onClick={onClick as any}
           {...(props as any)}
           asChild={true as any}
         >
@@ -100,7 +99,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         isDisabled={disabled}
         className={hedwigClassName}
         onPress={onClick as any}
-        onClick={onClick as any}
         {...(props as any)}
       >
         {children}

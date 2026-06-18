@@ -198,7 +198,7 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       workspace_id: workspaceId || null,
       offramp_source: offrampSource,
       paycrest_order_id: paycrestOrder.id,
-      status: txHash ? 'deposited' : 'initiated',
+      status: txHash ? 'PROCESSING' : 'PENDING',
       chain: 'BASE',
       token: 'USDC',
       crypto_amount: amountNum,
@@ -222,7 +222,7 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
     res.json({ success: true, data: {
       orderId: dbOrder.id,
       paycrestOrderId: paycrestOrder.id,
-      status: txHash ? 'deposited' : 'initiated',
+      status: txHash ? 'PROCESSING' : 'PENDING',
       receiveAddress: paycrestOrder.receiveAddress,
       txHash,
       fiatAmount: paycrestOrder.fiatAmount,

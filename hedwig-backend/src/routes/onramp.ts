@@ -91,7 +91,7 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
 
     const { data: order, error } = await supabase.from('onramp_orders').insert({
       user_id: user.id, workspace_id: orderWorkspaceId,
-      paycrest_order_id: paycrestOrder.id, reference, status: 'initiated',
+      paycrest_order_id: paycrestOrder.id, reference, status: 'PENDING',
       chain: 'BASE', token: 'USDC', recipient_address: destinationAddress,
       fiat_currency: currency.toUpperCase(), fiat_amount: parseFloat(amount),
       crypto_amount: paycrestOrder.estimatedCryptoAmount,

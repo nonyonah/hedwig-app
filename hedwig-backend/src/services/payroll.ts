@@ -178,7 +178,7 @@ async function triggerAutoSettlement(
       user_id: recipientUserId,
       offramp_source: 'auto_settle',
       paycrest_order_id: paycrestOrder.id,
-      status: 'deposited',
+      status: 'PROCESSING',
       chain: 'BASE',
       token: 'USDC',
       crypto_amount: amountUsdc,
