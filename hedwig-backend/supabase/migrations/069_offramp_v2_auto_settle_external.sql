@@ -38,7 +38,7 @@ ALTER TABLE payroll_items ADD COLUMN IF NOT EXISTS external_recipient_id UUID RE
 ALTER TABLE payroll_items ADD COLUMN IF NOT EXISTS external_wallet_address TEXT;
 ALTER TABLE payroll_items ADD COLUMN IF NOT EXISTS auto_settle_triggered BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE payroll_items ADD COLUMN IF NOT EXISTS auto_settle_status TEXT;
-ALTER TABLE payroll_items ADD COLUMN IF NOT EXISTS auto_settle_offramp_order_id UUID REFERENCES offramp_orders(id) ON DELETE SET NULL;
+ALTER TABLE payroll_items ADD COLUMN IF NOT EXISTS auto_settle_offramp_order_id TEXT REFERENCES offramp_orders(id) ON DELETE SET NULL;
 
 -- Make recipient_user_id nullable (external recipients don't have a user)
 ALTER TABLE payroll_items ALTER COLUMN recipient_user_id DROP NOT NULL;
