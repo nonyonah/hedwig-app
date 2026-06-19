@@ -704,11 +704,9 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               </DialogBody>
               <DialogFooter className="flex-col gap-2 sm:flex-row">
                 <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-                <Button variant="outline" asChild>
-                  <Link href="/export-wallet" onClick={() => setDeleteOpen(false)}>
-                    <Key className="h-4 w-4" weight="bold" />
-                    Export private key
-                  </Link>
+                <Button variant="outline" onClick={() => { setDeleteOpen(false); window.location.href = '/export-wallet'; }}>
+                  <Key className="h-4 w-4 shrink-0" weight="bold" />
+                  Export private key
                 </Button>
                 <Button variant="destructive" onClick={() => setDeleteStep('warn')}>
                   I have backed up — continue

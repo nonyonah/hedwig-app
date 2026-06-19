@@ -65,6 +65,32 @@ async function guardOwnerOrAdmin(req: Request, res: Response, userId: string): P
   return true;
 }
 
+/**
+ * Resolve the sender display name for email notifications.
+ * For organization workspaces, uses the workspace name. For personal
+ * workspaces, uses the user's first + last name.
+ */
+async function resolveEmailSenderName(userId: string, workspaceId?: string | null): Promise<string> {
+  if (workspaceId) {
+    const { data: ws } = await supabase
+      .from('workspaces')
+      .select('name, type')
+      .eq('id', workspaceId)
+      .maybeSingle();
+    if (ws?.type === 'organization' && ws?.name?.trim()) {
+      return ws.name.trim();
+    }
+  }
+  const { data: profile } = await supabase
+    .from('users')
+    .select('first_name, last_name')
+    .eq('id', userId)
+    .single();
+  return profile
+    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Hedwig User'
+    : 'Hedwig User';
+}
+
 // Canonical public web URL for invoice and payment link pages.
 const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
 
@@ -273,16 +299,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         // Send email if recipient provided (skip for imported invoices via noEmail flag)
         if (doc && resolvedEmail && !noEmail) {
-            // Fetch user name for email sender
-            const { data: senderProfile } = await supabase
-                .from('users')
-                .select('first_name, last_name')
-                .eq('id', user.id)
-                .single();
-                
-            const senderName = senderProfile ? 
-                `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
-                : 'Hedwig User';
+            const senderName = await resolveEmailSenderName(user.id, doc.workspace_id);
 
             const emailSent = await import('../services/email').then(m => m.EmailService.sendInvoiceEmail({
                 to: resolvedEmail!,
@@ -424,16 +441,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 
         // Send email if recipient provided
         if (doc && resolvedEmail) {
-            // Fetch user name for email sender
-            const { data: senderProfile } = await supabase
-                .from('users')
-                .select('first_name, last_name')
-                .eq('id', user.id)
-                .single();
-
-            const senderName = senderProfile ?
-                `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
-                : 'Hedwig User';
+            const senderName = await resolveEmailSenderName(user.id, doc.workspace_id);
 
             const emailSent = await import('../services/email').then(m => m.EmailService.sendPaymentLinkEmail({
                 to: resolvedEmail!,
@@ -583,15 +591,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
             // Send email if recipient available
             if (doc && resolvedEmailInv) {
-                const { data: senderProfile } = await supabase
-                    .from('users')
-                    .select('first_name, last_name')
-                    .eq('id', user.id)
-                    .single();
-
-                const senderName = senderProfile ?
-                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
-                    : 'Hedwig User';
+                const senderName = await resolveEmailSenderName(user.id, doc.workspace_id);
 
                 const emailSent = await import('../services/email').then(m => m.EmailService.sendInvoiceEmail({
                     to: resolvedEmailInv!,
@@ -694,15 +694,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
             // Send email if recipient available
             if (doc && resolvedEmailPl) {
-                const { data: senderProfile } = await supabase
-                    .from('users')
-                    .select('first_name, last_name')
-                    .eq('id', user.id)
-                    .single();
-
-                const senderName = senderProfile ?
-                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
-                    : 'Hedwig User';
+                const senderName = await resolveEmailSenderName(user.id, doc.workspace_id);
 
                 const emailSent = await import('../services/email').then(m => m.EmailService.sendPaymentLinkEmail({
                     to: resolvedEmailPl!,
@@ -915,16 +907,7 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
 
             // Send contract email if recipient provided
             if (doc && recipientEmail) {
-                // Fetch user name for email sender
-                const { data: senderProfile } = await supabase
-                    .from('users')
-                    .select('first_name, last_name')
-                    .eq('id', user.id)
-                    .single();
-                    
-                const senderName = senderProfile ? 
-                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
-                    : 'Hedwig User';
+                const senderName = await resolveEmailSenderName(user.id, doc.workspace_id);
 
                 // Calculate total amount from items if available
                 const totalAmount = content?.items 
@@ -1154,6 +1137,10 @@ router.get('/:id/public', async (req: Request, res: Response, next) => {
                     email,
                     ethereum_wallet_address,
                     solana_wallet_address
+                ),
+                workspace:workspaces(
+                    name,
+                    type
                 )
             `)
             .eq('id', id)
@@ -1984,7 +1971,7 @@ router.post('/:id/send', authenticate, async (req: Request, res: Response, next)
 
         // Send email to client
         const { EmailService } = await import('../services/email');
-        const senderName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'A Hedwig User';
+        const senderName = await resolveEmailSenderName(userData.id, contract.workspace_id);
         const milestones = contract.content?.milestones || [];
         
         const emailSent = await EmailService.sendContractEmail({

@@ -39,7 +39,10 @@ export default async function PublicContractPage({
     notFound();
   }
 
-  const issuerName = [document.user?.first_name, document.user?.last_name].filter(Boolean).join(' ') || document.user?.email || 'Hedwig user';
+  const isOrg = document.workspace?.type === 'organization';
+  const issuerName = isOrg && document.workspace?.name
+    ? document.workspace.name
+    : [document.user?.first_name, document.user?.last_name].filter(Boolean).join(' ') || document.user?.email || 'Hedwig user';
   const clientName = document.content?.client_name || document.content?.client_email || 'Client';
   const generatedContent = document.content?.generated_content || document.description || '';
   const isApproved = ['approved', 'signed', 'paid', 'completed'].includes(String(document.status).toLowerCase());

@@ -51,7 +51,10 @@ export default async function PublicInvoicePage({
   }
 
   const invoiceItems = document.content?.items || [];
-  const issuerName = [document.user?.first_name, document.user?.last_name].filter(Boolean).join(' ') || document.user?.email || 'Hedwig user';
+  const isOrg = document.workspace?.type === 'organization';
+  const issuerName = isOrg && document.workspace?.name
+    ? document.workspace.name
+    : [document.user?.first_name, document.user?.last_name].filter(Boolean).join(' ') || document.user?.email || 'Hedwig user';
   const clientName = document.content?.client_name || document.content?.recipient_email || 'Client';
   const dueDate = document.content?.due_date || null;
   const evmWalletAddress = document.user?.ethereum_wallet_address || null;

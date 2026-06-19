@@ -11,7 +11,7 @@ import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
 
-type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'target' | 'bank' | 'error';
+type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'workspace' | 'target' | 'bank' | 'error';
 const RESEND_COOLDOWN_SECONDS = 30;
 
 function getIdentityDetails(user: any) {
@@ -62,6 +62,11 @@ export default function SignInPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Workspace type
+  const [workspaceType, setWorkspaceType] = useState<'personal' | 'organization' | null>(null);
+  const [orgName, setOrgName] = useState('');
+  const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
 
   // Target
   const [monthlyTarget, setMonthlyTarget] = useState(10000);
@@ -191,11 +196,34 @@ export default function SignInPage() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), firstName: firstName.trim(), lastName: lastName.trim() }),
       });
       if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your profile.'); }
-      setStage('target');
+      setStage('workspace');
     } catch (err: any) {
       setErrorMessage(err?.message || 'Could not save your profile.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCreateWorkspace = async () => {
+    if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
+    if (!workspaceType) { setErrorMessage('Please select a workspace type.'); return; }
+    if (workspaceType === 'organization' && !orgName.trim()) { setErrorMessage('Please enter your organization name.'); return; }
+    setIsSavingWorkspace(true); setErrorMessage('');
+    try {
+      const wsName = workspaceType === 'personal'
+        ? `${firstName.trim()}'s Workspace`
+        : orgName.trim();
+      const res = await fetch(`${backendConfig.apiBaseUrl}/api/workspaces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: wsName, type: workspaceType }),
+      });
+      if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not create workspace.'); }
+      setStage('target');
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Could not create workspace.');
+    } finally {
+      setIsSavingWorkspace(false);
     }
   };
 
@@ -470,8 +498,123 @@ export default function SignInPage() {
                 {isSubmitting ? 'Saving…' : 'Continue'}
               </Button>
 
-              <p className="text-center text-[12px] text-[var(--color-text-placeholder)]">Step 1 of 3</p>
+              <p className="text-center text-[12px] text-[var(--color-text-placeholder)]">Step 1 of 4</p>
             </div>
+          </div>
+        )}
+
+        {/* ── Workspace type ── */}
+        {stage === 'workspace' && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setStage('profile'); setErrorMessage(''); }}
+              className="mb-6"
+            >
+              <CaretLeft className="h-3.5 w-3.5" weight="bold" />
+              Back
+            </Button>
+
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">How will you use Hedwig?</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
+              Choose the workspace type that fits how you work.
+            </p>
+
+            <div className="mt-8 space-y-3">
+              <button
+                type="button"
+                onClick={() => { setWorkspaceType('personal'); setOrgName(''); setErrorMessage(''); }}
+                className={`w-full rounded-2xl border p-5 text-left shadow-xs transition-all ${
+                  workspaceType === 'personal'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                    workspaceType === 'personal'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
+                      : 'border-[var(--color-text-placeholder)]'
+                  }`}>
+                    {workspaceType === 'personal' && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Personal</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
+                      Just you — manage your own invoices, payments, and client relationships.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setWorkspaceType('organization'); setErrorMessage(''); }}
+                className={`w-full rounded-2xl border p-5 text-left shadow-xs transition-all ${
+                  workspaceType === 'organization'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                    workspaceType === 'organization'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
+                      : 'border-[var(--color-text-placeholder)]'
+                  }`}>
+                    {workspaceType === 'organization' && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Organization</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
+                      A team or business — collaborate with colleagues, manage roles, and scale.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {workspaceType === 'organization' && (
+                <div className="pt-2">
+                  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">
+                    Organization name
+                  </label>
+                  <Input
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    placeholder="e.g. Acme Inc."
+                    autoFocus
+                    className="h-10 rounded-xl"
+                  />
+                </div>
+              )}
+
+              {errorMessage && (
+                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                  {errorMessage}
+                </p>
+              )}
+
+              <Button
+                variant="default"
+                size="default"
+                disabled={isSavingWorkspace || !workspaceType || (workspaceType === 'organization' && !orgName.trim())}
+                onClick={handleCreateWorkspace}
+                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+              >
+                {isSavingWorkspace ? 'Creating…' : 'Continue'}
+              </Button>
+            </div>
+
+            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 2 of 4</p>
           </div>
         )}
 
@@ -481,7 +624,7 @@ export default function SignInPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setStage('profile'); setErrorMessage(''); }}
+              onClick={() => { setStage('workspace'); setErrorMessage(''); }}
               className="mb-6"
             >
               <CaretLeft className="h-3.5 w-3.5" weight="bold" />
@@ -571,7 +714,7 @@ export default function SignInPage() {
               </Button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 2 of 3</p>
+            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 3 of 4</p>
           </div>
         )}
 
@@ -608,7 +751,7 @@ export default function SignInPage() {
               <Button
                 variant="secondary"
                 size="default"
-                onClick={() => setStage('profile')}
+                onClick={() => setStage('target')}
               >
                 <CaretLeft className="h-3.5 w-3.5" weight="bold" />
                 Back
@@ -624,7 +767,7 @@ export default function SignInPage() {
               </Button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 3 of 3</p>
+            <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 4 of 4</p>
           </div>
         )}
 

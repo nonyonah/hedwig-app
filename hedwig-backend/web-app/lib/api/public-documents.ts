@@ -57,6 +57,10 @@ export interface PublicDocument {
     payment_amount?: number | string;
     payment_terms?: string;
   };
+  workspace?: {
+    name?: string;
+    type?: 'personal' | 'organization';
+  } | null;
   user?: {
     id?: string;
     first_name?: string;

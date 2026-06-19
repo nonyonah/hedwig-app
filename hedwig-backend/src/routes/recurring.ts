@@ -16,6 +16,27 @@ function getEffectiveWorkspaceId(req: Request, userId: string): string {
 
 const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
 
+async function resolveEmailSenderName(userId: string, workspaceId?: string | null): Promise<string> {
+  if (workspaceId) {
+    const { data: ws } = await supabase
+      .from('workspaces')
+      .select('name, type')
+      .eq('id', workspaceId)
+      .maybeSingle();
+    if (ws?.type === 'organization' && ws?.name?.trim()) {
+      return ws.name.trim();
+    }
+  }
+  const { data: profile } = await supabase
+    .from('users')
+    .select('first_name, last_name')
+    .eq('id', userId)
+    .single();
+  return profile
+    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Hedwig User'
+    : 'Hedwig User';
+}
+
 export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
 
 /**
@@ -194,11 +215,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         // Notify client immediately so they know about the recurring arrangement
         if (resolvedClientEmail) {
             try {
-                const { data: senderProfile } = await supabase
-                    .from('users').select('first_name, last_name').eq('id', user.id).single();
-                const senderName = senderProfile
-                    ? `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
-                    : 'Hedwig User';
+                const senderName = await resolveEmailSenderName(user.id, data.workspace_id);
 
                 const { EmailService } = await import('../services/email');
                 await EmailService.sendRecurringSetupEmail({
@@ -380,11 +397,7 @@ export async function generateInvoiceFromTemplate(template: any, userId: string)
     // Auto-send if configured and client email is available
     if (template.auto_send && template.client_email) {
         try {
-            const { data: senderProfile } = await supabase
-                .from('users').select('first_name, last_name').eq('id', userId).single();
-            const senderName = senderProfile
-                ? `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
-                : 'Hedwig User';
+            const senderName = await resolveEmailSenderName(userId, doc.workspace_id);
 
             const { EmailService } = await import('../services/email');
             const generationNumber = (template.generated_count || 0) + 1;
