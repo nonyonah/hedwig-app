@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
 import { backendConfig } from '@/lib/auth/config';
 import { hedwigApi } from '@/lib/api/client';
-import { usePrivy, useWallets, useSendTransaction } from '@privy-io/react-auth';
+import { useWallets, useSendTransaction } from '@privy-io/react-auth';
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { encodeFunctionData, parseUnits } from 'viem';
 
 const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -36,9 +37,10 @@ interface OfframpModalProps {
 
 export function OfframpModal({ open, onClose, source, workspaceId, returnAddress, maxAmount, accessToken }: OfframpModalProps) {
   const { toast: addToast } = useToast();
-  const { wallets } = useWallets();
+  const { wallets: evmWallets } = useWallets();
+  const { wallets: solanaWallets } = useSolanaWallets();
   const { sendTransaction } = useSendTransaction();
-  const privyWallet = wallets.find(w => w.walletClientType === 'privy') ?? wallets[0];
+  const privyWallet = evmWallets.find(w => w.walletClientType === 'privy') ?? evmWallets[0];
   const [step, setStep] = useState<Step>('kyc');
   const [kycStatus, setKycStatus] = useState<string | null>(null);
   const [startingKyc, setStartingKyc] = useState(false);
@@ -203,6 +205,15 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
 
       if (!order?.orderId) throw new Error('Failed to create order');
 
+      if (!privyWallet) {
+        const hasSolana = solanaWallets.length > 0;
+        throw new Error(
+          hasSolana
+            ? 'Base USDC wallet not found. Offramp requires an EVM wallet on Base. Your Solana wallet cannot be used for this.'
+            : 'No wallet found. Please connect a wallet to continue.'
+        );
+      }
+
       // Encode USDC transfer to Paycrest receive address
       const totalAmount = order.totalAmount;
       const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
@@ -237,7 +248,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
     } finally {
       setLoading(false);
     }
-  }, [amount, institution, accountIdentifier, accountName, memo, currency, source, workspaceId, addToast, accessToken, sendTransaction, privyWallet]);
+  }, [amount, institution, accountIdentifier, accountName, memo, currency, source, workspaceId, addToast, accessToken, sendTransaction, privyWallet, solanaWallets]);
 
   if (!open) return null;
 

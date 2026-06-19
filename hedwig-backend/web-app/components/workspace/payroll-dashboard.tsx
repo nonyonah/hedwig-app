@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import {
   ArrowDown, ArrowRight, ArrowsClockwise, CaretDown, CaretRight,
-  Check, CheckCircle, Coins, DotsThreeOutline, IdentificationCard, ShareNetwork, Trash, UsersThree, Warning, X, ArrowSquareOut,
+  Check, CheckCircle, Coins, DotsThreeOutline, IdentificationCard, Trash, UsersThree, Warning, X, ArrowSquareOut,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { AttachedStatGrid, type AttachedStatCardItem } from '@/components/ui/attached-stat-cards';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 import { formatShortDate } from '@/lib/utils';
-import { useFundWallet } from '@privy-io/react-auth';
+import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { OfframpModal } from '@/components/wallet/offramp-modal';
 
 const BASESCAN_TX = (hash: string) => `https://basescan.org/tx/${hash}`;
@@ -73,7 +73,6 @@ function MemberRow({ member, amount, onAmount }: { member: Member; amount: strin
 
 export function PayrollDashboard() {
   const { activeWorkspace, accessToken } = useWorkspaceContext();
-  const { fundWallet } = useFundWallet();
 
   const api = async (url: string, method = 'GET', body?: any) => {
     const res = await fetch(`${backendConfig.apiBaseUrl}${url}`, {
@@ -615,13 +614,10 @@ function AddFundsButton() {
           <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Treasury balance, receive payments, and run payroll.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-1">
-          <Button variant="secondary" size="sm" onClick={() => {
-            if (treasury?.treasuryAddress) {
-              fundWallet({ address: treasury.treasuryAddress, options: { chain: { id: treasury?.testnet ? 84532 : 8453 } as any } });
-            }
-          }}>
-            <ShareNetwork className="h-4 w-4" weight="bold" /> Receive
-          </Button>
+          <ShareWalletDialog
+            baseAddress={treasury?.treasuryAddress}
+            solanaAddress={null}
+          />
           <AddFundsButton />
           <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>
             <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw

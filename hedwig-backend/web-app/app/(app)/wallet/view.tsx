@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import { useCallback, useMemo, useState } from 'react';
-import { ArrowsLeftRight, ArrowDown, Bank, Info, ShareNetwork, Wallet, X } from '@/components/ui/lucide-icons';
-import { useFundWallet } from '@privy-io/react-auth';
+import { ArrowsLeftRight, ArrowDown, Bank, Info, Wallet, X } from '@/components/ui/lucide-icons';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
+import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { PayoutPanel } from '@/components/workspace/payout-panel';
@@ -89,8 +89,6 @@ export function WalletView({
   regionCountryCode?: string | null;
 }) {
   const { formatAmount } = useCurrency();
-  const { fundWallet } = useFundWallet();
-
   useAssistantPageContext('Wallet', {
     assetsCount: initialWalletData.walletAssets.length,
     accountsCount: initialWalletData.walletAccounts.length,
@@ -185,13 +183,12 @@ export function WalletView({
               <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw
             </Button>
           )}
-          <Button variant="secondary" size="sm" onClick={() => {
-            if (baseAccount?.address) {
-              fundWallet({ address: baseAccount.address, options: { chain: { id: 8453 } as any } });
-            }
-          }}>
-            <ShareNetwork className="h-4 w-4" weight="bold" /> Receive
-          </Button>
+          <ShareWalletDialog
+            baseAddress={baseAccount?.address}
+            solanaAddress={solanaAccount?.address}
+            usdAccountsEnabled={usdAccountsEnabled}
+            usdAccount={usdAccount}
+          />
         </div>
       </div>
 
