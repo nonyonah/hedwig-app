@@ -2385,7 +2385,28 @@ export const hedwigApi = {
       metadata?: Record<string, any>;
     };
   }, options?: ApiOptions) {
-    return request<{ order: any }>('/api/offramp-v2/orders', options, {
+    return request<{
+      orderId: string;
+      paycrestOrderId: string;
+      receiveAddress: string;
+      totalAmount: number;
+      usdcAddress: string;
+      chainId: number;
+      fiatAmount: number;
+      fiatCurrency: string;
+      exchangeRate: string;
+      validUntil: string;
+      senderFee: number;
+      transactionFee: number;
+    }>('/api/offramp-v2/orders', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async confirmOfframpV2Order(id: string, payload: { txHash: string }, options?: ApiOptions) {
+    return request<{ orderId: string; txHash: string }>(`/api/offramp-v2/orders/${id}/confirm`, options, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

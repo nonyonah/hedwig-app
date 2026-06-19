@@ -6,7 +6,6 @@ import PaycrestService from '../services/paycrest';
 import { createLogger } from '../utils/logger';
 import { getPrivyNodeClient } from '../services/privyWallets';
 import crypto from 'crypto';
-import { encodeFunctionData, parseUnits, getAddress } from 'viem';
 
 const logger = createLogger('OfframpV2');
 const router = Router();
@@ -14,7 +13,6 @@ const router = Router();
 const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const USDC_BASE_SEPOLIA_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const CHAIN_ID = process.env.NETWORK_MODE === 'testnet' ? 84532 : 8453;
-const PRIVY_CHAIN_CAIP = `eip155:${CHAIN_ID}`;
 const SUPPORTED_CURRENCIES = ['NGN', 'KES', 'UGX', 'TZS', 'MWK', 'BRL'];
 
 async function requireAdmin(workspaceId: string, userId: string): Promise<boolean> {
@@ -54,17 +52,15 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
 
     // Resolve source wallet
     let sourceWalletAddress: string;
-    let sourceWalletId: string | null = null;
 
     if (source === 'workspace') {
       if (!workspaceId) { res.status(400).json({ error: 'workspaceId required for workspace offramp', code: 'MISSING_WORKSPACE' }); return; }
       const isAdmin = await requireAdmin(workspaceId, user.id);
       if (!isAdmin) { res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' }); return; }
       const { data: tw } = await supabase.from('treasury_wallets')
-        .select('privy_wallet_address, privy_wallet_id').eq('workspace_id', workspaceId).eq('is_active', true).maybeSingle();
+        .select('privy_wallet_address').eq('workspace_id', workspaceId).eq('is_active', true).maybeSingle();
       if (!tw?.privy_wallet_address) { res.status(400).json({ error: 'No treasury wallet', code: 'NO_TREASURY_WALLET' }); return; }
       sourceWalletAddress = tw.privy_wallet_address;
-      sourceWalletId = tw.privy_wallet_id;
     } else {
       if (!user.ethereum_wallet_address) { res.status(400).json({ error: 'No wallet address', code: 'NO_WALLET' }); return; }
       sourceWalletAddress = user.ethereum_wallet_address;
@@ -151,79 +147,27 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       reference,
     });
 
-    // Get wallet ID for transfer
-    let walletId = sourceWalletId;
-    if (!walletId) {
-      const privy = getPrivyNodeClient();
-      for await (const w of privy.wallets().list({ chain_type: 'ethereum' })) {
-        if ((w.address as string).toLowerCase() === sourceWalletAddress.toLowerCase()) {
-          walletId = w.id;
-          break;
-        }
-      }
+    // Check balance covers totalAmount (including fees)
+    const totalAmount = amountNum + paycrestOrder.senderFee + paycrestOrder.transactionFee;
+    if (Math.round(balance * 100) < Math.round(totalAmount * 100)) {
+      res.status(402).json({
+        error: 'Insufficient balance',
+        code: 'INSUFFICIENT_BALANCE',
+        data: { balance: Math.round(balance * 100) / 100, required: totalAmount }
+      }); return;
     }
 
-    if (!walletId) {
-      res.status(500).json({ error: 'Could not resolve source wallet for transfer', code: 'WALLET_NOT_RESOLVED' });
-      return;
-    }
+    const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
 
-    // Transfer USDC to Paycrest receive address via Privy SDK (handles authorization signature internally)
-    let txHash: string | null = null;
-    {
-      const totalAmount = amountNum + paycrestOrder.senderFee + paycrestOrder.transactionFee;
-      if (Math.round(balance * 100) < Math.round(totalAmount * 100)) {
-        res.status(402).json({
-          error: 'Insufficient balance',
-          code: 'INSUFFICIENT_BALANCE',
-          data: { balance: Math.round(balance * 100) / 100, required: totalAmount }
-        }); return;
-      }
-      const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
-      const privy = getPrivyNodeClient();
-      const transferData = encodeFunctionData({
-        abi: [{
-          name: 'transfer', type: 'function',
-          inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-          ],
-          outputs: [{ name: '', type: 'bool' }],
-          stateMutability: 'nonpayable',
-        }],
-        functionName: 'transfer',
-        args: [getAddress(paycrestOrder.receiveAddress), parseUnits(String(totalAmount), 6)],
-      });
-      try {
-        const rpcResult = await privy.wallets().rpc(walletId, {
-          method: 'eth_sendTransaction',
-          caip2: PRIVY_CHAIN_CAIP,
-          params: {
-            transaction: {
-              to: usdcAddress,
-              data: transferData,
-              chain_id: CHAIN_ID,
-            },
-          },
-        });
-        txHash = rpcResult.data.hash;
-      } catch (e: any) {
-        logger.error('Privy transfer failed', { error: e?.message, walletId: walletId?.slice(0, 10) });
-        res.status(502).json({ error: 'USDC transfer failed', code: 'TRANSFER_FAILED', details: e?.message });
-        return;
-      }
-    }
-
-    // Insert into DB
+    // Insert into DB (status PENDING — transfer happens client-side)
     const { data: dbOrder, error } = await supabase.from('offramp_orders').insert({
       user_id: user.id,
       workspace_id: workspaceId || null,
       paycrest_order_id: paycrestOrder.id,
-      status: txHash ? 'PROCESSING' : 'PENDING',
+      status: 'PENDING',
       chain: 'BASE',
       token: 'USDC',
       crypto_amount: amountNum,
-      tx_hash: txHash,
       fiat_currency: fiatCurrency.toUpperCase(),
       fiat_amount: paycrestOrder.fiatAmount,
       exchange_rate: paycrestOrder.exchangeRate,
@@ -240,13 +184,16 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
     res.json({ success: true, data: {
       orderId: dbOrder.id,
       paycrestOrderId: paycrestOrder.id,
-      status: txHash ? 'PROCESSING' : 'PENDING',
       receiveAddress: paycrestOrder.receiveAddress,
-      txHash,
+      totalAmount,
+      usdcAddress,
+      chainId: CHAIN_ID,
       fiatAmount: paycrestOrder.fiatAmount,
       fiatCurrency: fiatCurrency.toUpperCase(),
       exchangeRate: paycrestOrder.exchangeRate,
       validUntil: paycrestOrder.validUntil,
+      senderFee: paycrestOrder.senderFee,
+      transactionFee: paycrestOrder.transactionFee,
     }});
   } catch (error: any) {
     if (error?.response?.status) {
@@ -254,6 +201,44 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
     }
     next(error);
   }
+});
+
+/**
+ * POST /offramp/v2/orders/:id/confirm
+ * Record the user's signed transaction hash for a previously created order
+ */
+router.post('/orders/:id/confirm', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' }); return; }
+
+    const { txHash } = req.body;
+    if (!txHash) {
+      res.status(400).json({ error: 'txHash is required', code: 'MISSING_TX_HASH' }); return;
+    }
+
+    // Verify the order belongs to this user
+    const { data: existing } = await supabase.from('offramp_orders')
+      .select('id, status').eq('id', req.params.id)
+      .or(`user_id.eq.${user.id},workspace_id.eq.${req.body.workspaceId || ''}`)
+      .maybeSingle();
+
+    if (!existing) {
+      res.status(404).json({ error: 'Order not found', code: 'NOT_FOUND' }); return;
+    }
+    if (existing.status !== 'PENDING') {
+      res.status(409).json({ error: `Order already ${existing.status}`, code: 'ORDER_CONFIRMED' }); return;
+    }
+
+    const { error } = await supabase.from('offramp_orders')
+      .update({ tx_hash: txHash, status: 'PROCESSING' })
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+
+    res.json({ success: true, data: { orderId: req.params.id, txHash } });
+  } catch (error) { next(error); }
 });
 
 /**

@@ -1,11 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, ArrowRight, ArrowLeft, CheckCircle, Warning, IdentificationCard } from '@/components/ui/lucide-icons';
+import { X, ArrowRight, ArrowLeft, CheckCircle, Warning, IdentificationCard, SpinnerGap } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
 import { backendConfig } from '@/lib/auth/config';
 import { hedwigApi } from '@/lib/api/client';
+import { usePrivy, useWallets, useSendTransaction } from '@privy-io/react-auth';
+import { encodeFunctionData, parseUnits } from 'viem';
+
+const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const USDC_BASE_SEPOLIA_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+const CHAIN_ID = process.env.NEXT_PUBLIC_SOLANA_CLUSTER === 'devnet' ? 84532 : 8453;
 
 const SUPPORTED_CURRENCIES: Record<string, { flag: string; label: string }> = {
   NGN: { flag: '\uD83C\uDDF3\uD83C\uDDEC', label: 'Nigeria (NGN)' },
@@ -16,7 +22,7 @@ const SUPPORTED_CURRENCIES: Record<string, { flag: string; label: string }> = {
   BRL: { flag: '\uD83C\uDDE7\uD83C\uDDF7', label: 'Brazil (BRL)' },
 };
 
-type Step = 'kyc' | 'form' | 'confirm' | 'success';
+type Step = 'kyc' | 'form' | 'signing' | 'success';
 
 interface OfframpModalProps {
   open: boolean;
@@ -30,10 +36,14 @@ interface OfframpModalProps {
 
 export function OfframpModal({ open, onClose, source, workspaceId, returnAddress, maxAmount, accessToken }: OfframpModalProps) {
   const { toast: addToast } = useToast();
+  const { wallets } = useWallets();
+  const { sendTransaction } = useSendTransaction();
+  const privyWallet = wallets.find(w => w.walletClientType === 'privy') ?? wallets[0];
   const [step, setStep] = useState<Step>('kyc');
   const [kycStatus, setKycStatus] = useState<string | null>(null);
   const [startingKyc, setStartingKyc] = useState(false);
   const [checkingKyc, setCheckingKyc] = useState(false);
+  const [signingError, setSigningError] = useState<string | null>(null);
 
   const api = useCallback(async (url: string, method = 'GET', body?: any) => {
     const res = await fetch(`${backendConfig.apiBaseUrl}/${url.replace(/^\//, '')}`, {
@@ -176,8 +186,9 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
     if (!amount || !institution || !accountIdentifier) return;
     setLoading(true);
     setError('');
+    setSigningError(null);
     try {
-      const res: any = await hedwigApi.createOfframpV2Order({
+      const order = await hedwigApi.createOfframpV2Order({
         source,
         workspaceId: source === 'workspace' ? workspaceId : undefined,
         usdcAmount: amount,
@@ -189,16 +200,44 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
           memo: memo || undefined,
         },
       }, { accessToken });
-      if (res?.orderId) {
-        setStep('success');
-        addToast({ title: 'Withdrawal started', message: 'Your funds are being sent to your bank.', type: 'success' });
-      }
+
+      if (!order?.orderId) throw new Error('Failed to create order');
+
+      // Encode USDC transfer to Paycrest receive address
+      const totalAmount = order.totalAmount;
+      const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
+      const data = encodeFunctionData({
+        abi: [{ type: 'function', name: 'transfer', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] }],
+        functionName: 'transfer',
+        args: [order.receiveAddress as `0x${string}`, parseUnits(String(totalAmount), 6)],
+      });
+
+      setStep('signing');
+      setLoading(false);
+
+      const result = await sendTransaction({
+        to: usdcAddress,
+        data,
+        chainId: CHAIN_ID,
+      }, {
+        address: privyWallet?.address,
+        uiOptions: {
+          description: `Send ${totalAmount.toFixed(2)} USDC to Paycrest to offramp to ${currency}`,
+        },
+      });
+
+      // Confirm the order with the backend
+      await hedwigApi.confirmOfframpV2Order(order.orderId, { txHash: result.hash }, { accessToken });
+
+      addToast({ title: 'Withdrawal started', message: 'Your funds are being sent to your bank.', type: 'success' });
+      setStep('success');
     } catch (err: any) {
+      setStep('form');
       setError(err?.message || 'Failed to create withdrawal');
     } finally {
       setLoading(false);
     }
-  }, [amount, institution, accountIdentifier, accountName, memo, currency, source, workspaceId, addToast, accessToken]);
+  }, [amount, institution, accountIdentifier, accountName, memo, currency, source, workspaceId, addToast, accessToken, sendTransaction, privyWallet]);
 
   if (!open) return null;
 
@@ -208,7 +247,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
         <button onClick={handleClose} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
         <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
           <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">
-            {step === 'kyc' ? 'Identity Verification' : step === 'success' ? 'Withdrawal started' : 'Withdraw to Bank'}
+            {step === 'kyc' ? 'Identity Verification' : step === 'signing' ? 'Confirm transaction' : step === 'success' ? 'Withdrawal started' : 'Withdraw to Bank'}
           </h2>
         </div>
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
@@ -348,6 +387,23 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
 
               {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
             </>
+          )}
+
+          {step === 'signing' && (
+            <div className="flex flex-col items-center text-center pt-6 pb-2">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+                <SpinnerGap className="h-8 w-8 animate-spin text-[var(--color-text-tertiary)]" weight="bold" />
+              </div>
+              <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">Confirm in your wallet</h3>
+              <p className="mt-2 text-[13px] text-[var(--color-text-muted)] max-w-[320px]">
+                A signing prompt has appeared in your Privy wallet. Please confirm the transaction to continue.
+              </p>
+              {signingError && (
+                <div className="mt-4 w-full rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
+                  <p className="text-[12px] font-medium text-red-700 dark:text-red-400">{signingError}</p>
+                </div>
+              )}
+            </div>
           )}
 
           {step === 'success' && (
