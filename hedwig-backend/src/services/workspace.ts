@@ -137,19 +137,7 @@ export const WorkspaceService = {
           logger.warn('Treasury wallet creation deferred', { workspaceId: workspace.id });
         }
 
-        // Create Stellar treasury wallet
-        try {
-          const { generateStellarKeypair, fundAndSetupTrustline } = await import('./stellarAccount');
-          const stellar = generateStellarKeypair();
-          await supabase.from('workspaces').update({
-            stellar_treasury_public_key: stellar.publicKey,
-            stellar_treasury_encrypted_seed: stellar.encryptedSeed,
-          }).eq('id', workspace.id);
-          logger.info('Stellar treasury wallet created', { workspaceId: workspace.id, publicKey: stellar.publicKey });
-          fundAndSetupTrustline(stellar.publicKey, stellar.encryptedSeed).catch(() => {});
-        } catch (stellarErr: any) {
-          logger.warn('Failed to create Stellar treasury wallet', { workspaceId: workspace.id, error: stellarErr.message });
-        }
+        // Stellar treasury wallet creation was here but is disabled until Stellar is re-enabled.
       } catch (walletError: any) {
         logger.warn('Failed to create treasury wallet, will retry async', {
           workspaceId: workspace.id,

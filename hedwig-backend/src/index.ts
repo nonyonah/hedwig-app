@@ -64,8 +64,6 @@ import bankAccountRoutes from './routes/bankAccount';
 import workspaceRoutes from './routes/workspaces';
 import payrollRoutes from './routes/payroll';
 import timeRoutes from './routes/time';
-import strailsRoutes from './routes/strails';
-import strailsWebhookRoutes from './routes/strailsWebhook';
 import { warmRateSnapshot } from './services/currency';
 
 // Import middleware
@@ -514,7 +512,6 @@ app.use('/api/external-recipients', externalRecipientsRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 app.use('/api/webhooks/revenuecat', revenuecatWebhookRoutes);
 app.use('/api/webhooks/payments', paymentWebhooksRoutes);
-app.use('/api/webhooks/strails', strailsWebhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
@@ -549,8 +546,6 @@ app.use('/api/assistant', insightsLimiter, assistantRoutes);
 app.use('/api/bank-account', financialLimiter, bankAccountRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/workspaces/:id/payroll', payrollRoutes);
-app.use('/api/strails', financialLimiter, strailsRoutes);
-
 // Inngest — disabled; cron handles scheduled payroll for now.
 // Re-enable by uncommenting below and setting INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY.
 // if (process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY) {

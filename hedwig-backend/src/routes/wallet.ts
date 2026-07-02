@@ -3,13 +3,6 @@ import { authenticate, getPrivyAuthClient } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { supabase } from '../lib/supabase';
 import BlockradarService from '../services/blockradar';
-import { readStellarUsdcBalance } from '../services/treasury';
-import {
-    initiateAnchorOfframp,
-    checkAnchorOfframpStatus,
-    listAnchorOfframps,
-    ANCHORS,
-} from '../services/stellarAnchor';
 import { createLogger } from '../utils/logger';
 import { PrivyClient } from '@privy-io/node';
 import { createPublicClient, http, formatUnits, type Address } from 'viem';
@@ -537,48 +530,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
         ]);
         const allBalances = [...evmBalances, ...solanaBalanceResults.flat()];
 
-        // Fetch or lazily create Stellar public key, then fetch USDC balance
-        let stellarAddress: string | null = null;
-        try {
-            const { data: userData } = await supabase
-                .from('users')
-                .select('id, stellar_public_key, stellar_encrypted_seed')
-                .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
-                .maybeSingle();
-            if (userData?.stellar_public_key) {
-                stellarAddress = userData.stellar_public_key;
-            } else if (userData?.id) {
-                // Lazily generate Stellar keypair for users who signed up before Phase 1
-                const { generateStellarKeypair } = await import('../services/stellarAccount');
-                const stellar = generateStellarKeypair();
-                const { error: updateErr } = await supabase
-                    .from('users')
-                    .update({
-                        stellar_public_key: stellar.publicKey,
-                        stellar_encrypted_seed: stellar.encryptedSeed,
-                    })
-                    .eq('id', userData.id);
-                if (!updateErr) {
-                    stellarAddress = stellar.publicKey;
-                    const { fundAndSetupTrustline } = await import('../services/stellarAccount');
-                    fundAndSetupTrustline(stellar.publicKey, stellar.encryptedSeed).catch(() => {});
-                }
-            }
-            if (stellarAddress) {
-                const stellarBalance = await readStellarUsdcBalance(stellarAddress);
-                allBalances.push({
-                    chain: 'stellar',
-                    asset: 'usdc',
-                    raw_value: String(Math.round(stellarBalance * 1e6)),
-                    display_values: {
-                        token: stellarBalance.toFixed(6),
-                        usd: (stellarBalance * 1).toFixed(2),
-                    },
-                });
-            }
-        } catch (e: any) {
-            logger.warn('Stellar balance fetch failed', { error: e?.message?.slice(0, 200) });
-        }
+        // Stellar balance fetch was here but is disabled until Stellar is re-enabled.
 
         const eoaAddress = wallets.find(w => w.type === 'evm')?.address;
         const primaryAddress = eoaAddress || wallets[0]?.address;
@@ -590,7 +542,6 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 balances: allBalances,
                 address: primaryAddress,
                 solanaAddress: solanaAddress,
-                stellarAddress,
                 eoaAddress,
             }
         });
@@ -814,115 +765,6 @@ router.get('/blockradar-assets', authenticate, async (_req: Request, res: Respon
     } catch (error: any) {
         logger.error('Get Blockradar assets error', { error: error.message });
         return next(new AppError('Failed to get Blockradar assets', 500));
-    }
-});
-
-// ─── Stellar Anchor Off-Ramp Routes ─────────────────────────────────
-
-/**
- * GET /api/wallet/offramp/stellar/anchors
- * List available Stellar anchors for off-ramp
- */
-router.get('/offramp/stellar/anchors', authenticate, async (_req: Request, res: Response) => {
-    res.json({
-        success: true,
-        data: Object.entries(ANCHORS).map(([id, config]) => ({
-            id,
-            name: config.name,
-            currencies: config.currencies,
-        })),
-    });
-});
-
-/**
- * POST /api/wallet/offramp/stellar/initiate
- * Initiate a Stellar anchor off-ramp
- */
-router.post('/offramp/stellar/initiate', authenticate, async (req: Request, res: Response) => {
-    try {
-        const privyId = req.user!.id;
-        const { anchorId, amountUsdc, bankName, bankAccountNumber, bankSortCode, workspaceId } = req.body;
-
-        if (!anchorId || !amountUsdc || !bankName || !bankAccountNumber || !bankSortCode) {
-            res.status(400).json({ success: false, error: { message: 'Missing required fields' } });
-            return;
-        }
-
-        if (!ANCHORS[anchorId]) {
-            res.status(400).json({ success: false, error: { message: 'Unsupported anchor' } });
-            return;
-        }
-
-        // Get user's Stellar wallet seed
-        const { data: user } = await supabase
-            .from('users')
-            .select('id, stellar_encrypted_seed')
-            .eq('privy_id', privyId)
-            .single();
-
-        if (!user?.stellar_encrypted_seed) {
-            res.status(400).json({ success: false, error: { message: 'No Stellar wallet configured. Generate one first.' } });
-            return;
-        }
-
-        const record = await initiateAnchorOfframp({
-            userId: user.id,
-            workspaceId: workspaceId || undefined,
-            anchorId,
-            userEncryptedSeed: user.stellar_encrypted_seed,
-            sourceAmountUsdc: Number(amountUsdc),
-            bankName,
-            bankAccountNumber,
-            bankSortCode,
-        });
-
-        res.json({ success: true, data: record });
-    } catch (error: any) {
-        logger.error('Stellar off-ramp failed', { error: error.message });
-        res.status(500).json({ success: false, error: { message: error.message || 'Off-ramp failed' } });
-    }
-});
-
-/**
- * GET /api/wallet/offramp/stellar/orders
- * List user's Stellar off-ramp orders
- */
-router.get('/offramp/stellar/orders', authenticate, async (req: Request, res: Response) => {
-    try {
-        const privyId = req.user!.id;
-        const { data: user } = await supabase
-            .from('users')
-            .select('id')
-            .eq('privy_id', privyId)
-            .single();
-
-        if (!user) {
-            res.status(404).json({ success: false, error: { message: 'User not found' } });
-            return;
-        }
-
-        const records = await listAnchorOfframps(user.id);
-        res.json({ success: true, data: records });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: { message: error.message } });
-    }
-});
-
-/**
- * GET /api/wallet/offramp/stellar/orders/:id
- * Get a specific Stellar off-ramp order
- */
-router.get('/offramp/stellar/orders/:id', authenticate, async (req: Request, res: Response) => {
-    try {
-        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-        const record = await checkAnchorOfframpStatus(id);
-        if (!record) {
-            res.status(404).json({ success: false, error: { message: 'Off-ramp not found' } });
-            return;
-        }
-        res.json({ success: true, data: record });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: { message: error.message } });
     }
 });
 

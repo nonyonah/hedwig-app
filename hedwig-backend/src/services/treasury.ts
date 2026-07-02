@@ -239,61 +239,11 @@ export const TreasuryService = {
       createdAt: tx.created_at,
     }));
 
-    // Fetch/lazy-create the workspace's own Stellar treasury wallet
-    let stellarTreasuryAddress: string | null = null;
-    const { data: wsStellar } = await supabase
-      .from('workspaces')
-      .select('stellar_treasury_public_key, stellar_treasury_encrypted_seed')
-      .eq('id', workspaceId)
-      .maybeSingle();
-
-    if (wsStellar?.stellar_treasury_public_key) {
-      stellarTreasuryAddress = wsStellar.stellar_treasury_public_key;
-    } else {
-      try {
-        const { generateStellarKeypair } = await import('./stellarAccount');
-        const stellar = generateStellarKeypair();
-        const { error: updateErr } = await supabase.from('workspaces')
-          .update({
-            stellar_treasury_public_key: stellar.publicKey,
-            stellar_treasury_encrypted_seed: stellar.encryptedSeed,
-          })
-          .eq('id', workspaceId);
-
-        if (updateErr) {
-          logger.warn('Failed to persist Stellar treasury wallet — column may not exist', {
-            workspaceId, error: updateErr.message,
-          });
-        } else {
-          const { data: verify } = await supabase
-            .from('workspaces')
-            .select('stellar_treasury_public_key')
-            .eq('id', workspaceId)
-            .maybeSingle();
-
-          if (verify?.stellar_treasury_public_key === stellar.publicKey) {
-            stellarTreasuryAddress = stellar.publicKey;
-            logger.info('Stellar treasury wallet lazily created', { workspaceId, publicKey: stellar.publicKey });
-            const { fundAndSetupTrustline } = await import('./stellarAccount');
-            fundAndSetupTrustline(stellar.publicKey, stellar.encryptedSeed).catch(() => {});
-          } else {
-            logger.warn('Stellar treasury write was not persisted — check migration 076', { workspaceId });
-          }
-        }
-      } catch (err: any) {
-        logger.warn('Failed lazy Stellar treasury creation', { workspaceId, error: err.message });
-      }
-    }
-
-    // Fetch Stellar USDC balance from the workspace treasury wallet
-    let stellarBalanceUsdc = '0';
-    let stellarBalanceUsd = '0.00';
-    let stellarBalanceNum = 0;
-    if (stellarTreasuryAddress) {
-      stellarBalanceNum = await readStellarUsdcBalance(stellarTreasuryAddress);
-      stellarBalanceUsdc = Math.round(stellarBalanceNum * 1e6).toString();
-      stellarBalanceUsd = stellarBalanceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
+    // Stellar treasury wallet creation + balance fetch was here but is disabled until Stellar is re-enabled.
+    const stellarTreasuryAddress: string | null = null;
+    const stellarBalanceNum = 0;
+    const stellarBalanceUsdc = '0';
+    const stellarBalanceUsd = '0.00';
 
     const combinedBalanceNum = totalUsdc + stellarBalanceNum;
     const combinedBalanceUsdc = Math.round(combinedBalanceNum * 1e6).toString();
