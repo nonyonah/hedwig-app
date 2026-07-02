@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowsLeftRight, ArrowDown, Bank, Info, Wallet, X } from '@/components/ui/lucide-icons';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
@@ -11,10 +11,10 @@ import { PayoutPanel } from '@/components/workspace/payout-panel';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { Button } from '@/components/ui/button';
-import { hedwigApi } from '@/lib/api/client';
 import { OfframpModal } from '@/components/wallet/offramp-modal';
 import { OnrampModal } from '@/components/wallet/onramp-modal';
-import type { AccountTransaction, GatewayBalance, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
+
+import type { GatewayBalance, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatShortDate } from '@/lib/utils';
 
 const chainIconByName: Record<string, string> = {
@@ -50,43 +50,22 @@ const TX_KIND: Record<WalletTransaction['kind'], { dot: string; bg: string; text
   offramp: { dot: 'bg-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-text-tertiary)]' },
 };
 
-const USD_TX_STATUS: Record<AccountTransaction['status'], { dot: string; label: string }> = {
-  pending: { dot: 'bg-[var(--color-warning)]', label: 'Pending' },
-  completed: { dot: 'bg-[var(--color-success)]', label: 'Completed' },
-  failed: { dot: 'bg-[var(--color-danger)]', label: 'Failed' }
-};
-
 type WalletData = {
   walletAccounts: WalletAccount[];
   walletAssets: WalletAsset[];
   walletTransactions: WalletTransaction[];
 };
 
-type AccountsData = {
-  usdAccount: UsdAccount;
-  accountTransactions: AccountTransaction[];
-};
-
 export function WalletView({
   initialWalletData,
-  initialAccountsData,
   initialGatewayBalance,
   gatewayAutoDepositEnabled = false,
-  usdAccountsEnabled = false,
-  isUsdAccountPaywalled = false,
-  isUsdAccountRegionLocked = false,
   accessToken,
 }: {
   initialWalletData: WalletData;
-  initialAccountsData: AccountsData;
   initialGatewayBalance: GatewayBalance;
   gatewayAutoDepositEnabled?: boolean;
   accessToken: string | null;
-  usdAccountsEnabled?: boolean;
-  isUsdAccountPaywalled?: boolean;
-  isUsdAccountRegionLocked?: boolean;
-  usdAccountRegionLockReason?: string | null;
-  regionCountryCode?: string | null;
 }) {
   const { formatAmount } = useCurrency();
   useAssistantPageContext('Wallet', {
@@ -97,13 +76,9 @@ export function WalletView({
   });
 
   const [showAllActivity, setShowAllActivity] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState<WalletTransaction | AccountTransaction | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<WalletTransaction | null>(null);
   const [offrampOpen, setOfframpOpen] = useState(false);
   const [onrampOpen, setOnrampOpen] = useState(false);
-  const [usdSetupState, setUsdSetupState] = useState<'idle' | 'enrolling' | 'kyc_loading' | 'error'>('idle');
-  const [usdSetupError, setUsdSetupError] = useState('');
-  const usdAccount = initialAccountsData.usdAccount;
-  const accountTransactions = initialAccountsData.accountTransactions;
   const { walletAccounts, walletAssets, walletTransactions } = initialWalletData;
   const baseAccount = walletAccounts.find((account) => account.chain === 'Base');
   const solanaAccount = walletAccounts.find((account) => account.chain === 'Solana');
@@ -113,6 +88,14 @@ export function WalletView({
   const totalCrypto = allAssets.reduce((sum, asset) => sum + asset.valueUsd, 0);
   const eoaUsdcAssets = allAssets.filter((asset) => asset.symbol.toUpperCase() === 'USDC');
   const eoaUsdcTotal = eoaUsdcAssets.reduce((sum, asset) => sum + asset.balance, 0);
+  const chainBalances = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const asset of eoaUsdcAssets) {
+      const key = asset.chain.toLowerCase();
+      map[key] = (map[key] || 0) + asset.balance;
+    }
+    return map;
+  }, [eoaUsdcAssets]);
   const gatewayAvailableUsdc = gatewaySubunitsToNumber(initialGatewayBalance.available);
   const gatewayPendingUsdc = gatewaySubunitsToNumber(initialGatewayBalance.pending);
   const gatewaySourceRows = useMemo(() => normalizeGatewayDomainRows(initialGatewayBalance.perDomain), [initialGatewayBalance.perDomain]);
@@ -120,52 +103,7 @@ export function WalletView({
     .filter((tx) => tx.kind === 'receive' || tx.kind === 'settlement')
     .reduce((sum, tx) => sum + tx.amount, 0);
   const recentWalletTx = showAllActivity ? walletTransactions : walletTransactions.slice(0, 6);
-  const recentUsdTx = usdAccountsEnabled
-    ? showAllActivity ? accountTransactions : accountTransactions.slice(0, 6)
-    : [];
-  const totalActivityCount = walletTransactions.length + (usdAccountsEnabled ? accountTransactions.length : 0);
-  const canToggleActivity = totalActivityCount > 6;
-
-  const hasAssignedAccount = Boolean(usdAccount.hasAssignedAccount || usdAccount.accountNumberMasked || usdAccount.routingNumberMasked);
-  const hasBridgeEnrollment = Boolean(usdAccount.bridgeCustomerId || hasAssignedAccount);
-  const effectiveUsdStatus = hasBridgeEnrollment ? usdAccount.status : 'not_started';
-
-  const shouldShowUsdSetupCard = usdAccountsEnabled && !isUsdAccountPaywalled && !isUsdAccountRegionLocked && (effectiveUsdStatus === 'not_started' || effectiveUsdStatus === 'pending_kyc');
-
-  const handleUsdSetup = useCallback(async () => {
-    if (!accessToken) return;
-    setUsdSetupState('enrolling');
-    setUsdSetupError('');
-    try {
-      const enrollResult = await hedwigApi.enrollUsdAccount({ accessToken, disableMockFallback: true });
-      if (enrollResult.nextAction === 'complete_bridge_kyc') {
-        setUsdSetupState('kyc_loading');
-        const kycResult = await hedwigApi.createUsdAccountKycLink({ accessToken, disableMockFallback: true });
-        window.open(kycResult.url, '_blank');
-        setUsdSetupState('idle');
-      } else {
-        window.location.reload();
-      }
-    } catch (err: any) {
-      setUsdSetupState('error');
-      setUsdSetupError(err?.message || 'Something went wrong. Please try again.');
-    }
-  }, [accessToken]);
-
-  const handleRetryUsdSetup = useCallback(() => {
-    setUsdSetupState('idle');
-    setUsdSetupError('');
-  }, []);
-
-  const usdStatusLabel = isUsdAccountPaywalled
-    ? 'Pro'
-    : isUsdAccountRegionLocked
-    ? 'Unavailable'
-    : effectiveUsdStatus === 'active'
-      ? 'Active'
-      : effectiveUsdStatus === 'pending_kyc'
-        ? 'Pending setup'
-        : 'Not started';
+  const canToggleActivity = walletTransactions.length > 6;
 
   return (
     <div className="space-y-6">
@@ -178,7 +116,7 @@ export function WalletView({
           <Button variant="secondary" size="sm" onClick={() => setOnrampOpen(true)}>
             <Bank className="h-4 w-4" weight="bold" /> Fund via Bank
           </Button>
-          {baseAccount?.address && (
+          {(baseAccount?.address || solanaAccount?.address) && (
             <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>
               <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw
             </Button>
@@ -186,8 +124,6 @@ export function WalletView({
           <ShareWalletDialog
             baseAddress={baseAccount?.address}
             solanaAddress={solanaAccount?.address}
-            usdAccountsEnabled={usdAccountsEnabled}
-            usdAccount={usdAccount}
           />
         </div>
       </div>
@@ -212,15 +148,6 @@ export function WalletView({
             iconWrapClassName: gatewayAutoDepositEnabled ? 'bg-[var(--color-success-soft)]' : undefined,
             iconClassName: gatewayAutoDepositEnabled ? 'text-[var(--color-success)]' : 'text-[var(--color-text-tertiary)]',
           },
-          ...(usdAccountsEnabled ? [{
-            id: 'usd-account',
-            title: 'USD account',
-            value: formatAmount(usdAccount.balanceUsd, { compact: true }),
-            helper: usdStatusLabel,
-            icon: Bank,
-            valueClassName: 'text-[var(--color-text-tertiary)]',
-            iconClassName: 'text-[var(--color-text-tertiary)]',
-          }] : []),
           {
             id: 'finality',
             title: 'Finality',
@@ -239,68 +166,9 @@ export function WalletView({
             icon: ArrowDown,
             iconClassName: 'text-[var(--color-text-tertiary)]',
           },
-          ...(usdAccountsEnabled ? [{
-            id: 'auto-settlement',
-            title: 'Auto-settlement',
-            value: usdAccount.settlementChain,
-            helper: 'USD deposits settle here',
-            icon: ArrowsLeftRight,
-            iconClassName: 'text-[var(--color-text-tertiary)]',
-          }] : []),
         ]}
-        className={usdAccountsEnabled ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'}
+        className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
       />
-
-      {shouldShowUsdSetupCard ? (
-        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
-          <div className="flex items-start gap-5 px-5 py-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
-              <Bank className="h-5 w-5 text-[var(--color-primary)]" weight="bold" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Set up your USD account</p>
-              <p className="mt-1 text-[13px] leading-5 text-[var(--color-text-tertiary)]">
-                Get a US bank account number and routing number. Clients can pay you directly by ACH
-                or wire — the funds settle as USDC in your wallet automatically.
-              </p>
-              {usdSetupError ? (
-                <p className="mt-2 text-[12px] text-[var(--color-danger)]">{usdSetupError}</p>
-              ) : null}
-              <div className="mt-4 flex items-center gap-3">
-                {usdSetupState === 'idle' || usdSetupState === 'error' ? (
-                  <>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleUsdSetup}
-                    >
-                      {usdSetupState === 'error' ? 'Try again' : 'Get started'}
-                    </Button>
-                    {usdSetupState === 'error' ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRetryUsdSetup}
-                        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
-                      >
-                        Dismiss
-                      </Button>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-tertiary)]">
-                    <svg className="h-4 w-4 animate-spin text-[var(--color-primary)]" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                    </svg>
-                    {usdSetupState === 'enrolling' ? 'Setting up your account…' : 'Preparing KYC verification…'}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <WalletAssetsTable
         assetsByChain={assetsByChain}
@@ -316,7 +184,7 @@ export function WalletView({
             <div>
               <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Recent activity</p>
               <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">
-                {usdAccountsEnabled ? 'Incoming payments, buy USDC orders, withdrawals, settlements, and USD transfers' : 'Incoming payments, buy USDC orders, withdrawals, and settlements'}
+                Incoming payments, buy USDC orders, withdrawals, and settlements.
               </p>
             </div>
             {canToggleActivity ? (
@@ -337,13 +205,11 @@ export function WalletView({
             <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Date</span>
           </div>
 
-          {recentWalletTx.length === 0 && recentUsdTx.length === 0 ? (
+          {recentWalletTx.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <Wallet className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />
               <p className="text-[13px] text-[var(--color-text-muted)]">
-                {usdAccountsEnabled
-                  ? 'No activity yet. Transfers, payments, and settlements will appear here.'
-                  : 'No activity yet. Wallet transfers and payments will appear here.'}
+                No activity yet. Wallet transfers and payments will appear here.
               </p>
             </div>
           ) : (
@@ -375,34 +241,6 @@ export function WalletView({
                   </button>
                 );
               })}
-
-              {usdAccountsEnabled ? recentUsdTx.map((tx) => {
-                const status = USD_TX_STATUS[tx.status] ?? USD_TX_STATUS.pending;
-                return (
-                  <button
-                    key={tx.id}
-                    type="button"
-                    onClick={() => setSelectedActivity(tx)}
-                    className="grid w-full grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-background)]"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]">
-                        <Bank className="h-4 w-4" weight="bold" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{tx.description}</p>
-                        <p className="text-[11px] text-[var(--color-text-muted)]">USD transfer</p>
-                      </div>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-surface-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
-                      <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-                      {status.label}
-                    </span>
-                    <p className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">{formatAmount(tx.amountUsd)}</p>
-                    <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(tx.createdAt)}</p>
-                  </button>
-                );
-              }) : null}
             </div>
           )}
         </div>
@@ -427,7 +265,9 @@ export function WalletView({
         source="personal"
         returnAddress={baseAccount?.address || ''}
         maxAmount={eoaUsdcTotal}
+        chainBalances={chainBalances}
         accessToken={accessToken}
+        solanaAddress={solanaAccount?.address}
       />
     </div>
   );
@@ -438,28 +278,19 @@ function ActivityDetailPanel({
   formatAmount,
   onClose,
 }: {
-  activity: WalletTransaction | AccountTransaction;
+  activity: WalletTransaction;
   formatAmount: (amount: number, options?: { compact?: boolean }) => string;
   onClose: () => void;
 }) {
-  const isWalletActivity = 'kind' in activity;
-  const title = isWalletActivity ? formatTransactionTitle(activity) : activity.description;
-  const status = isWalletActivity ? activity.status : activity.status;
-  const amountLabel = isWalletActivity
-    ? `${activity.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${activity.asset}`
-    : formatAmount(activity.amountUsd);
-  const chain = isWalletActivity ? activity.chain : 'USD account';
-  const statusLabel = status ? String(status).replace(/_/g, ' ') : 'Unknown';
-  const iconNode = isWalletActivity ? (
+  const title = formatTransactionTitle(activity);
+  const amountLabel = `${activity.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${activity.asset}`;
+  const statusLabel = activity.status ? String(activity.status).replace(/_/g, ' ') : 'Unknown';
+  const iconNode = (
     <div className="relative shrink-0">
       <TokenIcon chain={activity.chain} symbol={activity.asset} label={activity.asset} size={44} />
       <div className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[var(--color-surface)] p-0.5">
         <ChainIcon chain={activity.chain} size={18} />
       </div>
-    </div>
-  ) : (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]">
-      <Bank className="h-5 w-5" weight="bold" />
     </div>
   );
 
@@ -480,7 +311,7 @@ function ActivityDetailPanel({
             <div className="mt-0.5 flex items-center gap-2">
               <span className="text-[12px] text-[var(--color-text-muted)]">{formatShortDate(activity.createdAt)}</span>
               <span className="text-[var(--color-border)]">·</span>
-              <span className="truncate text-[12px] text-[var(--color-text-muted)]">{chain}</span>
+              <span className="truncate text-[12px] text-[var(--color-text-muted)]">{activity.chain}</span>
             </div>
           </div>
           <Button
@@ -505,23 +336,22 @@ function ActivityDetailPanel({
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Details</p>
             <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
               <div className="divide-y divide-[var(--color-surface-tertiary)] px-4">
-                <ActivityDetailRow label="Type" value={isWalletActivity ? formatTransactionKind(activity.kind) : 'USD transfer'} />
+                <ActivityDetailRow label="Type" value={formatTransactionKind(activity.kind)} />
                 <ActivityDetailRow label="Status" value={statusLabel} />
-                {isWalletActivity ? <ActivityDetailRow label="Chain" value={activity.chain} /> : null}
-                {isWalletActivity ? <ActivityDetailRow label="Counterparty" value={activity.counterparty || 'Unknown'} /> : null}
-                {isWalletActivity && activity.fiatAmount ? (
+                <ActivityDetailRow label="Chain" value={activity.chain} />
+                <ActivityDetailRow label="Counterparty" value={activity.counterparty || 'Unknown'} />
+                {activity.fiatAmount ? (
                   <ActivityDetailRow label="Fiat amount" value={`${activity.fiatAmount.toLocaleString()} ${activity.fiatCurrency || ''}`.trim()} />
                 ) : null}
-                {isWalletActivity && activity.exchangeRate ? (
+                {activity.exchangeRate ? (
                   <ActivityDetailRow label="Exchange rate" value={activity.exchangeRate.toLocaleString()} />
                 ) : null}
-                {isWalletActivity && activity.destinationLabel ? (
+                {activity.destinationLabel ? (
                   <ActivityDetailRow label={activity.kind === 'onramp' ? 'Source' : 'Destination'} value={activity.destinationLabel} />
                 ) : null}
-                {isWalletActivity && activity.txHash ? (
+                {activity.txHash ? (
                   <ActivityDetailRow label="Transaction hash" value={activity.txHash} mono />
                 ) : null}
-                {!isWalletActivity ? <ActivityDetailRow label="Description" value={activity.description} /> : null}
               </div>
             </div>
           </div>

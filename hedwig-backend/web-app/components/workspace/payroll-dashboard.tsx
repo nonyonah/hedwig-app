@@ -38,7 +38,7 @@ interface Member {
 }
 interface PreviewData {
   totalUsdc: string; totalUsd: string; treasuryBalanceAfter: string;
-  treasuryBalanceAfterUsd: string; items: PreviewItem[]; previewToken: string; expiresAt: string;
+  treasuryBalanceAfterUsd: string; items: PreviewItem[]; previewToken: string; expiresAt: string; paymentRail?: string;
 }
 interface PreviewItem { userId: string; name: string; amountUsdc: string; amountUsd: string; }
 interface PayrollRunItem { recipientName: string; amountUsd: string; status: string; txHash?: string; }
@@ -95,7 +95,7 @@ export function PayrollDashboard() {
   // ── Treasury ──
   const [treasury, setTreasury] = useState<{
     balanceUsd: string; reservedUsd: string; availableUsd: string;
-    treasuryAddress: string | null; testnet: boolean;
+    treasuryAddress: string | null; combinedBalanceUsd?: string; testnet: boolean;
   } | null>(null);
 
   // ── Dialogs ──
@@ -109,6 +109,7 @@ export function PayrollDashboard() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentRail, setPaymentRail] = useState<'base' | 'stellar'>('base');
 
   // Payroll dialog sub-view
   type PayrollView = 'form' | 'preview';
@@ -178,12 +179,13 @@ export function PayrollDashboard() {
   // ── Fetch treasury ──
   useEffect(() => {
     if (!activeWorkspace || activeWorkspace.type !== 'organization') return;
-    api(`/api/workspaces/${activeWorkspace.id}/treasury`)
+      api(`/api/workspaces/${activeWorkspace.id}/treasury`)
       .then(d => setTreasury({
         balanceUsd: d.data?.balanceUsd || '0.00',
         reservedUsd: fmtUsd(d.data?.reservedUsdc || '0'),
         availableUsd: fmtUsd(d.data?.availableUsdc || '0'),
         treasuryAddress: d.data?.treasuryAddress || null,
+        combinedBalanceUsd: d.data?.combinedBalanceUsd || d.data?.balanceUsd || '0.00',
         testnet: d.data?.testnet ?? false,
       }))
       .catch(() => {});
@@ -227,6 +229,7 @@ export function PayrollDashboard() {
   const closePayrollDialog = () => {
     setPayrollOpen(false); setPayrollView('form'); setPreview(null);
     setAmounts({}); setRunResult(null); setError(null); setLoadingPreview(false);
+    setPaymentRail('base');
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
@@ -255,7 +258,7 @@ export function PayrollDashboard() {
     setError(null);
     setLoadingPreview(true);
     try {
-      const res = await api(`/api/workspaces/${activeWorkspace.id}/payroll/preview`, 'POST', { runType, items });
+      const res = await api(`/api/workspaces/${activeWorkspace.id}/payroll/preview`, 'POST', { runType, items, paymentRail });
       setPreview(res.data); setPayrollView('preview');
     } catch (e: any) { setError(e.message); }
     finally { setLoadingPreview(false); }
@@ -267,6 +270,7 @@ export function PayrollDashboard() {
     try {
       const res = await api(`/api/workspaces/${activeWorkspace.id}/payroll/run`, 'POST', { previewToken: preview.previewToken });
       setRunResult(res.data);
+      refreshHistory();
     } catch (e: any) { setError(e.message); }
     finally { setRunning(false); }
   };
@@ -595,8 +599,9 @@ function AddFundsButton() {
   );
 }
 
+  const combinedBal = treasury?.combinedBalanceUsd || treasury?.balanceUsd || '0.00';
   const statItems: AttachedStatCardItem[] = [
-    { id: 'balance', title: 'Treasury balance', value: `$${treasury?.balanceUsd ?? '—'}`, helper: treasury?.testnet ? 'Base Sepolia (testnet)' : 'Available USDC on Base', icon: Coins },
+    { id: 'balance', title: 'Treasury balance', value: `$${combinedBal}`, helper: 'Total USDC across all networks', icon: Coins },
     { id: 'reserved', title: 'Reserved for payroll', value: `$${treasury?.reservedUsd ?? '—'}`, helper: 'Pending payroll obligations', icon: ArrowDown, valueClassName: parseFloat(treasury?.reservedUsd || '0') > 0 ? 'text-[var(--color-warning)]' : undefined, iconClassName: parseFloat(treasury?.reservedUsd || '0') > 0 ? 'text-[var(--color-warning)]' : undefined },
     { id: 'available', title: 'Available to pay', value: `$${treasury?.availableUsd ?? '—'}`, helper: 'Ready for payroll', icon: Check, valueClassName: 'text-[var(--color-success)]', iconClassName: 'text-[var(--color-success)]' },
   ];
@@ -622,7 +627,7 @@ function AddFundsButton() {
           <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>
             <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => { setPayrollOpen(true); setPayrollView('form'); setRunResult(null); setError(null); }}>
+          <Button variant="secondary" size="sm" onClick={() => { setPayrollOpen(true); setPayrollView('form'); setRunResult(null); setError(null); setPaymentRail('base'); }}>
             <Coins className="h-4 w-4" weight="bold" /> Run Payroll
           </Button>
           <Button variant="secondary" size="sm" onClick={openCreateSchedule}>
@@ -662,6 +667,15 @@ function AddFundsButton() {
               <>
                 <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
                   <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Payment network</span>
+                    <div className="mt-2 flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit">
+                      <button className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm`}>Base (USDC)</button>
+                    </div>
+                    <div className="mt-2 flex gap-4 text-[11px] text-[var(--color-text-muted)]">
+                      <span>Balance: <span className="font-semibold text-[var(--color-foreground)]">${treasury?.balanceUsd ?? '0.00'}</span></span>
+                    </div>
+                  </div>
+                  <div>
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Team members</span>
                       {loadingMembers && <span className="text-[11px] text-[var(--color-text-muted)] animate-pulse">Loading…</span>}
@@ -695,6 +709,7 @@ function AddFundsButton() {
                     <p className="mt-1 text-[28px] font-bold leading-none tracking-[-0.03em] text-[var(--color-foreground)]">${fmtUsd(preview.totalUsdc)}</p>
                     <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">Treasury after payroll: <span className="font-semibold text-[var(--color-foreground)]">${fmtUsd(preview.treasuryBalanceAfter)}</span></p>
                     <p className="mt-1.5 text-[11px] text-[var(--color-text-muted)]">Expires in {previewTimer}</p>
+                    <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Network: <span className="font-semibold text-[var(--color-foreground)]">Base (USDC)</span></p>
                     <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">Gas fees are covered by the treasury balance.</p>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-[var(--color-border)]">
@@ -889,7 +904,7 @@ function AddFundsButton() {
                     </div>
                     {run.status === 'partial_failed' && (
                       <Button variant="outline" size="sm" className="mt-3 w-full"
-                        onClick={e => { e.stopPropagation(); handleRetry(run.id); }}
+                        onClick={() => handleRetry(run.id)}
                         disabled={retrying === run.id}>
                         {retrying === run.id ? <><ArrowsClockwise className="h-3.5 w-3.5 animate-spin" weight="bold" /> Retrying…</> : 'Retry failed payments'}
                       </Button>

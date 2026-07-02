@@ -6,6 +6,8 @@ import crypto from 'crypto';
 // fs was used for legacy contract.html, now using React app
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
+import hpp from 'hpp';
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { getRedis, closeRedis, isRedisFailClosed } from './lib/redis';
@@ -62,6 +64,8 @@ import bankAccountRoutes from './routes/bankAccount';
 import workspaceRoutes from './routes/workspaces';
 import payrollRoutes from './routes/payroll';
 import timeRoutes from './routes/time';
+import strailsRoutes from './routes/strails';
+import strailsWebhookRoutes from './routes/strailsWebhook';
 import { warmRateSnapshot } from './services/currency';
 
 // Import middleware
@@ -258,6 +262,12 @@ app.use(
         credentials: true,
     })
 );
+
+// Response compression
+app.use(compression());
+
+// HTTP parameter pollution protection
+app.use(hpp());
 
 // Body parsing middleware
 app.use(express.json({ 
@@ -504,6 +514,7 @@ app.use('/api/external-recipients', externalRecipientsRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 app.use('/api/webhooks/revenuecat', revenuecatWebhookRoutes);
 app.use('/api/webhooks/payments', paymentWebhooksRoutes);
+app.use('/api/webhooks/strails', strailsWebhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
@@ -538,6 +549,7 @@ app.use('/api/assistant', insightsLimiter, assistantRoutes);
 app.use('/api/bank-account', financialLimiter, bankAccountRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/workspaces/:id/payroll', payrollRoutes);
+app.use('/api/strails', financialLimiter, strailsRoutes);
 
 // Inngest — disabled; cron handles scheduled payroll for now.
 // Re-enable by uncommenting below and setting INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY.

@@ -10,10 +10,52 @@ import crypto from 'crypto';
 const logger = createLogger('OfframpV2');
 const router = Router();
 
-const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const USDC_BASE_SEPOLIA_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-const CHAIN_ID = process.env.NETWORK_MODE === 'testnet' ? 84532 : 8453;
+const IS_TESTNET = process.env.NETWORK_MODE === 'testnet';
 const SUPPORTED_CURRENCIES = ['NGN', 'KES', 'UGX', 'TZS', 'MWK', 'BRL'];
+
+const SUPPORTED_CHAINS: ChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism'];
+
+function getChainConfig() {
+  const testnet = IS_TESTNET;
+  return {
+    base: {
+      paycrestNetwork: 'base' as const,
+      chainId: testnet ? 84532 : 8453,
+      usdcAddress: testnet
+        ? '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+        : '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      privyChain: (testnet ? 'base_sepolia' : 'base') as 'base' | 'base_sepolia',
+    },
+    arbitrum: {
+      paycrestNetwork: 'arbitrum' as const,
+      chainId: testnet ? 421614 : 42161,
+      usdcAddress: testnet
+        ? '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d'
+        : '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      privyChain: (testnet ? 'arbitrum_sepolia' : 'arbitrum') as 'arbitrum' | 'arbitrum_sepolia',
+    },
+    polygon: {
+      paycrestNetwork: 'polygon' as const,
+      chainId: testnet ? 80002 : 137,
+      usdcAddress: testnet
+        ? '0x41e94Eb019Cee2aF7478fC2cB028afE886dA082a'
+        : '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+      privyChain: (testnet ? 'polygon_amoy' : 'polygon') as 'polygon' | 'polygon_amoy',
+    },
+    optimism: {
+      paycrestNetwork: 'optimism' as const,
+      chainId: testnet ? 11155420 : 10,
+      usdcAddress: testnet
+        ? '0x5fd84259d66Cd46123540766Be93DFE6D43130D7'
+        : '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+      privyChain: (testnet ? 'optimism_sepolia' : 'optimism') as 'optimism' | 'optimism_sepolia',
+    },
+  } as const;
+}
+
+type ChainConfig = ReturnType<typeof getChainConfig>;
+type ChainKey = keyof ChainConfig;
+const CHAIN_CONFIG = getChainConfig();
 
 async function requireAdmin(workspaceId: string, userId: string): Promise<boolean> {
   const { data } = await supabase
@@ -24,6 +66,7 @@ async function requireAdmin(workspaceId: string, userId: string): Promise<boolea
 /**
  * POST /offramp/orders
  * Create an offramp order (personal or workspace)
+ * Body: { source, workspaceId?, usdcAmount, fiatCurrency, recipient, chain? }
  */
 router.post('/orders', authenticate, async (req: Request, res: Response, next) => {
   try {
@@ -35,7 +78,8 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       res.status(403).json({ error: 'KYC verification required', code: 'KYC_REQUIRED' }); return;
     }
 
-    const { source, workspaceId, usdcAmount, fiatCurrency, recipient } = req.body;
+    const { source, workspaceId, usdcAmount, fiatCurrency, recipient, chain: rawChain } = req.body;
+    const chain: ChainKey = (rawChain && SUPPORTED_CHAINS.includes(rawChain) ? rawChain : 'base') as ChainKey;
 
     if (!source || !usdcAmount || !fiatCurrency || !recipient) {
       res.status(400).json({ error: 'source, usdcAmount, fiatCurrency, and recipient are required', code: 'MISSING_FIELDS' }); return;
@@ -49,6 +93,8 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
     if (Number.isNaN(amountNum) || amountNum < 0.10) {
       res.status(400).json({ error: 'Minimum withdrawal is 0.10 USDC', code: 'MINIMUM_AMOUNT' }); return;
     }
+
+    const chainCfg = CHAIN_CONFIG[chain];
 
     // Resolve source wallet
     let sourceWalletAddress: string;
@@ -76,10 +122,9 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       res.status(400).json({ error: 'Could not verify recipient account', code: 'VERIFICATION_FAILED' }); return;
     }
 
-    // Check balance
+    // Check balance on the selected chain
     let balance: number;
     try {
-      // Fetch USDC balance via Privy
       const privy = getPrivyNodeClient();
       let foundWallet: any = null;
       for await (const w of privy.wallets().list({ chain_type: 'ethereum' })) {
@@ -90,12 +135,11 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       }
       if (!foundWallet) { res.status(400).json({ error: 'Wallet not found', code: 'WALLET_NOT_FOUND' }); return; }
 
-      const privyChain = process.env.NETWORK_MODE === 'testnet' ? 'base_sepolia' : 'base';
-      const response = await privy.wallets().balance.get(foundWallet.id, { asset: 'usdc', chain: privyChain }) as any;
+      const response = await privy.wallets().balance.get(foundWallet.id, { asset: 'usdc', chain: chainCfg.privyChain }) as any;
       logger.info('Offramp balance check', {
         walletId: foundWallet.id?.slice(0, 10),
         address: sourceWalletAddress,
-        chain: privyChain,
+        chain: chainCfg.privyChain,
         balances: response?.balances,
       });
       const usdcEntry = response?.balances?.find((b: any) => b.asset === 'usdc');
@@ -103,38 +147,25 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       const decimals = usdcEntry?.raw_value_decimals ?? 6;
       balance = Number(rawValue) / Math.pow(10, decimals);
     } catch (e: any) {
-      logger.error('Balance check failed', { error: e?.message, address: sourceWalletAddress });
+      logger.error('Balance check failed', { error: e?.message, address: sourceWalletAddress, chain: chainCfg.privyChain });
       res.status(502).json({ error: 'Could not check balance', code: 'BALANCE_CHECK_FAILED' }); return;
     }
 
     // Fetch rate
     let rate: string;
     try {
-      rate = await PaycrestService.getExchangeRate('USDC', amountNum, fiatCurrency.toUpperCase(), 'base');
+      rate = await PaycrestService.getExchangeRate('USDC', amountNum, fiatCurrency.toUpperCase(), chainCfg.paycrestNetwork);
     } catch {
       res.status(502).json({ error: 'Could not fetch rate', code: 'RATE_FETCH_FAILED' }); return;
     }
 
-    // Build recipient for Paycrest
-    const paycrestRecipient: any = {
-      institution: recipient.institution,
-      accountIdentifier: recipient.accountIdentifier,
-      accountName: recipient.accountName || verifyResult.accountName,
-      memo: recipient.memo || 'Offramp',
-    };
-
-    // KES metadata for Till/Paybill
-    if (recipient.metadata?.channel) {
-      paycrestRecipient.metadata = recipient.metadata;
-    }
-
     const reference = `hedwig-offramp-${crypto.randomUUID()}`;
 
-    // Create Paycrest order
+    // Create Paycrest order with the correct network
     const paycrestOrder = await PaycrestService.createOfframpOrder({
       amount: amountNum,
       token: 'USDC',
-      network: 'base',
+      network: chainCfg.paycrestNetwork,
       rate,
       recipient: {
         institution: recipient.institution,
@@ -157,15 +188,13 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       }); return;
     }
 
-    const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
-
     // Insert into DB (status PENDING — transfer happens client-side)
     const { data: dbOrder, error } = await supabase.from('offramp_orders').insert({
       user_id: user.id,
       workspace_id: workspaceId || null,
       paycrest_order_id: paycrestOrder.id,
       status: 'PENDING',
-      chain: 'BASE',
+      chain: chain.toUpperCase(),
       token: 'USDC',
       crypto_amount: amountNum,
       fiat_currency: fiatCurrency.toUpperCase(),
@@ -186,8 +215,9 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
       paycrestOrderId: paycrestOrder.id,
       receiveAddress: paycrestOrder.receiveAddress,
       totalAmount,
-      usdcAddress,
-      chainId: CHAIN_ID,
+      usdcAddress: chainCfg.usdcAddress,
+      chainId: chainCfg.chainId,
+      chain,
       fiatAmount: paycrestOrder.fiatAmount,
       fiatCurrency: fiatCurrency.toUpperCase(),
       exchangeRate: paycrestOrder.exchangeRate,

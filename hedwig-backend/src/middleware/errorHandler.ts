@@ -1,4 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('ErrorHandler');
 
 export class AppError extends Error {
     statusCode: number;
@@ -31,14 +34,11 @@ export const errorHandler = (
         message = err.message;
     }
 
-    // Log error for internal tracking
-    console.error('Error:', {
-        message: err.message,
-        stack: err.stack,
+    logger.error('Request error', {
+        errorMessage: err.message,
         statusCode,
         path: req.path,
         method: req.method,
-        timestamp: new Date().toISOString(),
     });
 
     // Don't leak error details in production

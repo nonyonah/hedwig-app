@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { CaretDown, Check, X, PencilSimple, ArrowsClockwise } from '@/components/ui/lucide-icons';
+import { ArrowRight, X, PencilSimple, ArrowsClockwise } from '@/components/ui/lucide-icons';
 import { ExternalRecipientsPanel } from '@/components/workspace/external-recipients-panel';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
@@ -134,26 +135,6 @@ export default function WorkspaceSettingsPage() {
       alert(err instanceof Error ? err.message : 'Failed to transfer ownership');
     } finally {
       setTransferring(false);
-    }
-  };
-
-  const handleRemoveMember = async (userId: string) => {
-    if (!activeWorkspace) return;
-    try {
-      await apiCall(`/api/workspaces/${activeWorkspace.id}/members/${userId}`, 'DELETE');
-      fetchData();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to remove member');
-    }
-  };
-
-  const handleUpdateRole = async (userId: string, role: string) => {
-    if (!activeWorkspace) return;
-    try {
-      await apiCall(`/api/workspaces/${activeWorkspace.id}/members/${userId}`, 'PATCH', { role });
-      fetchData();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update role');
     }
   };
 
@@ -297,77 +278,42 @@ export default function WorkspaceSettingsPage() {
       <section className="mb-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Members</h2>
-          {canManage && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-invite-member'))}
-            >
-              Invite member
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {canManage && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-invite-member'))}
+              >
+                Invite member
+              </Button>
+            )}
+          </div>
         </div>
 
         {loadingMembers ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-6">
             <p className="text-[13px] text-[var(--color-text-tertiary)]">Loading members...</p>
           </div>
-        ) : members.length === 0 ? (
-          <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-8 text-center">
-            <p className="text-[13px] text-[var(--color-text-tertiary)]">No members yet.</p>
-          </div>
         ) : (
-          <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
-            {members.map((member, i) => (
-              <div
-                key={member.id}
-                className={cn(
-                  'flex items-center gap-3 px-5 py-3',
-                  i < members.length - 1 && 'border-b border-[var(--color-border-light)]'
-                )}
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[12px] font-bold text-[var(--color-text-secondary)]">
-                  {(member.firstName?.[0] ?? member.email?.[0] ?? '?').toUpperCase()}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-medium text-[var(--color-foreground)]">
-                    {member.firstName || member.lastName
-                      ? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()
-                      : member.email || 'Unknown user'}
-                  </p>
-                  {member.email && (
-                    <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">{member.email}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {member.role === 'owner' ? (
-                    <span className="rounded-md bg-[var(--color-warning-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-warning-dark)]">
-                      Owner
-                    </span>
-                  ) : isOwner ? (
-                    <RoleDropdown
-                      currentRole={member.role}
-                      onChange={(role) => handleUpdateRole(member.userId, role)}
-                    />
-                  ) : (
-                    <span className="rounded-md bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-secondary)]">
-                      {member.role === 'admin' ? 'Admin' : 'Member'}
-                    </span>
-                  )}
-                  {member.role !== 'owner' && canManage && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveMember(member.userId)}
-                      className="h-7 w-7 rounded-md text-[var(--color-text-placeholder)] hover:bg-red-50 hover:text-red-500"
-                      aria-label="Remove member"
-                    >
-                      <X className="h-3.5 w-3.5" weight="bold" />
-                    </Button>
-                  )}
-                </div>
+          <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[14px] font-medium text-[var(--color-foreground)]">
+                  {members.length} member{members.length !== 1 ? 's' : ''}
+                </p>
+                <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">
+                  {isOrg ? `${members.filter((m) => m.role !== 'owner').length} team members · ` : ''}Manage roles and payouts
+                </p>
               </div>
-            ))}
+              <Link
+                href="/workspace/members"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+              >
+                View all
+                <ArrowRight className="h-3.5 w-3.5" weight="bold" />
+              </Link>
+            </div>
           </div>
         )}
       </section>
@@ -488,46 +434,6 @@ export default function WorkspaceSettingsPage() {
               </Button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RoleDropdown({ currentRole, onChange }: { currentRole: string; onChange: (role: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const roles = [
-    { value: 'admin', label: 'Admin' },
-    { value: 'member', label: 'Member' },
-  ];
-
-  return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen((p) => !p)}
-        className="flex items-center gap-1 rounded-md bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-secondary)] hover:bg-[#eef0f3]"
-      >
-        {currentRole === 'admin' ? 'Admin' : 'Member'}
-        <CaretDown className="h-3 w-3" weight="bold" />
-      </Button>
-      {open && (
-        <div className="absolute right-0 top-6 z-50 w-32 overflow-hidden rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] py-1 shadow-lg shadow-[var(--color-foreground)]/5">
-          {roles.map((r) => (
-            <Button
-              key={r.value}
-              variant="ghost"
-              size="sm"
-              onClick={() => { onChange(r.value); setOpen(false); }}
-              className="w-full justify-start rounded-none px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]"
-            >
-              <span className="flex-1">{r.label}</span>
-              {r.value === currentRole && (
-                <Check className="h-3.5 w-3.5 text-[#2563eb]" weight="bold" />
-              )}
-            </Button>
-          ))}
         </div>
       )}
     </div>

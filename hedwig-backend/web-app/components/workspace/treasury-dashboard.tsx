@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { ArrowDown, ArrowRight, ArrowUp, Buildings, Copy, Receipt, ArrowSquareOut, Lock, Warning, ArrowsClockwise } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -21,8 +22,13 @@ interface TreasuryTx {
 
 interface TreasuryBalance {
   treasuryAddress: string | null;
+  stellarTreasuryAddress?: string | null;
   balanceUsdc: string;
   balanceUsd: string;
+  stellarBalanceUsdc?: string;
+  stellarBalanceUsd?: string;
+  combinedBalanceUsdc?: string;
+  combinedBalanceUsd?: string;
   reservedUsdc: string;
   availableUsdc: string;
   recentTransactions: TreasuryTx[];
@@ -218,10 +224,14 @@ export function TreasuryDashboard() {
     );
   }
 
+  const combinedUsd = balance?.combinedBalanceUsd || balance?.balanceUsd || '0.00';
+  const combinedBalNum = parseFloat(combinedUsd.replace(/[^0-9.]/g, ''));
+  const baseBalNum = balance ? (parseFloat(balance.balanceUsdc) / 1e6) : 0;
   const availableUsd = balance ? (parseFloat(balance.balanceUsdc) / 1e6).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
   const reservedUsd = balance ? (parseFloat(balance.reservedUsdc) / 1e6).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
   const hasReserved = parseFloat(balance?.reservedUsdc || '0') > 0;
   const hasTransactions = (balance?.recentTransactions?.length || 0) > 0;
+  const hasBase = !!balance?.treasuryAddress;
 
   return (
     <div className="space-y-4">
@@ -232,8 +242,9 @@ export function TreasuryDashboard() {
         </CardHeader>
         <CardContent>
           <p className="text-[36px] font-bold leading-tight tracking-tight text-[var(--color-foreground)]">
-            ${availableUsd}
+            ${combinedUsd}
           </p>
+          <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Total USDC balance</p>
           {hasReserved && (
             <p className="mt-1.5 text-[13px] text-[var(--color-text-tertiary)]">
               <span className="font-medium text-amber-600 dark:text-amber-400">${reservedUsd}</span> reserved for payroll
@@ -253,8 +264,7 @@ export function TreasuryDashboard() {
               Share these details with your client to receive your first payment.
             </p>
 
-            {/* Treasury wallet address */}
-            {balance?.treasuryAddress && (
+            {hasBase && (
               <div className="mt-4 rounded-lg bg-[var(--color-surface-tertiary)] px-4 py-3">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-placeholder)]">
                   USDC on Base
@@ -263,17 +273,19 @@ export function TreasuryDashboard() {
                   <code className="text-[12px] text-[var(--color-foreground)] break-all">
                     {balance.treasuryAddress}
                   </code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyAddress(balance.treasuryAddress!)}
-                    className="shrink-0"
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => copyAddress(balance.treasuryAddress!)}
+                    className="shrink-0">
                     <Copy className="h-3.5 w-3.5" weight="bold" />
                     {copied ? 'Copied' : 'Copy'}
                   </Button>
                 </div>
               </div>
+            )}
+
+            {!hasBase && (
+              <p className="mt-4 text-[12px] text-[var(--color-text-muted)]">
+                Treasury wallet is being set up. Check back shortly.
+              </p>
             )}
 
             {/* USD virtual account details */}

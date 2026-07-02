@@ -6,6 +6,7 @@ import { ArrowRight, CheckCircle } from '@/components/ui/lucide-icons';
 import { getCurrentSession } from '@/lib/auth/session';
 import { FeaturesShowcase } from './features-showcase';
 import { AnimateIn } from './animate-in';
+import { ForceLightTheme } from './force-light-theme';
 
 export default async function IndexPage() {
   const session = await getCurrentSession();
@@ -25,6 +26,7 @@ function LandingPage() {
   const showRemoteProductHuntBadge = process.env.NODE_ENV !== 'development';
 
   return (
+    <ForceLightTheme>
     <div className="min-h-screen overflow-x-hidden bg-[var(--color-surface)] font-sans antialiased">
 
       {/* ── Nav ───────────────────────────────────────────────── */}
@@ -532,6 +534,7 @@ function LandingPage() {
         </div>
       </footer>
     </div>
+    </ForceLightTheme>
   );
 }
 

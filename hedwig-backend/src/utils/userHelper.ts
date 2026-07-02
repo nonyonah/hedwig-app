@@ -4,8 +4,48 @@ import { getPrivyAuthClient } from '../middleware/auth';
 import AlchemyAddressService from '../services/alchemyAddress';
 import { ensurePrivyEmbeddedWallets } from '../services/privyWallets';
 import { registerGatewayWebhookAddresses } from '../services/circleGatewayWebhooks';
+import { generateStellarKeypair, fundAndSetupTrustline } from '../services/stellarAccount';
 
 const logger = createLogger('UserSync');
+
+async function ensureStellarWallet(userId: string, existingPublicKey?: string, existingEncryptedSeed?: string): Promise<{ stellarPublicKey: string; stellarEncryptedSeed: string } | null> {
+  try {
+    // Already has a Stellar wallet
+    if (existingPublicKey && existingEncryptedSeed) {
+      return { stellarPublicKey: existingPublicKey, stellarEncryptedSeed: existingEncryptedSeed };
+    }
+
+    const { publicKey, encryptedSeed } = generateStellarKeypair();
+
+    const { error: updateErr } = await supabase.from('users')
+      .update({
+        stellar_public_key: publicKey,
+        stellar_encrypted_seed: encryptedSeed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (updateErr) {
+      logger.warn('Failed to persist Stellar wallet — migration may not be applied', {
+        userId,
+        error: updateErr.message,
+      });
+      return null;
+    }
+
+    logger.info('Stellar wallet created for user', { userId, publicKey });
+
+    // Fire-and-forget: fund account + set up USDC trustline (testnet only)
+    fundAndSetupTrustline(publicKey, encryptedSeed).catch((err) =>
+      logger.warn('Background Stellar setup failed', { userId, error: err.message })
+    );
+
+    return { stellarPublicKey: publicKey, stellarEncryptedSeed: encryptedSeed };
+  } catch (error: any) {
+    logger.warn('Failed to ensure Stellar wallet', { userId, error: error.message });
+    return null;
+  }
+}
 
 /**
  * Get internal user from Supabase, or create/sync from Privy if missing
@@ -31,6 +71,16 @@ export async function getOrCreateUser(privyId: string) {
                     });
                 });
             }
+
+            // Lazy-migrate: generate Stellar keypair for existing users who don't have one
+            if (!user.stellar_public_key) {
+                const stellar = await ensureStellarWallet(user.id).catch(() => null);
+                if (stellar) {
+                    user.stellar_public_key = stellar.stellarPublicKey;
+                    user.stellar_encrypted_seed = stellar.stellarEncryptedSeed;
+                }
+            }
+
             return user;
         }
 
@@ -117,6 +167,13 @@ export async function getOrCreateUser(privyId: string) {
             if (!existingUser.solana_wallet_address && solAddress) {
                 updatePayload.solana_wallet_address = solAddress;
             }
+            if (!existingUser.stellar_public_key) {
+                const stellarPair = generateStellarKeypair();
+                updatePayload.stellar_public_key = stellarPair.publicKey;
+                updatePayload.stellar_encrypted_seed = stellarPair.encryptedSeed;
+                // Fire-and-forget funding
+                fundAndSetupTrustline(stellarPair.publicKey, stellarPair.encryptedSeed).catch(() => {});
+            }
             
             const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
@@ -160,6 +217,8 @@ export async function getOrCreateUser(privyId: string) {
         // 5. User doesn't exist - create new user
         logger.debug('User not found by email, creating new user');
         
+        const stellarPair = generateStellarKeypair();
+
         const userData = {
             privy_id: privyId,
             email: email,
@@ -167,6 +226,8 @@ export async function getOrCreateUser(privyId: string) {
             last_name: '',
             ethereum_wallet_address: ethAddress,
             solana_wallet_address: solAddress,
+            stellar_public_key: stellarPair.publicKey,
+            stellar_encrypted_seed: stellarPair.encryptedSeed,
             last_login: new Date().toISOString(),
             subscription_status: 'inactive',
         };
@@ -181,6 +242,9 @@ export async function getOrCreateUser(privyId: string) {
             logger.error('Failed to create user', { error: createError.message });
             throw createError;
         }
+
+        // Fire-and-forget: fund Stellar account + set up USDC trustline (testnet only)
+        fundAndSetupTrustline(stellarPair.publicKey, stellarPair.encryptedSeed).catch(() => {});
 
         logger.info('Successfully created new user');
         if (

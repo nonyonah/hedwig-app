@@ -11,6 +11,7 @@ export interface User {
   avatarUrl?: string;
   ethereumWalletAddress?: string;
   solanaWalletAddress?: string;
+  stellarPublicKey?: string;
   monthlyTarget?: number;
 }
 
@@ -33,6 +34,7 @@ export interface WorkspaceMember {
   lastName?: string;
   avatarUrl?: string;
   joinedAt?: string;
+  stellarPublicKey?: string;
 }
 
 export interface WorkspaceInvitation {

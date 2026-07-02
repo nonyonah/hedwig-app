@@ -277,6 +277,7 @@ const normalizeWalletTransactionKind = (value?: string | null): WalletTransactio
 const normalizeWalletChain = (value?: string | null): string => {
   const chain = String(value || '').toLowerCase();
   if (chain === 'solana') return 'Solana';
+  if (chain === 'stellar') return 'Stellar';
   if (chain === 'arbitrum' || chain === 'arbitrum-one') return 'Arbitrum';
   if (chain === 'polygon' || chain === 'polygon-pos') return 'Polygon';
   if (chain === 'optimism' || chain === 'op') return 'Optimism';
@@ -287,7 +288,7 @@ const assetNameBySymbol: Record<string, string> = {
   USDC: 'USD Coin'
 };
 
-const supportedWalletAssets = new Set(['Base:USDC', 'Solana:USDC', 'Arbitrum:USDC', 'Polygon:USDC', 'Optimism:USDC']);
+const supportedWalletAssets = new Set(['Base:USDC', 'Solana:USDC', 'Arbitrum:USDC', 'Polygon:USDC', 'Optimism:USDC', 'Stellar:USDC']);
 const walletAssetDecimals: Record<string, number> = {
   USDC: 6
 };
@@ -361,6 +362,7 @@ const mapBackendUser = (user: any): User => ({
   avatarUrl: user?.avatar ?? user?.avatarUrl ?? undefined,
   ethereumWalletAddress: user?.ethereumWalletAddress ?? user?.ethereum_wallet_address ?? user?.baseWalletAddress ?? undefined,
   solanaWalletAddress: user?.solanaWalletAddress ?? user?.solana_wallet_address ?? undefined,
+  stellarPublicKey: user?.stellarPublicKey ?? user?.stellar_public_key ?? undefined,
   monthlyTarget: typeof user?.monthlyTarget === 'number'
     ? user.monthlyTarget
     : typeof user?.monthly_target === 'number'
@@ -2377,6 +2379,7 @@ export const hedwigApi = {
     workspaceId?: string;
     usdcAmount: string;
     fiatCurrency: string;
+    chain?: string;
     recipient: {
       institution: string;
       accountIdentifier: string;
@@ -2392,6 +2395,7 @@ export const hedwigApi = {
       totalAmount: number;
       usdcAddress: string;
       chainId: number;
+      chain: string;
       fiatAmount: number;
       fiatCurrency: string;
       exchangeRate: string;
@@ -2491,5 +2495,61 @@ export const hedwigApi = {
     return request<{ success: boolean }>(`/api/external-recipients/${workspaceId}/${recipientId}`, options, {
       method: 'DELETE',
     });
+  },
+
+  // ── Strails ────────────────────────────────────────────────────────────────
+
+  async strailsOnboard(bvn: string, options?: ApiOptions): Promise<{
+    requestId: string;
+    strailsUserId: string;
+    status: string;
+  }> {
+    return request('/api/strails/onboard', options, {
+      method: 'POST',
+      body: JSON.stringify({ bvn }),
+    });
+  },
+
+  async strailsOnboardStatus(requestId: string, options?: ApiOptions): Promise<{
+    status: string;
+    strailsUserId: string;
+    virtualAccount: any | null;
+  }> {
+    return request('/api/strails/onboard-status', options, {
+      method: 'POST',
+      body: JSON.stringify({ requestId }),
+    });
+  },
+
+  async strailsGetVirtualAccount(options?: ApiOptions): Promise<{
+    onboarded: boolean;
+    strailsUserId?: string;
+    isActive?: boolean;
+    virtualAccount: any | null;
+    wallets?: any | null;
+  }> {
+    return request('/api/strails/virtual-account', options);
+  },
+
+  async strailsCreateInvoiceVA(invoiceId: string, amount: number, options?: ApiOptions): Promise<{
+    requestId: string;
+    walletAddress: string;
+    status: string;
+    feeBreakdown?: any;
+    virtualAccount: any | null;
+  }> {
+    return request('/api/strails/invoice-va', options, {
+      method: 'POST',
+      body: JSON.stringify({ invoiceId, amount }),
+    });
+  },
+
+  async strailsGetInvoiceVA(requestId: string, options?: ApiOptions): Promise<{
+    virtualAccount: any;
+    walletAddress: string;
+    status: string;
+    invoice: any | null;
+  }> {
+    return request(`/api/strails/invoice-va/${requestId}`, options);
   },
 };

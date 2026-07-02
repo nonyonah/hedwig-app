@@ -546,4 +546,63 @@ router.patch('/:id/treasury/payouts/:payoutId/items/:itemId', authenticate, asyn
   }
 });
 
+/**
+ * POST /api/workspaces/:id/treasury/fund-stellar
+ * Bridge USDC from the workspace's Base treasury to its Stellar treasury via Circle CCTP.
+ * Owner/admin only.
+ */
+router.post('/:id/treasury/fund-stellar', authenticate, async (req: Request, res: Response, _next) => {
+  try {
+    const id = getParam(req, 'id');
+    const { amount } = req.body;
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const role = await getWorkspaceRole(req, user.id);
+    if (role !== 'owner' && role !== 'admin') {
+      res.status(403).json({ success: false, error: { message: 'Only owners and admins can fund Stellar treasury' } });
+      return;
+    }
+
+    const amountNum = parseFloat(amount);
+    if (!amountNum || amountNum <= 0) {
+      res.status(400).json({ success: false, error: { message: 'Amount must be a positive number' } });
+      return;
+    }
+
+    const { bridgeUsdcToStellar } = await import('../services/cctpStellar');
+    const result = await bridgeUsdcToStellar(id, amountNum);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: { message: error.message || 'Bridge failed' } });
+  }
+});
+
+/**
+ * GET /api/workspaces/:id/treasury/fund-stellar/status
+ * Check the attestation status of a CCTP bridge transaction.
+ */
+router.get('/:id/treasury/fund-stellar/status', authenticate, async (req: Request, res: Response, _next) => {
+  try {
+    void getParam(req, 'id'); // workspace id — validated by route middleware
+    const txHash = req.query.txHash as string;
+    if (!txHash) {
+      res.status(400).json({ success: false, error: { message: 'txHash query parameter is required' } });
+      return;
+    }
+
+    const { checkBridgeStatus } = await import('../services/cctpStellar');
+    const status = await checkBridgeStatus(txHash);
+
+    res.json({ success: true, data: status });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: { message: error.message || 'Status check failed' } });
+  }
+});
+
 export default router;

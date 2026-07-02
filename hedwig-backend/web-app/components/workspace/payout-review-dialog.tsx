@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
- Check,
- PaperPlaneRight,
- ShieldCheck,
- SpinnerGap,
- UsersThree,
- Warning,
- X,
+  Check,
+  PaperPlaneRight,
+  ShieldCheck,
+  SpinnerGap,
+  UsersThree,
+  Warning,
+  X,
 } from '@/components/ui/lucide-icons';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { Button } from '@/components/ui/button';
@@ -16,173 +16,188 @@ import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import {
- sendSolanaUsdc,
- sendEvmUsdc,
- sendUsdcViaGateway,
- CHAIN_LABELS,
- type SendChain,
+  sendSolanaUsdc,
+  sendEvmUsdc,
+  sendUsdcViaGateway,
+  CHAIN_LABELS,
+  type SendChain,
 } from '@/lib/send/send-helpers';
 import { backendConfig } from '@/lib/auth/config';
 
 type SendStep = 'review' | 'signing' | 'done' | 'error';
 
 export interface PayoutLineItem {
- userId: string;
- amount: number;
- reason?: string;
- chain: SendChain;
- destinationAddress: string;
+  userId: string;
+  amount: number;
+  reason?: string;
+  chain: SendChain;
+  destinationAddress: string;
 }
 
 interface Member {
- userId: string;
- firstName?: string;
- lastName?: string;
- email?: string;
- solanaWalletAddress?: string;
- ethereumWalletAddress?: string;
+  userId: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  solanaWalletAddress?: string;
+  ethereumWalletAddress?: string;
+  stellarPublicKey?: string;
 }
 
 interface PayoutResult {
- userId: string;
- amount: number;
- reason?: string;
- chain: SendChain;
- txHash?: string;
- error?: string;
+  userId: string;
+  amount: number;
+  reason?: string;
+  chain: SendChain;
+  txHash?: string;
+  error?: string;
 }
 
 interface GatewayDomainBalance {
- domain: number;
- balance: string;
- pending?: string;
- depositor?: string;
+  domain: number;
+  balance: string;
+  pending?: string;
+  depositor?: string;
 }
 
 export function PayoutReviewDialog({
- workspaceId,
- items,
- members,
- accessToken,
- gatewayAutoDepositEnabled,
- onClose,
- onSuccess,
+  workspaceId,
+  items,
+  members,
+  accessToken,
+  gatewayAutoDepositEnabled,
+  onClose,
+  onSuccess,
 }: {
- workspaceId: string;
- items: PayoutLineItem[];
- members: Member[];
- accessToken: string | null;
- gatewayAutoDepositEnabled?: boolean;
- onClose: () => void;
- onSuccess: () => void;
+  workspaceId: string;
+  items: PayoutLineItem[];
+  members: Member[];
+  accessToken: string | null;
+  gatewayAutoDepositEnabled?: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
 }) {
- const { ready } = usePrivy();
- const { wallets: evmWallets } = useWallets();
- const { wallets: solanaWallets } = useSolanaWallets();
+  const { ready } = usePrivy();
+  const { wallets: evmWallets } = useWallets();
+  const { wallets: solanaWallets } = useSolanaWallets();
 
- const [step, setStep] = useState<SendStep>('review');
- const [results, setResults] = useState<PayoutResult[]>([]);
- const [fatalError, setFatalError] = useState<string | null>(null);
- const [currentIndex, setCurrentIndex] = useState(0);
- const [payoutId, setPayoutId] = useState<string | null>(null);
- const [gatewayBalances, setGatewayBalances] = useState<GatewayDomainBalance[]>([]);
+  const [step, setStep] = useState<SendStep>('review');
+  const [results, setResults] = useState<PayoutResult[]>([]);
+  const [fatalError, setFatalError] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [payoutId, setPayoutId] = useState<string | null>(null);
+  const [gatewayBalances, setGatewayBalances] = useState<GatewayDomainBalance[]>([]);
 
- const evmWallet = evmWallets.find((w: any) => w.walletClientType === 'privy') ?? evmWallets[0];
- const solanaWallet = solanaWallets[0];
- const totalAmount = items.reduce((sum, i) => sum + (i.amount || 0), 0);
- const useGateway = gatewayAutoDepositEnabled === true;
+  const evmWallet = evmWallets.find((w: any) => w.walletClientType === 'privy') ?? evmWallets[0];
+  const solanaWallet = solanaWallets[0];
+  const totalAmount = items.reduce((sum, i) => sum + (i.amount || 0), 0);
+  const useGateway = gatewayAutoDepositEnabled === true;
 
- const evmWalletList = evmWallets.length > 0 ? evmWallets : (evmWallet ? [evmWallet] : []);
- const solanaWalletList = solanaWallets.length > 0 ? solanaWallets : (solanaWallet ? [solanaWallet] : []);
+  const evmWalletList = evmWallets.length > 0 ? evmWallets : (evmWallet ? [evmWallet] : []);
+  const solanaWalletList = solanaWallets.length > 0 ? solanaWallets : (solanaWallet ? [solanaWallet] : []);
 
- useEffect(() => {
-  if (useGateway && accessToken) {
-   fetch(`${backendConfig.apiBaseUrl}/api/gateway/balance`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-   })
-    .then(r => r.json())
-    .then(json => {
-     const list = json?.data?.perDomain;
-     if (Array.isArray(list)) setGatewayBalances(list);
-    })
-    .catch(() => {});
+  // Stellar payout support disabled until funding received
+  // const stellarItems = items.filter(i => i.chain === 'stellar');
+  const nonStellarItems = items; // items.filter(i => i.chain !== 'stellar');
+  // const usePayrollApi = stellarItems.length > 0;
+
+  useEffect(() => {
+    if (useGateway && accessToken) {
+      fetch(`${backendConfig.apiBaseUrl}/api/gateway/balance`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+        .then(r => r.json())
+        .then(json => {
+          const list = json?.data?.perDomain;
+          if (Array.isArray(list)) setGatewayBalances(list);
+        })
+        .catch(() => {});
+    }
+  }, [useGateway, accessToken]);
+
+  const api = async (url: string, method: string, body?: any) => {
+    const res = await fetch(`${backendConfig.apiBaseUrl}${url}`, {
+      method,
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.error?.message || 'Request failed'); }
+    return res.json();
+  };
+
+  async function updatePayoutItem(pid: string, itemId: string, status: string, txHash?: string) {
+    await api(`/api/workspaces/${workspaceId}/treasury/payouts/${pid}/items/${itemId}`, 'PATCH', { status, tx_hash: txHash || null });
   }
- }, [useGateway, accessToken]);
 
- const api = async (url: string, method: string, body?: any) => {
-  const res = await fetch(`${backendConfig.apiBaseUrl}${url}`, {
-   method,
-   headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-   ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.error?.message || 'Request failed'); }
-  return res.json();
- };
-
- async function updatePayoutItem(pid: string, itemId: string, status: string, txHash?: string) {
-  await api(`/api/workspaces/${workspaceId}/treasury/payouts/${pid}/items/${itemId}`, 'PATCH', { status, tx_hash: txHash || null });
- }
-
- async function handleSend() {
-  setStep('signing');
-  setResults([]);
-  setFatalError(null);
-  setCurrentIndex(0);
-
-  try {
-   const apiItems = items.map(i => ({ userId: i.userId, amount: i.amount, reason: i.reason }));
-   const createRes = await api(`/api/workspaces/${workspaceId}/treasury/payout`, 'POST', { items: apiItems });
-   const createdPayoutId = createRes.data?.payout?.id;
-   if (!createdPayoutId) throw new Error('Failed to create payout record');
-   setPayoutId(createdPayoutId);
-
-   const allResults: PayoutResult[] = [];
-   const payoutItems: Array<{ id: string; user_id: string }> = createRes.data?.payout?.items || [];
-
-   for (let i = 0; i < items.length; i++) {
-    setCurrentIndex(i);
-    const item = items[i];
+  async function handleSend() {
+    setStep('signing');
+    setResults([]);
+    setFatalError(null);
+    setCurrentIndex(0);
 
     try {
-     let txHash: string;
+      const allResults: PayoutResult[] = [];
+      let nextItemIndex = 0;
 
-     if (useGateway && gatewayBalances.length > 0) {
-      txHash = await sendUsdcViaGateway({
-       evmWallets: evmWalletList,
-       solanaWallets: solanaWalletList,
-       amountUsdc: item.amount,
-       recipientAddress: item.destinationAddress,
-       destChain: item.chain,
-       perDomainBalances: gatewayBalances,
-       accessToken,
-       onStatus: (msg) => console.log(`[Gateway] ${msg}`),
-      });
-     } else if (item.chain === 'solana') {
-      txHash = await sendSolanaUsdc({ solanaWallet, recipient: item.destinationAddress, amountUsdc: item.amount });
-     } else {
-      txHash = await sendEvmUsdc({ evmWallet, recipient: item.destinationAddress, amountUsdc: item.amount, chain: item.chain });
-     }
+      // Stellar items step disabled until funding received
+      // ─── Step 1: Process Stellar items via Payroll API ──────────────
+      // if (stellarItems.length > 0) { ... }
 
-     allResults.push({ userId: item.userId, amount: item.amount, reason: item.reason, chain: item.chain, txHash });
-     const backendItem = payoutItems.find(pi => pi.user_id === item.userId);
-     if (backendItem) await updatePayoutItem(createdPayoutId, backendItem.id, 'completed', txHash);
+      // ─── Process items via treasury payout ──────
+      if (nonStellarItems.length > 0) {
+        const apiItems = nonStellarItems.map(i => ({ userId: i.userId, amount: i.amount, reason: i.reason }));
+        const createRes = await api(`/api/workspaces/${workspaceId}/treasury/payout`, 'POST', { items: apiItems });
+        const createdPayoutId = createRes.data?.payout?.id;
+        if (!createdPayoutId) throw new Error('Failed to create payout record');
+        setPayoutId(createdPayoutId);
+
+        const payoutItems: Array<{ id: string; user_id: string }> = createRes.data?.payout?.items || [];
+
+        for (let i = 0; i < nonStellarItems.length; i++) {
+          setCurrentIndex(nextItemIndex++);
+          const item = nonStellarItems[i];
+
+          try {
+            let txHash: string;
+
+            if (useGateway && gatewayBalances.length > 0) {
+              txHash = await sendUsdcViaGateway({
+                evmWallets: evmWalletList,
+                solanaWallets: solanaWalletList,
+                amountUsdc: item.amount,
+                recipientAddress: item.destinationAddress,
+                destChain: item.chain,
+                perDomainBalances: gatewayBalances,
+                accessToken,
+                onStatus: (msg) => console.log(`[Gateway] ${msg}`),
+              });
+            } else if (item.chain === 'solana') {
+              txHash = await sendSolanaUsdc({ solanaWallet, recipient: item.destinationAddress, amountUsdc: item.amount });
+            } else {
+              txHash = await sendEvmUsdc({ evmWallet, recipient: item.destinationAddress, amountUsdc: item.amount, chain: item.chain });
+            }
+
+            allResults.push({ userId: item.userId, amount: item.amount, reason: item.reason, chain: item.chain, txHash });
+            const backendItem = payoutItems.find(pi => pi.user_id === item.userId);
+            if (backendItem) await updatePayoutItem(createdPayoutId, backendItem.id, 'completed', txHash);
+          } catch (err: unknown) {
+            const msg = typeof err === 'object' && err !== null && 'message' in err ? String((err as any).message) : String(err ?? 'Transaction failed');
+            allResults.push({ userId: item.userId, amount: item.amount, reason: item.reason, chain: item.chain, error: msg });
+            const backendItem = payoutItems.find(pi => pi.user_id === item.userId);
+            if (backendItem) await updatePayoutItem(createdPayoutId, backendItem.id, 'failed');
+          }
+        }
+      }
+
+      setResults(allResults);
+      setStep('done');
+      onSuccess();
     } catch (err: unknown) {
-     const msg = typeof err === 'object' && err !== null && 'message' in err ? String((err as any).message) : String(err ?? 'Transaction failed');
-     allResults.push({ userId: item.userId, amount: item.amount, reason: item.reason, chain: item.chain, error: msg });
-     const backendItem = payoutItems.find(pi => pi.user_id === item.userId);
-     if (backendItem) await updatePayoutItem(createdPayoutId, backendItem.id, 'failed');
+      const msg = typeof err === 'object' && err !== null && 'message' in err ? String((err as any).message) : String(err ?? 'Payout failed');
+      setFatalError(msg);
+      setStep('error');
     }
-   }
-
-   setResults(allResults);
-   setStep('done');
-   onSuccess();
-  } catch (err: unknown) {
-   const msg = typeof err === 'object' && err !== null && 'message' in err ? String((err as any).message) : String(err ?? 'Payout failed');
-   setFatalError(msg);
-   setStep('error');
   }
- }
 
  const successCount = results.filter(r => r.txHash).length;
  const failCount = results.filter(r => r.error).length;
@@ -313,9 +328,9 @@ export function PayoutReviewDialog({
             <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{member?.firstName || member?.email || 'Unknown'}</p>
             <p className="text-[11px] text-[var(--color-text-muted)]">${result.amount.toLocaleString()} · {CHAIN_LABELS[result.chain] || result.chain}</p>
            </div>
-           {result.txHash ? (
-            <a href={`https://solscan.io/tx/${result.txHash}`} target="_blank" rel="noreferrer" className="ml-3 shrink-0 text-[11px] font-semibold text-[var(--color-primary)] hover:underline">View tx</a>
-           ) : (
+            {result.txHash ? (
+             <a href={`https://solscan.io/tx/${result.txHash}`} target="_blank" rel="noreferrer" className="ml-3 shrink-0 text-[11px] font-semibold text-[var(--color-primary)] hover:underline">View tx</a>
+            ) : (
             <span className="ml-3 shrink-0 rounded-full bg-[var(--color-danger-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-danger)]">Failed</span>
            )}
           </div>

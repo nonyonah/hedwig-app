@@ -32,7 +32,7 @@ router.post('/preview', authenticate, async (req: Request, res: Response, next) 
     const isAdmin = await requireAdmin(workspaceId, user.id);
     if (!isAdmin) { res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' }); return; }
 
-    const { runType, items } = req.body;
+    const { runType, items, paymentRail } = req.body;
     if (!runType || !['fixed', 'project'].includes(runType)) {
       res.status(400).json({ error: 'Run type must be "fixed" or "project"', code: 'INVALID_RUN_TYPE' });
       return;
@@ -41,8 +41,12 @@ router.post('/preview', authenticate, async (req: Request, res: Response, next) 
       res.status(400).json({ error: 'At least one payroll item is required', code: 'INVALID_ITEMS' });
       return;
     }
+    if (paymentRail && !['base', 'stellar'].includes(paymentRail)) {
+      res.status(400).json({ error: 'paymentRail must be "base" or "stellar"', code: 'INVALID_PAYMENT_RAIL' });
+      return;
+    }
 
-    const result = await PayrollService.preview(workspaceId, user.id, runType, items);
+    const result = await PayrollService.preview(workspaceId, user.id, runType, items, paymentRail);
 
     if (result.code === 'INSUFFICIENT_FUNDS') {
       res.status(402).json({ error: result.error, code: result.code, required: result.required, available: result.available, deficit: result.deficit });
@@ -252,5 +256,7 @@ router.delete('/history/:runId', authenticate, async (req: Request, res: Respons
     res.json({ success: true });
   } catch (error) { next(error); }
 });
+
+
 
 export default router;

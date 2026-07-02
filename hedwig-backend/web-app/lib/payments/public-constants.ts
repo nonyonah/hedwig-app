@@ -6,7 +6,7 @@ export type EvmPaymentChain =
   | 'optimism' | 'optimismSepolia'
   | 'celo' | 'celoAlfajores';
 export type SolanaCluster = 'mainnet' | 'devnet';
-export type PublicSettlementChain = 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo';
+export type PublicSettlementChain = 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo' | 'stellar';
 export type PublicPaymentToken = 'USDC';
 
 /** Read once at module load — flip NEXT_PUBLIC_NETWORK_MODE=testnet to use testnets */
@@ -117,8 +117,9 @@ export function resolveEvmChainForPayment(mode: RuntimeNetworkMode): EvmPaymentC
  * Resolve the target chain for payment, honouring testnet mode.
  * If NEXT_PUBLIC_NETWORK_MODE=testnet, each mainnet chain maps to its testnet equivalent.
  */
-export function resolvePaymentChain(chain: PublicSettlementChain): EvmPaymentChain | 'solana' {
+export function resolvePaymentChain(chain: PublicSettlementChain): EvmPaymentChain | 'solana' | 'stellar' {
   if (chain === 'solana') return 'solana';
+  if (chain === 'stellar') return 'stellar';
   if (NETWORK_MODE === 'testnet') {
     return TESTNET_CHAIN_MAP[chain as EvmPaymentChain] ?? (chain as EvmPaymentChain);
   }

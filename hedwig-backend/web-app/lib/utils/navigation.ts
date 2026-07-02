@@ -10,6 +10,7 @@ import {
   FolderSimple,
   House,
   Sparkle,
+  User,
   UsersThree,
   Wallet,
 } from '@/components/ui/lucide-icons';
@@ -42,6 +43,7 @@ export const navigationGroups = [
     items: [
       { title: 'Clients', href: '/clients', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Projects', href: '/projects', icon: FolderSimple, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
+      { title: 'Members', href: '/workspace/members', icon: User, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Time', href: '/time', icon: ClockCountdown, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
       { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
     ]

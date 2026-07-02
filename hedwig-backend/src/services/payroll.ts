@@ -2,10 +2,15 @@ import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { getPrivyNodeClient } from './privyWallets';
 import crypto from 'crypto';
-import { isAddress, getAddress, encodeFunctionData } from 'viem';
+import { isAddress, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createWalletClient, http, parseUnits } from 'viem';
 import { base } from 'viem/chains';
+
+const privyNodeUtils = require('@privy-io/node') as {
+  formatRequestForAuthorizationSignature: (input: any) => Uint8Array;
+  generateAuthorizationSignature: (opts: { authorizationPrivateKey: string; input: any }) => string;
+};
 
 const logger = createLogger('Payroll');
 
@@ -14,11 +19,10 @@ const PRIVY_CHAIN = IS_TESTNET ? 'base_sepolia' as const : 'base' as const;
 
 
 const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const USDC_BASE_SEPOLIA_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-const CHAIN_ID = IS_TESTNET ? 84532 : 8453;
-const PRIVY_CHAIN_CAIP = `eip155:${CHAIN_ID}`;
 
 const PREVIEW_EXPIRY_SECONDS = 300;
+
+const SDP_RAIL = 'stellar';
 
 async function readPrivyUsdcBalance(privyWalletId: string): Promise<number> {
   try {
@@ -43,40 +47,59 @@ function formatUsd(amount: number): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-async function sendUsdcIndividually(
+async function sendUsdcViaTransferApi(
   privyWalletId: string,
   toAddress: string,
   amountUsdc: number,
 ): Promise<{ txHash: string }> {
-  const privy = getPrivyNodeClient();
-  const usdcAddress = CHAIN_ID === 84532 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
-  const transferData = encodeFunctionData({
-    abi: [{
-      name: 'transfer', type: 'function',
-      inputs: [
-        { name: 'to', type: 'address' },
-        { name: 'amount', type: 'uint256' },
-      ],
-      outputs: [{ name: '', type: 'bool' }],
-      stateMutability: 'nonpayable',
-    }],
-    functionName: 'transfer',
-    args: [getAddress(toAddress), parseUnits(String(amountUsdc), 6)],
-  });
+  const appId = process.env.PRIVY_APP_ID!;
+  const appSecret = process.env.PRIVY_APP_SECRET!;
+  const authKey = process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY;
 
-  const rpcResult = await privy.wallets().rpc(privyWalletId, {
-    method: 'eth_sendTransaction',
-    caip2: PRIVY_CHAIN_CAIP,
-    params: {
-      transaction: {
-        to: usdcAddress,
-        data: transferData,
-        chain_id: CHAIN_ID,
-      },
+  const url = `https://api.privy.io/v1/wallets/${privyWalletId}/transfer`;
+  const body = {
+    source: { asset: 'usdc' as const, amount: String(amountUsdc), chain: PRIVY_CHAIN },
+    destination: { address: toAddress },
+  };
+
+  const privyHeaders: Record<string, string> = { 'privy-app-id': appId };
+  const signedInput = authKey ? {
+    method: 'POST' as const,
+    url,
+    body,
+    headers: privyHeaders,
+  } : undefined;
+
+  const signature = authKey && signedInput
+    ? privyNodeUtils.generateAuthorizationSignature({ authorizationPrivateKey: authKey, input: signedInput })
+    : undefined;
+
+  const authHeader = `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader,
+      'privy-app-id': appId,
+      'Content-Type': 'application/json',
+      ...(signature ? { 'privy-authorization-signature': signature } : {}),
     },
+    body: JSON.stringify(body),
   });
 
-  return { txHash: rpcResult.data.hash };
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Privy Transfer API error (${res.status}): ${errBody}`);
+  }
+
+  const json = await res.json();
+
+  // Return immediately — the transfer was accepted by Privy.
+  // The action ID is stored as the transaction reference; the actual on-chain
+  // tx hash can be resolved later via the Privy dashboard or a background job.
+  const actionId = json.id;
+  if (!actionId) throw new Error('Privy Transfer API returned no action ID');
+  return { txHash: `privy:${actionId}` };
 }
 
 /**
@@ -288,13 +311,20 @@ export const PayrollService = {
     workspaceId: string,
     _userId: string,
     runType: 'fixed' | 'project',
-    items: Array<{ userId?: string; externalRecipientId?: string; walletAddress?: string; amountUsdc: string }>,
+    items: Array<{ userId?: string; externalRecipientId?: string; walletAddress?: string; amountUsdc: string; stellarPublicKey?: string }>,
+    paymentRail?: 'base' | 'stellar',
   ) {
     if (!items.length) throw new Error('At least one item is required');
+
+    const rail = paymentRail || 'base';
 
     // 1. Validate items
     const internalItems = items.filter(i => i.userId);
     const externalItems = items.filter(i => i.externalRecipientId);
+
+    if (rail === SDP_RAIL && externalItems.length > 0) {
+      throw new Error('Stellar payments for external recipients are not yet supported. Use Base rail for external recipients.');
+    }
 
     // Validate internal items are workspace members
     if (internalItems.length > 0) {
@@ -306,6 +336,23 @@ export const PayrollService = {
       for (const item of internalItems) {
         if (!memberIds.has(item.userId!)) {
           throw new Error(`User ${item.userId} is not a member of this workspace`);
+        }
+      }
+    }
+
+    // Validate internal items have Stellar keys if using Stellar rail
+    if (rail === SDP_RAIL && internalItems.length > 0) {
+      const userIds = internalItems.map(i => i.userId!);
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, stellar_public_key')
+        .in('id', userIds);
+
+      const userKeyMap = new Map((users || []).map((u: any) => [u.id, u.stellar_public_key]));
+      for (const item of internalItems) {
+        const stellarKey = item.stellarPublicKey || userKeyMap.get(item.userId!);
+        if (!stellarKey) {
+          throw new Error(`User ${item.userId} does not have a Stellar wallet. Have them sign in to create one.`);
         }
       }
     }
@@ -332,26 +379,35 @@ export const PayrollService = {
     const totalUsdcRaw = items.reduce((sum, i) => sum + parseFloat(i.amountUsdc), 0);
     const totalUsdc = totalUsdcRaw / 1e6;
 
-    // 3. Fetch available balance
-    const { data: treasuryWallet } = await supabase
-      .from('treasury_wallets')
-      .select('privy_wallet_address, privy_wallet_id')
-      .eq('workspace_id', workspaceId)
-      .eq('is_active', true)
-      .maybeSingle();
+    // 3. Fetch available balance by payment rail
+    let availableBalance = 0;
+    if (rail === SDP_RAIL) {
+      const { data: wsStellar } = await supabase
+        .from('workspaces')
+        .select('stellar_treasury_public_key')
+        .eq('id', workspaceId)
+        .maybeSingle();
 
-    if (!treasuryWallet?.privy_wallet_address) {
-      throw new Error('No treasury wallet found');
+      if (wsStellar?.stellar_treasury_public_key) {
+        const { readStellarUsdcBalance } = await import('./treasury');
+        availableBalance = await readStellarUsdcBalance(wsStellar.stellar_treasury_public_key);
+      }
+    } else {
+      const { data: treasuryWallet } = await supabase
+        .from('treasury_wallets')
+        .select('privy_wallet_address, privy_wallet_id')
+        .eq('workspace_id', workspaceId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (treasuryWallet?.privy_wallet_address) {
+        let walletId = treasuryWallet.privy_wallet_id;
+        if (!walletId) {
+          walletId = await resolvePrivyWalletId(treasuryWallet.privy_wallet_address);
+        }
+        availableBalance = walletId ? await readPrivyUsdcBalance(walletId) : 0;
+      }
     }
-
-    let walletId = treasuryWallet.privy_wallet_id;
-    if (!walletId) {
-      walletId = await resolvePrivyWalletId(treasuryWallet.privy_wallet_address);
-    }
-
-    const onChainBalance = walletId
-      ? await readPrivyUsdcBalance(walletId)
-      : 0;
 
     const { data: reservedRows } = await supabase
       .from('treasury_transactions')
@@ -360,7 +416,7 @@ export const PayrollService = {
       .eq('status', 'pending_convert');
 
     const reserved = (reservedRows || []).reduce((s: number, r: any) => s + parseFloat(r.usdc_amount || '0'), 0);
-    const availableUsdc = Math.max(0, onChainBalance - reserved);
+    const availableUsdc = Math.max(0, availableBalance - reserved);
 
     const { data: activeReservations } = await supabase
       .from('payroll_runs')
@@ -378,7 +434,7 @@ export const PayrollService = {
         required: usdcToRaw(totalUsdc),
         available: usdcToRaw(finalAvailable),
         deficit: usdcToRaw(totalUsdc - finalAvailable),
-        chain: PRIVY_CHAIN,
+        chain: rail === SDP_RAIL ? 'stellar' : PRIVY_CHAIN,
       };
     }
 
@@ -422,6 +478,7 @@ export const PayrollService = {
       items,
       totalUsdc: usdcToRaw(totalUsdc),
       runType,
+      paymentRail: rail,
       exp: Math.floor(Date.now() / 1000) + PREVIEW_EXPIRY_SECONDS,
     };
     const previewToken = signPreviewJwt(tokenPayload);
@@ -436,6 +493,7 @@ export const PayrollService = {
       items: itemDetails,
       previewToken,
       expiresAt,
+      paymentRail: rail,
     };
   },
 
@@ -455,11 +513,10 @@ export const PayrollService = {
       throw new Error('Preview token does not match workspace');
     }
 
-    const items: Array<{ userId?: string; externalRecipientId?: string; walletAddress?: string; amountUsdc: string }> = tokenData.items;
+    const items: Array<{ userId?: string; externalRecipientId?: string; walletAddress?: string; amountUsdc: string; stellarPublicKey?: string }> = tokenData.items;
     const totalUsdc = parseFloat(tokenData.totalUsdc) / 1e6;
 
     const internalItems = items.filter(i => i.userId);
-    const externalItems = items.filter(i => i.externalRecipientId);
 
     // 2. Re-validate balance
     const { data: treasuryWallet } = await supabase
@@ -473,16 +530,61 @@ export const PayrollService = {
       throw new Error('No treasury wallet found');
     }
 
-    let privyWalletId = treasuryWallet.privy_wallet_id;
-    if (!privyWalletId) {
-      privyWalletId = await resolvePrivyWalletId(treasuryWallet.privy_wallet_address);
-      if (!privyWalletId) throw new Error('Could not resolve treasury Privy wallet ID');
+    const paymentRail: string = tokenData.paymentRail || 'base';
+
+    // Resolve privy wallet ID only for Base rail
+    let privyWalletId: string | null | undefined;
+    if (paymentRail !== SDP_RAIL) {
+      privyWalletId = treasuryWallet.privy_wallet_id;
+      if (!privyWalletId) {
+        privyWalletId = await resolvePrivyWalletId(treasuryWallet.privy_wallet_address);
+        if (!privyWalletId) throw new Error('Could not resolve treasury Privy wallet ID');
+      }
     }
 
-    const onChainBalance = await readPrivyUsdcBalance(privyWalletId);
+    if (paymentRail === SDP_RAIL) {
+      const { data: wsStellar } = await supabase
+        .from('workspaces')
+        .select('stellar_treasury_public_key')
+        .eq('id', workspaceId)
+        .maybeSingle();
 
-    if (totalUsdc > onChainBalance) {
-      return { error: 'Insufficient treasury balance', code: 'INSUFFICIENT_FUNDS' as const };
+      if (!wsStellar?.stellar_treasury_public_key) {
+        return { error: 'No Stellar treasury wallet configured', code: 'INSUFFICIENT_FUNDS' as const };
+      }
+
+      const { readStellarUsdcBalance } = await import('./treasury');
+      const stellarBalance = await readStellarUsdcBalance(wsStellar.stellar_treasury_public_key);
+
+      if (totalUsdc > stellarBalance) {
+        return {
+          error: 'Insufficient treasury balance',
+          code: 'INSUFFICIENT_FUNDS' as const,
+          required: usdcToRaw(totalUsdc),
+          available: usdcToRaw(stellarBalance),
+          deficit: usdcToRaw(totalUsdc - stellarBalance),
+          chain: 'stellar',
+        };
+      }
+    } else {
+      const onChainBalance = await readPrivyUsdcBalance(privyWalletId!);
+
+      logger.info('Base balance check', {
+        privyWalletId: privyWalletId?.slice(0, 10),
+        totalUsdc,
+        onChainBalance,
+      });
+
+      if (totalUsdc > onChainBalance) {
+        return {
+          error: 'Insufficient treasury balance',
+          code: 'INSUFFICIENT_FUNDS' as const,
+          required: usdcToRaw(totalUsdc),
+          available: usdcToRaw(onChainBalance),
+          deficit: usdcToRaw(totalUsdc - onChainBalance),
+          chain: PRIVY_CHAIN,
+        };
+      }
     }
 
     // 3. Create reservation
@@ -541,83 +643,216 @@ export const PayrollService = {
 
     if (itemsErr) throw itemsErr;
 
-    // 6. Update run to executing
+    // 6. If Stellar rail, execute server-side via SDP
+    if (paymentRail === SDP_RAIL) {
+      await supabase.from('payroll_runs').update({ status: 'executing' }).eq('id', run.id);
+
+      // ─── Stellar rail via SDP ─────────────────────────────────────────
+      const results: Array<{ itemId: string; success: boolean; txHash?: string; error?: string; recipientUserId?: string }> = [];
+
+      // Transfer total USDC from workspace Stellar wallet to SDP distribution account
+      try {
+        const sdpDistKey = process.env.SDP_DISTRIBUTION_PUBLIC_KEY || 'GDGW6U25DXVYQWDNNVWPB2X7OROSVEQQMUUZ6IRKE2TRJ36APCUNR56Q';
+        const { data: wsRow } = await supabase
+          .from('workspaces')
+          .select('stellar_treasury_encrypted_seed')
+          .eq('id', workspaceId)
+          .maybeSingle();
+
+        if (wsRow?.stellar_treasury_encrypted_seed) {
+          const { decryptStellarSeed, sendStellarUsdc } = await import('./stellarAccount');
+          const secret = decryptStellarSeed(wsRow.stellar_treasury_encrypted_seed);
+          await sendStellarUsdc(secret, sdpDistKey, totalUsdc);
+          logger.info('Transferred USDC to SDP distribution account', { amount: totalUsdc, to: sdpDistKey });
+        } else {
+          logger.warn('No Stellar treasury seed found, skipping transfer to SDP distribution account');
+        }
+      } catch (err: any) {
+        logger.error('Failed to transfer USDC to SDP distribution account', { error: err.message });
+        throw new Error(`Failed to transfer USDC to SDP distribution account: ${err.message}`);
+      }
+
+      // Get Stellar public keys for internal recipients
+      const userIds = internalItems.map(i => i.userId!);
+      const { data: stellarUsers } = await supabase
+        .from('users')
+        .select('id, stellar_public_key, email, first_name, last_name')
+        .in('id', userIds);
+
+      const stellarUserMap = new Map<string, any>((stellarUsers || []).map((u: any) => [u.id, u]));
+
+      try {
+        const { SDPService } = await import('./sdp');
+        const disbursementItems = internalItems.map(item => {
+          const user = stellarUserMap.get(item.userId!);
+          return {
+            email: user?.email || `${item.userId}@hedwig.app`,
+            stellarPublicKey: user?.stellar_public_key || item.stellarPublicKey || '',
+            amountUsdc: item.amountUsdc,
+            externalId: item.userId,
+          };
+        });
+
+        const missing = disbursementItems.find(i => !i.stellarPublicKey);
+        if (missing) throw new Error(`User ${missing.externalId} has no Stellar wallet`);
+
+        const { disbursementId } = await SDPService.createPayrollDisbursement(
+          `Payroll-${run.id.slice(0, 8)}`,
+          disbursementItems,
+        );
+
+        // Mark all items as submitted to SDP
+        const internalDbItems = (createdItems || []).filter((i: any) => i.recipient_type === 'internal' || !i.recipient_type);
+        for (const item of internalItems) {
+          const dbItem = internalDbItems.find((i: any) => i.recipient_user_id === item.userId);
+          if (!dbItem) continue;
+          const amountWhole = parseFloat(item.amountUsdc) / 1e6;
+          await supabase.from('payroll_items').update({
+            status: 'completed',
+            tx_hash: `sdp:${disbursementId}`,
+          }).eq('id', dbItem.id);
+          await supabase.from('treasury_transactions').insert({
+            workspace_id: workspaceId, type: 'payroll_out', source: 'manual',
+            usdc_amount: amountWhole, status: 'completed', reference_id: run.id,
+          });
+          results.push({ itemId: dbItem.id, success: true, txHash: `sdp:${disbursementId}`, recipientUserId: item.userId });
+        }
+
+        logger.info('Stellar disbursement created via SDP', { disbursementId, runId: run.id });
+
+        // Notify recipients
+        try {
+          const { EmailService } = await import('./email');
+          const NotificationService = (await import('./notifications')).default;
+          for (const result of results) {
+            if (!result.success || !result.recipientUserId) continue;
+            const amountUsd = formatUsd(parseFloat(items.find(i => i.userId === result.recipientUserId)?.amountUsdc || '0') / 1e6);
+            const recipientUser = stellarUserMap.get(result.recipientUserId);
+            NotificationService.notifyUser(result.recipientUserId, {
+              title: 'Payment arrived',
+              body: `Your payment of $${amountUsd} has arrived via Stellar`,
+            }).catch(() => {});
+            if (recipientUser?.email) {
+              EmailService.sendPayrollReceivedEmail({
+                to: recipientUser.email,
+                memberName: [recipientUser.first_name, recipientUser.last_name].filter(Boolean).join(' ') || 'Team Member',
+                amountUsd,
+              }).catch(() => {});
+            }
+          }
+        } catch (e: any) {
+          logger.warn('Failed to send SDP payroll notifications', { error: e?.message });
+        }
+      } catch (err: any) {
+        logger.error('SDP disbursement failed', { runId: run.id, error: err?.message });
+        const internalDbItems = (createdItems || []).filter((i: any) => i.recipient_type === 'internal' || !i.recipient_type);
+        for (const item of internalItems) {
+          const dbItem = internalDbItems.find((i: any) => i.recipient_user_id === item.userId);
+          if (!dbItem) continue;
+          await supabase.from('payroll_items').update({ status: 'failed' }).eq('id', dbItem.id);
+          results.push({ itemId: dbItem.id, success: false, error: err?.message, recipientUserId: item.userId });
+        }
+      }
+
+      // Finalize
+      const successCount = results.filter(r => r.success).length;
+      const failedCount = results.filter(r => !r.success).length;
+      const finalStatus = failedCount === 0 ? 'completed' : 'partial_failed';
+
+      await supabase.from('payroll_runs').update({
+        status: finalStatus,
+        completed_at: new Date().toISOString(),
+      }).eq('id', run.id);
+
+      await supabase.from('treasury_transactions').update({ status: 'completed' }).eq('id', reserveTx.id);
+
+      return { payrollRunId: run.id, status: finalStatus, successCount, failedCount };
+    }
+
+    // ─── Base rail ─ server-side execution via Privy Transfer API ───────
     await supabase.from('payroll_runs').update({ status: 'executing' }).eq('id', run.id);
 
-    // 7. Get recipient wallet addresses
-    const userIds = internalItems.map(i => i.userId!);
+    const results: Array<{ itemId: string; success: boolean; txHash?: string; error?: string; recipientUserId?: string }> = [];
+
+    // Get internal users' ethereum wallet addresses
+    const internalUserIds = internalItems.map(i => i.userId!);
     const { data: users } = await supabase
       .from('users')
-      .select('id, ethereum_wallet_address, first_name, last_name, email')
-      .in('id', userIds);
+      .select('id, ethereum_wallet_address, email, first_name, last_name')
+      .in('id', internalUserIds);
 
     const userMap = new Map<string, any>((users || []).map((u: any) => [u.id, u]));
 
-    // 8. Execute transfers
-    const results: Array<{ itemId: string; success: boolean; txHash?: string; error?: string; recipientUserId?: string }> = [];
+    try {
+      const NotificationService = (await import('./notifications')).default;
+      const { EmailService } = await import('./email');
 
-    // 8a. Internal transfers via Privy
-    const internalDbItems = (createdItems || []).filter((i: any) => i.recipient_type === 'internal' || !i.recipient_type);
-    for (const item of internalItems) {
-      const dbItem = internalDbItems.find((i: any) => i.recipient_user_id === item.userId);
-      if (!dbItem) { results.push({ itemId: '', success: false, error: 'Item not found' }); continue; }
-
-      const user = userMap.get(item.userId!);
-      if (!user?.ethereum_wallet_address) {
-        await supabase.from('payroll_items').update({ status: 'failed' }).eq('id', dbItem.id);
-        results.push({ itemId: dbItem.id, success: false, error: 'No wallet address' });
-        continue;
-      }
-
-      const amountWhole = parseFloat(item.amountUsdc) / 1e6;
-      try {
-        const { txHash } = await sendUsdcIndividually(privyWalletId, user.ethereum_wallet_address, amountWhole);
-        await supabase.from('payroll_items').update({ status: 'completed', tx_hash: txHash }).eq('id', dbItem.id);
-        await supabase.from('treasury_transactions').insert({
-          workspace_id: workspaceId, type: 'payroll_out', source: 'manual',
-          usdc_amount: amountWhole, status: 'completed', reference_id: run.id,
+      for (const item of items) {
+        const dbItem = (createdItems || []).find((i: any) => {
+          if (item.userId) return i.recipient_user_id === item.userId;
+          if (item.externalRecipientId) return i.external_recipient_id === item.externalRecipientId;
+          return false;
         });
-        results.push({ itemId: dbItem.id, success: true, txHash, recipientUserId: item.userId });
+        if (!dbItem) { results.push({ itemId: '', success: false, error: 'No dbItem found' }); continue; }
 
-        // Fire auto-settlement async (never blocks)
-        triggerAutoSettlement(item.userId!, amountWhole, dbItem.id);
-      } catch (err: any) {
-        logger.error('Transfer failed', { runId: run.id, itemId: dbItem.id, error: err?.message });
+        const recipientAddress = item.userId
+          ? userMap.get(item.userId)?.ethereum_wallet_address || null
+          : item.walletAddress || null;
+
+        if (!recipientAddress) {
+          await supabase.from('payroll_items').update({ status: 'failed' }).eq('id', dbItem.id);
+          results.push({ itemId: dbItem.id, success: false, error: 'No recipient address', recipientUserId: item.userId || undefined });
+          continue;
+        }
+
+        try {
+          const amount = parseFloat(item.amountUsdc) / 1e6;
+          logger.info('Base transfer attempt', {
+            privyWalletId: privyWalletId?.slice(0, 10),
+            to: recipientAddress?.slice(0, 10),
+            amountUsdc: amount,
+            amountRaw: item.amountUsdc,
+          });
+          const { txHash } = await sendUsdcViaTransferApi(privyWalletId!, recipientAddress, amount);
+          await supabase.from('payroll_items').update({ status: 'completed', tx_hash: txHash }).eq('id', dbItem.id);
+          results.push({ itemId: dbItem.id, success: true, txHash, recipientUserId: item.userId || undefined });
+
+          if (item.userId) {
+            const amountUsd = formatUsd(amount);
+            NotificationService.notifyUser(item.userId, {
+              title: 'Payment arrived',
+              body: `Your payment of $${amountUsd} has arrived in your Hedwig wallet`,
+            }).catch(() => {});
+            const recipientUser = userMap.get(item.userId);
+            if (recipientUser?.email) {
+              EmailService.sendPayrollReceivedEmail({
+                to: recipientUser.email,
+                memberName: [recipientUser.first_name, recipientUser.last_name].filter(Boolean).join(' ') || 'Team Member',
+                amountUsd,
+              }).catch(() => {});
+            }
+            triggerAutoSettlement(item.userId, amount, dbItem.id);
+          }
+        } catch (err: any) {
+          logger.error('Base transfer failed', { itemId: dbItem.id, amount: item.amountUsdc, error: err?.message });
+          await supabase.from('payroll_items').update({ status: 'failed' }).eq('id', dbItem.id);
+          results.push({ itemId: dbItem.id, success: false, error: err?.message, recipientUserId: item.userId || undefined });
+        }
+      }
+    } catch (err: any) {
+      logger.error('Base rail execution failed', { runId: run.id, error: err?.message });
+      for (const item of items) {
+        const dbItem = (createdItems || []).find((i: any) => {
+          if (item.userId) return i.recipient_user_id === item.userId;
+          if (item.externalRecipientId) return i.external_recipient_id === item.externalRecipientId;
+          return false;
+        });
+        if (!dbItem) continue;
         await supabase.from('payroll_items').update({ status: 'failed' }).eq('id', dbItem.id);
-        results.push({ itemId: dbItem.id, success: false, error: err?.message });
+        results.push({ itemId: dbItem.id, success: false, error: err?.message, recipientUserId: item.userId || undefined });
       }
     }
 
-    // 8b. External transfers via viem on-chain
-    const externalDbItems = (createdItems || []).filter((i: any) => i.recipient_type === 'external');
-    for (const item of externalItems) {
-      const dbItem = externalDbItems.find((i: any) => i.external_recipient_id === item.externalRecipientId);
-      if (!dbItem) { results.push({ itemId: '', success: false, error: 'Item not found' }); continue; }
-
-      const targetAddress = item.walletAddress || dbItem.external_wallet_address;
-      if (!targetAddress) {
-        await supabase.from('payroll_items').update({ status: 'failed' }).eq('id', dbItem.id);
-        results.push({ itemId: dbItem.id, success: false, error: 'No wallet address' });
-        continue;
-      }
-
-      const amountWhole = parseFloat(item.amountUsdc) / 1e6;
-      try {
-        const { txHash } = await sendUsdcOnChain(targetAddress, amountWhole);
-        await supabase.from('payroll_items').update({ status: 'completed', tx_hash: txHash }).eq('id', dbItem.id);
-        await supabase.from('treasury_transactions').insert({
-          workspace_id: workspaceId, type: 'payroll_out', source: 'manual',
-          usdc_amount: amountWhole, status: 'completed', reference_id: run.id,
-        });
-        results.push({ itemId: dbItem.id, success: true, txHash });
-      } catch (err: any) {
-        logger.error('External transfer failed', { runId: run.id, itemId: dbItem.id, error: err?.message });
-        await supabase.from('payroll_items').update({ status: 'failed' }).eq('id', dbItem.id);
-        results.push({ itemId: dbItem.id, success: false, error: err?.message });
-      }
-    }
-
-    // 9. Finalize run
     const successCount = results.filter(r => r.success).length;
     const failedCount = results.filter(r => !r.success).length;
     const finalStatus = failedCount === 0 ? 'completed' : 'partial_failed';
@@ -627,25 +862,9 @@ export const PayrollService = {
       completed_at: new Date().toISOString(),
     }).eq('id', run.id);
 
-    // Remove reservation
     await supabase.from('treasury_transactions').update({ status: 'completed' }).eq('id', reserveTx.id);
 
-    // 10. Notify internal recipients only
-    try {
-      const NotificationService = (await import('./notifications')).default;
-      for (const result of results) {
-        if (!result.success || !result.recipientUserId) continue;
-        const amountUsd = formatUsd(parseFloat(items.find(i => i.userId === result.recipientUserId)?.amountUsdc || '0') / 1e6);
-        await NotificationService.notifyUser(result.recipientUserId, {
-          title: 'Payment arrived',
-          body: `Your payment of $${amountUsd} has arrived in your Hedwig wallet`,
-        });
-      }
-    } catch (e: any) {
-      logger.warn('Failed to send some payroll notifications', { error: e?.message });
-    }
-
-    // 11. Notify admin
+    // Notify admin
     try {
       const { EmailService } = await import('./email');
       const { data: admin } = await supabase
@@ -654,7 +873,7 @@ export const PayrollService = {
         EmailService.sendPayrollCompleteEmail({
           to: admin.email,
           adminName: [admin.first_name, admin.last_name].filter(Boolean).join(' ') || 'Admin',
-          totalRan: items.length,
+          totalRan: results.length,
           successCount,
           failedCount,
           payrollRunId: run.id,
@@ -783,7 +1002,7 @@ export const PayrollService = {
         const user = userMap.get(item.recipient_user_id);
         if (!user?.ethereum_wallet_address) { stillFailed++; continue; }
         try {
-          const { txHash } = await sendUsdcIndividually(retryPrivyWalletId, user.ethereum_wallet_address, parseFloat(item.amount_usdc) / 1e6);
+          const { txHash } = await sendUsdcViaTransferApi(retryPrivyWalletId, user.ethereum_wallet_address, parseFloat(item.amount_usdc) / 1e6);
           await supabase.from('payroll_items').update({ status: 'completed', tx_hash: txHash }).eq('id', item.id);
           newSuccesses++;
         } catch (err: any) {

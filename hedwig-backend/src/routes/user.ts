@@ -69,6 +69,26 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             });
         }
 
+        // Lazy-migrate: generate Stellar keypair if missing
+        if (!profileUser.stellar_public_key) {
+            try {
+                const { generateStellarKeypair } = await import('../services/stellarAccount');
+                const stellar = generateStellarKeypair();
+                await supabase.from('users')
+                    .update({
+                        stellar_public_key: stellar.publicKey,
+                        stellar_encrypted_seed: stellar.encryptedSeed,
+                    })
+                    .eq('id', profileUser.id);
+                profileUser.stellar_public_key = stellar.publicKey;
+                const { fundAndSetupTrustline } = await import('../services/stellarAccount');
+                fundAndSetupTrustline(stellar.publicKey, stellar.encryptedSeed).catch(() => {});
+                logger.info('Stellar wallet lazily created via profile endpoint', { userId: profileUser.id });
+            } catch (err: any) {
+                logger.warn('Failed lazy Stellar wallet creation via profile', { userId: profileUser.id, error: err.message });
+            }
+        }
+
         logger.debug('Fetched user profile', { 
             hasWallets: !!(profileUser.ethereum_wallet_address || profileUser.solana_wallet_address),
             hasAvatar: !!profileUser.avatar
@@ -97,6 +117,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             ethereumWalletAddress: profileUser.ethereum_wallet_address,
             baseWalletAddress: profileUser.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: profileUser.solana_wallet_address,
+            stellarPublicKey: profileUser.stellar_public_key,
             stacksWalletAddress: profileUser.stacks_wallet_address,
             monthlyTarget: profileUser.monthly_target,
             createdAt: profileUser.created_at,

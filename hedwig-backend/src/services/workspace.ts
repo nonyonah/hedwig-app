@@ -15,6 +15,7 @@ export interface WorkspaceMember {
   avatar?: string;
   solanaWalletAddress?: string;
   ethereumWalletAddress?: string;
+  stellarPublicKey?: string;
 }
 
 export interface WorkspaceInvitation {
@@ -135,6 +136,20 @@ export const WorkspaceService = {
         } else {
           logger.warn('Treasury wallet creation deferred', { workspaceId: workspace.id });
         }
+
+        // Create Stellar treasury wallet
+        try {
+          const { generateStellarKeypair, fundAndSetupTrustline } = await import('./stellarAccount');
+          const stellar = generateStellarKeypair();
+          await supabase.from('workspaces').update({
+            stellar_treasury_public_key: stellar.publicKey,
+            stellar_treasury_encrypted_seed: stellar.encryptedSeed,
+          }).eq('id', workspace.id);
+          logger.info('Stellar treasury wallet created', { workspaceId: workspace.id, publicKey: stellar.publicKey });
+          fundAndSetupTrustline(stellar.publicKey, stellar.encryptedSeed).catch(() => {});
+        } catch (stellarErr: any) {
+          logger.warn('Failed to create Stellar treasury wallet', { workspaceId: workspace.id, error: stellarErr.message });
+        }
       } catch (walletError: any) {
         logger.warn('Failed to create treasury wallet, will retry async', {
           workspaceId: workspace.id,
@@ -231,7 +246,7 @@ export const WorkspaceService = {
         user_id,
         role,
         joined_at,
-        user:users(first_name, last_name, email, avatar, solana_wallet_address, ethereum_wallet_address)
+        user:users(first_name, last_name, email, avatar, solana_wallet_address, ethereum_wallet_address, stellar_public_key)
       `)
       .eq('workspace_id', workspaceId);
 
@@ -247,6 +262,7 @@ export const WorkspaceService = {
       avatar: row.user?.avatar,
       solanaWalletAddress: row.user?.solana_wallet_address,
       ethereumWalletAddress: row.user?.ethereum_wallet_address,
+      stellarPublicKey: row.user?.stellar_public_key,
     }));
   },
 

@@ -169,6 +169,18 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-toast',
     ],
   },
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'img.icons8.com' },
+      { protocol: 'https', hostname: 'assets.coingecko.com' },
+      { protocol: 'https', hostname: 'raw.githubusercontent.com' },
+      { protocol: 'https', hostname: 'coinicons.vercel.app' },
+      { protocol: 'https', hostname: '*.mintlify.dev' },
+      { protocol: 'https', hostname: '*.mintlify.com' },
+      { protocol: 'https', hostname: 'cdn.builder.io' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+    ],
+  },
   async headers() {
     // Allow opting out of CSP via env (e.g. local debugging).
     const cspKey =

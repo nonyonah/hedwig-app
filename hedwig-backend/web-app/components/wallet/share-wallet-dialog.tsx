@@ -3,37 +3,28 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Bank, Check, Copy, ShareNetwork } from '@/components/ui/lucide-icons';
+import { Check, Copy, ShareNetwork } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
-import type { UsdAccount } from '@/lib/models/entities';
 
 type Chain = 'Base' | 'Solana';
-type ReceiveMode = Chain | 'USD account';
+type ReceiveMode = Chain;
 
 const chainMeta: Record<Chain, { icon: string; color: string }> = {
-  Base:   { icon: '/icons/networks/base.png', color: '#0052ff' },
-  Solana: { icon: '/icons/networks/solana.png', color: '#9945ff' }
+  Base:    { icon: '/icons/networks/base.png', color: '#0052ff' },
+  Solana:  { icon: '/icons/networks/solana.png', color: '#9945ff' },
 };
 
 export function ShareWalletDialog({
   baseAddress,
   solanaAddress,
-  usdAccountsEnabled = false,
-  usdAccount
 }: {
   baseAddress?: string | null;
   solanaAddress?: string | null;
-  usdAccountsEnabled?: boolean;
-  usdAccount?: UsdAccount | null;
 }) {
-  const availableChains: Chain[] = [
-    ...(baseAddress   ? ['Base'   as Chain] : []),
-    ...(solanaAddress ? ['Solana' as Chain] : [])
-  ];
-  const receiveModes: ReceiveMode[] = [
-    ...availableChains,
-    ...(usdAccountsEnabled ? ['USD account' as ReceiveMode] : [])
+  const receiveModes: Chain[] = [
+    ...(baseAddress    ? ['Base'    as Chain] : []),
+    ...(solanaAddress  ? ['Solana'  as Chain] : []),
   ];
 
   const [open, setOpen] = useState(false);
@@ -42,26 +33,15 @@ export function ShareWalletDialog({
 
   if (receiveModes.length === 0) return null;
 
-  const activeChain = activeMode === 'USD account' ? null : activeMode;
-  const address = activeChain === 'Base' ? baseAddress : activeChain === 'Solana' ? solanaAddress : null;
-  const meta = activeChain ? chainMeta[activeChain] : null;
-  const hasAssignedUsdAccount = Boolean(
-    usdAccount?.hasAssignedAccount ||
-    usdAccount?.accountNumberMasked ||
-    usdAccount?.routingNumberMasked
-  );
+  const activeChain = activeMode;
+  const address = activeChain === 'Base' ? baseAddress
+    : activeChain === 'Solana' ? solanaAddress
+    : null;
+  const meta = chainMeta[activeChain];
 
   const handleCopy = () => {
-    const value = activeMode === 'USD account'
-      ? [
-          usdAccount?.bankName ? `Bank: ${usdAccount.bankName}` : null,
-          usdAccount?.accountNumberMasked ? `Account: ${usdAccount.accountNumberMasked}` : null,
-          usdAccount?.routingNumberMasked ? `Routing: ${usdAccount.routingNumberMasked}` : null,
-          usdAccount?.depositMessage ? `Memo / reference: ${usdAccount.depositMessage}` : null
-        ].filter(Boolean).join('\n')
-      : address;
-    if (!value) return;
-    navigator.clipboard.writeText(value);
+    if (!address) return;
+    navigator.clipboard.writeText(address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -88,7 +68,7 @@ export function ShareWalletDialog({
               <div className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-1">
                 {receiveModes.map((mode) => {
                   const isActive = activeMode === mode;
-                  const isUsd = mode === 'USD account';
+                  const meta = chainMeta[mode];
                   return (
                     <Button
                       key={mode}
@@ -101,11 +81,7 @@ export function ShareWalletDialog({
                           : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                       }`}
                     >
-                      {isUsd ? (
-                        <Bank className="h-4 w-4" weight="bold" />
-                      ) : (
-                        <Image src={chainMeta[mode as Chain].icon} alt={mode} width={16} height={16} className="rounded-full" />
-                      )}
+                      <Image src={meta.icon} alt={mode} width={16} height={16} className="rounded-full" />
                       {mode}
                     </Button>
                   );
@@ -113,119 +89,59 @@ export function ShareWalletDialog({
               </div>
             )}
 
-            {activeMode === 'USD account' ? (
-              <>
-                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-5">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface)] shadow-xs">
-                    <Bank className="h-5 w-5 text-[var(--color-text-secondary)]" weight="bold" />
-                  </div>
-                  <p className="text-[15px] font-semibold text-[var(--color-foreground)]">
-                    {hasAssignedUsdAccount ? 'Receive bank transfers' : 'Set up your USD account'}
-                  </p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
-                    {hasAssignedUsdAccount
-                      ? 'Share these account details with clients who want to pay by bank transfer.'
-                      : 'Finish setup to get account and routing details for receiving USD bank transfers.'}
-                  </p>
-                </div>
+            {activeChain && meta && receiveModes.length === 1 ? (
+              <div className="flex items-center gap-2">
+                <Image src={meta.icon} alt={activeChain} width={20} height={20} className="rounded-full" />
+                <span className="text-[14px] font-semibold text-[var(--color-foreground)]">{activeChain} network</span>
+              </div>
+            ) : null}
 
-                <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-                  <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
-                    <Bank className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="bold" />
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-                      {hasAssignedUsdAccount ? 'Account details' : 'Setup reminder'}
-                    </span>
-                  </div>
-                  <div className="space-y-3 px-4 py-3 text-[13px]">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--color-text-tertiary)]">Bank</span>
-                      <span className="text-right font-semibold text-[var(--color-foreground)]">{usdAccount?.bankName || 'Pending setup'}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--color-text-tertiary)]">Account number</span>
-                      <span className="text-right font-mono text-[var(--color-text-secondary)]">{usdAccount?.accountNumberMasked || 'Not assigned yet'}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--color-text-tertiary)]">Routing number</span>
-                      <span className="text-right font-mono text-[var(--color-text-secondary)]">{usdAccount?.routingNumberMasked || 'Not assigned yet'}</span>
-                    </div>
-                    {usdAccount?.depositMessage ? (
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-[var(--color-text-tertiary)]">Memo / reference</span>
-                        <span className="text-right font-mono text-[var(--color-text-secondary)]">{usdAccount.depositMessage}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                  {hasAssignedUsdAccount ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopy}
-                      className="flex w-full items-center justify-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-[13px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)]"
-                    >
-                      {copied ? <Check className="h-3.5 w-3.5" weight="bold" /> : <Copy className="h-3.5 w-3.5" weight="bold" />}
-                      {copied ? 'Copied' : 'Copy details'}
-                    </Button>
-                  ) : null}
+            <div className="flex items-center justify-center rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+              {address ? (
+                <QRCodeSVG
+                  value={address}
+                  size={200}
+                  fgColor="#181d27"
+                  bgColor="transparent"
+                  level="M"
+                />
+              ) : (
+                <div className="flex h-[200px] w-[200px] items-center justify-center text-[12px] text-[var(--color-text-muted)]">
+                  No address connected
                 </div>
-              </>
-            ) : (
-              <>
-                {activeChain && meta && receiveModes.length === 1 ? (
-                  <div className="flex items-center gap-2">
-                    <Image src={meta.icon} alt={activeChain} width={20} height={20} className="rounded-full" />
-                    <span className="text-[14px] font-semibold text-[var(--color-foreground)]">{activeChain} network</span>
-                  </div>
-                ) : null}
+              )}
+            </div>
 
-                <div className="flex items-center justify-center rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-                  {address ? (
-                    <QRCodeSVG
-                      value={address}
-                      size={200}
-                      fgColor="#181d27"
-                      bgColor="transparent"
-                      level="M"
-                    />
-                  ) : (
-                    <div className="flex h-[200px] w-[200px] items-center justify-center text-[12px] text-[var(--color-text-muted)]">
-                      No address connected
-                    </div>
-                  )}
-                </div>
-
-                <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)]">
-                  <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
-                    {meta ? <Image src={meta.icon} alt={activeChain ?? ''} width={14} height={14} className="rounded-full" /> : null}
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-                      {activeChain} address
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    <p className="flex-1 break-all font-mono text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
-                      {address ?? 'Not connected'}
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopy}
-                      disabled={!address}
-                      className="h-8 w-8 rounded-full"
-                    >
-                      {copied ? (
-                        <Check className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-                  Only send USDC or supported tokens on the {activeChain} network to this address. Sending unsupported assets may result in permanent loss.
+            <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)]">
+              <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
+                {meta ? <Image src={meta.icon} alt={activeChain ?? ''} width={14} height={14} className="rounded-full" /> : null}
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
+                  {activeChain} address
+                </span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <p className="flex-1 break-all font-mono text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
+                  {address ?? 'Not connected'}
                 </p>
-              </>
-            )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopy}
+                  disabled={!address}
+                  className="h-8 w-8 rounded-full"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
+              Only send USDC or supported tokens on the {activeChain} network to this address. Sending unsupported assets may result in permanent loss.
+            </p>
           </DialogBody>
         </DialogContent>
       </Dialog>

@@ -1,14 +1,17 @@
 /**
- * Solana → Base Bridge Routes
+ * Bridge Routes
  * 
- * Enables users to bridge tokens from Solana to Base
+ * Enables users to bridge tokens from various chains to Base
  * for offramping via Paycrest.
  * 
- * Routes:
+ * Solana routes:
  * GET /api/bridge/quote - Get bridge quote (fees, estimated time)
  * POST /api/bridge/build - Build bridge transaction for signing
  * GET /api/bridge/status/:id - Check bridge status
  * GET /api/bridge/balances - Get Solana wallet balances
+ * 
+ * Stellar routes:
+ * POST /api/bridge/stellar-bridge-and-offramp - Bridge Stellar USDC to Base + offramp
  */
 
 import { Router, Request, Response } from 'express';
@@ -257,5 +260,34 @@ router.post('/bridge-and-offramp', authenticate, async (req: Request, res: Respo
         next(error);
     }
 });
+
+// ─── Stellar routes disabled until funding received ────────────────────────
+// /**
+//  * POST /api/bridge/stellar-bridge-and-offramp
+//  * Initiate a bridge from Stellar to Base followed by offramp via Paycrest
+//  * ...
+//  */
+
+// router.post('/stellar-bridge-and-offramp', authenticate, async (req: Request, res: Response, next) => {
+// ... (see git history for the full handler)
+// });
+
+/**
+ * POST /api/bridge/stellar-confirm-deposit
+ * Confirm that the user submitted the CCTP burn transaction on Stellar.
+ * Accepts the burn transaction hash, polls Circle attestation, and
+ * completes the mint on Base.
+ * 
+ * Body:
+ * - orderId: The offramp order ID
+ * - burnTxHash: The Stellar deposit_for_burn transaction hash
+ */
+// router.post('/stellar-confirm-deposit', authenticate, async (req, res, next) => {
+//   ... (see git history for the full handler)
+// });
+
+// async function pollAndMint(order: any, burnTxHash: string) {
+//   ... (see git history for the full function)
+// }
 
 export default router;

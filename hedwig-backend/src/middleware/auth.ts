@@ -19,7 +19,11 @@ export function getPrivyAuthClient(): PrivyClient {
         throw new AppError('Privy is not configured on the backend (missing PRIVY_APP_ID/PRIVY_APP_SECRET)', 500);
     }
 
-    privyClient = new PrivyClient(appId, appSecret);
+    const walletApiAuthKey = process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY;
+
+    privyClient = new PrivyClient(appId, appSecret, {
+      ...(walletApiAuthKey ? { walletApi: { authorizationPrivateKey: walletApiAuthKey } } : {}),
+    });
     return privyClient;
 }
 

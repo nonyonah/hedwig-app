@@ -50,7 +50,7 @@ const EVM_NETWORKS: Record<string, {
   optimismSepolia: { chainId: 11155420, chainIdHex: '0xaa37dc', chainName: 'OP Sepolia', rpcUrls: ['https://sepolia.optimism.io'], blockExplorerUrls: ['https://sepolia-optimism.etherscan.io'], nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 } },
 };
 
-export type SendChain = 'solana' | 'base' | 'arbitrum' | 'polygon' | 'optimism';
+export type SendChain = 'solana' | 'base' | 'arbitrum' | 'polygon' | 'optimism' | 'stellar';
 
 // ── Private helpers ──────────────────────────────────────────────────────────
 
@@ -329,5 +329,5 @@ export function getExplorerUrl(chainType: 'evm' | 'solana', hash: string, chainK
 
 export const CHAIN_LABELS: Record<string, string> = {
   solana: 'Solana', base: 'Base', arbitrum: 'Arbitrum',
-  polygon: 'Polygon', optimism: 'Optimism',
+  polygon: 'Polygon', optimism: 'Optimism', stellar: 'Stellar',
 };

@@ -12,6 +12,26 @@ function formatUsd(usdcAmount: number): string {
   return usdcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+export async function readStellarUsdcBalance(stellarAddress: string): Promise<number> {
+  try {
+    const horizonUrl = process.env.STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org';
+    const response = await fetch(`${horizonUrl}/accounts/${stellarAddress}`);
+    if (!response.ok) {
+      logger.warn('Horizon account lookup failed', { stellarAddress, status: response.status });
+      return 0;
+    }
+    const account = await response.json();
+    const usdcIssuer = process.env.STELLAR_USDC_ISSUER || 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+    const usdcBal = (account.balances || []).find(
+      (b: any) => b.asset_type === 'credit_alphanum4' && b.asset_code === 'USDC' && b.asset_issuer === usdcIssuer
+    );
+    return usdcBal ? parseFloat(usdcBal.balance) : 0;
+  } catch (e: any) {
+    logger.warn('Failed to read Stellar USDC balance', { stellarAddress, error: e.message });
+    return 0;
+  }
+}
+
 async function readPrivyUsdcBalance(privyWalletId: string): Promise<number> {
   try {
     const privy = getPrivyNodeClient();
@@ -172,6 +192,7 @@ export const TreasuryService = {
     if (!address) {
       return {
         treasuryAddress: null,
+        stellarTreasuryAddress: null,
         balanceUsdc: '0',
         balanceUsd: '0.00',
         reservedUsdc: '0',
@@ -205,7 +226,6 @@ export const TreasuryService = {
     const reservedUsdc = ((reservedResult.data || []) as any[]).reduce(
       (sum: number, r: any) => sum + parseFloat(r.usdc_amount || '0'), 0
     );
-    const availableUsdc = Math.max(0, totalUsdc - reservedUsdc);
 
     const recentTransactions = ((txsResult.data || []) as any[]).map((tx: any) => ({
       id: tx.id,
@@ -219,16 +239,88 @@ export const TreasuryService = {
       createdAt: tx.created_at,
     }));
 
+    // Fetch/lazy-create the workspace's own Stellar treasury wallet
+    let stellarTreasuryAddress: string | null = null;
+    const { data: wsStellar } = await supabase
+      .from('workspaces')
+      .select('stellar_treasury_public_key, stellar_treasury_encrypted_seed')
+      .eq('id', workspaceId)
+      .maybeSingle();
+
+    if (wsStellar?.stellar_treasury_public_key) {
+      stellarTreasuryAddress = wsStellar.stellar_treasury_public_key;
+    } else {
+      try {
+        const { generateStellarKeypair } = await import('./stellarAccount');
+        const stellar = generateStellarKeypair();
+        const { error: updateErr } = await supabase.from('workspaces')
+          .update({
+            stellar_treasury_public_key: stellar.publicKey,
+            stellar_treasury_encrypted_seed: stellar.encryptedSeed,
+          })
+          .eq('id', workspaceId);
+
+        if (updateErr) {
+          logger.warn('Failed to persist Stellar treasury wallet — column may not exist', {
+            workspaceId, error: updateErr.message,
+          });
+        } else {
+          const { data: verify } = await supabase
+            .from('workspaces')
+            .select('stellar_treasury_public_key')
+            .eq('id', workspaceId)
+            .maybeSingle();
+
+          if (verify?.stellar_treasury_public_key === stellar.publicKey) {
+            stellarTreasuryAddress = stellar.publicKey;
+            logger.info('Stellar treasury wallet lazily created', { workspaceId, publicKey: stellar.publicKey });
+            const { fundAndSetupTrustline } = await import('./stellarAccount');
+            fundAndSetupTrustline(stellar.publicKey, stellar.encryptedSeed).catch(() => {});
+          } else {
+            logger.warn('Stellar treasury write was not persisted — check migration 076', { workspaceId });
+          }
+        }
+      } catch (err: any) {
+        logger.warn('Failed lazy Stellar treasury creation', { workspaceId, error: err.message });
+      }
+    }
+
+    // Fetch Stellar USDC balance from the workspace treasury wallet
+    let stellarBalanceUsdc = '0';
+    let stellarBalanceUsd = '0.00';
+    let stellarBalanceNum = 0;
+    if (stellarTreasuryAddress) {
+      stellarBalanceNum = await readStellarUsdcBalance(stellarTreasuryAddress);
+      stellarBalanceUsdc = Math.round(stellarBalanceNum * 1e6).toString();
+      stellarBalanceUsd = stellarBalanceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    const combinedBalanceNum = totalUsdc + stellarBalanceNum;
+    const combinedBalanceUsdc = Math.round(combinedBalanceNum * 1e6).toString();
+    const combinedBalanceUsd = combinedBalanceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const availableUsdc = Math.max(0, combinedBalanceNum - reservedUsdc);
+
     return {
       treasuryAddress: address,
+      stellarTreasuryAddress,
       balanceUsdc: rawUsdcString,
       balanceUsd: formatUsd(totalUsdc),
+      stellarBalanceUsdc,
+      stellarBalanceUsd,
+      combinedBalanceUsdc,
+      combinedBalanceUsd,
       reservedUsdc: Math.round(reservedUsdc * 1e6).toString(),
       availableUsdc: Math.round(availableUsdc * 1e6).toString(),
       recentTransactions,
       totalUsdc,
       testnet: IS_TESTNET,
-      _debug: { hasAddress: !!address, hasWalletId: !!privyWalletId, chain: PRIVY_CHAIN },
+      _debug: {
+        hasAddress: !!address,
+        hasWalletId: !!privyWalletId,
+        chain: PRIVY_CHAIN,
+        stellarPublicKey: stellarTreasuryAddress,
+      },
     };
   },
 

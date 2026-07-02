@@ -5,6 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 import AlchemyAddressService from '../services/alchemyAddress';
 import { EmailService } from '../services/email';
 import { ensurePrivyEmbeddedWallets } from '../services/privyWallets';
+import { generateStellarKeypair, fundAndSetupTrustline } from '../services/stellarAccount';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Auth');
@@ -331,6 +332,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                 avatar,
                 ethereum_wallet_address,
                 solana_wallet_address,
+                stellar_public_key,
                 stacks_wallet_address,
                 kyc_status,
                 created_at,
@@ -365,6 +367,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                             avatar,
                             ethereum_wallet_address,
                             solana_wallet_address,
+                            stellar_public_key,
                             stacks_wallet_address,
                             kyc_status,
                             created_at,
@@ -429,6 +432,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                             avatar,
                             ethereum_wallet_address,
                             solana_wallet_address,
+                            stellar_public_key,
                             stacks_wallet_address,
                             kyc_status,
                             created_at,
@@ -472,6 +476,25 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             }
         }
 
+        // Lazy-migrate: generate Stellar keypair if missing
+        if (!user.stellar_public_key) {
+            try {
+                const stellar = generateStellarKeypair();
+                await supabase.from('users')
+                    .update({
+                        stellar_public_key: stellar.publicKey,
+                        stellar_encrypted_seed: stellar.encryptedSeed,
+                    })
+                    .eq('id', user.id);
+                user.stellar_public_key = stellar.publicKey;
+                (user as any).stellar_encrypted_seed = stellar.encryptedSeed;
+                fundAndSetupTrustline(stellar.publicKey, stellar.encryptedSeed).catch(() => {});
+                logger.info('Stellar wallet lazily created via /me', { userId: user.id });
+            } catch (err: any) {
+                logger.warn('Failed lazy Stellar wallet creation via /me', { userId: user.id, error: err.message });
+            }
+        }
+
         // Map snake_case to camelCase for API response
         const formattedUser = {
             id: user.id,
@@ -481,6 +504,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             avatar: user.avatar,
             ethereumWalletAddress: user.ethereum_wallet_address,
             solanaWalletAddress: user.solana_wallet_address,
+            stellarPublicKey: user.stellar_public_key,
             stacksWalletAddress: user.stacks_wallet_address,
             kycStatus: user.kyc_status || 'not_started',
             subscriptionStatus: user.subscription_status || 'inactive',
