@@ -1,0 +1,27 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [typecheck]   # only deploy after CI passes — but this job is in ci.yml,
+                          # so we keep it independent here (ci.yml gates PRs).
+    steps:
+      - name: Trigger Render deploy
+        env:
+          DEPLOY_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL secret is not configured"
+            exit 1
+          fi
+          status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$DEPLOY_URL")
+          if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+            echo "Deploy hook triggered (HTTP $status)"
+          else
+            echo "::error::Deploy hook returned HTTP $status"
+            exit 1
+          fi
