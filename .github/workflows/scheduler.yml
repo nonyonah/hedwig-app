@@ -1,0 +1,14 @@
+name: Scheduler
+
+on:
+  schedule:
+    - cron: '*/14 * * * *'
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep-alive and trigger scheduled tasks
+        run: |
+          curl -fsS -X POST "${{ secrets.APP_URL }}/health" \
+            -o /dev/null -w "%{http_code}"
