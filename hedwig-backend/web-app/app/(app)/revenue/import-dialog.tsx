@@ -174,8 +174,8 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
     ?? { code: editCurrency, label: editCurrency, symbol: editCurrency };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-[520px]">
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()} size="2xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Import document</DialogTitle>
           <DialogDescription>

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTheme } from 'next-themes';
+import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { X } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 
@@ -8,13 +10,16 @@ export function CreateWorkspaceDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState<'organization' | 'personal'>('organization');
+  const [icon, setIcon] = useState('🚀');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { resolvedTheme } = useTheme();
   const { createWorkspace } = useWorkspaceContext();
 
   useEffect(() => {
-    const handler = () => { setOpen(true); setName(''); setType('organization'); setError(null); };
+    const handler = () => { setOpen(true); setName(''); setType('organization'); setIcon('🚀'); setError(null); };
     window.addEventListener('hedwig:open-create-workspace', handler);
     return () => window.removeEventListener('hedwig:open-create-workspace', handler);
   }, []);
@@ -29,7 +34,7 @@ export function CreateWorkspaceDialog() {
     setSaving(true);
     setError(null);
     try {
-      await createWorkspace(name.trim(), type);
+      await createWorkspace(name.trim(), type, icon);
       setOpen(false);
       setName('');
     } catch (err) {
@@ -56,6 +61,31 @@ export function CreateWorkspaceDialog() {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="px-5 pb-5">
+          <div className="relative mb-4">
+            <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Icon</label>
+            <button
+              type="button"
+              onClick={() => setPickerOpen((p) => !p)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-border-light)] text-[22px] transition hover:bg-[var(--color-surface-tertiary)]"
+            >
+              {icon}
+            </button>
+            {pickerOpen && (
+              <div className="fixed inset-0 z-[200] flex items-center justify-center">
+                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={() => setPickerOpen(false)} />
+                <div className="relative rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-2xl shadow-[var(--color-foreground)]/15">
+                  <EmojiPicker
+                    onEmojiClick={(data) => { setIcon(data.emoji); setPickerOpen(false); }}
+                    theme={resolvedTheme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                    skinTonesDisabled
+                    searchPlaceholder="Search emoji..."
+                    width={350}
+                    height={450}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           <div className="mb-4">
             <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Workspace name</label>
             <input
@@ -64,7 +94,7 @@ export function CreateWorkspaceDialog() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Acme Agency"
-              className="w-full rounded-lg border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+              className="w-full rounded-full border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
               maxLength={100}
             />
           </div>
@@ -73,7 +103,7 @@ export function CreateWorkspaceDialog() {
             <select
               value={type}
               onChange={(e) => setType(e.target.value as 'organization' | 'personal')}
-              className="w-full rounded-lg border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20 bg-[var(--color-surface)]"
+              className="w-full rounded-full border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20 bg-[var(--color-surface)]"
             >
               <option value="organization">Organization — for teams and businesses</option>
               <option value="personal">Personal — for solo freelancers</option>
@@ -84,14 +114,14 @@ export function CreateWorkspaceDialog() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-tertiary)]"
+              className="rounded-full px-4 py-2 text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-tertiary)]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!name.trim() || saving}
-              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
+              className="rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
             >
               {saving ? 'Creating...' : 'Create'}
             </button>

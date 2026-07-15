@@ -11,7 +11,6 @@ export const SUPPORTED_CRYPTO_CHAINS = [
   'Arbitrum',
   'Polygon',
   'Optimism',
-  'Celo',
   'Solana',
 ] as const;
 
@@ -19,7 +18,7 @@ const cryptoChainsLabel = SUPPORTED_CRYPTO_CHAINS.join(', ');
 
 export const FREE_PLAN_FEATURES = [
   'Unlimited invoices, payment links, and contracts',
-  `Crypto checkout on ${cryptoChainsLabel}`,
+  `Stablecoin checkout on ${cryptoChainsLabel}`,
   '1 external payout bank account (NG, GH, US, or UK)',
   'Mark-as-paid with payment method and reference capture',
   'Clients, projects, expenses, and last-30-days revenue tracking',
@@ -51,7 +50,7 @@ export const PLAN_COMPARISON_ROWS: Array<{ feature: string; free: string; starte
   { feature: 'Payment links', free: 'Unlimited', starter: 'Unlimited', pro: 'Unlimited' },
   { feature: 'Contracts', free: 'Unlimited', starter: 'Unlimited', pro: 'Unlimited' },
   { feature: 'Creation Box (NL → invoice)', free: 'Included', starter: 'Included', pro: 'Included' },
-  { feature: `Crypto checkout (${cryptoChainsLabel})`, free: 'Included', starter: 'Included', pro: 'Included' },
+  { feature: `Stablecoin checkout (${cryptoChainsLabel})`, free: 'Included', starter: 'Included', pro: 'Included' },
   { feature: 'Mark as paid (off-platform)', free: 'Included', starter: 'Included', pro: 'Included' },
   { feature: 'Clients, projects, expenses', free: 'Included', starter: 'Included', pro: 'Included' },
   { feature: 'Payout bank accounts', free: '1 account', starter: '3 accounts', pro: 'Unlimited multi-country' },

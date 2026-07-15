@@ -57,8 +57,8 @@ export function ShareWalletDialog({
         Receive
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[420px]">
+      <Dialog open={open} onOpenChange={setOpen} size="2xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Receive funds</DialogTitle>
           </DialogHeader>

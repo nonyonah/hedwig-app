@@ -487,8 +487,8 @@ export function ClientDetailClient({
       </div>
 
       {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={(v) => !isSaving && setEditOpen(v)}>
-        <DialogContent className="max-w-[440px]">
+      <Dialog open={editOpen} onOpenChange={(v) => !isSaving && setEditOpen(v)} size="2xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit client</DialogTitle>
             <DialogDescription>Update contact details for {client.name}.</DialogDescription>
@@ -530,8 +530,8 @@ export function ClientDetailClient({
         }}
       />
 
-      <Dialog open={messageOpen} onOpenChange={(v) => !isSendingMessage && setMessageOpen(v)}>
-        <DialogContent className="max-w-[520px]">
+      <Dialog open={messageOpen} onOpenChange={(v) => !isSendingMessage && setMessageOpen(v)} size="2xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Message {client.name}</DialogTitle>
             <DialogDescription>Send a branded Hedwig email through Resend. The client can reply directly to you.</DialogDescription>

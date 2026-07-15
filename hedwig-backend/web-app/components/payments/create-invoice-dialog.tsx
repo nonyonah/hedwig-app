@@ -79,7 +79,7 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
 
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
+        <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
             <div className="flex items-center gap-3">

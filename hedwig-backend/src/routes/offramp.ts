@@ -5,6 +5,17 @@ import NotificationService from '../services/notifications';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { buildOfframpCopy } from '../utils/notificationCopy';
+import { getOrCreateUser } from '../utils/userHelper';
+
+const OFFRAMP_ELIGIBLE_COUNTRIES = new Set(['NG', 'GH', 'KE', 'MW', 'TZ', 'BR']);
+const REGION_HEADER_KEYS = ['x-vercel-ip-country', 'cf-ipcountry', 'x-country-code', 'x-geo-country', 'x-appengine-country'];
+
+const normalizeCountryCode = (value: string | null | undefined): string | null => {
+    if (!value) return null;
+    const normalized = value.trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(normalized)) return null;
+    return normalized;
+};
 
 const logger = createLogger('Offramp');
 
@@ -669,6 +680,60 @@ router.patch('/orders/:id', authenticate, async (req: Request, res: Response, ne
         });
     } catch (error) {
         next(error);
+    }
+});
+
+/**
+ * GET /api/offramp/geo-status
+ * Returns offramp eligibility based on user profile country and geo headers.
+ */
+router.get('/geo-status', authenticate, async (req: Request, res: Response) => {
+    try {
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+
+        let country: string | null = null;
+        let method: 'profile' | 'geo_header' | null = null;
+
+        // 1. Check user profile country (most authoritative)
+        if (user?.country && normalizeCountryCode(user.country)) {
+            country = normalizeCountryCode(user.country);
+            method = 'profile';
+        }
+
+        // 2. Fall back to geo request headers
+        if (!country) {
+            for (const header of REGION_HEADER_KEYS) {
+                const detected = normalizeCountryCode(req.headers[header] as string);
+                if (detected) {
+                    country = detected;
+                    method = 'geo_header';
+                    break;
+                }
+            }
+        }
+
+        const allowed = country ? OFFRAMP_ELIGIBLE_COUNTRIES.has(country) : false;
+
+        res.json({
+            success: true,
+            data: {
+                allowed,
+                country,
+                method,
+                eligibleCountries: Array.from(OFFRAMP_ELIGIBLE_COUNTRIES),
+                reason: allowed
+                    ? null
+                    : country
+                        ? 'Offramp is not yet available in your region.'
+                        : 'Could not determine your region.',
+            },
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: { message: 'Failed to check offramp eligibility.' },
+        });
     }
 });
 

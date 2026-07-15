@@ -106,6 +106,44 @@ export function ContractsClient({
     }
   };
 
+  const handleUploadToDrive = async (contract: Contract) => {
+    if (!accessToken) return;
+    try {
+      const resp = await fetch('/api/integrations/composio/drive/upload-from-doc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ documentId: contract.id, documentType: 'CONTRACT' }),
+      });
+      const payload = await resp.json();
+      toast({
+        type: payload.success ? 'success' : 'error',
+        title: payload.success ? 'Uploaded to Google Drive' : 'Upload failed',
+        message: payload.success ? 'Contract PDF sent to your Drive.' : payload.error || 'Please try again.',
+      });
+    } catch {
+      toast({ type: 'error', title: 'Upload failed', message: 'Could not upload to Google Drive.' });
+    }
+  };
+
+  const handleCreateDocs = async (contract: Contract) => {
+    if (!accessToken) return;
+    try {
+      const resp = await fetch('/api/integrations/composio/docs/create-from-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ documentId: contract.id }),
+      });
+      const payload = await resp.json();
+      toast({
+        type: payload.success ? 'success' : 'error',
+        title: payload.success ? 'Google Doc created' : 'Docs creation failed',
+        message: payload.success ? 'Contract has been opened in Google Docs.' : payload.error || 'Please try again.',
+      });
+    } catch {
+      toast({ type: 'error', title: 'Docs creation failed', message: 'Could not create Google Doc.' });
+    }
+  };
+
   const handleSend = async (contract: Contract) => {
     if (!accessToken) return;
     setIsActionLoading(true);
@@ -130,7 +168,9 @@ export function ContractsClient({
     const items: RowActionItem[] = [
       { label: 'Open', onClick: () => { window.open(`${backendConfig.publicPagesUrl}/contract/${contract.id}`, '_blank'); } },
       { label: 'Download PDF', onClick: () => { window.open(`${backendConfig.publicPagesUrl}/contract/${contract.id}?print=1`, '_blank'); } },
-      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/contract/${contract.id}`, 'Contract link copied') }
+      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/contract/${contract.id}`, 'Contract link copied') },
+      { label: 'Upload to Google Drive', onClick: () => handleUploadToDrive(contract) },
+      { label: 'Create Google Doc', onClick: () => handleCreateDocs(contract) },
     ];
     if (contract.status !== 'signed') {
       items.push({ label: 'Send contract', onClick: () => handleSend(contract) });

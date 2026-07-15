@@ -117,7 +117,7 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
               placeholder="e.g. Jane Contractor"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+              className="mt-1 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
             />
           </div>
           <div>
@@ -127,7 +127,7 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
               placeholder="0x..."
               value={walletAddress}
               onChange={e => setWalletAddress(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] font-mono text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+              className="mt-1 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] font-mono text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
             />
           </div>
           <div>
@@ -137,10 +137,10 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
               placeholder="e.g. Freelance designer"
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+              className="mt-1 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
             />
           </div>
-          {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+          {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
           <div className="flex items-center justify-end gap-3">
             <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
             <Button variant="default" size="sm" disabled={!displayName || !walletAddress || saving} onClick={handleCreate}>

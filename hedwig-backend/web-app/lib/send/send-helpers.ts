@@ -151,6 +151,10 @@ const backendApiBase = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_API_URL || window.location.origin)
   : '';
 
+function jsonStringify(obj: unknown): string {
+  return JSON.stringify(obj, (_key, value) => typeof value === 'bigint' ? value.toString() : value);
+}
+
 async function submitViaBackend(
   entry: { burnIntent: any; signature: any; recipientSetupOptions?: any },
   token: string | null
@@ -158,7 +162,7 @@ async function submitViaBackend(
   const res = await fetch(`${backendApiBase}/api/gateway/transfer/submit`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ burnIntent: entry.burnIntent, signature: entry.signature }),
+    body: jsonStringify({ burnIntent: entry.burnIntent, signature: entry.signature }),
   });
   const json = await res.json();
   if (!res.ok || !json.success) throw new Error(json?.error?.message || 'Gateway submit failed');

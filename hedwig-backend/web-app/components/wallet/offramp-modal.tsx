@@ -77,7 +77,7 @@ const SUPPORTED_CURRENCIES: Record<string, { flag: string; label: string }> = {
 };
 
 const EVM_CHAINS = ['base', 'arbitrum', 'polygon', 'optimism'];
-const ALL_CHAINS = ['base', 'arbitrum', 'polygon', 'optimism', 'solana'];
+const ALL_CHAINS = ['base', 'arbitrum', 'polygon', 'optimism'];
 
 type Step = 'kyc' | 'form' | 'signing' | 'success';
 
@@ -140,6 +140,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
 
   const config = CHAIN_CONFIG[chain];
   const availableBalance = chainBalances?.[chain] ?? 0;
+  const solanaBalance = chainBalances?.['solana'] ?? 0;
   const isSolana = chain === 'solana';
   const isStellar = false;
 
@@ -407,7 +408,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleClose}>
       <div className="relative w-full max-w-[440px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
-        <button onClick={handleClose} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
+        <button onClick={handleClose} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
         <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
           <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">
             {step === 'kyc' ? 'Identity Verification' : step === 'signing' ? (isSolana ? 'Bridge to Base' : 'Confirm transaction') : step === 'success' ? 'Withdrawal started' : 'Withdraw to Bank'}
@@ -464,7 +465,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                 </div>
               )}
 
-              {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+              {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
             </>
           )}
 
@@ -476,7 +477,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   <select
                     value={chain}
                     onChange={e => handleChainSwitch(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] py-2 pl-9 pr-3 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)]"
+                    className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] py-2 pl-9 pr-3 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)]"
                   >
                     {shownChains.map((c) => (
                       <option key={c} value={c}>{CHAIN_CONFIG[c].name}</option>
@@ -497,7 +498,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
 
               <div>
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Currency</span>
-                <select value={currency} onChange={e => { setCurrency(e.target.value); setInstitution(''); setAccountResolved(false); }} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                <select value={currency} onChange={e => { setCurrency(e.target.value); setInstitution(''); setAccountResolved(false); }} className="mt-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
                   {Object.entries(SUPPORTED_CURRENCIES).map(([k, v]) => (<option key={k} value={k}>{v.flag} {v.label}</option>))}
                 </select>
               </div>
@@ -510,7 +511,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   placeholder="0.00"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[14px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+                  className="mt-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[14px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
                 />
                 {rate && <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">≈ {rate} {currency}</p>}
                 {availableBalance > 0 && (
@@ -524,7 +525,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   <select
                     value={institution}
                     onChange={e => { setInstitution(e.target.value); setAccountResolved(false); }}
-                    className="mb-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]"
+                    className="mb-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]"
                   >
                     <option value="">Select institution</option>
                     {institutions.map((i: any) => (
@@ -542,7 +543,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   value={accountIdentifier}
                   onChange={e => { setAccountIdentifier(e.target.value); setAccountResolved(false); }}
                   onBlur={handleVerifyAccount}
-                  className="mb-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+                  className="mb-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
                 />
                 <div className="relative">
                   <input
@@ -551,7 +552,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                     value={verifyingAccount ? 'Verifying...' : accountName}
                     readOnly={accountResolved}
                     onChange={e => setAccountName(e.target.value)}
-                    className={`w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] ${accountResolved ? 'opacity-70' : ''}`}
+                    className={`w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] ${accountResolved ? 'opacity-70' : ''}`}
                   />
                   {verifyingAccount && (
                     <svg className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none">
@@ -569,19 +570,19 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   placeholder="e.g. Salary June"
                   value={memo}
                   onChange={e => setMemo(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+                  className="mt-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
                 />
               </div>
 
-              {isSolana && (
+              {solanaBalance > 0 && (
                 <div className="rounded-2xl border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] p-3">
                   <p className="text-[12px] font-medium text-[var(--color-warning)]">
-                    Solana USDC will be bridged to Base first, then withdrawn to your bank.
+                    Solana offramp is temporarily unavailable. Circle Gateway (beta) aggregates USDC from all supported chains — use Base, Arbitrum, Polygon, or Optimism instead.
                   </p>
                 </div>
               )}
 
-              {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+              {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
             </>
           )}
 
@@ -599,7 +600,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   : `A signing prompt has appeared in your Privy wallet. Please confirm the transaction on ${config.name}.`}
               </p>
               {signingError && (
-                <div className="mt-4 w-full rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
+                <div className="mt-4 w-full rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
                   <p className="text-[12px] font-medium text-red-700 dark:text-red-400">{signingError}</p>
                 </div>
               )}

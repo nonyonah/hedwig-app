@@ -127,7 +127,7 @@ export default function JoinPage() {
             <button
               type="button"
               onClick={fetchInvitation}
-              className="rounded-lg bg-[#2563eb] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+              className="rounded-full bg-[#2563eb] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8]"
             >
               Try again
             </button>
@@ -138,7 +138,7 @@ export default function JoinPage() {
         {state.kind === 'ready' && (
           <div className="flex flex-col items-center gap-5">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#eff6ff]">
-              <HedwigLogo width={32} height={32} className="rounded-lg" />
+              <HedwigLogo width={32} height={32} className="rounded-full" />
             </div>
             <div className="text-center">
               <h2 className="mb-1 text-[16px] font-semibold text-[#181d27]">
@@ -163,7 +163,7 @@ export default function JoinPage() {
                 <button
                   type="button"
                   onClick={handleSignIn}
-                  className="w-full rounded-lg bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+                  className="w-full rounded-full bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
                 >
                   Sign in to continue
                 </button>
@@ -176,7 +176,7 @@ export default function JoinPage() {
                 <button
                   type="button"
                   onClick={handleAccept}
-                  className="w-full rounded-lg bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+                  className="w-full rounded-full bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
                 >
                   Accept invitation
                 </button>
@@ -208,7 +208,7 @@ export default function JoinPage() {
             <button
               type="button"
               onClick={() => router.push('/dashboard')}
-              className="w-full rounded-lg bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+              className="w-full rounded-full bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
             >
               Go to dashboard
             </button>

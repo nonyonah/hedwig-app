@@ -17,6 +17,7 @@ import {
   LinkSimple,
   Repeat,
   Trash,
+  UploadSimple,
   X,
   Info
 } from '@/components/ui/lucide-icons';
@@ -833,6 +834,7 @@ export function PaymentsClient({
                 invoice={selectedInvoice}
                 publicUrl={publicInvoiceUrl}
                 isLoading={isActionLoading}
+                accessToken={accessToken}
                 onClose={() => setSelectedInvoice(null)}
                 onMarkPaid={() => markAsPaid(selectedInvoice, 'invoice')}
                 onReminder={() => sendReminder(selectedInvoice)}
@@ -845,6 +847,7 @@ export function PaymentsClient({
                 link={selectedPaymentLink}
                 publicUrl={publicLinkUrl}
                 isLoading={isActionLoading}
+                accessToken={accessToken}
                 onClose={() => setSelectedPaymentLink(null)}
                 onMarkPaid={() => markAsPaid(selectedPaymentLink, 'payment-link')}
                 onReminder={() => sendReminder(selectedPaymentLink)}
@@ -868,8 +871,8 @@ export function PaymentsClient({
       />
 
       {/* Mark-as-paid dialog */}
-      <Dialog open={!!markPaidTarget} onOpenChange={(v) => !isActionLoading && (v || setMarkPaidTarget(null))}>
-        <DialogContent className="max-w-[440px]">
+      <Dialog open={!!markPaidTarget} onOpenChange={(v) => !isActionLoading && (v || setMarkPaidTarget(null))} size="md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Mark as paid</DialogTitle>
             <DialogDescription>
@@ -984,15 +987,33 @@ export function PaymentsClient({
 
 /* ─── Invoice detail panel ─── */
 function InvoicePanel({
-  invoice, publicUrl, isLoading,
+  invoice, publicUrl, isLoading, accessToken,
   onClose, onMarkPaid, onReminder, onToggleReminders, onCopyLink, onDelete
 }: {
-  invoice: Invoice; publicUrl: string; isLoading: boolean;
+  invoice: Invoice; publicUrl: string; isLoading: boolean; accessToken: string | null;
   onClose: () => void; onMarkPaid: () => void; onReminder: () => void;
   onToggleReminders: (v: boolean) => void; onCopyLink: () => void; onDelete: () => void;
 }) {
   const { formatAmount } = useCurrency();
   const s = INV_STATUS[invoice.status];
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
+
+  const handleUploadToDrive = async () => {
+    if (!accessToken) return;
+    setIsUploadingToDrive(true);
+    try {
+      await fetch('/api/integrations/composio/drive/upload-from-doc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ documentId: invoice.id, documentType: 'INVOICE' }),
+      });
+    } catch {
+      // silently fail
+    } finally {
+      setIsUploadingToDrive(false);
+    }
+  };
+
   return (
     <>
       <PanelHeader label={invoice.title || 'Invoice'} id={invoice.number} onClose={onClose} />
@@ -1050,6 +1071,9 @@ function InvoicePanel({
         <Link href={`${publicUrl}?print=1`} target="_blank" rel="noreferrer" className="w-full justify-center bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50">
           <DownloadSimple className="h-4 w-4" /> Download PDF
         </Link>
+        <button type="button" onClick={() => void handleUploadToDrive()} disabled={isUploadingToDrive} className="w-full justify-center bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50">
+          <UploadSimple className="h-4 w-4" /> {isUploadingToDrive ? 'Uploading…' : 'Upload to Google Drive'}
+        </button>
         {invoice.status !== 'paid' && (
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={onReminder} disabled={isLoading} className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50">
@@ -1075,15 +1099,33 @@ function InvoicePanel({
 
 /* ─── Payment link detail panel ─── */
 function PaymentLinkPanel({
-  link, publicUrl, isLoading,
+  link, publicUrl, isLoading, accessToken,
   onClose, onMarkPaid, onReminder, onToggleReminders, onCopyLink, onDelete
 }: {
-  link: PaymentLink; publicUrl: string; isLoading: boolean;
+  link: PaymentLink; publicUrl: string; isLoading: boolean; accessToken: string | null;
   onClose: () => void; onMarkPaid: () => void; onReminder: () => void;
   onToggleReminders: (v: boolean) => void; onCopyLink: () => void; onDelete: () => void;
 }) {
   const { formatAmount } = useCurrency();
   const s = LINK_STATUS[link.status];
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
+
+  const handleUploadToDrive = async () => {
+    if (!accessToken) return;
+    setIsUploadingToDrive(true);
+    try {
+      await fetch('/api/integrations/composio/drive/upload-from-doc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ documentId: link.id, documentType: 'PAYMENT_LINK' }),
+      });
+    } catch {
+      // silently fail
+    } finally {
+      setIsUploadingToDrive(false);
+    }
+  };
+
   return (
     <>
       <PanelHeader label="Payment link" id={link.title} onClose={onClose} />
@@ -1122,6 +1164,9 @@ function PaymentLinkPanel({
         <Link href={`${publicUrl}?print=1`} target="_blank" rel="noreferrer" className="w-full justify-center bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50">
           <DownloadSimple className="h-4 w-4" /> Download PDF
         </Link>
+        <button type="button" onClick={() => void handleUploadToDrive()} disabled={isUploadingToDrive} className="w-full justify-center bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50">
+          <UploadSimple className="h-4 w-4" /> {isUploadingToDrive ? 'Uploading…' : 'Upload to Google Drive'}
+        </button>
         {link.status === 'active' && (
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={onReminder} disabled={isLoading} className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50">
@@ -1201,7 +1246,7 @@ function PanelHeader({ label, id, onClose }: { label: string; id: string; onClos
         variant="ghost"
         size="sm"
         onClick={onClose}
-        className="h-8 w-8 rounded-lg text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]"
+        className="h-8 w-8 rounded-full text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]"
       >
         <X className="h-4 w-4" weight="bold" />
       </Button>

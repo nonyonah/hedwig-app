@@ -186,7 +186,7 @@ export default function WorkspaceSettingsPage() {
         <h2 className="mb-3 text-[15px] font-semibold text-[var(--color-foreground)]">Workspace</h2>
         <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface-tertiary)] text-sm font-bold text-[var(--color-text-secondary)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-sm font-bold text-[var(--color-text-secondary)]">
               {activeWorkspace.name.charAt(0).toUpperCase()}
             </span>
             <div className="min-w-0 flex-1">
@@ -250,7 +250,7 @@ export default function WorkspaceSettingsPage() {
                 <select
                   value={transferTarget ?? ''}
                   onChange={(e) => setTransferTarget(e.target.value || null)}
-                  className="flex-1 rounded-lg border border-[var(--color-border-light)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+                  className="flex-1 rounded-full border border-[var(--color-border-light)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
                 >
                   <option value="">Select a member...</option>
                   {members.filter((m) => m.role !== 'owner').map((m) => (

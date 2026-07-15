@@ -482,9 +482,10 @@ router.post('/chat', authenticate, async (req: Request, res: Response) => {
         const access = await ensureAssistantAccess(req, res);
         if (!access.allowed || !access.user) return;
 
-        const { message, history } = (req.body ?? {}) as {
+        const { message, history, context } = (req.body ?? {}) as {
             message?: string;
             history?: Array<{ role: string; content: string }>;
+            context?: { page?: string; route?: string; data?: Record<string, unknown>; workspace?: { id: string; name: string } };
         };
 
         if (!message || typeof message !== 'string' || !message.trim()) {
@@ -505,6 +506,7 @@ router.post('/chat', authenticate, async (req: Request, res: Response) => {
             userId: access.user.id,
             history: sanitisedHistory,
             userMessage: message.trim(),
+            context,
         });
 
         await incrementUsage(access.user.id, 'ai_prompts');

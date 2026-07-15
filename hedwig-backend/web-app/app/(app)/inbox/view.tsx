@@ -66,10 +66,13 @@ async function fetchThreadsFromApi(): Promise<{ threads: EmailThread[] }> {
   }
 }
 
-async function patchThread(id: string, body: Record<string, unknown>): Promise<void> {
-  await fetch(`/api/integrations/threads?id=${id}`, {
+async function patchThread(id: string, body: Record<string, unknown>, accessToken?: string): Promise<void> {
+  await fetch(`/api/integrations/threads/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify(body),
   });
 }
@@ -380,7 +383,7 @@ export function MagicInboxClient({
     setSelectedThread((current) => (
       current?.id === threadId ? { ...current, status: 'matched' as const } : current
     ));
-    patchThread(threadId, { status: 'matched' }).catch(() => {});
+    patchThread(threadId, { status: 'matched' }, accessToken).catch(() => {});
     toast({ type: 'success', title: 'Match confirmed' });
   };
 
@@ -388,7 +391,7 @@ export function MagicInboxClient({
     setThreads((prev) =>
       prev.map((t) => (t.id === threadId ? { ...t, status: 'ignored' as const } : t))
     );
-    patchThread(threadId, { status: 'ignored' }).catch(() => {});
+    patchThread(threadId, { status: 'ignored' }, accessToken).catch(() => {});
     if (selectedThread?.id === threadId) setSelectedThread(null);
     toast({ type: 'info', title: 'Thread ignored' });
   };
@@ -398,7 +401,10 @@ export function MagicInboxClient({
     try {
       await fetch('/api/integrations/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({ provider: 'gmail' }),
       });
       const { threads: fresh } = await fetchThreadsFromApi();

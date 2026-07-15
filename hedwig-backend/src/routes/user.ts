@@ -102,6 +102,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             stellarPublicKey: profileUser.stellar_public_key,
             stacksWalletAddress: profileUser.stacks_wallet_address,
             monthlyTarget: profileUser.monthly_target,
+            country: profileUser.country || null,
             createdAt: profileUser.created_at,
             updatedAt: profileUser.updated_at,
             lastLogin: profileUser.last_login,
@@ -127,7 +128,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
  */
 router.patch('/profile', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { firstName, lastName, email, avatar, monthlyTarget } = req.body;
+        const { firstName, lastName, email, avatar, monthlyTarget, country } = req.body;
         const privyId = req.user!.id;
 
         const updateData: any = {};
@@ -136,6 +137,10 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
         if (email !== undefined) updateData.email = email;
         if (avatar !== undefined) updateData.avatar = avatar;
         if (monthlyTarget !== undefined) updateData.monthly_target = monthlyTarget;
+        if (country !== undefined) {
+            const normalized = String(country).trim().toUpperCase();
+            updateData.country = /^[A-Z]{2}$/.test(normalized) ? normalized : null;
+        }
 
         // Check if there's anything to update
         if (Object.keys(updateData).length === 0) {
@@ -177,6 +182,7 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
             baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
             monthlyTarget: user.monthly_target,
+            country: user.country || null,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
             lastLogin: user.last_login,

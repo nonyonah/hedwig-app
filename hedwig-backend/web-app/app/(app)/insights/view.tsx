@@ -205,8 +205,8 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
     if (Number.isFinite(parsed) && parsed > 0) onSave(parsed);
   };
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[400px]">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} size="md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Set monthly target</DialogTitle>
           <DialogDescription>Your ring progress tracks earnings toward this goal.</DialogDescription>
@@ -371,7 +371,7 @@ export function InsightsClient({
           <button
             type="button"
             onClick={() => setShowExportDialog(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
           >
             <DownloadSimple className="h-4 w-4" weight="bold" />
             Export
@@ -380,7 +380,7 @@ export function InsightsClient({
             type="button"
             onClick={() => fetchData(range)}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
           >
             <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
             Refresh
@@ -563,7 +563,7 @@ export function InsightsClient({
                   const card = (
                     <article className={`flex flex-col gap-3 rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)] ${risk.actionRoute ? 'transition duration-100 ease-linear hover:bg-[var(--color-background)]' : ''}`}>
                       <div className="flex items-start gap-3">
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${sev.bg}`}>
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${sev.bg}`}>
                           <Warning className={`h-4 w-4 ${sev.icon}`} weight="fill" />
                         </div>
                         <span className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${sev.bg} ${sev.badge}`}>
@@ -645,7 +645,7 @@ export function InsightsClient({
                 <button
                   type="button"
                   onClick={() => setShowTargetDialog(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-input)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
                 >
                   <Target className="h-3.5 w-3.5" weight="bold" />
                   Set target
@@ -656,7 +656,7 @@ export function InsightsClient({
             {canViewAdvancedInsights ? (
               <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
                 <div className="flex items-center gap-2.5 border-b border-[var(--color-surface-secondary)] px-5 py-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
                     <Sparkle className="h-4 w-4 text-[var(--color-accent)]" weight="fill" />
                   </div>
                   <div>

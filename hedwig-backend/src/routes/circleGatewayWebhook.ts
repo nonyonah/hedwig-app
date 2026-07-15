@@ -62,7 +62,7 @@ const formatUsdc = (raw?: string | number | null): string => {
     if (raw === null || raw === undefined) return '';
     const n = typeof raw === 'number' ? raw : Number(raw);
     if (!Number.isFinite(n)) return '';
-    return (n / 1_000_000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
 };
 
 const shortHash = (hash?: string | null): string => {
@@ -204,21 +204,29 @@ interface WebhookEnvelope {
     version?: number;
 }
 
+const parseDecimalUsdc = (raw?: string | null): bigint => {
+    if (!raw) return 0n;
+    const [intPart, fracPart = ''] = raw.trim().split('.');
+    const padded = (fracPart + '000000').slice(0, 6);
+    try { return BigInt(intPart || '0') * 1_000_000n + BigInt(padded); }
+    catch { return 0n; }
+};
+
 const sumAttestationAmount = (attestations?: MintAttestation[]): string | null => {
     if (!Array.isArray(attestations) || attestations.length === 0) return null;
     let total = 0n;
     for (const a of attestations) {
-        try {
-            total += BigInt(a.amount ?? '0');
-        } catch {
-            /* skip malformed entry */
-        }
+        total += parseDecimalUsdc(a.amount);
     }
-    return total.toString();
+    // Convert back to decimal string so formatUsdc can render it
+    const whole = total / 1_000_000n;
+    const frac = total % 1_000_000n;
+    return `${whole}.${frac.toString().padStart(6, '0')}`;
 };
 
 const EVM_ADDRESS_RE = /^0x[a-f0-9]{40}$/i;
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const resolveUserId = async (walletAddress?: string | null): Promise<string | null> => {
     if (!walletAddress) return null;
@@ -240,7 +248,7 @@ const resolveUserId = async (walletAddress?: string | null): Promise<string | nu
         .limit(1)
         .maybeSingle();
     const id = data?.id;
-    return typeof id === 'string' && id.trim().length > 0 ? id : null;
+    return typeof id === 'string' && UUID_RE.test(id.trim()) ? id : null;
 };
 
 const buildCopy = (envelope: WebhookEnvelope): { title: string; body: string; type: string } => {
@@ -452,13 +460,16 @@ const handleWebhook = async (req: Request, res: Response, _next: NextFunction) =
                 const rawAmount =
                     notification.amount ??
                     (Array.isArray(notification.attestations)
-                        ? notification.attestations.reduce((sum: bigint, a: any) => {
-                              try {
-                                  return sum + BigInt(a?.amount ?? '0');
-                              } catch {
-                                  return sum;
-                              }
-                          }, 0n).toString()
+                        ? (() => {
+                            // Sum attestation amounts (decimal format) and convert back to decimal string
+                            let sum = 0n;
+                            for (const a of notification.attestations) {
+                                sum += parseDecimalUsdc(a?.amount ?? null);
+                            }
+                            const w = sum / 1_000_000n;
+                            const f = sum % 1_000_000n;
+                            return `${w}.${f.toString().padStart(6, '0')}`;
+                          })()
                         : null);
                 const amount = formatUsdc(rawAmount);
                 await EmailService.sendAggregatedUsdcEmail({

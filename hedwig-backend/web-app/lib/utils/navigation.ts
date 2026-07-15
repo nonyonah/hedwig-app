@@ -1,9 +1,9 @@
 import {
+  ArrowsDownUp,
   Buildings,
   CalendarDots,
   Cards,
   ChartBar,
-  ClockCountdown,
   CreditCard,
   CurrencyDollar,
   Faders,
@@ -44,7 +44,6 @@ export const navigationGroups = [
       { title: 'Clients', href: '/clients', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Projects', href: '/projects', icon: FolderSimple, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Members', href: '/workspace/members', icon: User, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
-      { title: 'Time', href: '/time', icon: ClockCountdown, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
       { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
   },
@@ -55,6 +54,7 @@ export const navigationGroups = [
       { title: 'Payroll', href: '/workspace/payroll', icon: CurrencyDollar, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
+      { title: 'Offramp', href: '/offramp', icon: ArrowsDownUp, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
   },
   {

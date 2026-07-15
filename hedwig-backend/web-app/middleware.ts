@@ -26,6 +26,7 @@ const PUBLIC_PATHS = [
   '/contracts',
   '/success',
   '/export-wallet',
+  '/pricing',
   '/privacy',
   '/feedback-widget',
   // Contract approval is a public action — contract recipients have no Hedwig account

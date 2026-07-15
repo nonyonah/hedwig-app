@@ -9,6 +9,8 @@ import { CurrencyProvider } from '@/components/providers/currency-provider';
 import { ToastProvider } from '@/components/providers/toast-provider';
 import { HedwigPostHogProvider } from '@/components/providers/posthog-provider';
 import { UserbackProvider } from '@/components/providers/userback-provider';
+import { QueryProvider } from '@/components/providers/query-provider';
+import { GlobalErrorHandler } from '@/components/providers/global-error-handler';
 
 export const metadata: Metadata = {
   title: 'Hedwig',
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         ) : null}
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
+        <QueryProvider>
         <ThemeProvider
           attribute={['class', 'data-theme']}
           defaultTheme="system"
@@ -53,13 +56,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </Suspense>
             <CurrencyProvider>
               <ToastProvider>
-                <AuthGate>{children}</AuthGate>
+                <GlobalErrorHandler>
+                  <AuthGate>{children}</AuthGate>
+                </GlobalErrorHandler>
               </ToastProvider>
             </CurrencyProvider>
             <Analytics />
           </HedwigPostHogProvider>
         </HedwigPrivyProvider>
         </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -95,11 +95,12 @@ export class LLMService {
 
   private readonly gemini = getGeminiClient();
   private readonly gatewayConfigured = !!process.env.AI_GATEWAY_API_KEY;
-  private readonly configured = !!this.gemini || this.gatewayConfigured;
+  private readonly openRouterConfigured = !!process.env.OPENROUTER_API_KEY;
+  private readonly configured = !!this.gemini || this.gatewayConfigured || this.openRouterConfigured;
 
   constructor() {
     if (!this.configured) {
-      logger.warn('LLM not configured. Set GEMINI_API_KEY and/or AI_GATEWAY_API_KEY.');
+      logger.warn('LLM not configured. Set GEMINI_API_KEY, AI_GATEWAY_API_KEY, or OPENROUTER_API_KEY.');
     }
   }
 
@@ -117,6 +118,10 @@ export class LLMService {
 
   isGatewayConfigured(): boolean {
     return this.gatewayConfigured;
+  }
+
+  isOpenRouterConfigured(): boolean {
+    return this.openRouterConfigured;
   }
 
   private async generateWithGemini(
@@ -178,6 +183,68 @@ export class LLMService {
     return result.text;
   }
 
+  private async generateWithOpenRouter(
+    prompt: string,
+    options: GenerateTextOptions,
+  ): Promise<string> {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error('OpenRouter is not configured');
+
+    const model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+    const messages: { role: string; content: any }[] = [];
+
+    if (options.systemPrompt) {
+      messages.push({ role: 'system', content: options.systemPrompt });
+    }
+
+    const hasFiles = options.files && options.files.length > 0;
+    if (hasFiles) {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          ...options.files!.map((f) => ({
+            type: 'image_url',
+            image_url: { url: `data:${f.mimeType};base64,${f.data}` },
+          })),
+        ],
+      });
+    } else {
+      messages.push({ role: 'user', content: prompt });
+    }
+
+    const result = await this.outboundLimiter.run(async () => {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.APP_URL || 'https://hedwig.app',
+          'X-Title': 'Hedwig',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: options.temperature ?? 0.1,
+          max_tokens: options.maxOutputTokens ?? 2000,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`OpenRouter ${res.status}: ${body.slice(0, 200)}`);
+      }
+
+      const json = await res.json() as any;
+      return json.choices?.[0]?.message?.content || '';
+    });
+
+    if (!result || !result.trim()) {
+      throw new Error('OpenRouter returned an empty response');
+    }
+    return result;
+  }
+
   async generateText(
     prompt: string,
     options: GenerateTextOptions = {},
@@ -194,7 +261,16 @@ export class LLMService {
     }
 
     if (this.gatewayConfigured) {
-      return this.generateWithGateway(prompt, options);
+      try {
+        return await this.generateWithGateway(prompt, options);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.warn('AI Gateway failed, falling back to OpenRouter', { message: err.message });
+      }
+    }
+
+    if (this.openRouterConfigured) {
+      return this.generateWithOpenRouter(prompt, options);
     }
 
     throw new Error('No configured LLM provider available');

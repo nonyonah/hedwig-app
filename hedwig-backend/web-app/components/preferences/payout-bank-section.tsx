@@ -6,6 +6,7 @@ import type { BankAccountRecord } from '@/lib/models/entities';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
 import { useToast } from '@/components/providers/toast-provider';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Bank, Plus, ShieldCheck } from '@/components/ui/lucide-icons';
 
 const COUNTRY_FLAG: Record<BankAccountRecord['country'], string> = {
@@ -81,26 +82,6 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
       <div className="px-5 py-5 space-y-3">
         {loading ? (
           <p className="text-[13px] text-[var(--color-text-tertiary)]">Loading…</p>
-        ) : showForm ? (
-          <BankAccountForm
-            accessToken={accessToken}
-            initial={editing}
-            isFirstAccount={records.length === 0}
-            showHeader={false}
-            onCancel={() => { setEditing(null); setAdding(false); }}
-            onSaved={async (saved) => {
-              await refresh();
-              setEditing(null);
-              setAdding(false);
-              toast({ type: 'success', title: 'Bank account saved', message: saved.isVerified ? 'Verified.' : 'Saved without verification.' });
-            }}
-            onDeleted={async () => {
-              await refresh();
-              setEditing(null);
-              setAdding(false);
-              toast({ type: 'success', title: 'Bank account removed' });
-            }}
-          />
         ) : records.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-background)] px-4 py-8 text-center">
             <Bank className="mx-auto h-6 w-6 text-[var(--color-text-muted)]" weight="regular" />
@@ -155,6 +136,39 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
           </div>
         )}
       </div>
+
+      <Dialog
+        open={showForm}
+        onOpenChange={(v) => { if (!v) { setEditing(null); setAdding(false); } }}
+        size="md"
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit payout bank' : 'Add payout bank'}</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <BankAccountForm
+              accessToken={accessToken}
+              initial={editing}
+              isFirstAccount={records.length === 0}
+              showHeader={false}
+              onCancel={() => { setEditing(null); setAdding(false); }}
+              onSaved={async (saved) => {
+                await refresh();
+                setEditing(null);
+                setAdding(false);
+                toast({ type: 'success', title: 'Bank account saved', message: saved.isVerified ? 'Verified.' : 'Saved without verification.' });
+              }}
+              onDeleted={async () => {
+                await refresh();
+                setEditing(null);
+                setAdding(false);
+                toast({ type: 'success', title: 'Bank account removed' });
+              }}
+            />
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -8,6 +8,7 @@ import { llmService } from '../services/llm';
 import { createLogger } from '../utils/logger';
 import { FREE_PLAN_LIMITS, getUserPlan } from '../services/billingRules';
 import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
+import { parseStatement } from '../services/statement-parser';
 
 const logger = createLogger('Revenue');
 const router = Router();
@@ -1141,6 +1142,185 @@ router.post('/import-document/confirm', authenticate, async (req: Request, res: 
     res.json({ success: true, data });
   } catch (error) {
     logger.error('Document import confirm failed', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
+});
+
+// ── Statement Import (CSV/OFX/QFX) ─────────────────────────────────────────────
+
+router.post('/import-statement/parse', authenticate, upload.single('file'), async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) { res.status(400).json({ success: false, error: { message: 'No file uploaded' } }); return; }
+
+    const content = file.buffer.toString('utf-8');
+    const parseResult = parseStatement(content, file.originalname);
+
+    const apiKey = process.env.AI_GATEWAY_API_KEY;
+    let aiSuggestions: Record<string, unknown> | null = null;
+
+    if (apiKey && parseResult.transactions.length > 0) {
+      const sampleTxns = parseResult.transactions.slice(0, 50);
+      const prompt = `You are Hedwig, a bookkeeping assistant. You have been given a bank statement with ${parseResult.transactions.length} transactions from ${parseResult.bankName || 'unknown bank'}.
+
+Analyze the transactions and return ONLY valid JSON with no markdown fences, no commentary:
+
+{
+  "categories": { "software": number, "income": number, "transfers": number, "other_expenses": number },
+  "largestTransactions": ["desc1", "desc2", "desc3"],
+  "suspiciousTransactions": ["desc1"],
+  "clientSuggestions": [
+    {
+      "transactionDescription": "the matching description",
+      "suggestedClientName": "Likely client name",
+      "confidence": 0.0-1.0
+    }
+  ],
+  "summary": "One sentence summary of this statement."
+}
+
+Here are the first ${Math.min(50, sampleTxns.length)} transactions as JSON:
+${JSON.stringify(sampleTxns, null, 2)}
+
+Rules:
+- Categorize transactions based on description
+- If a transaction looks like a client payment (recurring, invoice-like), suggest a client name
+- Flag transactions that look unusual or suspicious
+- Be concise`;
+
+      try {
+        const aiText = (await llmService.generateText(prompt, {
+          maxOutputTokens: 2000,
+          temperature: 0.1,
+        })).trim();
+
+        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          aiSuggestions = JSON.parse(jsonMatch[0]);
+        }
+      } catch (aiErr) {
+        logger.warn('AI analysis for statement import failed', { error: aiErr instanceof Error ? aiErr.message : 'Unknown' });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        bankName: parseResult.bankName,
+        accountNumber: parseResult.accountNumber,
+        startDate: parseResult.startDate,
+        endDate: parseResult.endDate,
+        currency: parseResult.currency,
+        transactionCount: parseResult.transactions.length,
+        transactions: parseResult.transactions,
+        aiSuggestions,
+      },
+    });
+  } catch (error: any) {
+    logger.error('Statement import parse failed', { error: error instanceof Error ? error.message : 'Unknown' });
+    if (error.message?.includes('Could not detect CSV columns') || error.message?.includes('Unsupported file format')) {
+      res.status(422).json({ success: false, error: { message: error.message } });
+      return;
+    }
+    next(error);
+  }
+});
+
+router.post('/import-statement/confirm', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const { statementId, transactions } = req.body;
+
+    if (!statementId || !Array.isArray(transactions) || transactions.length === 0) {
+      res.status(400).json({ success: false, error: { message: 'statementId and transactions array required' } });
+      return;
+    }
+
+    const created: string[] = [];
+    const skipped: string[] = [];
+    let totalExpenses = 0;
+
+    const { data: stmtData, error: stmtErr } = await supabase
+      .from('statement_imports')
+      .select('id, original_filename')
+      .eq('id', statementId)
+      .single();
+
+    if (stmtErr || !stmtData) {
+      res.status(404).json({ success: false, error: { message: 'Statement import not found' } });
+      return;
+    }
+
+    for (const txn of transactions) {
+      if (txn.status === 'skipped') {
+        skipped.push(txn.id);
+        continue;
+      }
+
+      await supabase
+        .from('imported_transactions')
+        .update({ status: 'expensed', updated_at: new Date().toISOString() })
+        .eq('id', txn.id);
+
+      if (txn.type === 'debit') {
+        const convertedAmountUsd = txn.currency === 'USD' ? txn.amount : await convertToUsd(txn.amount, txn.currency);
+        const { error: insErr } = await supabase
+          .from('expenses')
+          .insert({
+            user_id: user.id,
+            amount: txn.amount,
+            currency: txn.currency || 'USD',
+            converted_amount_usd: convertedAmountUsd,
+            category: txn.category || 'other',
+            note: txn.description || '',
+            source_type: 'transaction_import',
+            date: txn.transactionDate || new Date().toISOString(),
+            client_id: txn.matchedClientId || null,
+            project_id: txn.matchedProjectId || null,
+          });
+
+        if (!insErr) {
+          created.push(txn.id);
+          totalExpenses += txn.amount;
+        }
+      } else {
+        created.push(txn.id);
+      }
+    }
+
+    const confirmedCount = created.length;
+    const skippedCount = skipped.length;
+    const finalStatus = confirmedCount > 0 && skippedCount === 0 ? 'confirmed'
+      : confirmedCount > 0 ? 'partially_confirmed'
+      : 'confirmed';
+
+    await supabase
+      .from('statement_imports')
+      .update({
+        status: finalStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', statementId);
+
+    res.json({
+      success: true,
+      data: {
+        confirmedCount,
+        skippedCount,
+        statementId,
+        totalExpenses,
+        status: finalStatus,
+      },
+    });
+  } catch (error) {
+    logger.error('Statement import confirm failed', { error: error instanceof Error ? error.message : 'Unknown' });
     next(error);
   }
 });

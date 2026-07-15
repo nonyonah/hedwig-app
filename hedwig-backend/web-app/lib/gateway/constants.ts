@@ -35,6 +35,11 @@ export const GATEWAY_SOLANA_RPC_URL =
     ? (process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_URL || 'https://api.devnet.solana.com')
     : (process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
 
+export const GATEWAY_SOLANA_EXPLORER_URL =
+  GATEWAY_NETWORK_MODE === 'testnet'
+    ? 'https://explorer.solana.com/tx/'
+    : 'https://solscan.io/tx/';
+
 export interface GatewayEvmChainConfig {
   key: GatewayEvmChainKey;
   name: string;

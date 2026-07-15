@@ -50,6 +50,7 @@ import externalRecipientsRoutes from './routes/externalRecipients';
 import blockradarWebhookRoutes from './routes/blockradarWebhook';
 import creationBoxRoutes from './routes/creation-box';
 import solanaRpcRoutes from './routes/solanaRpc';
+import gatewaySolanaRoutes from './routes/gatewaySolana';
 import usdAccountRoutes from './routes/usdAccounts';
 import bridgeUsdWebhookRoutes from './routes/bridgeUsdWebhook';
 import billingRoutes from './routes/billing';
@@ -504,6 +505,8 @@ app.use('/api/webhooks/circle-gateway', (req, _res, next) => {
     next();
 });
 app.use('/api/webhooks/circle-gateway', circleGatewayWebhookRoutes);
+// Some Circle webhook subscriptions were created with the old path; keep it alive.
+app.use('/api/circle-gateway', circleGatewayWebhookRoutes);
 app.use('/api/webhooks/didit', diditWebhookRoutes);
 
 app.use('/api/offramp-v2', financialLimiter, offrampV2Routes);
@@ -526,6 +529,7 @@ app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', aiLimiter, creationBoxRoutes);
 app.use('/api/solana/rpc', solanaRpcLimiter, solanaRpcRoutes);
+app.use('/api/gateway/solana', gatewayLimiter, gatewaySolanaRoutes);
 app.use('/api/billing', financialLimiter, billingRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/usd-accounts', (req, _res, next) => {

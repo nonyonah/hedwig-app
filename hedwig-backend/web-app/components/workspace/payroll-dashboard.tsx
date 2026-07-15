@@ -55,7 +55,7 @@ interface PayrollRun {
 function MemberRow({ member, amount, onAmount }: { member: Member; amount: string; onAmount: (uid: string, v: string) => void }) {
   const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || member.userId;
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5">
+    <div className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5">
       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-secondary)]">
         {(name[0] || '?').toUpperCase()}
       </div>
@@ -65,13 +65,13 @@ function MemberRow({ member, amount, onAmount }: { member: Member; amount: strin
       </div>
       <div className="flex items-center gap-1">
         <span className="text-[12px] text-[var(--color-text-muted)]">$</span>
-        <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => onAmount(member.userId, e.target.value)} className="w-20 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-right text-[12px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
+        <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => onAmount(member.userId, e.target.value)} className="w-20 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-right text-[12px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
       </div>
     </div>
   );
 }
 
-export function PayrollDashboard() {
+export function PayrollDashboard({ offrampAllowed = true }: { offrampAllowed?: boolean }) {
   const { activeWorkspace, accessToken } = useWorkspaceContext();
 
   const api = async (url: string, method = 'GET', body?: any) => {
@@ -433,7 +433,7 @@ function AddFundsButton() {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={resetForm}>
           <div className="relative w-full max-w-[440px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
-            <button onClick={resetForm} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
+            <button onClick={resetForm} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
             <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
               <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">{step === 'payment' ? 'Payment details' : step === 'kyc' ? 'Identity Verification' : 'Fund via Bank Transfer'}</h2>
             </div>
@@ -488,7 +488,7 @@ function AddFundsButton() {
                     </div>
                   )}
 
-                  {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+                  {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
                 </>
               )}
 
@@ -496,14 +496,14 @@ function AddFundsButton() {
                 <>
                   <div>
                     <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Currency</span>
-                    <select value={currency} onChange={e => setCurrency(e.target.value)} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                    <select value={currency} onChange={e => setCurrency(e.target.value)} className="mt-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
                       {Object.entries(CORRIDORS).map(([k, v]) => (<option key={k} value={k}>{v.flag} {v.label}</option>))}
                     </select>
                   </div>
 
                   <div>
                     <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount ({currency})</span>
-                    <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[14px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
+                    <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="mt-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[14px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
                     {rate && <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">≈ {rate} USDC</p>}
                   </div>
 
@@ -511,7 +511,7 @@ function AddFundsButton() {
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)] mb-3">Where to refund if payment fails</p>
                     {currency !== 'BRL' ? (
                       <>
-                        <select value={institution} onChange={e => { setInstitution(e.target.value); setAccountResolved(false); }} className="mb-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                        <select value={institution} onChange={e => { setInstitution(e.target.value); setAccountResolved(false); }} className="mb-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
                           <option value="">Select institution</option>
                           {institutions.map((i: any) => (<option key={i.code || i.id} value={i.code || i.id}>{i.name || i.label}</option>))}
                         </select>
@@ -525,7 +525,7 @@ function AddFundsButton() {
                       value={accountIdentifier}
                       onChange={e => { setAccountIdentifier(e.target.value); setAccountResolved(false); }}
                       onBlur={handleVerifyAccount}
-                      className="mb-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+                      className="mb-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
                     />
                     <div className="relative">
                       <input
@@ -534,7 +534,7 @@ function AddFundsButton() {
                         value={verifyingAccount ? 'Verifying...' : accountName}
                         readOnly={accountResolved}
                         onChange={e => setAccountName(e.target.value)}
-                        className={`w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] ${accountResolved ? 'opacity-70' : ''}`}
+                        className={`w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] ${accountResolved ? 'opacity-70' : ''}`}
                       />
                       {verifyingAccount && (
                         <svg className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none">
@@ -544,7 +544,7 @@ function AddFundsButton() {
                       )}
                     </div>
                   </div>
-                  {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+                  {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
                 </>
               )}
 
@@ -553,7 +553,7 @@ function AddFundsButton() {
                   <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-center">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Bank</p>
                     <p className="mt-1 text-[14px] font-semibold text-[var(--color-foreground)]">{order.providerAccount?.accountName || '—'}</p>
-                    <div className="mt-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] p-3">
+                    <div className="mt-3 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] p-3">
                       <p className="text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{order.providerAccount?.accountIdentifier || '—'}</p>
                       <button onClick={() => navigator.clipboard.writeText(order.providerAccount?.accountIdentifier || '')} className="mt-1 text-[11px] text-[var(--color-primary)] hover:underline">Copy</button>
                     </div>
@@ -624,9 +624,11 @@ function AddFundsButton() {
             solanaAddress={null}
           />
           <AddFundsButton />
-          <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>
-            <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw
-          </Button>
+          {offrampAllowed && (
+            <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>
+              <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={() => { setPayrollOpen(true); setPayrollView('form'); setRunResult(null); setError(null); setPaymentRail('base'); }}>
             <Coins className="h-4 w-4" weight="bold" /> Run Payroll
           </Button>
@@ -646,7 +648,7 @@ function AddFundsButton() {
           { key: 'scheduled' as const, label: 'Scheduled' },
         ]).map(t => (
           <button key={t.key} onClick={() => setMainTab(t.key)}
-            className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition ${
+            className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition ${
               mainTab === t.key ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'
             }`}>{t.label}</button>
         ))}
@@ -656,7 +658,7 @@ function AddFundsButton() {
       {payrollOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={closePayrollDialog}>
           <div className="relative w-full max-w-[480px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
-            <button onClick={closePayrollDialog} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]">
+            <button onClick={closePayrollDialog} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]">
               <X className="h-4 w-4" weight="bold" />
             </button>
             <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
@@ -669,7 +671,7 @@ function AddFundsButton() {
                   <div>
                     <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Payment network</span>
                     <div className="mt-2 flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit">
-                      <button className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm`}>Base (USDC)</button>
+                      <button className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm`}>Base (USDC)</button>
                     </div>
                     <div className="mt-2 flex gap-4 text-[11px] text-[var(--color-text-muted)]">
                       <span>Balance: <span className="font-semibold text-[var(--color-foreground)]">${treasury?.balanceUsd ?? '0.00'}</span></span>
@@ -681,7 +683,7 @@ function AddFundsButton() {
                       {loadingMembers && <span className="text-[11px] text-[var(--color-text-muted)] animate-pulse">Loading…</span>}
                     </div>
                     {loadingMembers ? (
-                      [...Array(4)].map((_, i) => (<div key={i} className="flex items-center gap-3 rounded-lg bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5"><div className="h-7 w-7 animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" /><div className="flex-1 space-y-1"><div className="h-3 w-20 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /><div className="h-2.5 w-12 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /></div><div className="h-8 w-20 animate-pulse rounded-lg bg-[var(--color-surface-tertiary)]" /></div>))
+                      [...Array(4)].map((_, i) => (<div key={i} className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5"><div className="h-7 w-7 animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" /><div className="flex-1 space-y-1"><div className="h-3 w-20 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /><div className="h-2.5 w-12 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /></div><div className="h-8 w-20 animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" /></div>))
                     ) : membersWithoutOwner.length === 0 ? (
                       <div className="flex flex-col items-center gap-2 py-6 text-center"><UsersThree className="h-6 w-6 text-[var(--color-text-muted)]" weight="duotone" /><p className="text-[12px] text-[var(--color-text-muted)]">No team members yet.</p></div>
                     ) : (
@@ -690,7 +692,7 @@ function AddFundsButton() {
                       ))
                     )}
                   </div>
-                  {error && <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+                  {error && <div className="rounded-full border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
                 </div>
                 <div className="flex items-center justify-end gap-3 border-t border-[var(--color-border)] px-6 py-4 shrink-0">
                   <Button variant="ghost" size="sm" onClick={closePayrollDialog}>Cancel</Button>
@@ -716,7 +718,7 @@ function AddFundsButton() {
                     <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5"><span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Breakdown</span></div>
                     <div className="divide-y divide-[var(--color-surface-secondary)]">{preview.items.map(item => (<div key={item.userId} className="flex items-center justify-between px-4 py-2.5"><p className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.name}</p><p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">${item.amountUsd}</p></div>))}</div>
                   </div>
-                  {runResult && (<div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2.5"><Check className="h-4 w-4 text-[var(--color-success)]" weight="bold" /><p className="text-[12px] font-medium text-[var(--color-foreground)]">{runResult.successCount} succeeded{runResult.failedCount > 0 ? `, ${runResult.failedCount} failed` : ''}</p></div>)}
+                  {runResult && (<div className="flex items-center gap-2 rounded-full bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2.5"><Check className="h-4 w-4 text-[var(--color-success)]" weight="bold" /><p className="text-[12px] font-medium text-[var(--color-foreground)]">{runResult.successCount} succeeded{runResult.failedCount > 0 ? `, ${runResult.failedCount} failed` : ''}</p></div>)}
                 </div>
                 <div className="flex items-center justify-end gap-3 border-t border-[var(--color-border)] px-6 py-4 shrink-0">
                   {!runResult ? (<><Button variant="ghost" size="sm" onClick={() => { setPayrollView('form'); setPreview(null); }}>Back</Button>{timeLeft > 0 ? <Button variant="default" size="sm" onClick={handleRun} disabled={running}>{running ? <><ArrowsClockwise className="h-3.5 w-3.5 animate-spin" weight="bold" /> Running…</> : 'Confirm & Run'}</Button> : <Button variant="default" size="sm" disabled className="opacity-50">Preview expired</Button>}</>) : <Button variant="default" size="sm" onClick={closePayrollDialog}>Done</Button>}
@@ -731,7 +733,7 @@ function AddFundsButton() {
       {scheduleOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setScheduleOpen(false)}>
           <div className="relative w-full max-w-[480px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setScheduleOpen(false)} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]">
+            <button onClick={() => setScheduleOpen(false)} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]">
               <X className="h-4 w-4" weight="bold" />
             </button>
             <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
@@ -742,7 +744,7 @@ function AddFundsButton() {
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Frequency</span>
                 <div className="mt-2 flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit">
                   {(['minute', 'weekly', 'biweekly', 'monthly'] as const).map(f => (
-                    <button key={f} onClick={() => setSchedFreq(f)} className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${schedFreq === f ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{f === 'minute' ? 'Test (1 min)' : f}</button>
+                    <button key={f} onClick={() => setSchedFreq(f)} className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${schedFreq === f ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{f === 'minute' ? 'Test (1 min)' : f}</button>
                   ))}
                 </div>
               </div>
@@ -751,7 +753,7 @@ function AddFundsButton() {
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Day of month</span>
                   <div className="mt-2 flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit flex-wrap">
                     {[1, 15, 25, 28].map(d => (
-                      <button key={d} onClick={() => setSchedDayOfMonth(d)} className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${schedDayOfMonth === d ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{d}th</button>
+                      <button key={d} onClick={() => setSchedDayOfMonth(d)} className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${schedDayOfMonth === d ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{d}th</button>
                     ))}
                   </div>
                 </div>
@@ -761,7 +763,7 @@ function AddFundsButton() {
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Day of week</span>
                   <div className="mt-2 flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit flex-wrap">
                     {(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as const).map((d, i) => (
-                      <button key={d} onClick={() => setSchedDayOfWeek(i)} className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${schedDayOfWeek === i ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{d}</button>
+                      <button key={d} onClick={() => setSchedDayOfWeek(i)} className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${schedDayOfWeek === i ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{d}</button>
                     ))}
                   </div>
                 </div>
@@ -772,16 +774,16 @@ function AddFundsButton() {
                   {membersWithoutOwner.map(m => {
                     const name = [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email || m.userId;
                     return (
-                      <div key={m.userId} className="flex items-center gap-3 rounded-lg bg-[var(--color-surface-secondary)] px-3 py-2.5">
+                      <div key={m.userId} className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-secondary)]">{(name[0] || '?').toUpperCase()}</div>
                         <div className="min-w-0 flex-1"><p className="truncate text-[12px] font-semibold text-[var(--color-foreground)]">{name}</p><p className="text-[10px] text-[var(--color-text-muted)] capitalize">{m.role}</p></div>
-                        <div className="flex items-center gap-1"><span className="text-[12px] text-[var(--color-text-muted)]">$</span><input type="text" inputMode="decimal" placeholder="0.00" value={schedAmounts[m.userId] || ''} onChange={e => setSchedAmounts(p => ({ ...p, [m.userId]: e.target.value }))} className="w-20 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-right text-[12px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" /></div>
+                        <div className="flex items-center gap-1"><span className="text-[12px] text-[var(--color-text-muted)]">$</span><input type="text" inputMode="decimal" placeholder="0.00" value={schedAmounts[m.userId] || ''} onChange={e => setSchedAmounts(p => ({ ...p, [m.userId]: e.target.value }))} className="w-20 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-right text-[12px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" /></div>
                       </div>
                     );
                   })}
                 </div>
               </div>
-              {schedError && <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{schedError}</p></div>}
+              {schedError && <div className="rounded-full border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{schedError}</p></div>}
             </div>
             <div className="flex items-center justify-end gap-3 border-t border-[var(--color-border)] px-6 py-4 shrink-0">
               <Button variant="ghost" size="sm" onClick={() => { setScheduleOpen(false); setEditingSchedule(null); }}>Cancel</Button>
@@ -866,9 +868,9 @@ function AddFundsButton() {
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold ${statusPill(run.status)}`}>
                       {run.status === 'partial_failed' ? 'Partial' : run.status.replace('_', ' ')}
                     </span>
-                    <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === run.id ? null : run.id); }} className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-surface-secondary)]">
+                    <span onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === run.id ? null : run.id); }} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-surface-secondary)]">
                       <DotsThreeOutline className="h-4 w-4" weight="bold" />
-                    </button>
+                    </span>
                     {openMenuId === run.id && (
                       <div className="absolute right-0 top-full mt-1 z-20 min-w-[100px] rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xl py-1" onClick={(e) => e.stopPropagation()}>
                         <button className="w-full text-left px-4 py-2 text-[13px] hover:bg-[var(--color-surface-secondary)] text-red-600" onClick={async () => {
@@ -885,7 +887,7 @@ function AddFundsButton() {
                   <div className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-3">
                     <div className="space-y-1.5">
                       {run.items.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between rounded-lg bg-[var(--color-surface)] px-3 py-2.5">
+                        <div key={i} className="flex items-center justify-between rounded-full bg-[var(--color-surface)] px-3 py-2.5">
                           <div className="min-w-0 flex-1">
                             <p className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.recipientName}</p>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -988,15 +990,17 @@ function AddFundsButton() {
         )}
       </div>
       )}
-      <OfframpModal
-        open={offrampOpen}
-        onClose={() => setOfframpOpen(false)}
-        source="workspace"
-        workspaceId={activeWorkspace?.id || ''}
-        returnAddress={treasury?.treasuryAddress || ''}
-        maxAmount={parseFloat(treasury?.availableUsd?.replace(/[^0-9.]/g, '') || '0')}
-        accessToken={accessToken}
-      />
+      {offrampAllowed && (
+        <OfframpModal
+          open={offrampOpen}
+          onClose={() => setOfframpOpen(false)}
+          source="workspace"
+          workspaceId={activeWorkspace?.id || ''}
+          returnAddress={treasury?.treasuryAddress || ''}
+          maxAmount={parseFloat(treasury?.availableUsd?.replace(/[^0-9.]/g, '') || '0')}
+          accessToken={accessToken}
+        />
+      )}
     </div>
   );
 }

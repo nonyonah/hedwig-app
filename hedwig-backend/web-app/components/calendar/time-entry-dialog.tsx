@@ -1,30 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { X } from '@/components/ui/lucide-icons';
+import { useCallback, useEffect, useState } from 'react';
+import { Plus, X } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { hedwigApi } from '@/lib/api/client';
 import type { TimeEntry } from '@/components/time/types';
 
-export function TimeEntryForm({
+export function TimeEntryDialog({
   initial,
+  selectedDate,
+  accessToken,
+  workspaceMembers,
   onSave,
   onClose,
-  accessToken,
-  workspaceId,
 }: {
   initial: TimeEntry | null;
+  selectedDate: Date | null;
+  accessToken: string | null;
+  workspaceMembers?: { id: string; name: string; email: string }[];
   onSave: (data: any) => void;
   onClose: () => void;
-  accessToken: string | null;
-  workspaceId?: string;
 }) {
   const isEditing = !!initial;
   const [projects, setProjects] = useState<{ id: string; name: string; client?: { id: string; name: string } }[]>([]);
   const [projectId, setProjectId] = useState(initial?.projectId || '');
   const [description, setDescription] = useState(initial?.description || '');
-  const [startDate, setStartDate] = useState(initial ? new Date(initial.startTime).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const defaultDate = selectedDate ? selectedDate.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const [startDate, setStartDate] = useState(initial ? new Date(initial.startTime).toISOString().slice(0, 10) : defaultDate);
   const [startTime, setStartTime] = useState(initial ? new Date(initial.startTime).toISOString().slice(11, 16) : '09:00');
   const [endTime, setEndTime] = useState(initial?.endTime ? new Date(initial.endTime).toISOString().slice(11, 16) : '10:00');
   const [hourlyRate, setHourlyRate] = useState(initial?.hourlyRate ? String(initial.hourlyRate) : '');
@@ -32,18 +35,50 @@ export function TimeEntryForm({
   const [durationMins, setDurationMins] = useState('');
   const [durationMode, setDurationMode] = useState<'times' | 'duration'>(initial?.endTime ? 'times' : 'duration');
   const [saving, setSaving] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectClient, setNewProjectClient] = useState('');
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [assignedTo, setAssignedTo] = useState(initial?.assignedTo || '');
+
+  const hasMembers = workspaceMembers && workspaceMembers.length > 0;
 
   useEffect(() => {
     if (!accessToken) return;
-    hedwigApi.projects({ accessToken }).then((list) =>
-      setProjects(list as any[])
-    ).catch(() => {});
+    hedwigApi.projects({ accessToken }).then((list) => setProjects(list as any[])).catch(() => {});
   }, [accessToken]);
+
+  const handleCreateProject = useCallback(async () => {
+    if (!newProjectName.trim() || !accessToken) return;
+    setCreatingProject(true);
+    try {
+      const deadline = new Date();
+      deadline.setFullYear(deadline.getFullYear() + 1);
+      const res = await hedwigApi.createProjectSimple({
+        title: newProjectName.trim(),
+        clientName: newProjectClient.trim() || undefined,
+        deadline: deadline.toISOString().slice(0, 10),
+      }, { accessToken });
+      const p = res.project;
+      setProjects(prev => [...prev, { id: p.id, name: p.name || p.title, client: p.client ? { id: p.client.id, name: p.client.name } : undefined }]);
+      setProjectId(p.id);
+      setShowCreateProject(false);
+      setNewProjectName('');
+      setNewProjectClient('');
+    } catch { /* ignore */ } finally {
+      setCreatingProject(false);
+    }
+  }, [newProjectName, newProjectClient, accessToken]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      let data: any = { projectId: projectId || undefined, description: description || undefined, hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined };
+      let data: any = {
+        projectId: projectId || undefined,
+        description: description || undefined,
+        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+        assignedTo: assignedTo || null,
+      };
 
       if (durationMode === 'times') {
         const s = `${startDate}T${startTime}:00`;
@@ -81,19 +116,54 @@ export function TimeEntryForm({
           </div>
 
           <div className="space-y-4 px-5 py-5">
-            {/* Project */}
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Project</label>
-              <select value={projectId} onChange={e => setProjectId(e.target.value)}
-                className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
-                <option value="">No project</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}{p.client ? ` (${p.client.name})` : ''}</option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select value={projectId} onChange={e => setProjectId(e.target.value)}
+                  className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
+                  <option value="">No project</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}{p.client ? ` (${p.client.name})` : ''}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateProject(true)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+                  title="Create project"
+                >
+                  <Plus className="h-4 w-4" weight="bold" />
+                </button>
+              </div>
+              {showCreateProject && (
+                <div className="mt-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-3 space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Project name"
+                    value={newProjectName}
+                    onChange={e => setNewProjectName(e.target.value)}
+                    className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2 text-[13px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    placeholder="Client name (optional)"
+                    value={newProjectClient}
+                    onChange={e => setNewProjectClient(e.target.value)}
+                    className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2 text-[13px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                  />
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setShowCreateProject(false)} className="flex-1 text-[12px]">
+                      Cancel
+                    </Button>
+                    <Button variant="default" size="sm" onClick={handleCreateProject} disabled={creatingProject || !newProjectName.trim()} className="flex-1 text-[12px]">
+                      {creatingProject ? 'Creating…' : 'Create & select'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Description */}
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Description</label>
               <input type="text" placeholder="What did you work on?"
@@ -101,14 +171,12 @@ export function TimeEntryForm({
                 className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20" />
             </div>
 
-            {/* Date */}
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Date</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                 className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20" />
             </div>
 
-            {/* Duration mode toggle */}
             <div className="flex gap-2 rounded-full bg-[var(--color-surface-tertiary)] p-1">
               <button type="button" onClick={() => setDurationMode('times')}
                 className={`flex-1 rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${durationMode === 'times' ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)]'}`}>
@@ -154,7 +222,19 @@ export function TimeEntryForm({
               </div>
             )}
 
-            {/* Hourly rate */}
+            {hasMembers && (
+              <div>
+                <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Assigned to</label>
+                <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
+                  className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
+                  <option value="">Myself</option>
+                  {workspaceMembers!.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}{m.email ? ` (${m.email})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">
                 Hourly rate <span className="font-normal text-[var(--color-text-muted)]">(optional)</span>

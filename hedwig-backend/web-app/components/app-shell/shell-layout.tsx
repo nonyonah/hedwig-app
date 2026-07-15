@@ -7,11 +7,10 @@ import { TokenRefresher } from '@/components/app-shell/token-refresher';
 import { TutorialProvider } from '@/components/tutorial/tutorial-provider';
 import { TutorialCard } from '@/components/tutorial/tutorial-card';
 import { CreateMenu } from '@/components/app-shell/create-menu';
-import { AssistantSidebarProvider } from '@/components/providers/assistant-sidebar-provider';
-import { AssistantSidebar } from '@/components/assistant/assistant-sidebar';
 import { GlobalPaymentDetailPanel } from '@/components/payments/global-payment-detail-panel';
 import { WorkspaceProvider } from '@/lib/workspace/workspace-context';
 import { CreateWorkspaceDialog } from '@/components/workspace/create-workspace-dialog';
+import { EmojiPickerDialog } from '@/components/workspace/emoji-picker-dialog';
 import { InviteMemberDialog } from '@/components/workspace/invite-member-dialog';
 import type { Workspace } from '@/lib/models/entities';
 
@@ -50,14 +49,13 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
 
   return (
     <TutorialProvider isDemo={isDemo}>
-      <AssistantSidebarProvider>
         <div className="min-h-screen bg-[var(--color-background)] text-foreground">
           {isDemo && (
             <div className="flex flex-col items-center justify-center gap-2 border-b border-[var(--color-primary-light)] bg-[var(--color-accent-soft)] px-4 py-2 text-center text-[13px] font-medium text-[var(--color-primary-dark)] sm:flex-row">
               <span>Demo mode — sample data only. Explore freely, then start when you are ready.</span>
               <a
                 href="/api/auth/exit-demo"
-                className="rounded-full bg-[var(--color-accent)] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+                className="rounded-lg bg-[var(--color-accent)] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
               >
                 Try it for free
               </a>
@@ -87,16 +85,15 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
                 />
                 <main className="flex-1 overflow-y-auto px-4 py-5 lg:px-6 lg:py-6">{children}</main>
               </div>
-              <AssistantSidebar />
             </div>
             <CreateWorkspaceDialog />
+            <EmojiPickerDialog />
             <InviteMemberDialog />
           </WorkspaceProvider>
           <TutorialCard />
           <CreateMenu accessToken={accessToken ?? null} />
           <GlobalPaymentDetailPanel accessToken={accessToken ?? null} />
         </div>
-      </AssistantSidebarProvider>
     </TutorialProvider>
   );
 }

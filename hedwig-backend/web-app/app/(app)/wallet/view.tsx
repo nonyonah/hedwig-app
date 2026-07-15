@@ -2,8 +2,10 @@
 
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
-import { ArrowsLeftRight, ArrowDown, Bank, Info, Wallet, X } from '@/components/ui/lucide-icons';
-import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
+import { useWallets } from '@privy-io/react-auth';
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { ArrowsLeftRight, ArrowDown, Bank, PaperPlaneTilt, Wallet, X, UploadSimple } from '@/components/ui/lucide-icons';
+import { SendTokenDialog } from '@/components/wallet/send-token-dialog';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { ClientPortal } from '@/components/ui/client-portal';
@@ -13,8 +15,15 @@ import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context'
 import { Button } from '@/components/ui/button';
 import { OfframpModal } from '@/components/wallet/offramp-modal';
 import { OnrampModal } from '@/components/wallet/onramp-modal';
+import { PayoutBankSection } from '@/components/preferences/payout-bank-section';
+import { StatementImportDialog } from '@/app/(app)/revenue/statement-import-dialog';
 
+import { depositToGateway } from '@/lib/gateway/deposit-evm';
+import { depositSolanaToGateway } from '@/lib/gateway/deposit-solana';
+import type { GatewayChainKey, GatewayEvmChainKey } from '@/lib/gateway/constants';
 import type { GatewayBalance, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
+import { useWalletData, useGatewayBalance } from '@/lib/hooks/use-wallet-data';
+import { useToast } from '@/components/providers/toast-provider';
 import { formatShortDate } from '@/lib/utils';
 
 const chainIconByName: Record<string, string> = {
@@ -61,25 +70,37 @@ export function WalletView({
   initialGatewayBalance,
   gatewayAutoDepositEnabled = false,
   accessToken,
+  onrampAllowed = true,
+  offrampAllowed = true,
 }: {
   initialWalletData: WalletData;
   initialGatewayBalance: GatewayBalance;
   gatewayAutoDepositEnabled?: boolean;
   accessToken: string | null;
+  onrampAllowed?: boolean;
+  offrampAllowed?: boolean;
 }) {
   const { formatAmount } = useCurrency();
+  const { toast } = useToast();
+
+  const walletQuery = useWalletData(initialWalletData, accessToken);
+  const gatewayQuery = useGatewayBalance(initialGatewayBalance, accessToken);
+  const walletData = walletQuery.data;
+  const gatewayBalance = gatewayQuery.data;
+
   useAssistantPageContext('Wallet', {
-    assetsCount: initialWalletData.walletAssets.length,
-    accountsCount: initialWalletData.walletAccounts.length,
-    transactionsCount: initialWalletData.walletTransactions.length,
-    gatewayBalance: initialGatewayBalance.available,
+    assetsCount: walletData.walletAssets.length,
+    accountsCount: walletData.walletAccounts.length,
+    transactionsCount: walletData.walletTransactions.length,
+    gatewayBalance: gatewayBalance.available,
   });
 
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<WalletTransaction | null>(null);
   const [offrampOpen, setOfframpOpen] = useState(false);
   const [onrampOpen, setOnrampOpen] = useState(false);
-  const { walletAccounts, walletAssets, walletTransactions } = initialWalletData;
+  const [sendOpen, setSendOpen] = useState(false);
+  const { walletAccounts, walletAssets, walletTransactions } = walletData;
   const baseAccount = walletAccounts.find((account) => account.chain === 'Base');
   const solanaAccount = walletAccounts.find((account) => account.chain === 'Solana');
 
@@ -96,9 +117,79 @@ export function WalletView({
     }
     return map;
   }, [eoaUsdcAssets]);
-  const gatewayAvailableUsdc = gatewaySubunitsToNumber(initialGatewayBalance.available);
-  const gatewayPendingUsdc = gatewaySubunitsToNumber(initialGatewayBalance.pending);
-  const gatewaySourceRows = useMemo(() => normalizeGatewayDomainRows(initialGatewayBalance.perDomain), [initialGatewayBalance.perDomain]);
+  const gatewayAvailableUsdc = gatewaySubunitsToNumber(gatewayBalance.available);
+  const gatewayPendingUsdc = gatewaySubunitsToNumber(gatewayBalance.pending);
+
+  const trackedChainKeys: GatewayChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism', 'solana'];
+  const eoaChainsWithUsdc = trackedChainKeys
+    .filter((key) => (chainBalances[key] ?? 0) > 0.05);
+
+  const { wallets: evmWallets } = useWallets();
+  const { wallets: solanaWallets } = useSolanaWallets();
+  const [depositingChain, setDepositingChain] = useState<string | null>(null);
+  const [solanaFeePayerAddress, setSolanaFeePayerAddress] = useState<string | null>(null);
+  const [statementImportOpen, setStatementImportOpen] = useState(false);
+
+  useMemo(() => {
+    if (!accessToken || solanaFeePayerAddress) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || window.location.origin}/api/gateway/solana/fee-payer`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.success && json?.data?.address) {
+          setSolanaFeePayerAddress(json.data.address);
+        }
+      })
+      .catch(() => {});
+  }, [accessToken, solanaFeePayerAddress]);
+
+  const handleDeposit = async (chainKey: GatewayChainKey) => {
+    const bal = chainBalances[chainKey];
+    if (!bal || bal <= 0.05) return;
+    setDepositingChain(chainKey);
+    try {
+      if (chainKey === 'solana') {
+        const sWallet = solanaWallets[0];
+        if (!sWallet) throw new Error('No Solana wallet found');
+        await depositSolanaToGateway({
+          wallet: sWallet,
+          amountSubunits: BigInt(Math.floor(bal * 1_000_000)),
+          feePayerAddress: solanaFeePayerAddress ?? undefined,
+          accessToken,
+        });
+      } else {
+        const privyWallet = evmWallets.find((w: any) => w.walletClientType === 'privy') ?? evmWallets[0];
+        if (!privyWallet) throw new Error('No EVM wallet found');
+        const provider = await privyWallet.getEthereumProvider();
+        await depositToGateway({
+          chainKey,
+          eip1193Provider: provider,
+          amountSubunits: BigInt(Math.floor(bal * 1_000_000)),
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      const isSolanaGas = chainKey === 'solana' && /insufficient.*(lamport|fund)|attempt to debit.*no.*credit|0x1$/i.test(msg);
+      if (isSolanaGas) {
+        toast({
+          type: 'error',
+          title: 'SOL needed for deposit',
+          message: solanaFeePayerAddress
+            ? 'The fee-payer wallet doesn\'t have enough SOL. Contact support.'
+            : 'Your wallet needs a small amount of SOL to pay for the deposit transaction fee.',
+        });
+      } else {
+        toast({
+          type: 'error',
+          title: `Deposit failed on ${chainKey}`,
+          message: msg.length > 120 ? msg.slice(0, 120) + '…' : msg,
+        });
+      }
+    } finally {
+      setDepositingChain(null);
+    }
+  };
   const totalReceived = walletTransactions
     .filter((tx) => tx.kind === 'receive' || tx.kind === 'settlement')
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -109,18 +200,26 @@ export function WalletView({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Revenue</h1>
-          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Your USDC earnings, settlements, and account balances.</p>
+          <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Accounts</h1>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Your crypto wallets, payout bank accounts, earnings, and settlements.</p>
         </div>
         <div className="shrink-0 pt-1 flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setOnrampOpen(true)}>
-            <Bank className="h-4 w-4" weight="bold" /> Fund via Bank
-          </Button>
-          {(baseAccount?.address || solanaAccount?.address) && (
+          {onrampAllowed && (
+            <Button variant="secondary" size="sm" onClick={() => setOnrampOpen(true)}>
+              <Bank className="h-4 w-4" weight="bold" /> Fund via Bank
+            </Button>
+          )}
+          {offrampAllowed && (baseAccount?.address || solanaAccount?.address) && (
             <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>
               <ArrowDown className="h-4 w-4" weight="bold" /> Withdraw
             </Button>
           )}
+          <Button variant="secondary" size="sm" onClick={() => setSendOpen(true)}>
+            <PaperPlaneTilt className="h-4 w-4" weight="bold" /> Send
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setStatementImportOpen(true)}>
+            <UploadSimple className="h-4 w-4" weight="bold" /> Import statement
+          </Button>
           <ShareWalletDialog
             baseAddress={baseAccount?.address}
             solanaAddress={solanaAccount?.address}
@@ -131,32 +230,14 @@ export function WalletView({
       <AttachedStatGrid
         items={[
           {
-            id: 'balance',
-            title: 'Balance',
-            value: formatAmount(eoaUsdcTotal, { compact: true }),
-            helper: 'Per-chain wallet USDC',
-            icon: Wallet,
-            iconClassName: 'text-[var(--color-text-tertiary)]',
-          },
-          {
             id: 'aggregated-usdc',
-            title: 'Aggregated USDC',
+            title: 'Available USDC',
             value: formatAmount(gatewayAvailableUsdc, { compact: true }),
-            helper: gatewayAutoDepositEnabled ? 'Auto-aggregation on' : 'Auto-aggregation off',
+            helper: gatewayAutoDepositEnabled ? 'Auto-aggregation on' : 'Aggregated via Gateway',
             icon: ArrowsLeftRight,
-            valueClassName: gatewayAutoDepositEnabled ? 'text-[var(--color-success)]' : undefined,
-            iconWrapClassName: gatewayAutoDepositEnabled ? 'bg-[var(--color-success-soft)]' : undefined,
-            iconClassName: gatewayAutoDepositEnabled ? 'text-[var(--color-success)]' : 'text-[var(--color-text-tertiary)]',
-          },
-          {
-            id: 'finality',
-            title: 'Finality',
-            value: gatewayPendingUsdc > 0 ? formatAmount(gatewayPendingUsdc, { compact: true }) : 'Clear',
-            helper: gatewayPendingUsdc > 0 ? 'Pending aggregation' : 'No pending deposits',
-            icon: Info,
-            valueClassName: gatewayPendingUsdc > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]',
-            iconWrapClassName: gatewayPendingUsdc > 0 ? 'bg-[var(--color-warning-soft)]' : 'bg-[var(--color-success-soft)]',
-            iconClassName: gatewayPendingUsdc > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]',
+            valueClassName: 'text-[var(--color-success)]',
+            iconWrapClassName: 'bg-[var(--color-success-soft)]',
+            iconClassName: 'text-[var(--color-success)]',
           },
           {
             id: 'total-received',
@@ -167,16 +248,54 @@ export function WalletView({
             iconClassName: 'text-[var(--color-text-tertiary)]',
           },
         ]}
-        className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid-cols-1 sm:grid-cols-2"
       />
 
-      <WalletAssetsTable
-        assetsByChain={assetsByChain}
-        totalCrypto={totalCrypto}
-        aggregatedSources={gatewaySourceRows}
-        aggregationEnabled={gatewayAutoDepositEnabled}
-        pendingAggregation={gatewayPendingUsdc}
-      />
+      {gatewayPendingUsdc > 0 && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-warning)] text-white text-[11px] font-bold">
+            ~
+          </div>
+          <p className="text-[13px] text-[var(--color-warning)]">
+            <strong>{formatAmount(gatewayPendingUsdc, { compact: true })} USDC</strong> aggregating — typically finalizes in 2–5 minutes. You&apos;ll get a notification when it lands.
+          </p>
+        </div>
+      )}
+
+      {gatewayAutoDepositEnabled && eoaChainsWithUsdc.length > 0 && (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 transition-shadow hover:shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
+              <ArrowsLeftRight className="h-4 w-4 text-[var(--color-accent)]" weight="fill" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent)]">Gateway deposit</span>
+                <span className="inline-flex items-center rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-text-secondary)]">
+                  {formatAmount(eoaChainsWithUsdc.reduce((s, k) => s + chainBalances[k], 0), { compact: true })} USDC
+                </span>
+              </div>
+              <p className="mt-1 text-[13px] font-semibold leading-snug text-[var(--color-foreground)]">Deposit USDC to Gateway</p>
+              <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
+                Unify your balance on {eoaChainsWithUsdc.map((k) => k.charAt(0).toUpperCase() + k.slice(1)).join(', ')} by depositing into Gateway.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                {eoaChainsWithUsdc.map((chainKey) => (
+                  <button
+                    key={chainKey}
+                    type="button"
+                    disabled={depositingChain !== null}
+                    onClick={() => void handleDeposit(chainKey)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
+                  >
+                    {depositingChain === chainKey ? 'Depositing…' : `Deposit ${chainKey.charAt(0).toUpperCase() + chainKey.slice(1)}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
@@ -253,22 +372,42 @@ export function WalletView({
           onClose={() => setSelectedActivity(null)}
         />
       ) : null}
+      <PayoutBankSection accessToken={accessToken} />
       <PayoutPanel gatewayAutoDepositEnabled={gatewayAutoDepositEnabled} />
-      <OnrampModal
-        open={onrampOpen}
-        onClose={() => setOnrampOpen(false)}
+      <StatementImportDialog
+        open={statementImportOpen}
+        onClose={() => setStatementImportOpen(false)}
+        onImported={() => setStatementImportOpen(false)}
         accessToken={accessToken}
       />
-      <OfframpModal
-        open={offrampOpen}
-        onClose={() => setOfframpOpen(false)}
-        source="personal"
-        returnAddress={baseAccount?.address || ''}
-        maxAmount={eoaUsdcTotal}
-        chainBalances={chainBalances}
-        accessToken={accessToken}
-        solanaAddress={solanaAccount?.address}
-      />
+      {onrampAllowed && (
+        <OnrampModal
+          open={onrampOpen}
+          onClose={() => setOnrampOpen(false)}
+          accessToken={accessToken}
+        />
+      )}
+      {offrampAllowed && (
+        <OfframpModal
+          open={offrampOpen}
+          onClose={() => setOfframpOpen(false)}
+          source="personal"
+          returnAddress={baseAccount?.address || ''}
+          maxAmount={eoaUsdcTotal}
+          chainBalances={chainBalances}
+          accessToken={accessToken}
+          solanaAddress={solanaAccount?.address}
+        />
+      )}
+      {sendOpen && (
+        <SendTokenDialog
+          assets={allAssets}
+          gatewayAvailableUsdc={gatewayAvailableUsdc}
+          gatewayPerDomain={gatewayBalance?.perDomain ?? []}
+          accessToken={accessToken}
+          onClose={() => setSendOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -433,15 +572,6 @@ function formatTransactionTitle(tx: WalletTransaction) {
   return `${tx.kind} · ${tx.asset}`;
 }
 
-const GATEWAY_DOMAIN_TO_CHAIN: Record<number, string> = {
-  2: 'Optimism',
-  3: 'Arbitrum',
-  5: 'Solana',
-  6: 'Base',
-  7: 'Polygon',
-  26: 'Arc',
-};
-
 function gatewaySubunitsToNumber(value: string | number | bigint | null | undefined): number {
   try {
     const raw = BigInt(String(value ?? '0'));
@@ -449,17 +579,4 @@ function gatewaySubunitsToNumber(value: string | number | bigint | null | undefi
   } catch {
     return 0;
   }
-}
-
-function normalizeGatewayDomainRows(perDomain: GatewayBalance['perDomain']) {
-  return (perDomain || [])
-    .map((entry) => ({
-      domain: entry.domain,
-      depositor: entry.depositor,
-      chain: GATEWAY_DOMAIN_TO_CHAIN[Number(entry.domain)] || `Domain ${entry.domain}`,
-      balance: gatewaySubunitsToNumber(entry.balance),
-      pending: gatewaySubunitsToNumber(entry.pending),
-    }))
-    .filter((entry) => entry.balance > 0 || entry.pending > 0)
-    .sort((a, b) => b.balance - a.balance);
 }

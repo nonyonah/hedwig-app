@@ -75,7 +75,7 @@ export function InviteMemberDialog() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="colleague@example.com"
-              className="w-full rounded-lg border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+              className="w-full rounded-full border border-[var(--color-border-light)] px-3 py-2 text-[14px] text-[var(--color-foreground)] outline-none transition placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
             />
           </div>
           <div className="mb-4">
@@ -84,7 +84,7 @@ export function InviteMemberDialog() {
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
-                className="w-full appearance-none rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 pr-8 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+                className="w-full appearance-none rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 pr-8 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
               >
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
@@ -113,7 +113,7 @@ export function InviteMemberDialog() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-tertiary)]"
+              className="rounded-full px-4 py-2 text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-tertiary)]"
             >
               {success ? 'Close' : 'Cancel'}
             </button>
@@ -121,7 +121,7 @@ export function InviteMemberDialog() {
               <button
                 type="submit"
                 disabled={!email.trim() || saving}
-                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
+                className="rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
               >
                 {saving ? 'Sending...' : 'Send invitation'}
               </button>

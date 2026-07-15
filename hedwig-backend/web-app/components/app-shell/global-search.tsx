@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
   FileText,
+  FolderSimple,
   IdentificationCard,
   LinkSimple,
   MagnifyingGlass,
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
 import { useCurrency } from '@/components/providers/currency-provider';
-import type { Invoice, PaymentLink, Client, Contract, RecurringInvoice } from '@/lib/models/entities';
+import type { Invoice, PaymentLink, Client, Contract, RecurringInvoice, Project } from '@/lib/models/entities';
 import { openPaymentDetail } from '@/lib/payments/open-detail';
 import { ClientPortal } from '@/components/ui/client-portal';
 
@@ -23,7 +24,8 @@ type SearchResult =
   | { kind: 'payment-link'; data: PaymentLink }
   | { kind: 'client'; data: Client }
   | { kind: 'contract'; data: Contract }
-  | { kind: 'recurring'; data: RecurringInvoice };
+  | { kind: 'recurring'; data: RecurringInvoice }
+  | { kind: 'project'; data: Project };
 
 type CachedData = {
   invoices: Invoice[];
@@ -31,6 +33,7 @@ type CachedData = {
   clients: Client[];
   contracts: Contract[];
   recurring: RecurringInvoice[];
+  projects: Project[];
 };
 
 function scoreMatch(text: string, query: string): boolean {
@@ -79,6 +82,15 @@ function searchData(data: CachedData, query: string): SearchResult[] {
       results.push({ kind: 'recurring', data: r });
     }
   }
+  for (const p of data.projects) {
+    if (
+      scoreMatch(p.name || '', q) ||
+      scoreMatch(p.ownerName || '', q) ||
+      scoreMatch(String(p.budgetUsd), q)
+    ) {
+      results.push({ kind: 'project', data: p });
+    }
+  }
 
   return results.slice(0, 12);
 }
@@ -89,6 +101,7 @@ const KIND_META = {
   client: { label: 'Client', Icon: User, color: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-tertiary)]' },
   contract: { label: 'Contract', Icon: IdentificationCard, color: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-accent-soft)]' },
   recurring: { label: 'Recurring', Icon: Repeat, color: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-warning-soft)]' },
+  project: { label: 'Project', Icon: FolderSimple, color: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-accent-soft)]' },
 };
 
 function getResultHref(result: SearchResult): string {
@@ -96,6 +109,7 @@ function getResultHref(result: SearchResult): string {
   if (result.kind === 'payment-link') return `/payments?paymentLink=${result.data.id}`;
   if (result.kind === 'client') return `/clients/${result.data.id}`;
   if (result.kind === 'contract') return `/contracts?contract=${result.data.id}`;
+  if (result.kind === 'project') return `/projects/${result.data.id}`;
   return `/payments?recurring=${result.data.id}`;
 }
 
@@ -116,6 +130,9 @@ function ResultRow({ result, onClick }: { result: SearchResult; onClick: () => v
   } else if (result.kind === 'client') {
     title = result.data.name;
     subtitle = result.data.email + (result.data.company ? ` · ${result.data.company}` : '');
+  } else if (result.kind === 'project') {
+    title = result.data.name;
+    subtitle = `${result.data.status} · ${result.data.ownerName}`;
   } else if (result.kind === 'contract') {
     title = result.data.title;
     subtitle = result.data.status;
@@ -182,13 +199,15 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
       hedwigApi.clients(opts).catch(() => []),
       hedwigApi.contracts(opts).catch(() => []),
       hedwigApi.recurringInvoices(opts).catch(() => []),
-    ]).then(([payments, clients, contracts, recurring]) => {
+      hedwigApi.projects(opts).catch(() => []),
+    ]).then(([payments, clients, contracts, recurring, projects]) => {
       setCachedData({
         invoices: (payments as any).invoices || [],
         paymentLinks: (payments as any).paymentLinks || [],
         clients: clients as Client[],
         contracts: contracts as Contract[],
         recurring: recurring as RecurringInvoice[],
+        projects: projects as Project[],
       });
     }).finally(() => setLoading(false));
   }, [open, accessToken, cachedData]);

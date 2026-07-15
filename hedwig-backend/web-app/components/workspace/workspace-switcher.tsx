@@ -12,7 +12,7 @@ type WorkspaceSwitcherProps = {
 };
 
 export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcherProps) {
-  const { workspaces, activeWorkspace, switchWorkspace } = useWorkspaceContext();
+  const { workspaces, activeWorkspace, switchWorkspace, updateWorkspaceIcon } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -23,8 +23,29 @@ export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcher
     setOpen(false);
   };
 
+  const handleIconPick = (emoji: string) => {
+    if (!activeWorkspace) return;
+    updateWorkspaceIcon(activeWorkspace.id, emoji);
+  };
+
+  const openEmojiPicker = () => {
+    window.dispatchEvent(new CustomEvent('hedwig:open-emoji-picker', {
+      detail: { workspaceId: activeWorkspace?.id },
+    }));
+  };
+
+  const iconEl = (icon?: string | null, name?: string) => {
+    if (icon) {
+      return <span className="text-[14px] leading-none">{icon}</span>;
+    }
+    return (
+      <span className="text-[10px] font-bold text-[var(--color-text-tertiary)]">
+        {(name || 'H').charAt(0).toUpperCase()}
+      </span>
+    );
+  };
+
   if (collapsed) {
-    const initial = activeWorkspace?.name?.charAt(0)?.toUpperCase() ?? 'H';
     return (
       <div className="relative" ref={ref}>
         <button
@@ -33,7 +54,7 @@ export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcher
           title={activeWorkspace?.name ?? 'Workspace'}
           className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-[var(--color-border-light)]"
         >
-          <span className="text-[11px] font-bold text-[var(--color-text-secondary)]">{initial}</span>
+          {iconEl(activeWorkspace?.icon, activeWorkspace?.name)}
         </button>
         {open && (
           <div className="absolute left-10 top-0 z-50 w-48 overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] py-1 shadow-lg shadow-[var(--color-foreground)]/5">
@@ -48,8 +69,8 @@ export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcher
                   ws.id === activeWorkspace?.id ? 'text-[var(--color-foreground)]' : 'text-[var(--color-text-secondary)]'
                 )}
               >
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)] text-[10px] font-bold text-[var(--color-text-tertiary)]">
-                  {ws.name.charAt(0).toUpperCase()}
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)]">
+                  {iconEl(ws.icon, ws.name)}
                 </span>
                 <span className="flex-1 truncate">{ws.name}</span>
                 {ws.id === activeWorkspace?.id && (
@@ -83,8 +104,12 @@ export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcher
         onClick={() => setOpen((p) => !p)}
         className="flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-[var(--color-surface-tertiary)]"
       >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)] text-[10px] font-bold text-[var(--color-text-tertiary)]">
-          {activeWorkspace?.name?.charAt(0)?.toUpperCase() ?? 'H'}
+        <span
+          onClick={(e) => { e.stopPropagation(); openEmojiPicker(); }}
+          className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)] transition hover:bg-[var(--color-surface-secondary)]"
+          title="Change icon"
+        >
+          {iconEl(activeWorkspace?.icon, activeWorkspace?.name)}
         </span>
         <span className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold text-[var(--color-foreground)]">
           {activeWorkspace?.name ?? 'Workspace'}
@@ -105,8 +130,8 @@ export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcher
                 ws.id === activeWorkspace?.id ? 'text-[var(--color-foreground)]' : 'text-[var(--color-text-secondary)]'
               )}
             >
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)] text-[10px] font-bold text-[var(--color-text-tertiary)]">
-                {ws.name.charAt(0).toUpperCase()}
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)]">
+                {iconEl(ws.icon, ws.name)}
               </span>
               <span className="flex-1 truncate">{ws.name}</span>
               {ws.id === activeWorkspace?.id && (

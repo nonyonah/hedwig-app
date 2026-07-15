@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
+import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
+import { useTheme } from 'next-themes';
 
 type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'workspace' | 'target' | 'bank' | 'error';
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -67,11 +69,14 @@ export default function SignInPage() {
   const [workspaceType, setWorkspaceType] = useState<'personal' | 'organization' | null>(null);
   const [orgName, setOrgName] = useState('');
   const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
+  const [icon, setIcon] = useState('🚀');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Target
   const [monthlyTarget, setMonthlyTarget] = useState(10000);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
 
+  const { resolvedTheme } = useTheme();
   const identity = useMemo(() => getIdentityDetails(user), [user]);
 
   /* ── session helpers ── */
@@ -216,7 +221,7 @@ export default function SignInPage() {
       const res = await fetch(`${backendConfig.apiBaseUrl}/api/workspaces`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: wsName, type: workspaceType }),
+        body: JSON.stringify({ name: wsName, type: workspaceType, icon }),
       });
       if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not create workspace.'); }
       setStage('target');
@@ -259,9 +264,9 @@ export default function SignInPage() {
         {/* ── Landing ── */}
         {stage === 'landing' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Try Hedwig yourself</h1>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Welcome</h1>
             <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
-              Create a professional invoice for your next client. No card required.
+              Sign in to manage your invoices, payments, and clients.
             </p>
 
             <div className="mt-8 space-y-3">
@@ -270,7 +275,7 @@ export default function SignInPage() {
                 variant="outline"
                 size="default"
                 onClick={() => handleOAuth('google')}
-                className="w-full rounded-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
+                className="w-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
               >
                 <span className="flex w-full items-center">
                   <span className="flex w-11 justify-start pl-3">
@@ -291,7 +296,7 @@ export default function SignInPage() {
                 variant="outline"
                 size="default"
                 onClick={() => handleOAuth('apple')}
-                className="w-full rounded-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
+                className="w-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
               >
                 <span className="flex w-full items-center">
                   <span className="flex w-11 justify-start pl-3">
@@ -327,7 +332,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -337,7 +342,7 @@ export default function SignInPage() {
                 size="default"
                 disabled={isSendingCode || !emailInput.trim()}
                 onClick={handleSendCode}
-                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSendingCode ? 'Sending…' : 'Continue'}
               </Button>
@@ -389,7 +394,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -399,7 +404,7 @@ export default function SignInPage() {
                 size="default"
                 disabled={isVerifying || otp.length < 6}
                 onClick={handleVerifyOtp}
-                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isVerifying ? 'Verifying…' : 'Continue'}
               </Button>
@@ -409,7 +414,7 @@ export default function SignInPage() {
                 size="default"
                 onClick={handleSendCode}
                 disabled={isSendingCode || resendSecondsLeft > 0}
-                className="w-full rounded-full"
+                className="w-full"
               >
                 {isSendingCode
                   ? 'Sending…'
@@ -438,7 +443,7 @@ export default function SignInPage() {
               variant="default"
               size="default"
               onClick={() => { setStage('landing'); setErrorMessage(''); }}
-              className="mt-8 w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+              className="mt-8 w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
             >
               Try again
             </Button>
@@ -483,7 +488,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -493,7 +498,7 @@ export default function SignInPage() {
                 size="default"
                 disabled={isSubmitting}
                 onClick={submitProfile}
-                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSubmitting ? 'Saving…' : 'Continue'}
               </Button>
@@ -525,27 +530,27 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={() => { setWorkspaceType('personal'); setOrgName(''); setErrorMessage(''); }}
-                className={`w-full rounded-2xl border p-5 text-left shadow-xs transition-all ${
+                className={`w-full rounded-2xl border px-5 py-4 text-left shadow-xs transition-all ${
                   workspaceType === 'personal'
                     ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
                     : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
                 }`}
               >
                 <div className="flex items-start gap-4">
-                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                  <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
                     workspaceType === 'personal'
                       ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
                       : 'border-[var(--color-text-placeholder)]'
                   }`}>
                     {workspaceType === 'personal' && (
-                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <svg width="9" height="7" viewBox="0 0 10 8" fill="none">
                         <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Personal</p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
                       Just you — manage your own invoices, payments, and client relationships.
                     </p>
                   </div>
@@ -555,7 +560,7 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={() => { setWorkspaceType('organization'); setErrorMessage(''); }}
-                className={`w-full rounded-2xl border p-5 text-left shadow-xs transition-all ${
+                className={`w-full rounded-2xl border px-5 py-4 text-left shadow-xs transition-all ${
                   workspaceType === 'organization'
                     ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
                     : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
@@ -597,8 +602,36 @@ export default function SignInPage() {
                 </div>
               )}
 
+              {workspaceType && (
+                <div className="pt-2">
+                  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Icon</label>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(p => !p)}
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-border-light)] text-[22px] transition hover:bg-[var(--color-surface-tertiary)]"
+                  >
+                    {icon}
+                  </button>
+                  {pickerOpen && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+                      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={() => setPickerOpen(false)} />
+                      <div className="relative rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-2xl shadow-[var(--color-foreground)]/15">
+                        <EmojiPicker
+                          onEmojiClick={(data) => { setIcon(data.emoji); setPickerOpen(false); }}
+                          theme={resolvedTheme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                          skinTonesDisabled
+                          searchPlaceholder="Search emoji..."
+                          width={350}
+                          height={450}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {errorMessage && (
-                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -608,7 +641,7 @@ export default function SignInPage() {
                 size="default"
                 disabled={isSavingWorkspace || !workspaceType || (workspaceType === 'organization' && !orgName.trim())}
                 onClick={handleCreateWorkspace}
-                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSavingWorkspace ? 'Creating…' : 'Continue'}
               </Button>
@@ -646,7 +679,7 @@ export default function SignInPage() {
                     variant="default"
                     size="sm"
                     onClick={() => setMonthlyTarget((p) => Math.max(0, p - 500))}
-                    className="h-10 w-10 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
+                    className="h-10 w-10 bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
                   >
                     <svg width="16" height="2" viewBox="0 0 16 2" fill="none">
                       <path d="M1 1h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -662,7 +695,7 @@ export default function SignInPage() {
                     variant="default"
                     size="sm"
                     onClick={() => setMonthlyTarget((p) => p + 500)}
-                    className="h-10 w-10 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
+                    className="h-10 w-10 bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -680,7 +713,7 @@ export default function SignInPage() {
                       variant={monthlyTarget === preset.value ? 'default' : 'secondary'}
                       size="sm"
                       onClick={() => setMonthlyTarget(preset.value)}
-                      className="rounded-full"
+                      className=""
                     >
                       {preset.label}
                     </Button>
@@ -689,7 +722,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-lg border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               )}
@@ -699,7 +732,7 @@ export default function SignInPage() {
                 size="default"
                 disabled={isSavingTarget}
                 onClick={handleSaveTarget}
-                className="w-full rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
               >
                 {isSavingTarget ? 'Saving…' : 'Continue'}
               </Button>
@@ -708,7 +741,7 @@ export default function SignInPage() {
                 variant="secondary"
                 size="default"
                 onClick={() => { setErrorMessage(''); setStage('bank'); }}
-                className="w-full rounded-full"
+                className="w-full"
               >
                 Skip for now
               </Button>

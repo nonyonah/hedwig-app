@@ -10,6 +10,7 @@ export interface TimeEntry {
   status: string;
   createdAt: string;
   updatedAt?: string;
+  assignedTo: string | null;
   project?: { id: string; name: string; client?: { id: string; name: string } };
 }
 

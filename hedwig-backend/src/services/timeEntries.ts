@@ -8,6 +8,7 @@ export interface CreateTimeEntryInput {
   durationSeconds?: number;
   hourlyRate?: number;
   status?: 'running' | 'stopped' | 'manual';
+  assignedTo?: string;
 }
 
 export interface TimeEntry {
@@ -24,6 +25,7 @@ export interface TimeEntry {
   status: 'running' | 'stopped' | 'manual' | 'billed';
   createdAt: string;
   updatedAt: string;
+  assignedTo: string | null;
   project?: { id: string; name: string; client?: { id: string; name: string } };
 }
 
@@ -39,16 +41,26 @@ export interface TimeSummary {
 export const TimeEntriesService = {
   async create(userId: string, workspaceId: string, input: CreateTimeEntryInput): Promise<TimeEntry> {
     if (input.status === 'running') {
-      const { data: existing } = await supabase
+      const query = supabase
         .from('time_entries')
         .select('id')
         .eq('user_id', userId)
         .eq('workspace_id', workspaceId)
-        .eq('status', 'running')
-        .maybeSingle();
+        .eq('status', 'running');
+
+      if (input.projectId) {
+        query.eq('project_id', input.projectId);
+      } else {
+        query.is('project_id', null);
+      }
+
+      const { data: existing } = await query.maybeSingle();
 
       if (existing) {
-        throw new Error('You already have a running timer. Stop it before starting a new one.');
+        const msg = input.projectId
+          ? 'A timer is already running for this project.'
+          : 'You already have a running timer without a project.';
+        throw new Error(msg);
       }
     }
 
@@ -63,6 +75,7 @@ export const TimeEntriesService = {
         end_time: input.endTime || null,
         duration_seconds: input.durationSeconds || null,
         hourly_rate: input.hourlyRate || null,
+        assigned_to: input.assignedTo || null,
         status: input.status || 'stopped',
       })
       .select('*, project:projects(id, name, client:clients(id, name))')
@@ -95,15 +108,32 @@ export const TimeEntriesService = {
     return (data || []).map(mapEntry);
   },
 
-  async getActive(userId: string, workspaceId: string): Promise<TimeEntry | null> {
+  async getActive(userId: string, workspaceId: string, projectId?: string): Promise<TimeEntry | null> {
+    const query = supabase
+      .from('time_entries')
+      .select('*, project:projects(id, name, client:clients(id, name))')
+      .eq('user_id', userId)
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'running');
+
+    if (projectId) {
+      query.eq('project_id', projectId);
+    }
+
+    const { data } = await query.maybeSingle();
+    return data ? mapEntry(data) : null;
+  },
+
+  async getAllActive(userId: string, workspaceId: string): Promise<TimeEntry[]> {
     const { data } = await supabase
       .from('time_entries')
       .select('*, project:projects(id, name, client:clients(id, name))')
       .eq('user_id', userId)
       .eq('workspace_id', workspaceId)
       .eq('status', 'running')
-      .maybeSingle();
-    return data ? mapEntry(data) : null;
+      .order('start_time', { ascending: true });
+
+    return (data || []).map(mapEntry);
   },
 
   async stop(entryId: string, userId: string): Promise<TimeEntry> {
@@ -260,6 +290,7 @@ function mapEntry(row: any): TimeEntry {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    assignedTo: row.assigned_to || null,
     project: row.project ? {
       id: row.project.id,
       name: row.project.name,

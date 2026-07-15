@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 
-export type RegionLockedFeature = 'offramp' | 'usd_account';
+export type RegionLockedFeature = 'onramp' | 'offramp' | 'usd_account';
 
 type RegionLockRule = {
   enabled?: boolean;
@@ -25,9 +25,22 @@ const REGION_HEADER_KEYS = [
   'x-appengine-country',
 ];
 
-const REGION_LOCK_FAIL_OPEN = process.env.REGION_LOCK_FAIL_OPEN !== 'false';
+const REGION_LOCK_FAIL_OPEN = process.env.REGION_LOCK_FAIL_OPEN === 'true';
 
-const DEFAULT_CONFIG: RegionLockConfig = {};
+const DEFAULT_CONFIG: RegionLockConfig = {
+  onramp: {
+    allow: ['NG', 'GH', 'KE', 'MW', 'TZ', 'BR'],
+    reason: 'Onramp is not yet available in your region.',
+  },
+  offramp: {
+    allow: ['NG', 'GH', 'KE', 'MW', 'TZ', 'BR'],
+    reason: 'Offramp is not yet available in your region.',
+  },
+  usd_account: {
+    allow: ['NG'],
+    reason: 'USD accounts are not yet available in your region.',
+  },
+};
 
 const normalizeCountryCode = (value: string | null | undefined): string | null => {
   if (!value) return null;

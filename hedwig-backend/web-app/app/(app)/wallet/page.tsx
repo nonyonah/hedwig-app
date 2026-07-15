@@ -1,11 +1,12 @@
 import { hedwigApi } from '@/lib/api/client';
 import { getCurrentSession } from '@/lib/auth/session';
+import { getRequestRegionLockDecision } from '@/lib/region-lock';
 import { WalletView } from './view';
 
 export default async function WalletPage() {
   const session = await getCurrentSession();
 
-  const [walletData, gatewayBalance, userPreferences, userProfile] = await Promise.all([
+  const [walletData, gatewayBalance, userPreferences, userProfile, onrampDecision, offrampDecision] = await Promise.all([
     hedwigApi.wallet({ accessToken: session.accessToken }),
     hedwigApi.gatewayBalance({ accessToken: session.accessToken, disableMockFallback: true }).catch(() => ({
       available: '0',
@@ -20,6 +21,8 @@ export default async function WalletPage() {
       gatewayAutoDepositEnabled: false,
     })),
     hedwigApi.getUserProfile({ accessToken: session.accessToken, disableMockFallback: true }).catch(() => null),
+    getRequestRegionLockDecision('onramp'),
+    getRequestRegionLockDecision('offramp'),
   ]);
 
   return (
@@ -28,6 +31,8 @@ export default async function WalletPage() {
       initialGatewayBalance={gatewayBalance}
       gatewayAutoDepositEnabled={userPreferences.gatewayAutoDepositEnabled}
       accessToken={session.accessToken}
+      onrampAllowed={onrampDecision.allowed}
+      offrampAllowed={offrampDecision.allowed}
     />
   );
 }

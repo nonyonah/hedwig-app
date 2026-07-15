@@ -26,8 +26,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
 import { ComposioIntegrations } from '@/components/preferences/composio-integrations';
-import { PayoutBankSection } from '@/components/preferences/payout-bank-section';
 import { AutoSettlementSection } from '@/components/preferences/auto-settlement-section';
+import { SettingsSection } from '@/components/preferences/settings-section';
+import { SettingsRow } from '@/components/preferences/settings-row';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
@@ -55,46 +56,6 @@ const resolveSubscriptionProvider = (billing: BillingStatusSummary | null): Subs
   return 'revenue_cat';
 };
 
-
-function SettingsSection({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
-      <div className="border-b border-[var(--color-surface-tertiary)] px-5 py-4">
-        <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">{title}</h2>
-        {description ? <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">{description}</p> : null}
-      </div>
-      <div className="divide-y divide-[var(--color-surface-tertiary)]">{children}</div>
-    </section>
-  );
-}
-
-function SettingsRow({
-  label,
-  description,
-  children
-}: {
-  label: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-      <div className="min-w-0">
-        <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{label}</p>
-        {description ? <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{description}</p> : null}
-      </div>
-      <div className="shrink-0">{children}</div>
-    </div>
-  );
-}
 
 const planLabel = (plan: string | undefined): string => {
   if (plan === 'pro') return 'Pro';
@@ -566,8 +527,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             ))}
         </SettingsSection>
 
-        <PayoutBankSection accessToken={accessToken} />
-
         <AutoSettlementSection accessToken={accessToken} />
 
         <ComposioIntegrations />
@@ -681,8 +640,8 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
       </div>
 
       {/* Account deletion — 3-step dialog: backup → warn → confirm */}
-      <Dialog open={deleteOpen} onOpenChange={(open) => { if (!isDeletingAccount) setDeleteOpen(open); }}>
-        <DialogContent className="max-w-[480px]">
+      <Dialog open={deleteOpen} onOpenChange={(open) => { if (!isDeletingAccount) setDeleteOpen(open); }} size="md">
+        <DialogContent>
           {deleteStep === 'backup' && (
             <>
               <DialogHeader>

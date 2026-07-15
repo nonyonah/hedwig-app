@@ -27,6 +27,7 @@ import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context'
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
 import { MemberWelcomeBanner } from '@/components/workspace/member-welcome-banner';
 import { PendingInvitationBanner } from '@/components/workspace/pending-invitation-banner';
+import { AssistantPanel } from '@/components/assistant/assistant-panel';
 
 type DashboardData = {
   totals: {
@@ -409,21 +410,7 @@ export function DashboardClient({
       {/* Bottom row: assistant summary + next reminder */}
       <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
         {canUseAssistantSummary ? (
-          <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
-            <div className="mb-3 flex items-center gap-2.5">
-              {/* UUI featured icon: brand color */}
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
-                <Sparkle className="h-4 w-4 text-[var(--color-text-tertiary)]" weight="fill" />
-              </div>
-              <p className="text-[16px] font-semibold text-[var(--color-foreground)]">Assistant summary</p>
-            </div>
-            <p className="text-[14px] leading-relaxed text-[var(--color-text-secondary)]">
-              {data.assistantSummary ||
-                dashboardState.latestNotification?.body ||
-                dashboardState.latestActivity?.summary ||
-                'Payment activity, reminders, contracts, and project updates are summarized here.'}
-            </p>
-          </article>
+          <AssistantPanel className="max-h-[560px]" />
         ) : (
           <ProLockCard
             title="Assistant summary is on Pro"

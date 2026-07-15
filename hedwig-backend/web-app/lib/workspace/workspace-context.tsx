@@ -19,7 +19,8 @@ interface WorkspaceContextValue {
   error: string | null;
   accessToken: string | null;
   switchWorkspace: (id: string) => Promise<void>;
-  createWorkspace: (name: string, type?: 'personal' | 'organization') => Promise<WorkspaceWithMembership>;
+  createWorkspace: (name: string, type?: 'personal' | 'organization', icon?: string) => Promise<WorkspaceWithMembership>;
+  updateWorkspaceIcon: (id: string, icon: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -110,7 +111,7 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
     applyActiveWorkspace(found, true);
   }, [workspaces, activeWorkspace?.id, applyActiveWorkspace]);
 
-  const createWorkspace = useCallback(async (name: string, type: 'personal' | 'organization' = 'organization'): Promise<WorkspaceWithMembership> => {
+  const createWorkspace = useCallback(async (name: string, type: 'personal' | 'organization' = 'organization', icon?: string): Promise<WorkspaceWithMembership> => {
     if (!tokenRef.current) throw new Error('No access token');
     const res = await fetch(`${backendConfig.apiBaseUrl}/api/workspaces`, {
       method: 'POST',
@@ -119,7 +120,7 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
         'Content-Type': 'application/json',
         'x-workspace-id': readActiveWorkspaceIdFromStorage() ?? fallbackWorkspace.id,
       },
-      body: JSON.stringify({ name, type }),
+      body: JSON.stringify({ name, type, icon }),
     });
     if (!res.ok) throw new Error('Failed to create workspace');
     const body = await res.json();
@@ -132,6 +133,22 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
     return ws;
   }, [applyActiveWorkspace, fallbackWorkspace.id]);
 
+  const updateWorkspaceIcon = useCallback(async (id: string, icon: string) => {
+    if (!tokenRef.current) return;
+    setActiveWorkspace((prev) => prev?.id === id ? { ...prev, icon } : prev);
+    setWorkspaces((prev) => prev.map((w) => w.id === id ? { ...w, icon } : w));
+    try {
+      await fetch(`${backendConfig.apiBaseUrl}/api/workspaces/${id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${tokenRef.current}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ icon }),
+      });
+    } catch { /* background sync, local state already updated */ }
+  }, []);
+
   return (
     <WorkspaceContext.Provider value={{
       workspaces,
@@ -141,6 +158,7 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
       accessToken: tokenRef.current,
       switchWorkspace,
       createWorkspace,
+      updateWorkspaceIcon,
       refresh: doFetch,
     }}>
       {children}

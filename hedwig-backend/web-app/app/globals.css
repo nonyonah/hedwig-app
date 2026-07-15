@@ -1,74 +1,72 @@
 @import "tailwindcss";
 
 /* ── HeroUI v3 styles ─────────────────────────────────────────────────── */
-/* Must be imported after Tailwind for proper cascading.                   */
 @import "@heroui/styles";
 
-/* ── Hedwig light theme (HeroUI semantic + app tokens) ─────────────────── */
-/* Do NOT use :root here — it matches html.dark too and overrides dark mode. */
+/* ── Hedwig light theme ────────────────────────────────────────────────── */
 .light,
 [data-theme="light"] {
   --accent: #2563eb;
   --accent-foreground: #ffffff;
 
   --background: #fafafa;
-  --foreground: #181d27;
+  --foreground: #171717;
   --surface: #ffffff;
-  --border: #e9eaeb;
+  --border: #e5e5e5;
 
   --hedwig-primary: #2563eb;
   --hedwig-primary-dark: #1d4ed8;
   --hedwig-primary-light: #dbeafe;
 
-  --hedwig-text-primary: #181d27;
-  --hedwig-text-secondary: #414651;
-  --hedwig-text-tertiary: #717680;
-  --hedwig-text-muted: #a4a7ae;
-  --hedwig-text-placeholder: #a4a7ae;
+  --hedwig-text-primary: #171717;
+  --hedwig-text-secondary: #404040;
+  --hedwig-text-tertiary: #737373;
+  --hedwig-text-muted: #a3a3a3;
+  --hedwig-text-placeholder: #a3a3a3;
 
-  --hedwig-surface-secondary: #f5f5f5;
-  --hedwig-surface-tertiary: #f4f5f7;
+  --hedwig-surface-secondary: #f2f2f2;
+  --hedwig-surface-tertiary: #e8e8e8;
 
-  --hedwig-border-light: #f3f4f6;
-  --hedwig-border-input: #d5d7da;
+  --hedwig-border-light: #ececec;
+  --hedwig-border-input: #d4d4d4;
 
-  --hedwig-success: #079455;
-  --hedwig-success-soft: #ecfdf3;
-  --hedwig-warning: #dc6803;
-  --hedwig-warning-soft: #fffaeb;
-  --hedwig-danger: #d92d20;
-  --hedwig-danger-soft: #fef3f2;
+  --hedwig-success: #16a34a;
+  --hedwig-success-soft: #f0fdf4;
+  --hedwig-warning: #d97706;
+  --hedwig-warning-soft: #fffbeb;
+  --hedwig-danger: #dc2626;
+  --hedwig-danger-soft: #fef2f2;
 
   --hedwig-accent-soft: #eff4ff;
 }
 
-/* Apply dark tokens before next-themes sets class (system preference, first paint) */
+/* Dark mode FIRST-PAINT guard (system preference) */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --accent: #3b82f6;
+    --accent: #60a5fa;
     --accent-foreground: #ffffff;
-    --background: #0a0a0b;
-    --foreground: #ededed;
-    --surface: #141415;
+    --background: #09090b;
+    --foreground: #e5e5e5;
+    --surface: #121214;
     --border: #27272a;
     --muted: #52525b;
-    --hedwig-primary: #3b82f6;
-    --hedwig-primary-dark: #2563eb;
+    --hedwig-primary: #60a5fa;
+    --hedwig-primary-dark: #3b82f6;
     --hedwig-primary-light: #1e3a5f;
-    --hedwig-text-primary: #ededed;
+    --hedwig-text-primary: #e5e5e5;
     --hedwig-text-secondary: #a1a1aa;
     --hedwig-text-tertiary: #71717a;
     --hedwig-text-muted: #52525b;
     --hedwig-text-placeholder: #52525b;
-    --hedwig-surface-secondary: #1a1a1c;
+    --hedwig-surface-secondary: #18181b;
     --hedwig-surface-tertiary: #1e1e20;
     --hedwig-border-light: #1e1e20;
     --hedwig-border-input: #3f3f46;
-    --hedwig-success: #22c55e;
+    --hedwig-success: #4ade80;
     --hedwig-success-soft: #052e16;
-    --hedwig-warning: #f59e0b;
+    --hedwig-warning: #fbbf24;
     --hedwig-warning-soft: #451a03;
-    --hedwig-danger: #ef4444;
+    --hedwig-danger: #f87171;
     --hedwig-danger-soft: #450a0a;
     --hedwig-accent-soft: #172554;
   }
@@ -77,36 +75,36 @@
 /* ── Hedwig dark theme ─────────────────────────────────────────────────── */
 .dark,
 [data-theme="dark"] {
-  --accent: #3b82f6;
+  --accent: #60a5fa;
   --accent-foreground: #ffffff;
 
-  --background: #0a0a0b;
-  --foreground: #ededed;
-  --surface: #141415;
+  --background: #09090b;
+  --foreground: #e5e5e5;
+  --surface: #121214;
   --border: #27272a;
   --muted: #52525b;
 
-  --hedwig-primary: #3b82f6;
-  --hedwig-primary-dark: #2563eb;
+  --hedwig-primary: #60a5fa;
+  --hedwig-primary-dark: #3b82f6;
   --hedwig-primary-light: #1e3a5f;
 
-  --hedwig-text-primary: #ededed;
+  --hedwig-text-primary: #e5e5e5;
   --hedwig-text-secondary: #a1a1aa;
   --hedwig-text-tertiary: #71717a;
   --hedwig-text-muted: #52525b;
   --hedwig-text-placeholder: #52525b;
 
-  --hedwig-surface-secondary: #1a1a1c;
+  --hedwig-surface-secondary: #18181b;
   --hedwig-surface-tertiary: #1e1e20;
 
   --hedwig-border-light: #1e1e20;
   --hedwig-border-input: #3f3f46;
 
-  --hedwig-success: #22c55e;
+  --hedwig-success: #4ade80;
   --hedwig-success-soft: #052e16;
-  --hedwig-warning: #f59e0b;
+  --hedwig-warning: #fbbf24;
   --hedwig-warning-soft: #451a03;
-  --hedwig-danger: #ef4444;
+  --hedwig-danger: #f87171;
   --hedwig-danger-soft: #450a0a;
 
   --hedwig-accent-soft: #172554;
@@ -121,8 +119,7 @@
   --shadow-soft: 0px 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* ── Hedwig design tokens (theme-aware via CSS variables above) ──────────
-   Use @theme inline so values follow HeroUI's .dark / [data-theme=dark].  */
+/* ── Hedwig design tokens (theme-aware) ────────────────────────────────── */
 
 @theme inline {
   /* Brand */
@@ -130,20 +127,20 @@
   --color-primary-dark: var(--hedwig-primary-dark);
   --color-primary-light: var(--hedwig-primary-light);
 
-  /* App-specific text scale (HeroUI uses --color-foreground for base text) */
+  /* Text scale */
   --color-text-primary: var(--hedwig-text-primary);
   --color-text-secondary: var(--hedwig-text-secondary);
   --color-text-tertiary: var(--hedwig-text-tertiary);
   --color-text-muted: var(--hedwig-text-muted);
   --color-text-placeholder: var(--hedwig-text-placeholder);
 
-  /* App-specific surfaces / borders */
+  /* Surfaces / borders */
   --color-surface-secondary: var(--hedwig-surface-secondary);
   --color-surface-tertiary: var(--hedwig-surface-tertiary);
   --color-border-light: var(--hedwig-border-light);
   --color-border-input: var(--hedwig-border-input);
 
-  /* Status + accent soft (app-specific overrides) */
+  /* Status */
   --color-success: var(--hedwig-success);
   --color-success-soft: var(--hedwig-success-soft);
   --color-warning: var(--hedwig-warning);
@@ -154,11 +151,11 @@
 }
 
 @theme {
-  /* Font */
+  /* Font families */
   --font-sans: 'Google Sans Flex', 'Google Sans Text', 'Google Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: ui-monospace, 'Roboto Mono', SFMono-Regular, Menlo, Monaco, monospace;
+  --font-mono: ui-monospace, 'Roboto Mono', SFMono-Regular, Menlo, Monaco, 'Cascadia Code', monospace;
 
-  /* Shadows (Hedwig's Untitled UI scale — light defaults) */
+  /* Shadows (Untitled UI scale — light defaults, dark overrides above) */
   --shadow-xs: 0px 1px 2px rgba(10, 13, 18, 0.05);
   --shadow-sm: 0px 1px 3px rgba(10, 13, 18, 0.1), 0px 1px 2px -1px rgba(10, 13, 18, 0.1);
   --shadow-md: 0px 4px 6px -1px rgba(10, 13, 18, 0.1), 0px 2px 4px -2px rgba(10, 13, 18, 0.06);
@@ -168,13 +165,13 @@
   --shadow-panel: 0px 12px 16px -4px rgba(10, 13, 18, 0.08);
   --shadow-soft: 0px 1px 2px rgba(10, 13, 18, 0.05);
 
-  /* Border radius */
+  /* Border radius — consistent scale */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
-  --radius-xl: 0.625rem;
-  --radius-2xl: 0.75rem;
-  --radius-3xl: 2rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
   --radius-full: 9999px;
 }
 
@@ -186,6 +183,7 @@
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
@@ -201,6 +199,12 @@
   .font-mono {
     font-family: var(--font-mono);
   }
+
+  /* Consistent focus ring across the app */
+  *:focus-visible {
+    outline: 2px solid var(--hedwig-primary);
+    outline-offset: 2px;
+  }
 }
 
 ::selection {
@@ -209,13 +213,30 @@
 
 .dark ::selection,
 [data-theme="dark"] ::selection {
-  background: rgba(59, 130, 246, 0.25);
+  background: rgba(96, 165, 250, 0.25);
 }
-
-/* ── Select dropdown arrow spacing ──────────────────────────────────── */
 
 select {
   padding-right: 2.25rem;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--hedwig-text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hedwig-text-tertiary);
 }
 
 /* ── Animations ──────────────────────────────────────────────────────── */
@@ -229,7 +250,6 @@ select {
   animation: fadeUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Message slide in — used by assistant sidebar */
 @keyframes messageSlideIn {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
@@ -248,7 +268,6 @@ select {
   animation: messageSlideInUser 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Typing dot bounce */
 @keyframes typingBounce {
   0%, 80%, 100% { transform: translateY(0); }
   40% { transform: translateY(-6px); }
@@ -258,7 +277,6 @@ select {
   animation: typingBounce 1.2s ease-in-out infinite;
 }
 
-/* Sparkle pulse */
 @keyframes sparklePulse {
   0%, 100% { transform: scale(1) rotate(0deg); }
   50% { transform: scale(1.15) rotate(8deg); }
@@ -268,7 +286,6 @@ select {
   animation: sparklePulse 2s ease-in-out infinite;
 }
 
-/* Context chip slide in */
 @keyframes chipSlideDown {
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -278,7 +295,6 @@ select {
   animation: chipSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Scroll-reveal — set by AnimateIn component */
 .reveal {
   opacity: 0;
   transform: translateY(28px);

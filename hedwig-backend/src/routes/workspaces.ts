@@ -37,7 +37,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
   try {
-    const { name, type } = req.body;
+    const { name, type, icon } = req.body;
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
     if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
@@ -49,7 +49,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
     const wsType = (type === 'personal') ? 'personal' : 'organization';
 
-    const workspace = await WorkspaceService.createWorkspace(user.id, name, wsType);
+    const workspace = await WorkspaceService.createWorkspace(user.id, name, wsType, icon);
 
     res.json({ success: true, data: { workspace } });
   } catch (error) {
@@ -159,12 +159,12 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.patch('/:id', authenticate, async (req: Request, res: Response, next) => {
   try {
     const id = getParam(req, 'id');
-    const { name } = req.body;
+    const { name, icon } = req.body;
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
     if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
 
-    const workspace = await WorkspaceService.updateWorkspace(id, user.id, { name });
+    const workspace = await WorkspaceService.updateWorkspace(id, user.id, { name, icon });
 
     res.json({ success: true, data: { workspace } });
   } catch (error: any) {

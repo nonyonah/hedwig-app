@@ -82,8 +82,8 @@ export function ChangeSettlementDialog({
         Change
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[400px]">
+      <Dialog open={open} onOpenChange={setOpen} size="2xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Settlement chain</DialogTitle>
           </DialogHeader>

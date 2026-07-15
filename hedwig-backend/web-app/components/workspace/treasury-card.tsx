@@ -156,7 +156,7 @@ export function TreasuryCard() {
           <div className="mb-3">
             <select
               onChange={(e) => { if (e.target.value) addPayoutItem(e.target.value); e.target.value = ''; }}
-              className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px]"
+              className="w-full rounded-full border border-[var(--color-border)] px-3 py-2 text-[13px]"
             >
               <option value="">Add member...</option>
               {members.filter(m => !payoutItems.some(i => i.userId === m.userId)).map(m => (
@@ -178,14 +178,14 @@ export function TreasuryCard() {
                 placeholder="Amount"
                 value={item.amount || ''}
                 onChange={e => updatePayoutItem(i, 'amount', parseFloat(e.target.value) || 0)}
-                className="w-[100px] rounded-lg border border-[var(--color-border)] px-2 py-1.5 text-[13px]"
+                className="w-[100px] rounded-full border border-[var(--color-border)] px-2 py-1.5 text-[13px]"
               />
               <input
                 type="text"
                 placeholder="Reason"
                 value={item.reason || ''}
                 onChange={e => updatePayoutItem(i, 'reason', e.target.value)}
-                className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1.5 text-[13px]"
+                className="flex-1 rounded-full border border-[var(--color-border)] px-2 py-1.5 text-[13px]"
               />
               <Button variant="ghost" size="sm" onClick={() => removePayoutItem(i)} className="text-[var(--color-text-tertiary)]">
                 ✕
@@ -217,7 +217,7 @@ export function TreasuryCard() {
           <h3 className="mb-3 text-[14px] font-semibold text-[var(--color-foreground)]">Payout history</h3>
           <div className="space-y-2">
             {payouts.map(p => (
-              <div key={p.id} className="flex items-center justify-between rounded-lg bg-[var(--color-surface-secondary)] px-4 py-3">
+              <div key={p.id} className="flex items-center justify-between rounded-full bg-[var(--color-surface-secondary)] px-4 py-3">
                 <div>
                   <p className="text-[13px] font-medium text-[var(--color-foreground)]">
                     ${Number(p.total_amount).toLocaleString()} USDC

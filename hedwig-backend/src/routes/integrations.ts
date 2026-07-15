@@ -40,6 +40,7 @@ import {
   getAllLinkedProjects,
   unlinkLinearProject,
 } from '../services/composioCommercial';
+import { executeComposioWrite, stageFileForComposio } from '../services/agent/composio-tools';
 import { createLogger } from '../utils/logger';
 import { requireProFeatureAccess } from '../services/billingRules';
 
@@ -429,10 +430,12 @@ router.patch('/threads/:id', async (req: Request, res: Response) => {
   if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
 
   const { id } = req.params;
-  const { status, matchedClientId, matchedProjectId } = req.body as {
+  const { status, matchedClientId, matchedProjectId, matchedDocumentId, matchedDocumentType } = req.body as {
     status?: string;
     matchedClientId?: string;
     matchedProjectId?: string;
+    matchedDocumentId?: string;
+    matchedDocumentType?: string;
   };
 
   const validStatuses = ['needs_review', 'imported', 'matched', 'ignored'];
@@ -445,6 +448,8 @@ router.patch('/threads/:id', async (req: Request, res: Response) => {
   if (status) update.status = status;
   if (matchedClientId !== undefined) update.matched_client_id = matchedClientId;
   if (matchedProjectId !== undefined) update.matched_project_id = matchedProjectId;
+  if (matchedDocumentId !== undefined) update.matched_document_id = matchedDocumentId;
+  if (matchedDocumentType !== undefined) update.matched_document_type = matchedDocumentType;
 
   const { error } = await supabase
     .from('email_threads')
@@ -960,6 +965,94 @@ Deadline: ${deadline || 'N/A'}`;
   } catch (err: any) {
     logger.error('suggest-milestones error', { err });
     res.status(500).json({ success: false, error: err.message ?? 'Suggestion failed' });
+  }
+});
+
+// POST /api/integrations/composio/drive/upload-from-doc — upload document PDF to Google Drive
+router.post('/composio/drive/upload-from-doc', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+  if (!isComposioConfigured()) {
+    res.status(503).json({ success: false, error: 'Composio is not configured' });
+    return;
+  }
+
+  const { documentId, documentType } = req.body as { documentId?: string; documentType?: string };
+  if (!documentId) { res.status(400).json({ success: false, error: 'documentId is required' }); return; }
+
+  try {
+    const { data: doc } = await supabase
+      .from('documents')
+      .select('title, payment_link_url')
+      .eq('id', documentId)
+      .maybeSingle();
+
+    if (!doc) { res.status(404).json({ success: false, error: 'Document not found' }); return; }
+
+    const publicUrl = doc.payment_link_url || `${process.env.WEB_CLIENT_URL || 'http://localhost:3000'}/invoice/${documentId}`;
+    const pdfUrl = `${publicUrl}?print=1`;
+    const title = doc.title || `Document ${documentId}`;
+
+    const fileData = await stageFileForComposio({
+      fileUrl: pdfUrl,
+      toolSlug: 'GOOGLEDRIVE_UPLOAD_FILE',
+      toolkitSlug: 'googledrive',
+    });
+
+    const result = await executeComposioWrite({
+      hedwigUserId: userId,
+      slug: 'GOOGLEDRIVE_UPLOAD_FILE',
+      input: {
+        file_to_upload: fileData,
+        file_name: `${title}.pdf`,
+      },
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Drive upload failed', { userId, documentId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Drive upload failed' });
+  }
+});
+
+// POST /api/integrations/composio/docs/create-from-contract — create Google Doc from contract content
+router.post('/composio/docs/create-from-contract', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+  if (!isComposioConfigured()) {
+    res.status(503).json({ success: false, error: 'Composio is not configured' });
+    return;
+  }
+
+  const { documentId } = req.body as { documentId?: string };
+  if (!documentId) { res.status(400).json({ success: false, error: 'documentId is required' }); return; }
+
+  try {
+    const { data: doc } = await supabase
+      .from('documents')
+      .select('title, description, content')
+      .eq('id', documentId)
+      .eq('type', 'CONTRACT')
+      .maybeSingle();
+
+    if (!doc) { res.status(404).json({ success: false, error: 'Contract not found' }); return; }
+
+    const docContent = (doc.content as any)?.html_content || (doc.content as any)?.generated_content || doc.description || doc.title || 'Contract';
+    const title = doc.title || 'Contract';
+
+    const result = await executeComposioWrite({
+      hedwigUserId: userId,
+      slug: 'GOOGLEDOCS_CREATE_DOCUMENT',
+      input: {
+        title,
+        content: docContent,
+      },
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Docs create failed', { userId, documentId, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Docs create failed' });
   }
 });
 

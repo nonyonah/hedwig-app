@@ -16,7 +16,6 @@ import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import {
-  sendSolanaUsdc,
   sendEvmUsdc,
   sendUsdcViaGateway,
   CHAIN_LABELS,
@@ -171,8 +170,6 @@ export function PayoutReviewDialog({
                 accessToken,
                 onStatus: (msg) => console.log(`[Gateway] ${msg}`),
               });
-            } else if (item.chain === 'solana') {
-              txHash = await sendSolanaUsdc({ solanaWallet, recipient: item.destinationAddress, amountUsdc: item.amount });
             } else {
               txHash = await sendEvmUsdc({ evmWallet, recipient: item.destinationAddress, amountUsdc: item.amount, chain: item.chain });
             }

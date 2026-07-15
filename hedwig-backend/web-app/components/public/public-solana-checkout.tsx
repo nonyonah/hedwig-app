@@ -270,7 +270,7 @@ export function PublicSolanaCheckout({
           </span>
         </div>
         <div>
-          <p className="text-sm font-medium text-[var(--color-text-tertiary)]">Crypto checkout</p>
+          <p className="text-sm font-medium text-[var(--color-text-tertiary)]">Stablecoin checkout</p>
           <p className="text-sm font-semibold text-[var(--color-foreground)]">{tokenSymbol} on {cluster === 'devnet' ? 'Solana Devnet' : 'Solana'}</p>
         </div>
       </div>

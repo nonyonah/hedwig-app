@@ -234,8 +234,8 @@ function ExpenseDialog({
     : [{ code: form.currency, label: form.currency, symbol: form.currency }, ...currencyOptions];
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[480px]">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} size="2xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit expense' : 'Add expense'}</DialogTitle>
           <DialogDescription>
@@ -382,8 +382,8 @@ function CreditDialog({
     : [{ code: form.currency, label: form.currency, symbol: form.currency }, ...currencyOptions];
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[480px]">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} size="2xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Record credit</DialogTitle>
           <DialogDescription>

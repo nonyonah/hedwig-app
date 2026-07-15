@@ -79,8 +79,8 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
   };
 
   return (
-    <Dialog open={!!suggestion} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-[520px]">
+    <Dialog open={!!suggestion} onOpenChange={(open) => { if (!open) onClose(); }} size="2xl">
+      <DialogContent>
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
             <div>

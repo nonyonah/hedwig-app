@@ -20,7 +20,6 @@ import { TopbarTitle } from '@/components/app-shell/topbar-title';
 import { GlobalSearch } from '@/components/app-shell/global-search';
 import { cn } from '@/lib/utils';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
-import { useAssistantSidebar } from '@/components/providers/assistant-sidebar-provider';
 
 type AppTopbarProps = {
   sidebarOpen: boolean;
@@ -40,7 +39,6 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
   const createRef = useRef<HTMLDivElement | null>(null);
   const { activeWorkspace } = useWorkspaceContext();
   const showCreate = !activeWorkspace || activeWorkspace.role !== 'member';
-  const { open: assistantOpen, toggle: toggleAssistant } = useAssistantSidebar();
   const { theme, resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const usingSystem = theme === 'system' || theme === undefined;
@@ -161,20 +159,6 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
           email={user.email}
           fullName={user.fullName}
         />
-          <button
-            type="button"
-            onClick={toggleAssistant}
-            title="Ask Hedwig"
-            aria-label="Toggle Hedwig assistant"
-            className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-md transition duration-150',
-              assistantOpen
-                ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/20'
-                : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]'
-            )}
-          >
-            <SidebarSimple className={cn('h-4 w-4', assistantOpen && 'animate-sparkle-active')} weight="bold" />
-          </button>
       </div>
     </div>
   );

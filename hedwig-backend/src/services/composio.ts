@@ -290,9 +290,9 @@ export async function initiateConnection(params: {
 
   let connectionRequest: any;
   try {
-    connectionRequest = await sdk.connectedAccounts.initiate(composioUserId, authConfigId, {
+    connectionRequest = await sdk.connectedAccounts.link(composioUserId, authConfigId, {
       callbackUrl: redirectUri,
-    } as any);
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('Composio initiateConnection failed', { userId, provider, message });

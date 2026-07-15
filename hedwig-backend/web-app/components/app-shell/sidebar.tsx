@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getUserback } from '@userback/widget';
-import { Question, SidebarSimple } from '@/components/ui/lucide-icons';
+import { CurrencyDollar, Question, SidebarSimple } from '@/components/ui/lucide-icons';
 import { navigationGroups, type WorkspaceRole } from '@/lib/utils/navigation';
 import { cn } from '@/lib/utils';
 import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
@@ -37,10 +37,14 @@ export function AppSidebar({
   };
 
   const NavItems = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <nav className="flex flex-1 flex-col gap-0 overflow-y-auto px-3 py-3">
+    <nav className="flex flex-1 flex-col gap-0 overflow-y-auto px-2 py-3">
       {navigationGroups.map((group, groupIndex) => (
-        <div key={`group-${groupIndex}`}>
-          {groupIndex > 0 && <div className="my-1.5 h-px bg-[var(--color-surface-tertiary)]" />}
+        <div key={`group-${groupIndex}`} className={groupIndex > 0 ? 'mt-3' : ''}>
+          <div className="mb-0.5 px-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+              {group.label}
+            </span>
+          </div>
           <ul className="flex flex-col gap-0.5">
             {group.items.filter(i => !lockedRouteSet.has(i.href) && i.roles.includes(role) && (!i.workspaceTypes || i.workspaceTypes.includes(wsType))).map(item => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -49,12 +53,17 @@ export function AppSidebar({
                 <li key={item.href}>
                   <Link href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'group flex w-full select-none items-center rounded-md px-2.5 py-1.5 transition duration-100 ease-linear',
-                      active ? 'bg-[var(--color-surface-tertiary)] text-[var(--color-foreground)]' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
+                      'group relative flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all duration-100 ease-linear',
+                      active
+                        ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary)] font-semibold'
+                        : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]'
                     )}>
-                    <Icon className={cn('mr-2.5 h-4 w-4 shrink-0', active ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]')}
+                    {active && (
+                      <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[var(--color-primary)]" />
+                    )}
+                    <Icon className={cn('mr-2.5 h-4 w-4 shrink-0', active ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]')}
                       weight={active ? 'bold' : 'regular'} />
-                    <span className={cn('whitespace-nowrap text-[13px] font-medium', active ? 'font-semibold text-[var(--color-foreground)]' : 'text-[var(--color-text-tertiary)] group-hover:text-[var(--color-foreground)]')}>
+                    <span className={cn('whitespace-nowrap', active ? 'text-[var(--color-primary)]' : 'group-hover:text-[var(--color-foreground)]')}>
                       {item.title}
                     </span>
                   </Link>
@@ -68,17 +77,22 @@ export function AppSidebar({
   );
 
   const Footer = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <div className="flex shrink-0 flex-col gap-0.5 border-t border-[var(--color-border-light)] px-3 py-2">
+    <div className="flex shrink-0 flex-col gap-0.5 border-t border-[var(--color-surface-tertiary)] px-2 py-2">
       <a href="https://help.hedwigbot.xyz" target="_blank" rel="noreferrer" onClick={onNavigate}
-        className="group flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]">
+        className="group flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]">
         <Question className="mr-2.5 h-4 w-4 shrink-0" weight="regular" />
-        <span className="whitespace-nowrap text-[13px] font-medium">Help Center</span>
+        <span>Help Center</span>
       </a>
       <button type="button" title="Give feedback" onClick={handleFeedbackClick}
-        className="group flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]">
+        className="group flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]">
         <Question className="mr-2.5 h-4 w-4 shrink-0" weight="regular" />
-        <span className="whitespace-nowrap text-[13px] font-medium">Give feedback</span>
+        <span>Give feedback</span>
       </button>
+      <Link href="/pricing" onClick={onNavigate}
+        className="group flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]">
+        <CurrencyDollar className="mr-2.5 h-4 w-4 shrink-0" weight="regular" />
+        <span>Upgrade</span>
+      </Link>
     </div>
   );
 

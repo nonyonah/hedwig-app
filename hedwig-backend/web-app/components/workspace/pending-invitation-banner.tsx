@@ -50,7 +50,7 @@ export function PendingInvitationBanner() {
           </p>
           <div className="mt-2 space-y-2">
             {invites.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-lg bg-[var(--color-surface)] p-3">
+              <div key={inv.id} className="flex items-center justify-between rounded-full bg-[var(--color-surface)] p-3">
                 <div>
                   <p className="text-[13px] font-medium text-[var(--color-foreground)]">
                     {inv.workspaceName}

@@ -27,6 +27,48 @@
 - Bold for UI elements: Click **Settings**
 - Code formatting for file names, commands, paths, and code references
 
+## Phase 3 (cont): Unified day detail dialog
+
+- **`components/calendar/types.ts`** — new shared type file extracting `PlannerItem` and `FilterValue`
+- **`components/calendar/day-detail-dialog.tsx`** — new unified dialog showing all items for a selected day with left/right arrow navigation through each item, inline detail for all item kinds (reminder/milestone/invoice/project/time_entry), reminder editing inline
+- **Deleted** `components/calendar/time-detail-dialog.tsx` — replaced by unified `DayDetailDialog`
+- **Removed** `components/time-summary-cards.tsx` — dead after Phase 3 cleanup
+- **`app/(app)/calendar/view.tsx`**:
+  - Replaced `activeItem: PlannerItem | null` with `dialogState: { items: PlannerItem[]; index: number } | null`
+  - Added `handleSelectItem` — on click, finds all items for that date and opens dialog at clicked index
+  - Removed old `ItemDetailDialog` (300+ lines) and `TimeDetailDialog` import
+  - Removed unused imports (`ArrowRight`, `ArrowSquareOut`, `Play`, `Square`, `openPaymentDetail`)
+  - `DayDetailDialog` renders with arrow navigation, editing support for reminders, and time entry details
+
+## Phase 3: Clean up old /time page and components
+
+- **Deleted** `app/(app)/time/view.tsx` — old standalone time page replaced by calendar
+- **Replaced** `app/(app)/time/page.tsx` with `redirect('/calendar')`
+- **Removed** `Time` nav item from `lib/utils/navigation.ts` — Calendar covers time tracking
+- **Cleaned up** unused `ClockCountdown` import from navigation
+- **Deleted** 5 dead component files: `time-tracker.tsx`, `time-entry-form.tsx`, `time-entries-list.tsx`, `time-summary-cards.tsx`, `invoice-from-time-dialog.tsx`
+- **Kept** `components/time/types.ts` — still used by calendar components (`TimeEntry`, `TimeSummary` interfaces)
+- `/time/*` redirects to `/calendar` (server-side redirect, no flash)
+
+## Session Summary (Jul 15, 2026)
+
+### Phase 2: Calendar time tracking hub
+- **`components/time/types.ts`** — added `assignedTo` field to `TimeEntry` interface
+- **`lib/api/client.ts`** — added `timeEntryActiveAll()` method calling `GET /api/time-entries/active-all`
+- **`components/calendar/calendar-time-table.tsx`** — new component showing per-project time rows with play/stop buttons, live elapsed timer, client name, duration, billable amount, and actions menu (new)
+- **`components/calendar/time-entry-dialog.tsx`** — new dialog for creating/editing time entries from the calendar (reuses project list, date/duration pickers)
+- **`components/calendar/time-detail-dialog.tsx`** — new detail dialog with left/right arrow navigation through date items
+- **`app/(app)/calendar/view.tsx`** — major update:
+  - Added `time_entry` to `PlannerItem['kind']` and `FilterValue` types
+  - Added `assignedTo` to `PlannerItem`
+  - Added time entry state, client-side fetching, live elapsed timer for all active timers
+  - Added handlers: `handleTimeStart`, `handleTimeStop`, `handleTimeCreate`, `handleTimeUpdate`, `handleTimeDelete`
+  - Added time entries + active timers to `allItems` (shows as dots on calendar cells)
+  - Added `CalendarTimeTable` below the calendar grid (per-project timer rows)
+  - Added `TimeEntryDialog` and `TimeDetailDialog` for CRUD operations
+  - `ItemDetailDialog` delegates `time_entry` kind to `TimeDetailDialog`
+  - Added `useWorkspaceContext` for `isPersonal` check (time tracking only in personal workspaces)
+
 ## Session Summary (Jul 2, 2026)
 
 ### 1. Fixed "Transaction is immutable" Stellar SDK error

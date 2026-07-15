@@ -65,8 +65,27 @@ router.get('/active', async (req: Request, res: Response, next: NextFunction) =>
     const workspaceId = req.headers['x-workspace-id'] as string || '';
     if (!workspaceId) { res.status(400).json({ success: false, error: { message: 'x-workspace-id header required' } }); return; }
 
-    const active = await TimeEntriesService.getActive(user.id, workspaceId);
+    const projectId = req.query.projectId as string | undefined;
+    const active = await TimeEntriesService.getActive(user.id, workspaceId, projectId);
     res.json({ success: true, data: { entry: active } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── All Active Timers ────────────────────────────────────────────────────────
+
+router.get('/active-all', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+
+    const workspaceId = req.headers['x-workspace-id'] as string || '';
+    if (!workspaceId) { res.status(400).json({ success: false, error: { message: 'x-workspace-id header required' } }); return; }
+
+    const entries = await TimeEntriesService.getAllActive(user.id, workspaceId);
+    res.json({ success: true, data: { entries } });
   } catch (error) {
     next(error);
   }

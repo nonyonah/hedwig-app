@@ -131,7 +131,7 @@ function AttachmentRow({ name, size, type }: { name: string; size: string; type?
   return (
     <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2.5">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-surface)] shadow-xs">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-surface)] shadow-xs">
           <FileText className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
         </span>
         <div>
@@ -145,7 +145,7 @@ function AttachmentRow({ name, size, type }: { name: string; size: string; type?
             {type.charAt(0).toUpperCase() + type.slice(1)}
           </span>
         )}
-        <button type="button" className="rounded-lg p-1.5 transition hover:bg-[var(--color-border)]">
+        <button type="button" className="rounded-full p-1.5 transition hover:bg-[var(--color-border)]">
           <Eye className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
         </button>
       </div>
@@ -183,6 +183,9 @@ export function ThreadDetailPanel({
   const [showClientPicker, setShowClientPicker] = useState(false);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [isLinking, setIsLinking] = useState(false);
+  const [isImportingContract, setIsImportingContract] = useState(false);
+  const [isImportingExpense, setIsImportingExpense] = useState(false);
+  const [isImportingInvoice, setIsImportingInvoice] = useState(false);
 
   const suggestedClientName = useMemo(() => {
     if (thread.fromName?.trim()) return thread.fromName.trim();
@@ -210,9 +213,12 @@ export function ThreadDetailPanel({
   const patchCurrentThread = async (body: Record<string, unknown>, update: Partial<EmailThread>) => {
     setIsLinking(true);
     try {
-      const resp = await fetch(`/api/integrations/threads?id=${thread.id}`, {
+      const resp = await fetch(`/api/integrations/threads/${thread.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify(body),
       });
       if (!resp.ok) throw new Error('Could not update import');
@@ -254,6 +260,110 @@ export function ThreadDetailPanel({
       );
     } finally {
       setIsLinking(false);
+    }
+  };
+
+  const handleImportContract = async () => {
+    if (!accessToken) return;
+    setIsImportingContract(true);
+    try {
+      const clientName = thread.matchedClientName || thread.fromName || suggestedClientName;
+      const resp = await fetch('/api/documents/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          type: 'CONTRACT',
+          title: `Contract: ${thread.subject}`,
+          description: thread.summary || '',
+          clientName,
+          recipientEmail: thread.fromEmail,
+        }),
+      });
+      const payload = await resp.json();
+      if (!resp.ok || !payload.success) {
+        throw new Error(payload.error?.message || 'Failed to create contract');
+      }
+      await patchCurrentThread(
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'CONTRACT' },
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'CONTRACT' },
+      );
+    } catch {
+      // silently fail — contract creation may need a Pro license
+    } finally {
+      setIsImportingContract(false);
+    }
+  };
+
+  const handleImportExpense = async () => {
+    if (!accessToken) return;
+    setIsImportingExpense(true);
+    try {
+      const resp = await fetch('/api/revenue/expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          amount: thread.detectedAmount || 0,
+          currency: thread.detectedCurrency || 'USD',
+          note: thread.summary || thread.subject || '',
+          date: thread.detectedDueDate || thread.lastMessageAt?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+          clientId: thread.matchedClientId || null,
+        }),
+      });
+      const payload = await resp.json();
+      if (!resp.ok || !payload.success) {
+        throw new Error(payload.error?.message || 'Failed to create expense');
+      }
+      await patchCurrentThread(
+        { status: 'imported', matchedDocumentId: payload.data.id, matchedDocumentType: 'RECEIPT' },
+        { status: 'imported', matchedDocumentId: payload.data.id, matchedDocumentType: 'RECEIPT' },
+      );
+    } catch {
+      // silently fail
+    } finally {
+      setIsImportingExpense(false);
+    }
+  };
+
+  const handleImportInvoice = async () => {
+    if (!accessToken) return;
+    setIsImportingInvoice(true);
+    try {
+      const clientName = thread.matchedClientName || thread.fromName || suggestedClientName;
+      const resp = await fetch('/api/documents/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          type: 'INVOICE',
+          title: thread.subject || `Invoice from ${clientName}`,
+          amount: thread.detectedAmount || 0,
+          description: thread.summary || '',
+          clientName,
+          recipientEmail: thread.fromEmail,
+          dueDate: thread.detectedDueDate || new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+          remindersEnabled: true,
+        }),
+      });
+      const payload = await resp.json();
+      if (!resp.ok || !payload.success) {
+        throw new Error(payload.error?.message || 'Failed to create invoice');
+      }
+      await patchCurrentThread(
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'INVOICE' },
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'INVOICE' },
+      );
+    } catch {
+      // silently fail
+    } finally {
+      setIsImportingInvoice(false);
     }
   };
 
@@ -364,7 +474,7 @@ export function ThreadDetailPanel({
                 type="button"
                 disabled={isLinking || !accessToken}
                 onClick={() => void handleCreateClient()}
-                className="flex w-full items-center justify-between rounded-lg bg-[var(--color-accent-soft)] px-3 py-2.5 text-left transition hover:bg-[var(--color-primary-light)] disabled:opacity-60"
+                className="flex w-full items-center justify-between rounded-full bg-[var(--color-accent-soft)] px-3 py-2.5 text-left transition hover:bg-[var(--color-primary-light)] disabled:opacity-60"
               >
                 <span>
                   <span className="block text-[12px] font-semibold text-[var(--color-foreground)]">Create {suggestedClientName}</span>
@@ -379,7 +489,7 @@ export function ThreadDetailPanel({
                     type="button"
                     disabled={isLinking}
                     onClick={() => void handleLinkClient(client)}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition hover:bg-[var(--color-background)] disabled:opacity-60"
+                    className="flex w-full items-center justify-between rounded-full px-3 py-2 text-left transition hover:bg-[var(--color-background)] disabled:opacity-60"
                   >
                     <span>
                       <span className="block text-[12px] font-semibold text-[var(--color-foreground)]">{client.name}</span>
@@ -476,6 +586,37 @@ export function ThreadDetailPanel({
               <CheckCircle className="h-4 w-4" />
               Match confirmed
             </span>
+            {thread.detectedType === 'contract' && (
+              <button
+                type="button"
+                onClick={() => void handleImportContract()}
+                disabled={isImportingContract}
+                className="ml-auto flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-4 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
+              >
+                <FileText className="h-3 w-3" />
+                {isImportingContract ? 'Importing…' : 'Import as contract'}
+              </button>
+            )}
+            {thread.detectedType === 'receipt' && (
+              <button
+                type="button"
+                onClick={() => void handleImportExpense()}
+                disabled={isImportingExpense}
+                className="ml-auto flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-4 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
+              >
+                {isImportingExpense ? 'Importing…' : 'Import as expense'}
+              </button>
+            )}
+            {thread.detectedType === 'invoice' && (
+              <button
+                type="button"
+                onClick={() => void handleImportInvoice()}
+                disabled={isImportingInvoice}
+                className="ml-auto flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-4 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
+              >
+                {isImportingInvoice ? 'Importing…' : 'Create unpaid invoice'}
+              </button>
+            )}
             <button
               type="button"
               onClick={onIgnore}
@@ -494,6 +635,37 @@ export function ThreadDetailPanel({
               <Check className="h-3.5 w-3.5" />
               Confirm match
             </button>
+            {thread.detectedType === 'contract' && (
+              <button
+                type="button"
+                onClick={() => void handleImportContract()}
+                disabled={isImportingContract}
+                className="flex items-center justify-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                {isImportingContract ? 'Importing…' : 'Import as contract'}
+              </button>
+            )}
+            {thread.detectedType === 'receipt' && (
+              <button
+                type="button"
+                onClick={() => void handleImportExpense()}
+                disabled={isImportingExpense}
+                className="flex items-center justify-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
+              >
+                {isImportingExpense ? 'Importing…' : 'Import as expense'}
+              </button>
+            )}
+            {thread.detectedType === 'invoice' && (
+              <button
+                type="button"
+                onClick={() => void handleImportInvoice()}
+                disabled={isImportingInvoice}
+                className="flex items-center justify-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
+              >
+                {isImportingInvoice ? 'Importing…' : 'Create unpaid invoice'}
+              </button>
+            )}
             <button
               type="button"
               onClick={onIgnore}

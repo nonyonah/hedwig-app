@@ -82,7 +82,7 @@ export const WorkspaceService = {
         workspace_id,
         role,
         joined_at,
-        workspace:workspaces(id, name, type, owner_id, created_at)
+        workspace:workspaces(id, name, type, owner_id, created_at, icon)
       `)
       .eq('user_id', userId);
 
@@ -96,19 +96,21 @@ export const WorkspaceService = {
       name: row.workspace?.name,
       type: row.workspace?.type,
       ownerId: row.workspace?.owner_id,
+      icon: row.workspace?.icon || null,
       role: row.role as string,
       joinedAt: row.joined_at,
       createdAt: row.workspace?.created_at,
     }));
   },
 
-  async createWorkspace(userId: string, name: string, type: 'personal' | 'organization' = 'organization') {
+  async createWorkspace(userId: string, name: string, type: 'personal' | 'organization' = 'organization', icon?: string) {
     const { data: workspace, error } = await supabase
       .from('workspaces')
       .insert({
         name: name.trim(),
         type,
         owner_id: userId,
+        icon: icon || null,
       })
       .select()
       .single();
@@ -175,7 +177,7 @@ export const WorkspaceService = {
     };
   },
 
-  async updateWorkspace(workspaceId: string, userId: string, updates: { name?: string }) {
+  async updateWorkspace(workspaceId: string, userId: string, updates: { name?: string; icon?: string }) {
     const membership = await this.getMembership(workspaceId, userId);
     if (!membership || membership.role !== 'owner') {
       throw new Error('Only workspace owners can update the workspace');
@@ -183,6 +185,7 @@ export const WorkspaceService = {
 
     const payload: any = {};
     if (updates.name !== undefined) payload.name = updates.name.trim();
+    if (updates.icon !== undefined) payload.icon = updates.icon || null;
 
     const { data, error } = await supabase
       .from('workspaces')

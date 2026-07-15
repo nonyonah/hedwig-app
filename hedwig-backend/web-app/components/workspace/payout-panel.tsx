@@ -14,14 +14,13 @@ import { CHAIN_LABELS, type SendChain } from '@/lib/send/send-helpers';
 import Image from 'next/image';
 
 const CHAIN_ICONS: Record<string, string> = {
-  solana: '/icons/networks/solana.png',
   base: '/icons/networks/base.png',
   arbitrum: '/icons/networks/arbitrum.png',
   polygon: '/icons/networks/polygon.png',
   optimism: '/icons/networks/optimism.png',
 };
 
-const SUPPORTED_CHAINS: SendChain[] = ['solana', 'base', 'arbitrum', 'polygon', 'optimism'];
+const SUPPORTED_CHAINS: SendChain[] = ['base', 'arbitrum', 'polygon', 'optimism'];
 
 interface Member {
   userId: string;
@@ -49,14 +48,12 @@ interface PayoutRecord {
 }
 
 function getAddressForChain(member: Member, chain: SendChain): string | undefined {
-  if (chain === 'solana') return member.solanaWalletAddress;
   return member.ethereumWalletAddress;
 }
 
 function getDefaultChain(member: Member): SendChain {
-  if (member.solanaWalletAddress) return 'solana';
   if (member.ethereumWalletAddress) return 'base';
-  return 'solana';
+  return 'base';
 }
 
 export function PayoutPanel({

@@ -386,7 +386,7 @@ export function PublicEvmCheckout({
           </span>
         </div>
         <div>
-          <p className="text-sm font-medium text-[var(--color-text-tertiary)]">Crypto checkout</p>
+          <p className="text-sm font-medium text-[var(--color-text-tertiary)]">Stablecoin checkout</p>
           <p className="text-sm font-semibold text-[var(--color-foreground)]">{token} on {chainLabel}</p>
         </div>
       </div>

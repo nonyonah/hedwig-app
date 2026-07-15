@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowRight,
-  ArrowSquareOut,
   ArrowsClockwise,
   CaretLeft,
   CaretRight,
@@ -12,19 +10,25 @@ import {
   FlagPennant,
   FolderSimple,
   NotePencil,
+  Plus,
   Receipt,
   X,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { hedwigApi } from '@/lib/api/client';
 import { cn, formatShortDate } from '@/lib/utils';
 import type { Invoice, Milestone, Project, Reminder } from '@/lib/models/entities';
-import { openPaymentDetail } from '@/lib/payments/open-detail';
+import type { TimeEntry } from '@/components/time/types';
+import { CalendarTimeTable } from '@/components/calendar/calendar-time-table';
+import { DayDetailDialog } from '@/components/calendar/day-detail-dialog';
+import { TimeEntryDialog } from '@/components/calendar/time-entry-dialog';
+
+import type { FilterValue, PlannerItem } from '@/components/calendar/types';
 
 type CalendarView = 'day' | 'week' | 'month';
-type FilterValue = 'all' | 'reminder' | 'milestone' | 'invoice' | 'project';
 
 type CalendarData = {
   reminders: Reminder[];
@@ -33,15 +37,6 @@ type CalendarData = {
   projects: Project[];
 };
 
-type PlannerItem = {
-  id: string;
-  kind: 'reminder' | 'milestone' | 'invoice' | 'project';
-  title: string;
-  subtitle: string;
-  meta: string;
-  date: string;
-  href?: string;
-};
 
 const FILTERS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -49,6 +44,7 @@ const FILTERS: { value: FilterValue; label: string }[] = [
   { value: 'milestone', label: 'Milestones' },
   { value: 'invoice', label: 'Invoices' },
   { value: 'project', label: 'Projects' },
+  { value: 'time_entry', label: 'Time' },
 ];
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -87,6 +83,7 @@ const iconByKind = {
   milestone: FlagPennant,
   invoice: Receipt,
   project: FolderSimple,
+  time_entry: ClockCountdown,
 } satisfies Record<PlannerItem['kind'], typeof ClockCountdown>;
 
 const badgeToneByKind: Record<PlannerItem['kind'], string> = {
@@ -94,6 +91,7 @@ const badgeToneByKind: Record<PlannerItem['kind'], string> = {
   milestone: 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]',
   invoice: 'bg-[var(--color-warning-soft)] text-[var(--color-text-tertiary)]',
   project: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
+  time_entry: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
 };
 
 const dotColorByKind: Record<PlannerItem['kind'], string> = {
@@ -101,6 +99,7 @@ const dotColorByKind: Record<PlannerItem['kind'], string> = {
   milestone: 'bg-[var(--color-success)]',
   invoice: 'bg-[var(--color-warning)]',
   project: 'bg-[var(--color-accent)]',
+  time_entry: 'bg-[var(--color-primary)]',
 };
 
 // ─── Main client ──────────────────────────────────────────────────────────────
@@ -116,6 +115,7 @@ export function CalendarClient({
 }) {
   const router = useRouter();
   const today = useMemo(() => sod(new Date()), []);
+  const { activeWorkspace } = useWorkspaceContext();
 
   useAssistantPageContext('Calendar', {
     remindersCount: data.reminders.length,
@@ -130,7 +130,7 @@ export function CalendarClient({
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all');
   const [anchor, setAnchor] = useState<Date>(today);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [activeItem, setActiveItem] = useState<PlannerItem | null>(null);
+  const [dialogState, setDialogState] = useState<{ items: PlannerItem[]; index: number } | null>(null);
   const [editableReminders, setEditableReminders] = useState(data.reminders);
   const [isEditingReminder, setIsEditingReminder] = useState(false);
   const [isSavingReminder, setIsSavingReminder] = useState(false);
@@ -138,15 +138,125 @@ export function CalendarClient({
   const [draftTitle, setDraftTitle] = useState('');
   const [draftDueDate, setDraftDueDate] = useState('');
 
+  // Time entry state
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [activeTimers, setActiveTimers] = useState<TimeEntry[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; client?: { id: string; name: string } }[]>([]);
+  const [elapsedMap, setElapsedMap] = useState<Record<string, number>>({});
+  const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
+  const [editingTimeEntry, setEditingTimeEntry] = useState<TimeEntry | null>(null);
+  const [workspaceMembers, setWorkspaceMembers] = useState<{ id: string; name: string; email: string }[]>([]);
+
   useEffect(() => {
-    fetch('/api/integrations/status')
+    if (!accessToken) return;
+    fetch('/api/integrations/composio/status', {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    })
       .then((r) => r.json())
       .then((d: { success: boolean; data: Array<{ provider: string; status: string }> }) => {
         const gcal = d.data?.find((i) => i.provider === 'google_calendar');
         setGcalConnected(!!gcal && gcal.status === 'connected');
       })
       .catch(() => setGcalConnected(false));
-  }, []);
+  }, [accessToken]);
+
+  // Fetch time data on mount
+  const opts = { accessToken, disableMockFallback: true } as any;
+  const todayDate = today.toISOString().slice(0, 10);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const workspaceId = activeWorkspace?.id;
+    Promise.all([
+      hedwigApi.timeEntries({ from: todayDate, to: todayDate }, opts).catch(() => ({ entries: [] })),
+      hedwigApi.timeEntryActiveAll(opts).catch(() => ({ entries: [] })),
+      hedwigApi.projects(opts).catch(() => []),
+      workspaceId ? hedwigApi.workspaceMembers(workspaceId, opts).catch(() => ({ members: [] })) : Promise.resolve({ members: [] }),
+    ]).then(([entriesRes, activeRes, projList, membersRes]) => {
+      setTimeEntries(entriesRes.entries || []);
+      setActiveTimers(activeRes.entries || []);
+      setProjects(projList as any[]);
+      setWorkspaceMembers((membersRes as any)?.members || []);
+    });
+  }, [accessToken, activeWorkspace?.id]);
+
+  // Live elapsed timer for all active timers
+  useEffect(() => {
+    if (activeTimers.length === 0) { setElapsedMap({}); return; }
+    const tick = () => {
+      const next: Record<string, number> = {};
+      for (const t of activeTimers) {
+        const start = new Date(t.startTime).getTime();
+        next[t.id] = Math.max(0, Math.floor((Date.now() - start) / 1000));
+      }
+      setElapsedMap(next);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [activeTimers]);
+
+  const refreshTimeData = useCallback(async () => {
+    if (!accessToken) return;
+    const workspaceId = activeWorkspace?.id;
+    const [entriesRes, activeRes, projList, membersRes] = await Promise.all([
+      hedwigApi.timeEntries({ from: todayDate, to: todayDate }, opts).catch(() => ({ entries: [] })),
+      hedwigApi.timeEntryActiveAll(opts).catch(() => ({ entries: [] })),
+      hedwigApi.projects(opts).catch(() => []),
+      workspaceId ? hedwigApi.workspaceMembers(workspaceId, opts).catch(() => ({ members: [] })) : Promise.resolve({ members: [] }),
+    ]);
+    setTimeEntries(entriesRes.entries || []);
+    setActiveTimers(activeRes.entries || []);
+    setProjects(projList as any[]);
+    setWorkspaceMembers((membersRes as any)?.members || []);
+  }, [accessToken, activeWorkspace?.id]);
+
+  const handleTimeStart = async (projectId?: string, assignedTo?: string) => {
+    if (!accessToken) return;
+    try {
+      const res = await hedwigApi.createTimeEntry({ projectId, status: 'running', assignedTo: assignedTo || null }, opts);
+      setActiveTimers(prev => [res.entry, ...prev]);
+      refreshTimeData();
+    } catch {}
+  };
+
+  const handleTimeStop = async (entryId: string) => {
+    if (!accessToken) return;
+    try {
+      const res = await hedwigApi.updateTimeEntry(entryId, { action: 'stop' }, opts);
+      setActiveTimers(prev => prev.filter(t => t.id !== entryId));
+      setElapsedMap(prev => { const next = { ...prev }; delete next[entryId]; return next; });
+      refreshTimeData();
+    } catch {}
+  };
+
+  const handleTimeCreate = async (data: any) => {
+    if (!accessToken) return;
+    try {
+      await hedwigApi.createTimeEntry({ ...data, status: 'manual' }, opts);
+      setShowTimeEntryForm(false);
+      setEditingTimeEntry(null);
+      refreshTimeData();
+    } catch {}
+  };
+
+  const handleTimeUpdate = async (data: any) => {
+    if (!editingTimeEntry || !accessToken) return;
+    try {
+      await hedwigApi.updateTimeEntry(editingTimeEntry.id, data, opts);
+      setShowTimeEntryForm(false);
+      setEditingTimeEntry(null);
+      refreshTimeData();
+    } catch {}
+  };
+
+  const handleTimeDelete = async (id: string) => {
+    if (!accessToken) return;
+    try {
+      await hedwigApi.deleteTimeEntry(id, opts);
+      refreshTimeData();
+    } catch {}
+  };
 
   const allItems = useMemo<PlannerItem[]>(
     () =>
@@ -187,8 +297,26 @@ export function CalendarClient({
           date: i.nextDeadlineAt,
           href: `/projects/${i.id}`,
         })),
+        ...timeEntries.map((i) => ({
+          id: i.id,
+          kind: 'time_entry' as const,
+          title: i.project?.name || i.description || 'Time entry',
+          subtitle: i.description || (i.project?.name ? 'Time tracked' : 'No description'),
+          meta: 'Time entry',
+          date: i.startTime,
+          timeEntry: i,
+        })),
+        ...activeTimers.map((i) => ({
+          id: i.id,
+          kind: 'time_entry' as const,
+          title: i.project?.name || i.description || 'Running timer',
+          subtitle: i.description ? `Running · ${i.description}` : 'Running',
+          meta: 'Time entry',
+          date: i.startTime,
+          timeEntry: i,
+        })),
       ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
-    [editableReminders, data.milestones, data.invoices, data.projects]
+    [editableReminders, data.milestones, data.invoices, data.projects, timeEntries, activeTimers]
   );
 
   const filteredItems = useMemo(
@@ -198,6 +326,13 @@ export function CalendarClient({
 
   const itemsForDate = (d: Date) => filteredItems.filter((i) => sameDay(new Date(i.date), d));
   const hasEvents = (d: Date) => itemsForDate(d).length > 0;
+
+  const handleSelectItem = (item: PlannerItem) => {
+    const date = sod(new Date(item.date));
+    const dayItems = allItems.filter((i) => sameDay(new Date(i.date), date));
+    const index = dayItems.findIndex((i) => i.id === item.id);
+    setDialogState({ items: dayItems, index: Math.max(0, index) });
+  };
 
   const selectedReminder = useMemo(
     () =>
@@ -249,13 +384,32 @@ export function CalendarClient({
     try {
       await fetch('/api/integrations/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ provider: 'google_calendar' }),
       });
     } catch {
       // non-fatal
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const connectCalendar = async () => {
+    if (!accessToken) return;
+    try {
+      const resp = await fetch('/api/integrations/composio/connect/google_calendar', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      const payload = await resp.json();
+      if (resp.ok && payload.success && payload.data?.redirectUrl) {
+        window.location.assign(payload.data.redirectUrl);
+      }
+    } catch {
+      // non-fatal
     }
   };
 
@@ -379,12 +533,14 @@ export function CalendarClient({
                 </Button>
               </>
             ) : (
-              <a
-                href="/api/integrations/composio/connect/google_calendar"
-                className="inline-flex h-8 items-center gap-2 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-secondary)] shadow-xs transition hover:bg-[var(--color-background)]"
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={connectCalendar}
+                className="rounded-full px-3 text-[13px] font-medium"
               >
                 Connect Google Calendar
-              </a>
+              </Button>
             ))}
           {/* View switcher */}
           <div className="flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-0.5">
@@ -472,7 +628,7 @@ export function CalendarClient({
               hasEvents={hasEvents}
               weekGroups={weekGroups}
               selectedReminder={selectedReminder}
-              onSelectItem={setActiveItem}
+              onSelectItem={handleSelectItem}
               onClearDate={() => setSelectedDate(null)}
               onClearReminder={() => router.push('/calendar')}
               isEditingReminder={isEditingReminder}
@@ -494,7 +650,7 @@ export function CalendarClient({
               selectedDate={selectedDate}
               onSelectDate={handleSelectDate}
               itemsForDate={itemsForDate}
-              onSelectItem={setActiveItem}
+              onSelectItem={handleSelectItem}
             />
           )}
           {view === 'day' && (
@@ -509,32 +665,71 @@ export function CalendarClient({
               }}
               hasEvents={hasEvents}
               dayItems={dayItems}
-              onSelectItem={setActiveItem}
+              onSelectItem={handleSelectItem}
             />
           )}
         </div>
 
-        {/* Item detail dialog */}
-        {activeItem && (
-          <ItemDetailDialog
-            item={activeItem}
+        {/* Unified day detail dialog */}
+        {dialogState && (
+          <DayDetailDialog
+            items={dialogState.items}
+            currentIndex={dialogState.index}
+            onIndexChange={(idx) => setDialogState((prev) => prev ? { ...prev, index: idx } : null)}
             editableReminders={editableReminders}
             setEditableReminders={setEditableReminders}
             accessToken={accessToken}
+            workspaceMembers={workspaceMembers}
             onNavigate={(href) => {
-              const invoiceMatch = href.match(/^\/payments\?invoice=([^&]+)/);
-              if (invoiceMatch?.[1]) {
-                setActiveItem(null);
-                openPaymentDetail('invoice', decodeURIComponent(invoiceMatch[1]));
-                return;
-              }
-              setActiveItem(null);
+              setDialogState(null);
               router.push(href);
             }}
-            onClose={() => setActiveItem(null)}
+            onClose={() => setDialogState(null)}
           />
         )}
       </section>
+
+      {/* Time table */}
+      {accessToken && (
+        <>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Time tracking</h2>
+              <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">
+                Per-project timers for {selectedDate ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'today'}.
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => { setEditingTimeEntry(null); setShowTimeEntryForm(true); }}>
+              <Plus className="h-3.5 w-3.5" weight="bold" /> Log time
+            </Button>
+          </div>
+          <CalendarTimeTable
+            entries={timeEntries}
+            activeTimers={activeTimers}
+            projects={projects}
+            accessToken={accessToken}
+            selectedDate={selectedDate}
+            onStart={handleTimeStart}
+            onStop={handleTimeStop}
+            onEdit={(entry) => { setEditingTimeEntry(entry); setShowTimeEntryForm(true); }}
+            onDelete={handleTimeDelete}
+            elapsed={elapsedMap}
+            workspaceMembers={workspaceMembers}
+          />
+        </>
+      )}
+
+      {/* Time entry dialogs */}
+      {showTimeEntryForm && (
+        <TimeEntryDialog
+          initial={editingTimeEntry}
+          selectedDate={selectedDate}
+          accessToken={accessToken}
+          workspaceMembers={workspaceMembers}
+          onSave={editingTimeEntry ? handleTimeUpdate : handleTimeCreate}
+          onClose={() => { setShowTimeEntryForm(false); setEditingTimeEntry(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -1137,197 +1332,6 @@ function EventRow({
 }
 
 // ─── Item detail dialog ───────────────────────────────────────────────────────
-
-function ItemDetailDialog({
-  item,
-  editableReminders,
-  setEditableReminders,
-  accessToken,
-  onNavigate,
-  onClose,
-}: {
-  item: PlannerItem;
-  editableReminders: Reminder[];
-  setEditableReminders: React.Dispatch<React.SetStateAction<Reminder[]>>;
-  accessToken: string | null;
-  onNavigate: (href: string) => void;
-  onClose: () => void;
-}) {
-  const Icon = iconByKind[item.kind];
-  const isReminder = item.kind === 'reminder';
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [draftTitle, setDraftTitle] = useState(item.title);
-  const [draftDueDate, setDraftDueDate] = useState(item.date.slice(0, 10));
-
-  const saveEdit = async () => {
-    if (!draftTitle.trim() || !draftDueDate || !accessToken) return;
-    const orig = editableReminders.find((r) => r.id === item.id);
-    const nextDueAt = orig?.dueAt?.includes('T')
-      ? `${draftDueDate}${orig.dueAt.slice(orig.dueAt.indexOf('T'))}`
-      : `${draftDueDate}T09:00:00.000Z`;
-    setIsSaving(true);
-    setFeedback(null);
-    try {
-      const updated = await hedwigApi.updateCalendarEvent(
-        item.id,
-        { title: draftTitle.trim(), eventDate: nextDueAt },
-        { accessToken, disableMockFallback: true }
-      );
-      setEditableReminders((curr) => curr.map((r) => (r.id === updated.id ? updated : r)));
-      setIsEditing(false);
-      setFeedback('Reminder updated.');
-    } catch (err: any) {
-      setFeedback(err?.message || 'Failed to update.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
-          <div className="flex items-center gap-3">
-            <span
-              className={cn(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                badgeToneByKind[item.kind]
-              )}
-            >
-              <Icon className="h-4.5 w-4.5" weight="bold" />
-            </span>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-                {item.meta}
-              </p>
-              <p className="mt-0.5 text-[15px] font-semibold text-[var(--color-foreground)] leading-tight">
-                {isEditing ? draftTitle : item.title}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-text-muted)] transition duration-150 hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-tertiary)]"
-          >
-            <X className="h-4 w-4" weight="bold" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="space-y-3 px-5 py-4">
-          {feedback && (
-            <div className="rounded-xl border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
-              {feedback}
-            </div>
-          )}
-
-          {isEditing ? (
-            <>
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-                  Title
-                </p>
-                <Input
-                  value={draftTitle}
-                  onChange={(e) => setDraftTitle(e.target.value)}
-                  className="bg-[var(--color-surface)]"
-                />
-              </div>
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-                  Due date
-                </p>
-                <Input
-                  type="date"
-                  value={draftDueDate}
-                  onChange={(e) => setDraftDueDate(e.target.value)}
-                  className="bg-[var(--color-surface)]"
-                />
-              </div>
-            </>
-          ) : (
-            <dl className="space-y-3">
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-                  Date
-                </dt>
-                <dd className="mt-0.5 text-[13px] font-medium text-[var(--color-foreground)]">
-                  {new Date(item.date).toLocaleString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-                  Status
-                </dt>
-                <dd className="mt-0.5 text-[13px] font-medium text-[var(--color-foreground)] capitalize">
-                  {item.subtitle}
-                </dd>
-              </div>
-            </dl>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between gap-2 border-t border-[var(--color-surface-tertiary)] px-5 py-4">
-          {isEditing ? (
-            <div className="flex gap-2">
-              <Button size="sm" type="button" disabled={isSaving} onClick={saveEdit}>
-                {isSaving ? 'Saving…' : 'Save'}
-              </Button>
-              <Button
-                size="sm"
-                type="button"
-                variant="secondary"
-                disabled={isSaving}
-                onClick={() => { setIsEditing(false); setFeedback(null); setDraftTitle(item.title); setDraftDueDate(item.date.slice(0, 10)); }}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              {isReminder && (
-                <Button size="sm" type="button" variant="secondary" onClick={() => setIsEditing(true)}>
-                  <NotePencil className="h-3.5 w-3.5" weight="bold" />
-                  Edit
-                </Button>
-              )}
-              {item.href && (
-                <Button size="sm" type="button" variant="secondary" onClick={() => onNavigate(item.href!)}>
-                  <ArrowSquareOut className="h-3.5 w-3.5" weight="bold" />
-                  Open
-                </Button>
-              )}
-            </div>
-          )}
-          {!isEditing && isReminder && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-[12px] font-semibold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
-            >
-              Clear
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function EmptyState({ message }: { message: string }) {
   return (

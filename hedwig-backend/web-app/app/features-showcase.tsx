@@ -5,25 +5,25 @@ import Image from 'next/image';
 
 const ITEMS = [
   {
-    title: 'Receive — collect from anywhere',
+    title: 'Collect',
     description:
       'Generate branded payment links or invoices in seconds. Your customers pay from any wallet, anywhere in the world — no routing numbers, no currency confusion.',
     preview: <ReceivePanel />,
   },
   {
-    title: 'Manage — one treasury view',
+    title: 'Hold',
     description:
       'See your entire balance in one place. Track collected, pending, and settled funds. Convert between currencies when the rate works for you.',
     preview: <ManagePanel />,
   },
   {
-    title: 'Move — settle on your terms',
+    title: 'Move',
     description:
       'Auto-settle daily to your bank account or withdraw on demand. No minimums, no holds. Batch payouts to team members, contractors, or suppliers.',
     preview: <MovePanel />,
   },
   {
-    title: 'Scale — AI-powered workflows',
+    title: 'Automate',
     description:
       'Your AI assistant handles the routine — surfacing insights, flagging anomalies, and recommending actions. Connect your tools and let Hedwig do the heavy lifting.',
     preview: <ScalePanel />,
@@ -52,7 +52,7 @@ export function FeaturesShowcase() {
               The platform
             </p>
             <h2 className="mb-14 text-[32px] font-bold tracking-[-0.04em] text-[var(--color-foreground)] md:text-[42px]">
-              From receiving payments<br />to scaling globally.
+              A financial platform,<br />not a patchwork of tools.
             </h2>
 
             <div className="relative">

@@ -1021,6 +1021,18 @@ export const hedwigApi = {
     return { emailSent: Boolean(data.emailSent), clientEmail: data.clientEmail };
   },
 
+  async createProjectSimple(input: {
+    title: string;
+    deadline?: string;
+    clientName?: string;
+  }, options?: ApiOptions): Promise<{ project: any }> {
+    return request<{ project: any }>('/api/projects', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  },
+
   async createProjectFlow(
     input: CreateProjectFlowInput,
     options?: ApiOptions
@@ -2174,14 +2186,14 @@ export const hedwigApi = {
     return request<{ workspace: any }>(`/api/workspaces/${id}`, options);
   },
 
-  async createWorkspace(name: string, options?: ApiOptions): Promise<{ workspace: any }> {
+  async createWorkspace(name: string, icon?: string, options?: ApiOptions): Promise<{ workspace: any }> {
     return request<{ workspace: any }>('/api/workspaces', options, {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, icon }),
     });
   },
 
-  async updateWorkspace(id: string, data: { name?: string }, options?: ApiOptions): Promise<{ workspace: any }> {
+  async updateWorkspace(id: string, data: { name?: string; icon?: string }, options?: ApiOptions): Promise<{ workspace: any }> {
     return request<{ workspace: any }>(`/api/workspaces/${id}`, options, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -2323,6 +2335,46 @@ export const hedwigApi = {
     });
   },
 
+  async importStatementParse(file: File, options?: ApiOptions): Promise<Record<string, unknown>> {
+    if (!options?.accessToken) throw new Error('Missing access token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${backendConfig.apiBaseUrl}/api/revenue/import-statement/parse`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${options.accessToken}` },
+      body: formData,
+    });
+    const raw = await res.text();
+    let payload: any;
+    try { payload = JSON.parse(raw); } catch {
+      throw new Error(`Server returned non-JSON. Response started with: ${raw.slice(0, 120).replace(/\s+/g, ' ').trim()}`);
+    }
+    if (!res.ok || !payload?.success) throw new Error(payload?.error?.message || 'Import parse failed');
+    return payload.data;
+  },
+
+  async importStatementConfirm(payload: {
+    statementId: string;
+    transactions: Array<{
+      id: string;
+      type: string;
+      amount: number;
+      currency?: string;
+      category?: string;
+      description?: string;
+      transactionDate?: string;
+      matchedClientId?: string | null;
+      matchedProjectId?: string | null;
+      status: string;
+    }>;
+  }, options?: ApiOptions): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>('/api/revenue/import-statement/confirm', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
   // ── Time Entries ────────────────────────────────────────────────────────────
 
   async timeEntries(filters?: { from?: string; to?: string; projectId?: string; status?: string }, options?: ApiOptions) {
@@ -2339,13 +2391,17 @@ export const hedwigApi = {
     return request<{ entry: any | null }>('/api/time-entries/active', options);
   },
 
+  async timeEntryActiveAll(options?: ApiOptions) {
+    return request<{ entries: any[] }>('/api/time-entries/active-all', options);
+  },
+
   async timeSummary(options?: ApiOptions) {
     return request<{ summary: any }>('/api/time-entries/summary', options);
   },
 
   async createTimeEntry(input: {
     projectId?: string; description?: string; startTime?: string; endTime?: string;
-    durationSeconds?: number; hourlyRate?: number; status?: string;
+    durationSeconds?: number; hourlyRate?: number; status?: string; assignedTo?: string | null;
   }, options?: ApiOptions) {
     return request<{ entry: any }>('/api/time-entries', options, {
       method: 'POST',
@@ -2354,7 +2410,7 @@ export const hedwigApi = {
     });
   },
 
-  async updateTimeEntry(id: string, input: { description?: string; hourlyRate?: number; projectId?: string; startTime?: string; endTime?: string; durationSeconds?: number; action?: string }, options?: ApiOptions) {
+  async updateTimeEntry(id: string, input: { description?: string; hourlyRate?: number; projectId?: string; startTime?: string; endTime?: string; durationSeconds?: number; action?: string; assignedTo?: string | null }, options?: ApiOptions) {
     return request<{ entry: any }>(`/api/time-entries/${id}`, options, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

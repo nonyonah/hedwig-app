@@ -32,8 +32,8 @@ type GmailAttachmentPart = {
   mimeType: string;
 };
 
-const IMPORTABLE_THREAD_TYPES = new Set(['invoice', 'contract']);
-const SKIPPED_THREAD_TYPES = new Set(['receipt', 'proposal', 'other']);
+const IMPORTABLE_THREAD_TYPES = new Set(['invoice', 'contract', 'receipt', 'proposal', 'other']);
+const SKIPPED_THREAD_TYPES = new Set<string>();
 const DOCUMENT_KEYWORDS = [
   'invoice',
   'contract',

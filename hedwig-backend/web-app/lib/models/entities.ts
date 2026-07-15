@@ -22,6 +22,7 @@ export interface Workspace {
   type: 'personal' | 'organization';
   plan: 'beta' | 'growth' | 'scale';
   timezone: string;
+  icon?: string;
 }
 
 export interface WorkspaceMember {

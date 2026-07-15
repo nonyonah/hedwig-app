@@ -63,6 +63,24 @@ export function NotificationBell({
   }, [unreadCount]);
 
   useEffect(() => {
+    if (!accessToken) return;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${backendConfig.apiBaseUrl}/api/notifications/unread-count`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json?.success && typeof json.data?.count === 'number') {
+          setLocalUnread(json.data.count);
+        }
+      } catch { /* silent */ }
+    };
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
+  }, [accessToken]);
+
+  useEffect(() => {
     const handlePointerDown = (e: MouseEvent) => {
       if (!panelRef.current?.contains(e.target as Node)) {
         setOpen(false);

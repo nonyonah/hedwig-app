@@ -253,8 +253,9 @@ export async function runAgentChat(params: {
   userId: string;
   history: AgentChatMessage[];
   userMessage: string;
+  context?: { page?: string; route?: string; data?: Record<string, unknown>; workspace?: { id: string; name: string } };
 }): Promise<AgentChatResult> {
-  const { userId, history, userMessage } = params;
+  const { userId, history, userMessage, context } = params;
   await refreshConnectionsForUser(userId);
   const externalTools = await getComposioToolsForUser(userId, { includeWrites: true });
   const commercialTools = await getCommercialToolsForUser(userId);
@@ -266,11 +267,23 @@ export async function runAgentChat(params: {
     ? history.slice(-12).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', content: m.content }))
     : undefined;
 
+  let instruction = CHAT_SYSTEM_INSTRUCTION;
+  if (context?.workspace || context?.page) {
+    const parts: string[] = [];
+    if (context.workspace) {
+      parts.push(`You are currently looking at the workspace "${context.workspace.name}" (id: ${context.workspace.id}). All workspace tool calls will return data scoped to this workspace.`);
+    }
+    if (context.page) {
+      parts.push(`The user is on the "${context.page}" page${context.route ? ` (${context.route})` : ''}.`);
+    }
+    instruction = `${CHAT_SYSTEM_INSTRUCTION}\n\nCurrent context:\n${parts.join('\n')}`;
+  }
+
   try {
     const result = await hedwigAgentOrchestrator.run<unknown>({
       userId,
       role: 'dispatcher',
-      instruction: CHAT_SYSTEM_INSTRUCTION,
+      instruction,
       userMessage,
       conversationHistory,
       tools: [...workspaceTools, ...hedwigNativeTools, ...externalTools, ...commercialTools],

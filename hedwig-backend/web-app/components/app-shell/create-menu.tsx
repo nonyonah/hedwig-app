@@ -617,8 +617,9 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
         setOpen(next);
         if (!next) resetForms();
       }}
+      size="2xl"
     >
-      <DialogContent className="max-w-[720px]">
+      <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-3">
             {flow !== 'menu' && (
@@ -1332,7 +1333,7 @@ function FormSelect({
   disabled?: boolean;
 }) {
   return (
-    <div className="relative flex h-10 w-full items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent)]/15">
+    <div className="relative flex h-10 w-full items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent)]/15">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -1365,7 +1366,7 @@ function Textarea({
       onChange={onChange}
       placeholder={placeholder}
       rows={3}
-      className="min-h-[88px] w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2.5 text-[13px] text-[var(--color-text-primary)] shadow-xs outline-none placeholder:text-[var(--color-text-muted)] transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/15"
+      className="min-h-[88px] w-full resize-none rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2.5 text-[13px] text-[var(--color-text-primary)] shadow-xs outline-none placeholder:text-[var(--color-text-muted)] transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/15"
     />
   );
 }

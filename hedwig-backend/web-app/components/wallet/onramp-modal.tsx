@@ -176,7 +176,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleClose}>
       <div className="relative w-full max-w-[440px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
-        <button onClick={handleClose} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
+        <button onClick={handleClose} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
         <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
           <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">
             {step === 'kyc' ? 'Identity Verification' : step === 'payment' ? 'Payment details' : step === 'success' ? 'Funding started' : 'Fund via Bank Transfer'}
@@ -233,7 +233,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
                 </div>
               )}
 
-              {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+              {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
             </>
           )}
 
@@ -241,14 +241,14 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
             <>
               <div>
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Currency</span>
-                <select value={currency} onChange={e => { setCurrency(e.target.value); setInstitution(''); setAccountResolved(false); }} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                <select value={currency} onChange={e => { setCurrency(e.target.value); setInstitution(''); setAccountResolved(false); }} className="mt-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
                   {Object.entries(SUPPORTED_CURRENCIES).map(([k, v]) => (<option key={k} value={k}>{v.flag} {v.label}</option>))}
                 </select>
               </div>
 
               <div>
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount ({currency})</span>
-                <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[14px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
+                <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="mt-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[14px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
                 {rate && <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">≈ {rate} USDC</p>}
               </div>
 
@@ -258,7 +258,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
                   <select
                     value={institution}
                     onChange={e => { setInstitution(e.target.value); setAccountResolved(false); }}
-                    className="mb-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]"
+                    className="mb-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)]"
                   >
                     <option value="">Select institution</option>
                     {institutions.map((i: any) => (
@@ -274,7 +274,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
                   value={accountIdentifier}
                   onChange={e => { setAccountIdentifier(e.target.value); setAccountResolved(false); }}
                   onBlur={handleVerifyAccount}
-                  className="mb-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
+                  className="mb-2 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
                 />
                 <div className="relative">
                   <input
@@ -283,7 +283,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
                     value={verifyingAccount ? 'Verifying...' : accountName}
                     readOnly={accountResolved}
                     onChange={e => setAccountName(e.target.value)}
-                    className={`w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] ${accountResolved ? 'opacity-70' : ''}`}
+                    className={`w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)] ${accountResolved ? 'opacity-70' : ''}`}
                   />
                   {verifyingAccount && (
                     <svg className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none">
@@ -293,7 +293,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
                   )}
                 </div>
               </div>
-              {error && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+              {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
             </>
           )}
 
@@ -301,7 +301,7 @@ export function OnrampModal({ open, onClose, accessToken }: OnrampModalProps) {
             <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-center">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Bank</p>
               <p className="mt-1 text-[14px] font-semibold text-[var(--color-foreground)]">{order.providerAccount?.accountName || '—'}</p>
-              <div className="mt-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] p-3">
+              <div className="mt-3 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] p-3">
                 <p className="text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{order.providerAccount?.accountIdentifier || '—'}</p>
                 <button onClick={() => navigator.clipboard.writeText(order.providerAccount?.accountIdentifier || '')} className="mt-1 text-[11px] text-[var(--color-primary)] hover:underline">Copy</button>
               </div>

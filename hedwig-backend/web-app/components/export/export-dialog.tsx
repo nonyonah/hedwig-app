@@ -89,8 +89,8 @@ export function ExportDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[480px]">
+    <Dialog open={open} onOpenChange={onOpenChange} size="2xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Export data</DialogTitle>
           <DialogDescription>Download a clean CSV file for accounting or record-keeping.</DialogDescription>

@@ -13,8 +13,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
     <HeroUICard
       variant="default"
       className={cn(
-        // Hedwig-specific overrides on top of HeroUI's default card styling
-        'rounded-xl bg-[var(--color-surface)] text-[var(--color-text-primary)] shadow-xs ring-1 ring-[var(--color-border)]',
+        'rounded-xl bg-[var(--color-surface)] text-[var(--color-text-primary)] ring-1 ring-[var(--color-border)]',
         className
       )}
       {...props}
@@ -26,7 +25,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   // HeroUI Card.Header already gives us a clean header block
-  return <HeroUICard.Header className={cn('flex flex-col gap-1 p-5', className)} {...props} />;
+  return <HeroUICard.Header className={cn('flex flex-col gap-1 px-6 pb-0 pt-6', className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -38,5 +37,9 @@ export function CardDescription({ className, ...props }: React.HTMLAttributes<HT
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <HeroUICard.Content className={cn('px-5 pb-5', className)} {...props} />;
+  return <HeroUICard.Content className={cn('px-6 pb-6', className)} {...props} />;
+}
+
+export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <HeroUICard.Footer className={cn('flex items-center gap-3 border-t border-[var(--color-surface-tertiary)] px-6 py-4', className)} {...props} />;
 }
