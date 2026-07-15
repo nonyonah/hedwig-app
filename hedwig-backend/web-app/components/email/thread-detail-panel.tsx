@@ -287,8 +287,8 @@ export function ThreadDetailPanel({
         throw new Error(payload.error?.message || 'Failed to create contract');
       }
       await patchCurrentThread(
-        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'CONTRACT' },
-        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'CONTRACT' },
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'contract' },
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'contract' },
       );
     } catch {
       // silently fail — contract creation may need a Pro license
@@ -320,8 +320,8 @@ export function ThreadDetailPanel({
         throw new Error(payload.error?.message || 'Failed to create expense');
       }
       await patchCurrentThread(
-        { status: 'imported', matchedDocumentId: payload.data.id, matchedDocumentType: 'RECEIPT' },
-        { status: 'imported', matchedDocumentId: payload.data.id, matchedDocumentType: 'RECEIPT' },
+        { status: 'imported', matchedDocumentId: payload.data.id, matchedDocumentType: 'receipt' },
+        { status: 'imported', matchedDocumentId: payload.data.id, matchedDocumentType: 'receipt' },
       );
     } catch {
       // silently fail
@@ -357,8 +357,8 @@ export function ThreadDetailPanel({
         throw new Error(payload.error?.message || 'Failed to create invoice');
       }
       await patchCurrentThread(
-        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'INVOICE' },
-        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'INVOICE' },
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'invoice' },
+        { status: 'imported', matchedDocumentId: payload.data.document.id, matchedDocumentType: 'invoice' },
       );
     } catch {
       // silently fail

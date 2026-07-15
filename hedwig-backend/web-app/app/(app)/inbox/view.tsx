@@ -66,7 +66,7 @@ async function fetchThreadsFromApi(): Promise<{ threads: EmailThread[] }> {
   }
 }
 
-async function patchThread(id: string, body: Record<string, unknown>, accessToken?: string): Promise<void> {
+async function patchThread(id: string, body: Record<string, unknown>, accessToken: string | null = null): Promise<void> {
   await fetch(`/api/integrations/threads/${id}`, {
     method: 'PATCH',
     headers: {
