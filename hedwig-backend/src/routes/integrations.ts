@@ -977,7 +977,7 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
     return;
   }
 
-  const { documentId, documentType } = req.body as { documentId?: string; documentType?: string };
+  const { documentId } = req.body as { documentId?: string; documentType?: string };
   if (!documentId) { res.status(400).json({ success: false, error: 'documentId is required' }); return; }
 
   try {
