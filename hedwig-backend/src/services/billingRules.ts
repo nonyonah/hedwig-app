@@ -13,7 +13,10 @@ export type ProFeature =
     | 'composio_integrations'
     | 'multi_bank_accounts'
     | 'revenue_history'
-    | 'creation_box';
+    | 'creation_box'
+    | 'team_member_limit'
+    | 'payroll'
+    | 'multi_workspace';
 
 /**
  * Free-plan caps. Volume caps are Infinity — document creation is unlimited on
@@ -26,6 +29,8 @@ export const FREE_PLAN_LIMITS = {
     contractsPerMonth: Infinity,
     bankAccounts: 1,
     revenueHistoryDays: 30,
+    teamMembers: 3,
+    orgWorkspaces: 1,
 } as const;
 
 /**
@@ -191,7 +196,25 @@ function getFeatureMessage(feature: ProFeature): string {
             return `Free plan revenue history covers the last ${FREE_PLAN_LIMITS.revenueHistoryDays} days. Upgrade to Starter or Pro for full history.`;
         case 'creation_box':
             return 'Creation Box (AI invoice creation) is a Pro feature.';
+        case 'team_member_limit':
+            return `Free plan is limited to ${FREE_PLAN_LIMITS.teamMembers} team members. Upgrade to Pro for unlimited members.`;
+        case 'payroll':
+            return 'Scheduled/recurring payroll is a Pro feature. One-time payroll runs are free.';
+        case 'multi_workspace':
+            return `Free plan includes ${FREE_PLAN_LIMITS.orgWorkspaces} organization workspace. Upgrade to Pro for multiple organization workspaces.`;
     }
+}
+
+export function getTeamMemberLimit(plan: HedwigPlan): number {
+    if (plan === 'pro') return Infinity;
+    if (plan === 'starter') return 10;
+    return FREE_PLAN_LIMITS.teamMembers;
+}
+
+export function getOrgWorkspaceLimit(plan: HedwigPlan): number {
+    if (plan === 'pro') return Infinity;
+    if (plan === 'starter') return 3;
+    return FREE_PLAN_LIMITS.orgWorkspaces;
 }
 
 /**

@@ -3,6 +3,8 @@ import { authenticate } from '../middleware/auth';
 import { getOrCreateUser } from '../utils/userHelper';
 import { WorkspaceService } from '../services/workspace';
 import { getWorkspaceRole } from '../middleware/workspaceRole';
+import { getUserPlan, requireProFeatureAccess, getOrgWorkspaceLimit, getTeamMemberLimit } from '../services/billingRules';
+import { supabase } from '../lib/supabase';
 
 const router = Router();
 
@@ -48,6 +50,22 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
     }
 
     const wsType = (type === 'personal') ? 'personal' : 'organization';
+
+    if (wsType === 'organization') {
+      const plan = await getUserPlan(user);
+      const limit = getOrgWorkspaceLimit(plan);
+      if (limit !== Infinity) {
+        const { count } = await supabase
+          .from('workspaces')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', user.id)
+          .eq('type', 'organization');
+        if ((count ?? 0) >= limit) {
+          res.status(403).json({ success: false, error: { message: `Free plan is limited to ${limit} organization workspace. Upgrade to Pro for unlimited workspaces.` } });
+          return;
+        }
+      }
+    }
 
     const workspace = await WorkspaceService.createWorkspace(user.id, name, wsType, icon);
 
@@ -322,6 +340,20 @@ router.post('/:id/invitations', authenticate, async (req: Request, res: Response
     if (!email || !email.trim()) {
       res.status(400).json({ success: false, error: { message: 'Email is required' } });
       return;
+    }
+
+    // Check team member limit for non-Pro plans
+    const plan = await getUserPlan(user);
+    const memberLimitCheck = await requireProFeatureAccess(user, 'team_member_limit');
+    if (!memberLimitCheck.allowed) {
+      const { count } = await supabase
+        .from('workspace_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('workspace_id', id);
+      if ((count ?? 0) >= getTeamMemberLimit(plan)) {
+        res.status(403).json({ success: false, error: { message: memberLimitCheck.message } });
+        return;
+      }
     }
 
     const invitation = await WorkspaceService.createInvitation(id, user.id, email, role || 'member');

@@ -393,22 +393,46 @@ export function DashboardClient({
           </div>
         </article>
 
-        {/* Right: workstream stat mini-cards */}
-        <AttachedStatGrid
-          items={dashboardState.workstreamCards.map((card) => ({
-            id: card.id,
-            title: card.title,
-            value: card.value,
-            helper: card.helper,
-            icon: card.icon,
-            href: card.href,
-          }))}
-          className="grid-cols-2"
-        />
+        {/* Right: workstream stat mini-cards + next reminder */}
+        <div className="flex flex-col gap-3">
+          <AttachedStatGrid
+            items={dashboardState.workstreamCards.map((card) => ({
+              id: card.id,
+              title: card.title,
+              value: card.value,
+              helper: card.helper,
+              icon: card.icon,
+              href: card.href,
+            }))}
+            className="grid-cols-2"
+          />
+
+          <article className="rounded-2xl bg-[var(--color-surface)] p-4 shadow-xs ring-1 ring-[var(--color-border)]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarDots className="h-4 w-4 text-[var(--color-text-muted)]" weight="regular" />
+                <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Next reminder</p>
+              </div>
+              <Link href="/calendar" className="text-[12px] font-medium text-[var(--color-accent)] hover:underline">
+                View all
+              </Link>
+            </div>
+            <div className="mt-2">
+              {dashboardState.latestReminder ? (
+                <>
+                  <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{dashboardState.latestReminder.title}</p>
+                  <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
+                </>
+              ) : (
+                <p className="text-[13px] text-[var(--color-text-muted)]">No pending reminders</p>
+              )}
+            </div>
+          </article>
+        </div>
       </div>
 
-      {/* Bottom row: assistant summary + next reminder */}
-      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+      {/* Bottom row: assistant summary */}
+      <div>
         {canUseAssistantSummary ? (
           <AssistantPanel className="max-h-[560px]" />
         ) : (
@@ -418,32 +442,6 @@ export function DashboardClient({
             compact
           />
         )}
-
-        <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[16px] font-semibold text-[var(--color-foreground)]">Next reminder</p>
-            <CalendarDots className="h-4 w-4 text-[var(--color-text-muted)]" weight="regular" />
-          </div>
-          {dashboardState.latestReminder ? (
-            <>
-              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{dashboardState.latestReminder.title}</p>
-              <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
-            </>
-          ) : (
-            <>
-              <p className="text-[14px] font-semibold text-[var(--color-text-secondary)]">No pending reminders</p>
-              <p className="mt-1 text-[13px] text-[var(--color-text-muted)]">You are caught up for now.</p>
-            </>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-4 rounded-lg"
-            asChild
-          >
-            <Link href="/calendar">View calendar</Link>
-          </Button>
-        </article>
       </div>
     </div>
   );

@@ -49,9 +49,12 @@ import { ImportInvoiceModal } from '@/components/email/import-invoice-modal';
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
-async function fetchThreadsFromApi(): Promise<{ threads: EmailThread[] }> {
+async function fetchThreadsFromApi(accessToken?: string | null): Promise<{ threads: EmailThread[] }> {
   try {
-    const resp = await fetch('/api/integrations/threads?limit=20', { cache: 'no-store' });
+    const resp = await fetch('/api/integrations/threads?limit=20', {
+      cache: 'no-store',
+      headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+    });
     const text = await resp.text();
     let json: any = {};
     try { json = JSON.parse(text); } catch { console.error('[inbox] non-JSON response:', text.slice(0, 200)); }
@@ -67,7 +70,7 @@ async function fetchThreadsFromApi(): Promise<{ threads: EmailThread[] }> {
 }
 
 async function patchThread(id: string, body: Record<string, unknown>, accessToken: string | null = null): Promise<void> {
-  await fetch(`/api/integrations/threads/${id}`, {
+  const resp = await fetch(`/api/integrations/threads/${id}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -75,6 +78,10 @@ async function patchThread(id: string, body: Record<string, unknown>, accessToke
     },
     body: JSON.stringify(body),
   });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => null);
+    throw new Error(err?.error || `Failed to update thread (${resp.status})`);
+  }
 }
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
@@ -332,10 +339,10 @@ export function MagicInboxClient({
   const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
-    fetchThreadsFromApi()
+    fetchThreadsFromApi(accessToken)
       .then(({ threads: t }) => setThreads(t))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [accessToken]);
 
   // Filter threads by tab + search
   const filtered = useMemo(() => {
@@ -383,7 +390,9 @@ export function MagicInboxClient({
     setSelectedThread((current) => (
       current?.id === threadId ? { ...current, status: 'matched' as const } : current
     ));
-    patchThread(threadId, { status: 'matched' }, accessToken).catch(() => {});
+    patchThread(threadId, { status: 'matched' }, accessToken).catch((e: any) => {
+      toast({ type: 'error', title: 'Confirm failed', message: e?.message || 'Could not update thread' });
+    });
     toast({ type: 'success', title: 'Match confirmed' });
   };
 
@@ -391,7 +400,9 @@ export function MagicInboxClient({
     setThreads((prev) =>
       prev.map((t) => (t.id === threadId ? { ...t, status: 'ignored' as const } : t))
     );
-    patchThread(threadId, { status: 'ignored' }, accessToken).catch(() => {});
+    patchThread(threadId, { status: 'ignored' }, accessToken).catch((e: any) => {
+      toast({ type: 'error', title: 'Ignore failed', message: e?.message || 'Could not update thread' });
+    });
     if (selectedThread?.id === threadId) setSelectedThread(null);
     toast({ type: 'info', title: 'Thread ignored' });
   };
@@ -407,7 +418,7 @@ export function MagicInboxClient({
         },
         body: JSON.stringify({ provider: 'gmail' }),
       });
-      const { threads: fresh } = await fetchThreadsFromApi();
+      const { threads: fresh } = await fetchThreadsFromApi(accessToken);
       setThreads(fresh);
       toast({ type: 'success', title: 'Inbox synced' });
     } catch {

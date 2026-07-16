@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import PaycrestService from '../services/paycrest';
 import { createLogger } from '../utils/logger';
 import { getPrivyNodeClient } from '../services/privyWallets';
+import { checkOfframpRegion } from './offramp';
 import crypto from 'crypto';
 
 const logger = createLogger('OfframpV2');
@@ -76,6 +77,13 @@ router.post('/orders', authenticate, async (req: Request, res: Response, next) =
 
     if (user.kyc_status !== 'approved') {
       res.status(403).json({ error: 'KYC verification required', code: 'KYC_REQUIRED' }); return;
+    }
+
+    // Check region eligibility
+    const region = await checkOfframpRegion(req, privyId);
+    if (!region.allowed) {
+      logger.info('Offramp blocked - region not eligible', { userId: user.id, country: region.country });
+      res.status(403).json({ error: region.reason, code: 'REGION_BLOCKED' }); return;
     }
 
     const { source, workspaceId, usdcAmount, fiatCurrency, recipient, chain: rawChain } = req.body;

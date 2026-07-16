@@ -4,6 +4,7 @@ import { getOrCreateUser } from '../utils/userHelper';
 import { WorkspaceService } from '../services/workspace';
 import { PayrollService } from '../services/payroll';
 import { supabase } from '../lib/supabase';
+import { requireProFeatureAccess } from '../services/billingRules';
 
 const router = Router({ mergeParams: true });
 
@@ -76,6 +77,12 @@ router.post('/run', authenticate, async (req: Request, res: Response, next) => {
 
     const isAdmin = await requireAdmin(workspaceId, user.id);
     if (!isAdmin) { res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' }); return; }
+
+    const paywall = await requireProFeatureAccess(user, 'payroll');
+    if (!paywall.allowed) {
+      res.status(403).json({ error: paywall.message, code: 'UPGRADE_REQUIRED' });
+      return;
+    }
 
     const { previewToken } = req.body;
     if (!previewToken) {
@@ -173,8 +180,15 @@ router.post('/schedule', authenticate, async (req: Request, res: Response, next)
     const isAdmin = await requireAdmin(workspaceId, user.id);
     if (!isAdmin) { res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' }); return; }
 
+    // Payroll is a Pro feature
+    const paywall = await requireProFeatureAccess(user, 'payroll');
+    if (!paywall.allowed) {
+      res.status(403).json({ error: paywall.message, code: 'UPGRADE_REQUIRED' });
+      return;
+    }
+
     const { frequency, dayOfMonth, dayOfWeek, items } = req.body;
-    if (!frequency || !['minute', 'weekly', 'biweekly', 'monthly'].includes(frequency)) {
+    if (!frequency || !['weekly', 'biweekly', 'monthly'].includes(frequency)) {
       res.status(400).json({ error: 'Invalid frequency', code: 'INVALID_FREQUENCY' }); return;
     }
     if (!items || !Array.isArray(items) || items.length === 0) {

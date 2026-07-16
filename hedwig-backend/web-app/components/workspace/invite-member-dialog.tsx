@@ -90,7 +90,7 @@ export function InviteMemberDialog() {
                 <option value="admin">Admin</option>
               </select>
               <svg
-                className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]"
+                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]"
                 viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"

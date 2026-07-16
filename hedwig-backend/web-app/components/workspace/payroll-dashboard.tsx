@@ -143,7 +143,7 @@ export function PayrollDashboard({ offrampAllowed = true }: { offrampAllowed?: b
   const [schedules, setSchedules] = useState<PayrollSchedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [schedFreq, setSchedFreq] = useState<'minute' | 'weekly' | 'biweekly' | 'monthly'>('monthly');
+  const [schedFreq, setSchedFreq] = useState<'weekly' | 'biweekly' | 'monthly'>('monthly');
   const [schedDayOfMonth, setSchedDayOfMonth] = useState(25);
   const [schedDayOfWeek, setSchedDayOfWeek] = useState(1);
   const [schedAmounts, setSchedAmounts] = useState<Record<string, string>>({});
@@ -743,8 +743,8 @@ function AddFundsButton() {
               <div>
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Frequency</span>
                 <div className="mt-2 flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit">
-                  {(['minute', 'weekly', 'biweekly', 'monthly'] as const).map(f => (
-                    <button key={f} onClick={() => setSchedFreq(f)} className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${schedFreq === f ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{f === 'minute' ? 'Test (1 min)' : f}</button>
+                  {(['weekly', 'biweekly', 'monthly'] as const).map(f => (
+                    <button key={f} onClick={() => setSchedFreq(f)} className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${schedFreq === f ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
                   ))}
                 </div>
               </div>
@@ -753,7 +753,7 @@ function AddFundsButton() {
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Day of month</span>
                   <div className="mt-2 flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit flex-wrap">
                     {[1, 15, 25, 28].map(d => (
-                      <button key={d} onClick={() => setSchedDayOfMonth(d)} className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${schedDayOfMonth === d ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{d}th</button>
+                      <button key={d} onClick={() => setSchedDayOfMonth(d)} className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${schedDayOfMonth === d ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'}`}>{d === 1 ? '1st' : d === 2 ? '2nd' : d === 3 ? '3rd' : `${d}th`}</button>
                     ))}
                   </div>
                 </div>
@@ -948,8 +948,11 @@ function AddFundsButton() {
         ) : (
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {schedules.map(s => {
-              const freqLabel = s.frequency === 'monthly' ? `Monthly · ${s.dayOfMonth || '?'}th`
-                : s.frequency === 'minute' ? 'Every minute (test)'
+              const ordinal = (n: number) => {
+                const s = ['th','st','nd','rd'], v = n % 100;
+                return n + (s[(v - 20) % 10] || s[v] || s[0]);
+              };
+              const freqLabel = s.frequency === 'monthly' ? `Monthly · ${ordinal(s.dayOfMonth ?? 1)}`
                 : s.frequency === 'biweekly' ? `Biweekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][s.dayOfWeek ?? 1]})`
                 : `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][s.dayOfWeek ?? 1]})`;
               return (

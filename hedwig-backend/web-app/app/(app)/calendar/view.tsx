@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/providers/toast-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { hedwigApi } from '@/lib/api/client';
@@ -116,6 +117,7 @@ export function CalendarClient({
   const router = useRouter();
   const today = useMemo(() => sod(new Date()), []);
   const { activeWorkspace } = useWorkspaceContext();
+  const { toast } = useToast();
 
   useAssistantPageContext('Calendar', {
     remindersCount: data.reminders.length,
@@ -161,7 +163,7 @@ export function CalendarClient({
   }, [accessToken]);
 
   // Fetch time data on mount
-  const opts = { accessToken, disableMockFallback: true } as any;
+  const opts = { accessToken, workspaceId: activeWorkspace?.id, disableMockFallback: true } as any;
   const todayDate = today.toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -217,7 +219,9 @@ export function CalendarClient({
       const res = await hedwigApi.createTimeEntry({ projectId, status: 'running', assignedTo: assignedTo || null }, opts);
       setActiveTimers(prev => [res.entry, ...prev]);
       refreshTimeData();
-    } catch {}
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Failed to start timer', message: e?.message || 'Please try again.' });
+    }
   };
 
   const handleTimeStop = async (entryId: string) => {
@@ -227,7 +231,9 @@ export function CalendarClient({
       setActiveTimers(prev => prev.filter(t => t.id !== entryId));
       setElapsedMap(prev => { const next = { ...prev }; delete next[entryId]; return next; });
       refreshTimeData();
-    } catch {}
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Failed to stop timer', message: e?.message || 'Please try again.' });
+    }
   };
 
   const handleTimeCreate = async (data: any) => {
@@ -237,7 +243,9 @@ export function CalendarClient({
       setShowTimeEntryForm(false);
       setEditingTimeEntry(null);
       refreshTimeData();
-    } catch {}
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Failed to save time entry', message: e?.message || 'Please try again.' });
+    }
   };
 
   const handleTimeUpdate = async (data: any) => {
@@ -247,7 +255,9 @@ export function CalendarClient({
       setShowTimeEntryForm(false);
       setEditingTimeEntry(null);
       refreshTimeData();
-    } catch {}
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Failed to update time entry', message: e?.message || 'Please try again.' });
+    }
   };
 
   const handleTimeDelete = async (id: string) => {
@@ -255,7 +265,9 @@ export function CalendarClient({
     try {
       await hedwigApi.deleteTimeEntry(id, opts);
       refreshTimeData();
-    } catch {}
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Failed to delete time entry', message: e?.message || 'Please try again.' });
+    }
   };
 
   const allItems = useMemo<PlannerItem[]>(

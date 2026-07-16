@@ -92,7 +92,7 @@ export function TimeEntryDialog({
         data.durationSeconds = Math.round(h * 3600 + m * 60);
       }
 
-      onSave(data);
+      await onSave(data);
     } finally { setSaving(false); }
   };
 

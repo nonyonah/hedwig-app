@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { OfframpModal } from '@/components/wallet/offramp-modal';
 import { OnrampModal } from '@/components/wallet/onramp-modal';
 import { PayoutBankSection } from '@/components/preferences/payout-bank-section';
-import { StatementImportDialog } from '@/app/(app)/revenue/statement-import-dialog';
 
 import { depositToGateway } from '@/lib/gateway/deposit-evm';
 import { depositSolanaToGateway } from '@/lib/gateway/deposit-solana';
@@ -128,8 +127,6 @@ export function WalletView({
   const { wallets: solanaWallets } = useSolanaWallets();
   const [depositingChain, setDepositingChain] = useState<string | null>(null);
   const [solanaFeePayerAddress, setSolanaFeePayerAddress] = useState<string | null>(null);
-  const [statementImportOpen, setStatementImportOpen] = useState(false);
-
   useMemo(() => {
     if (!accessToken || solanaFeePayerAddress) return;
     fetch(`${process.env.NEXT_PUBLIC_API_URL || window.location.origin}/api/gateway/solana/fee-payer`, {
@@ -217,9 +214,7 @@ export function WalletView({
           <Button variant="secondary" size="sm" onClick={() => setSendOpen(true)}>
             <PaperPlaneTilt className="h-4 w-4" weight="bold" /> Send
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setStatementImportOpen(true)}>
-            <UploadSimple className="h-4 w-4" weight="bold" /> Import statement
-          </Button>
+
           <ShareWalletDialog
             baseAddress={baseAccount?.address}
             solanaAddress={solanaAccount?.address}
@@ -374,12 +369,6 @@ export function WalletView({
       ) : null}
       <PayoutBankSection accessToken={accessToken} />
       <PayoutPanel gatewayAutoDepositEnabled={gatewayAutoDepositEnabled} />
-      <StatementImportDialog
-        open={statementImportOpen}
-        onClose={() => setStatementImportOpen(false)}
-        onImported={() => setStatementImportOpen(false)}
-        accessToken={accessToken}
-      />
       {onrampAllowed && (
         <OnrampModal
           open={onrampOpen}

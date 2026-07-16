@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/lucide-icons';
 import type { EmailThread, DocumentType } from '@/lib/types/email-intelligence';
 import { hedwigApi } from '@/lib/api/client';
+import { useToast } from '@/components/providers/toast-provider';
 
 type ClientOption = {
   id: string;
@@ -178,6 +179,7 @@ export function ThreadDetailPanel({
   onIgnore: () => void;
   onUpdate: (updated: EmailThread) => void;
 }) {
+  const { toast } = useToast();
   const amount = formatAmount(thread.detectedAmount, thread.detectedCurrency);
   const isMatched = thread.status === 'matched';
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -221,9 +223,14 @@ export function ThreadDetailPanel({
         },
         body: JSON.stringify(body),
       });
-      if (!resp.ok) throw new Error('Could not update import');
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => null);
+        throw new Error(err?.error || 'Could not update import');
+      }
       onUpdate({ ...thread, ...update });
       setShowClientPicker(false);
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Update failed', message: e?.message || 'Please try again.' });
     } finally {
       setIsLinking(false);
     }

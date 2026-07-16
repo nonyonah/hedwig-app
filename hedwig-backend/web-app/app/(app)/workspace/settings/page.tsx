@@ -274,10 +274,10 @@ export default function WorkspaceSettingsPage() {
         </div>
       </section>
 
-      {/* Members */}
+      {/* Team */}
       <section className="mb-8">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Members</h2>
+          <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Team</h2>
           <div className="flex items-center gap-2">
             {canManage && (
               <Button

@@ -17,6 +17,43 @@ const normalizeCountryCode = (value: string | null | undefined): string | null =
     return normalized;
 };
 
+export async function checkOfframpRegion(
+    req: Request,
+    userId: string
+): Promise<{ allowed: boolean; country: string | null; reason: string | null }> {
+    const user = await getOrCreateUser(userId);
+    let country: string | null = null;
+
+    // 1. Check user profile country (most authoritative)
+    if (user?.country && normalizeCountryCode(user.country)) {
+        country = normalizeCountryCode(user.country);
+    }
+
+    // 2. Fall back to geo request headers
+    if (!country) {
+        for (const header of REGION_HEADER_KEYS) {
+            const detected = normalizeCountryCode(req.headers[header] as string);
+            if (detected) {
+                country = detected;
+                break;
+            }
+        }
+    }
+
+    if (!country) {
+        return { allowed: false, country: null, reason: 'Could not determine your region.' };
+    }
+
+    const allowed = OFFRAMP_ELIGIBLE_COUNTRIES.has(country);
+    return {
+        allowed,
+        country,
+        reason: allowed
+            ? null
+            : 'Offramp is not yet available in your region.',
+    };
+}
+
 const logger = createLogger('Offramp');
 
 const router = Router();
@@ -265,6 +302,20 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
                 },
                 kyc_required: true,
                 kyc_status: userRecord.kyc_status || 'not_started',
+            });
+            return;
+        }
+
+        // Check region eligibility
+        const region = await checkOfframpRegion(req, authUserId);
+        if (!region.allowed) {
+            logger.info('Offramp blocked - region not eligible', { userId: userRecord.id, country: region.country });
+            res.status(403).json({
+                success: false,
+                error: {
+                    message: region.reason,
+                    code: 'REGION_BLOCKED',
+                },
             });
             return;
         }

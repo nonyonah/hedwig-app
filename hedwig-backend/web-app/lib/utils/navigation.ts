@@ -6,6 +6,7 @@ import {
   ChartBar,
   CreditCard,
   CurrencyDollar,
+  Envelope,
   Faders,
   FolderSimple,
   House,
@@ -35,6 +36,7 @@ export const navigationGroups = [
     items: [
       { title: 'Dashboard', href: '/dashboard', icon: House, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Insights', href: '/insights', icon: Sparkle, count: null, muted: false, roles: ['owner', 'admin'] },
+      { title: 'Inbox', href: '/inbox', icon: Envelope, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Calendar', href: '/calendar', icon: CalendarDots, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
     ]
   },
@@ -43,7 +45,7 @@ export const navigationGroups = [
     items: [
       { title: 'Clients', href: '/clients', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Projects', href: '/projects', icon: FolderSimple, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
-      { title: 'Members', href: '/workspace/members', icon: User, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
+      { title: 'Team', href: '/workspace/members', icon: User, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
   },

@@ -1346,7 +1346,7 @@ function FormSelect({
           </option>
         ))}
       </select>
-      <CaretDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="bold" />
+      <CaretDown className="pointer-events-none absolute right-4 h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="bold" />
     </div>
   );
 }
