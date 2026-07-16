@@ -40,6 +40,7 @@ export function TimeEntryDialog({
   const [newProjectClient, setNewProjectClient] = useState('');
   const [creatingProject, setCreatingProject] = useState(false);
   const [assignedTo, setAssignedTo] = useState(initial?.assignedTo || '');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const hasMembers = workspaceMembers && workspaceMembers.length > 0;
 
@@ -71,6 +72,16 @@ export function TimeEntryDialog({
   }, [newProjectName, newProjectClient, accessToken]);
 
   const handleSave = async () => {
+    setErrorMsg('');
+    const h = parseFloat(durationHours || '0') || 0;
+    const m = parseFloat(durationMins || '0') || 0;
+    const durationSecs = Math.round(h * 3600 + m * 60);
+
+    if (!description.trim() && !projectId && (durationMode !== 'duration' || durationSecs === 0)) {
+      setErrorMsg('Add a description, project, or duration to log time.');
+      return;
+    }
+
     setSaving(true);
     try {
       let data: any = {
@@ -86,10 +97,8 @@ export function TimeEntryDialog({
         data.startTime = s;
         data.endTime = e;
       } else {
-        const h = parseFloat(durationHours || '0') || 0;
-        const m = parseFloat(durationMins || '0') || 0;
         data.startTime = `${startDate}T${startTime}:00`;
-        data.durationSeconds = Math.round(h * 3600 + m * 60);
+        data.durationSeconds = durationSecs;
       }
 
       await onSave(data);
@@ -248,6 +257,9 @@ export function TimeEntryDialog({
             </div>
           </div>
 
+          {errorMsg && (
+            <p className="px-5 py-2 text-[12px] font-medium text-[var(--color-danger)]">{errorMsg}</p>
+          )}
           <div className="flex gap-3 border-t border-[var(--color-border)] px-5 py-4">
             <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
             <Button variant="default" onClick={handleSave} disabled={saving} className="flex-1">

@@ -29,7 +29,7 @@ import {
   activityFeed as mockActivityFeed,
   paymentSources as mockPaymentSources,
 } from '@/lib/mock/revenue';
-import type { ExpenseRecord, RevenueSummary } from '@/lib/types/revenue';
+import type { ExpenseRecord, RevenueMetrics, RevenueSummary } from '@/lib/types/revenue';
 import type {
   AccountTransaction,
   Activity,
@@ -2174,6 +2174,11 @@ export const hedwigApi = {
       () => mockActivityFeed,
       options,
     );
+  },
+
+  async revenueMetrics(range: string = '30d', options?: ApiOptions): Promise<RevenueMetrics> {
+    const safeRange = ['7d', '30d', '90d', '1y', 'ytd'].includes(range) ? range : '30d';
+    return request<RevenueMetrics>(`/api/revenue/metrics?range=${safeRange}`, options);
   },
 
   // ── Workspaces ──────────────────────────────────────────────────────────────

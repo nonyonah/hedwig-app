@@ -10,6 +10,10 @@ function getParam(req: Request, name: string): string {
   return (req.params as any)[name] || '';
 }
 
+function isPersonalWs(wsId: string): boolean {
+  return wsId.startsWith('ws_personal_');
+}
+
 router.use(authenticate);
 
 router.post('/', async (req: Request, res: Response, _next: NextFunction) => {
@@ -21,8 +25,10 @@ router.post('/', async (req: Request, res: Response, _next: NextFunction) => {
     const workspaceId = req.headers['x-workspace-id'] as string || '';
     if (!workspaceId) { res.status(400).json({ success: false, error: { message: 'x-workspace-id header required' } }); return; }
 
-    const membership = await WorkspaceService.getMembership(workspaceId, user.id);
-    if (!membership) { res.status(403).json({ success: false, error: { message: 'Not a member' } }); return; }
+    if (!isPersonalWs(workspaceId)) {
+      const membership = await WorkspaceService.getMembership(workspaceId, user.id);
+      if (!membership) { res.status(403).json({ success: false, error: { message: 'Not a member' } }); return; }
+    }
 
     const entry = await TimeEntriesService.create(user.id, workspaceId, req.body);
     res.json({ success: true, data: { entry } });

@@ -109,11 +109,11 @@ export function ContractsClient({
   const handleUploadToDrive = async (contract: Contract) => {
     if (!accessToken) return;
     try {
-      const resp = await fetch('/api/integrations/composio/drive/upload-from-doc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ documentId: contract.id, documentType: 'CONTRACT' }),
-      });
+    const resp = await fetch('/api/backend/api/integrations/composio/drive/upload-from-doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ documentId: contract.id, documentType: 'CONTRACT' }),
+    });
       const payload = await resp.json();
       toast({
         type: payload.success ? 'success' : 'error',
@@ -128,11 +128,11 @@ export function ContractsClient({
   const handleCreateDocs = async (contract: Contract) => {
     if (!accessToken) return;
     try {
-      const resp = await fetch('/api/integrations/composio/docs/create-from-contract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ documentId: contract.id }),
-      });
+    const resp = await fetch('/api/backend/api/integrations/composio/docs/create-from-contract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ documentId: contract.id }),
+    });
       const payload = await resp.json();
       toast({
         type: payload.success ? 'success' : 'error',

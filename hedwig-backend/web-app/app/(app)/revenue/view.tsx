@@ -6,7 +6,10 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  CalendarBlank,
+  ChartBar,
   CheckCircle,
+  Coins,
   CurrencyDollar,
   DownloadSimple,
   FileText,
@@ -52,6 +55,7 @@ import type {
   ProjectRevenueBreakdown,
   ActivityEvent,
   PaymentSourceBreakdown,
+  RevenueMetrics,
 } from '@/lib/types/revenue';
 
 /* ─── types ─── */
@@ -493,6 +497,7 @@ export function RevenueClient({
   paymentSources,
   invoices,
   clients,
+  initialMetrics,
 }: {
   accessToken: string | null;
   initialSummary: RevenueSummary;
@@ -503,6 +508,7 @@ export function RevenueClient({
   paymentSources: PaymentSourceBreakdown[];
   invoices: Invoice[];
   clients: Client[];
+  initialMetrics: RevenueMetrics;
 }) {
   const { currency, options: currencyOptions, formatAmount, convertToUsd, formatNative } = useCurrency();
   const { toast } = useToast();
@@ -531,6 +537,7 @@ export function RevenueClient({
   const [isSavingExpense, setIsSavingExpense] = useState(false);
   const [isSavingCredit, setIsSavingCredit] = useState(false);
   const [isDeletingExpense, setIsDeletingExpense] = useState(false);
+  const [metrics, setMetrics] = useState<RevenueMetrics>(initialMetrics);
   const [isRefreshingRange, setIsRefreshingRange] = useState(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -547,10 +554,11 @@ export function RevenueClient({
     setIsRefreshingRange(true);
 
     try {
-      const [nextSummary, nextBreakdown, nextPaymentSources] = await Promise.all([
+      const [nextSummary, nextBreakdown, nextPaymentSources, nextMetrics] = await Promise.all([
         hedwigApi.revenueSummary(nextRange, apiOpts),
         hedwigApi.revenueBreakdown(nextRange, apiOpts),
         hedwigApi.revenuePaymentSources(nextRange, apiOpts),
+        hedwigApi.revenueMetrics(nextRange, apiOpts).catch(() => null),
       ]);
 
       if (!mounted.current) return;
@@ -559,6 +567,7 @@ export function RevenueClient({
       setClientsByRevenue(Array.isArray((nextBreakdown as any)?.clients) ? (nextBreakdown as any).clients : []);
       setProjectsByRevenue(Array.isArray((nextBreakdown as any)?.projects) ? (nextBreakdown as any).projects : []);
       setSourceBreakdown(Array.isArray(nextPaymentSources) ? nextPaymentSources : []);
+      if (nextMetrics) setMetrics(nextMetrics);
     } catch {
       if (!mounted.current) return;
       toast({
@@ -842,6 +851,28 @@ export function RevenueClient({
             iconWrapClassName: netRevenueDisplay >= 0 ? 'bg-[var(--color-success-soft)]' : 'bg-[var(--color-danger-soft)]',
             iconClassName: netRevenueDisplay >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]',
           },
+          {
+            id: 'profit-margin',
+            title: 'Profit margin',
+            value: `${metrics.profitMargin >= 0 ? '+' : ''}${metrics.profitMargin.toFixed(1)}%`,
+            helper: summary.paidRevenue > 0 ? 'Net ÷ paid revenue' : 'No revenue yet',
+            icon: ChartBar,
+            valueClassName: metrics.profitMargin >= 20 ? 'text-[var(--color-success)]' : metrics.profitMargin >= 0 ? undefined : 'text-[var(--color-danger)]',
+          },
+          {
+            id: 'monthly-burn',
+            title: 'Monthly burn',
+            value: formatAmount(metrics.burnRate, { compact: true }),
+            helper: metrics.burnRate > 0 ? 'Avg over last 90 days' : 'No expenses recorded',
+            icon: Coins,
+          },
+          {
+            id: 'runway',
+            title: 'Runway',
+            value: metrics.runway !== null ? `${metrics.runway.toFixed(1)}mo` : '∞',
+            helper: metrics.runway !== null ? 'At current burn rate' : 'No expenses to deplete',
+            icon: CalendarBlank,
+          },
         ]}
         className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
       />
@@ -1124,6 +1155,39 @@ export function RevenueClient({
           </>
         )}
       </article>
+
+      {/* ── Expense Categories ── */}
+      {metrics.expenseCategories.length > 0 && (
+        <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
+            <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expense categories</h2>
+            <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">How your costs break down.</p>
+          </div>
+          <div className="divide-y divide-[var(--color-surface-secondary)]">
+            {metrics.expenseCategories.map((cat) => (
+              <div key={cat.category} className="px-5 py-3.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CategoryPill category={cat.category as ExpenseCategory} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+                      {formatAmount(cat.total, { compact: true })}
+                    </span>
+                    <span className="w-9 text-right text-[11px] text-[var(--color-text-muted)]">{cat.percentage.toFixed(0)}%</span>
+                  </div>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--color-accent)] transition-all"
+                    style={{ width: `${cat.percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
 
       {/* ── Activity Feed + Payment Sources ── */}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">

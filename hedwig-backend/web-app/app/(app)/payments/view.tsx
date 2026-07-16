@@ -1002,7 +1002,7 @@ function InvoicePanel({
     if (!accessToken) return;
     setIsUploadingToDrive(true);
     try {
-      const resp = await fetch('/api/integrations/composio/drive/upload-from-doc', {
+      const resp = await fetch('/api/backend/api/integrations/composio/drive/upload-from-doc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
         body: JSON.stringify({ documentId: invoice.id, documentType: 'INVOICE' }),
@@ -1118,7 +1118,7 @@ function PaymentLinkPanel({
     if (!accessToken) return;
     setIsUploadingToDrive(true);
     try {
-      const resp = await fetch('/api/integrations/composio/drive/upload-from-doc', {
+      const resp = await fetch('/api/backend/api/integrations/composio/drive/upload-from-doc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
         body: JSON.stringify({ documentId: link.id, documentType: 'PAYMENT_LINK' }),

@@ -117,6 +117,19 @@ export interface RevenueTrendPoint {
   net: number;
 }
 
+export interface ExpenseCategoryBreakdown {
+  category: ExpenseCategory;
+  total: number;
+  percentage: number;
+}
+
+export interface RevenueMetrics {
+  profitMargin: number;
+  burnRate: number;
+  runway: number | null;
+  expenseCategories: ExpenseCategoryBreakdown[];
+}
+
 export interface InsightRisk {
   id: string;
   severity: 'high' | 'medium' | 'low';

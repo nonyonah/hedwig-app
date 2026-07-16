@@ -3,12 +3,20 @@ import { hedwigApi } from '@/lib/api/client';
 import { workspaceApiOptions } from '@/lib/workspace/server';
 import { RevenueClient } from './view';
 import { normalizeExpenseRecords } from '@/lib/revenue-analytics';
+import type { RevenueMetrics } from '@/lib/types/revenue';
+
+const DEFAULT_METRICS: RevenueMetrics = {
+  profitMargin: 0,
+  burnRate: 0,
+  runway: null,
+  expenseCategories: [],
+};
 
 export default async function RevenuePage() {
   const session = await getCurrentSession();
   const opts = await workspaceApiOptions(session.accessToken);
 
-  const [summary, expensesData, breakdown, activity, paymentSources, paymentsData, clients] = await Promise.all([
+  const [summary, expensesData, breakdown, activity, paymentSources, paymentsData, clients, metrics] = await Promise.all([
     hedwigApi.revenueSummary('30d', opts).catch(() => ({
       totalRevenue: 0,
       paidRevenue: 0,
@@ -32,6 +40,7 @@ export default async function RevenuePage() {
       paymentLinkDrafts: [],
     })),
     hedwigApi.clients(opts).catch(() => []),
+    hedwigApi.revenueMetrics('30d', opts).catch(() => DEFAULT_METRICS),
   ]);
 
   const expensesList = normalizeExpenseRecords(expensesData as any[]);
@@ -47,6 +56,7 @@ export default async function RevenuePage() {
       paymentSources={paymentSources}
       invoices={paymentsData.invoices}
       clients={clients}
+      initialMetrics={metrics}
     />
   );
 }

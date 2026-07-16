@@ -643,6 +643,98 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
     }
 });
 
+// GET /api/revenue/metrics?range=30d
+router.get('/metrics', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const rangeRaw = String(req.query.range || '30d').toLowerCase();
+        const requestedRange: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw)
+            ? (rangeRaw as RangeKey)
+            : '30d';
+
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+        const { range } = await resolveRangeForUser(user, requestedRange);
+        const rangeStart = getRangeStart(range);
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+        const [paidDocs, rangeExpenses, expenses90d] = await Promise.all([
+            fetchPaged<any>('metrics_paid_docs', (from, to) =>
+                supabase
+                    .from('documents')
+                    .select('id,amount,status,type,created_at,updated_at,content')
+                    .eq('user_id', user.id)
+                    .eq('workspace_id', effectiveWsId)
+                    .in('type', ['INVOICE', 'PAYMENT_LINK'])
+                    .eq('status', 'PAID')
+                    .gte('updated_at', rangeStart.toISOString())
+                    .order('updated_at', { ascending: false })
+                    .range(from, to)
+            ),
+            fetchPaged<any>('metrics_range_expenses', (from, to) =>
+                supabase
+                    .from('expenses')
+                    .select('category,converted_amount_usd,date')
+                    .eq('user_id', user.id)
+                    .gte('date', rangeStart.toISOString())
+                    .order('date', { ascending: false })
+                    .range(from, to)
+            ).catch(() => [] as any[]),
+            fetchPaged<any>('metrics_90d_expenses', (from, to) =>
+                supabase
+                    .from('expenses')
+                    .select('converted_amount_usd,date')
+                    .eq('user_id', user.id)
+                    .gte('date', ninetyDaysAgo.toISOString())
+                    .order('date', { ascending: false })
+                    .range(from, to)
+            ).catch(() => [] as any[]),
+        ]);
+
+        const paidRevenue = paidDocs.reduce((s: number, d: any) => s + toNumber(d.amount), 0);
+        const totalExpenses = rangeExpenses.reduce((s: number, e: any) => s + toNumber(e.converted_amount_usd), 0);
+        const profitMargin = paidRevenue > 0 ? ((paidRevenue - totalExpenses) / paidRevenue) * 100 : 0;
+
+        const total90d = expenses90d.reduce((s: number, e: any) => s + toNumber(e.converted_amount_usd), 0);
+        const burnRate = total90d / 3;
+
+        const runway = burnRate > 0 ? paidRevenue / burnRate : null;
+
+        const catMap: Record<string, number> = {};
+        for (const e of rangeExpenses) {
+            const cat = (e.category || 'other').toLowerCase();
+            catMap[cat] = (catMap[cat] || 0) + toNumber(e.converted_amount_usd);
+        }
+        const catTotal = Object.values(catMap).reduce((s: number, v: number) => s + v, 0);
+        const expenseCategories = Object.entries(catMap)
+            .map(([category, total]) => ({
+                category,
+                total: Number(total.toFixed(2)),
+                percentage: catTotal > 0 ? Number(((total / catTotal) * 100).toFixed(1)) : 0,
+            }))
+            .sort((a, b) => b.total - a.total);
+
+        res.json({
+            success: true,
+            data: {
+                profitMargin: Number(profitMargin.toFixed(1)),
+                burnRate: Number(burnRate.toFixed(2)),
+                runway: runway !== null ? Number(runway.toFixed(1)) : null,
+                expenseCategories,
+            },
+        });
+    } catch (error) {
+        logger.error('Failed to build revenue metrics', { error: error instanceof Error ? error.message : 'Unknown' });
+        next(error);
+    }
+});
+
 // GET /api/revenue/expenses
 router.get('/expenses', authenticate, async (req: Request, res: Response, next) => {
     try {
