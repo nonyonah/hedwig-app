@@ -1002,13 +1002,17 @@ function InvoicePanel({
     if (!accessToken) return;
     setIsUploadingToDrive(true);
     try {
-      await fetch('/api/integrations/composio/drive/upload-from-doc', {
+      const resp = await fetch('/api/integrations/composio/drive/upload-from-doc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
         body: JSON.stringify({ documentId: invoice.id, documentType: 'INVOICE' }),
       });
+      const payload = await resp.json();
+      if (!payload.success) {
+        console.error('Drive upload failed', payload.error);
+      }
     } catch {
-      // silently fail
+      console.error('Drive upload failed (network)');
     } finally {
       setIsUploadingToDrive(false);
     }
@@ -1114,13 +1118,17 @@ function PaymentLinkPanel({
     if (!accessToken) return;
     setIsUploadingToDrive(true);
     try {
-      await fetch('/api/integrations/composio/drive/upload-from-doc', {
+      const resp = await fetch('/api/integrations/composio/drive/upload-from-doc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
         body: JSON.stringify({ documentId: link.id, documentType: 'PAYMENT_LINK' }),
       });
+      const payload = await resp.json();
+      if (!payload.success) {
+        console.error('Drive upload failed', payload.error);
+      }
     } catch {
-      // silently fail
+      console.error('Drive upload failed (network)');
     } finally {
       setIsUploadingToDrive(false);
     }

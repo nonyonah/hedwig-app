@@ -47,7 +47,8 @@ export function CalendarTimeTable({
   elapsed: Record<string, number>;
   workspaceMembers?: { id: string; name: string; email: string }[];
 }) {
-  const today = new Date();
+  const [today, setToday] = useState(new Date());
+  useEffect(() => { setToday(new Date()); }, []);
 
   const dateStr = selectedDate
     ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })

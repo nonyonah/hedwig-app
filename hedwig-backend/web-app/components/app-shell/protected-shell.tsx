@@ -2,7 +2,6 @@ import { ReactNode, Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/auth/session';
 import { hedwigApi } from '@/lib/api/client';
-import { getRequestRegionLockDecision } from '@/lib/region-lock';
 import { ShellLayout } from '@/components/app-shell/shell-layout';
 
 function ShellSkeleton() {
@@ -49,19 +48,11 @@ async function ShellDataLoader({
 }) {
   let shellUser = session.user;
   let unreadCount = 0;
-  const lockedRoutes: string[] = [];
 
   try {
-    const [shell, offrampGeo] = await Promise.all([
-      hedwigApi.shell({ accessToken: session.accessToken }),
-      getRequestRegionLockDecision('offramp').catch(() => ({ allowed: false })),
-    ]);
+    const shell = await hedwigApi.shell({ accessToken: session.accessToken });
     shellUser = shell.currentUser;
     unreadCount = shell.unreadCount;
-
-    if (!offrampGeo.allowed) {
-      lockedRoutes.push('/offramp');
-    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[ProtectedShell] Failed to preload shell data:', message);
@@ -84,7 +75,7 @@ async function ShellDataLoader({
       unreadCount={unreadCount}
       isDemo={session.isMockSession}
       accessToken={session.accessToken}
-      lockedRoutes={lockedRoutes}
+      lockedRoutes={[]}
       user={{
         avatarUrl: shellUser?.avatarUrl,
         email: fallbackEmail,

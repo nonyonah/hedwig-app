@@ -115,7 +115,8 @@ export function CalendarClient({
   selectedReminderId?: string | null;
 }) {
   const router = useRouter();
-  const today = useMemo(() => sod(new Date()), []);
+  const [today, setToday] = useState(sod(new Date()));
+  useEffect(() => { setToday(sod(new Date())); }, []);
   const { activeWorkspace } = useWorkspaceContext();
   const { toast } = useToast();
 

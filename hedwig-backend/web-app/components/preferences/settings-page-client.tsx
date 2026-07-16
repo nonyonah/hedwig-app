@@ -531,7 +531,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
         <ComposioIntegrations />
 
-        <SettingsSection title="Billing" description="Manage your Hedwig Pro plan across web and mobile.">
+        <SettingsSection title="Billing" description="Manage your Hedwig Pro plan on web.">
           <SettingsRow
             label="Plan"
             description="Your current subscription status."

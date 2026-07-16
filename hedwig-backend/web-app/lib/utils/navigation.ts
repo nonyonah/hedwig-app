@@ -1,12 +1,10 @@
 import {
-  ArrowsDownUp,
   Buildings,
   CalendarDots,
   Cards,
   ChartBar,
   CreditCard,
   CurrencyDollar,
-  Envelope,
   Faders,
   FolderSimple,
   House,
@@ -36,7 +34,6 @@ export const navigationGroups = [
     items: [
       { title: 'Dashboard', href: '/dashboard', icon: House, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Insights', href: '/insights', icon: Sparkle, count: null, muted: false, roles: ['owner', 'admin'] },
-      { title: 'Inbox', href: '/inbox', icon: Envelope, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Calendar', href: '/calendar', icon: CalendarDots, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
     ]
   },
@@ -56,7 +53,6 @@ export const navigationGroups = [
       { title: 'Payroll', href: '/workspace/payroll', icon: CurrencyDollar, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
-      { title: 'Offramp', href: '/offramp', icon: ArrowsDownUp, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
   },
   {

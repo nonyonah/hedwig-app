@@ -977,7 +977,7 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
     return;
   }
 
-  const { documentId } = req.body as { documentId?: string; documentType?: string };
+  const { documentId, documentType } = req.body as { documentId?: string; documentType?: string };
   if (!documentId) { res.status(400).json({ success: false, error: 'documentId is required' }); return; }
 
   try {
@@ -989,7 +989,9 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
 
     if (!doc) { res.status(404).json({ success: false, error: 'Document not found' }); return; }
 
-    const publicUrl = doc.payment_link_url || `${process.env.WEB_CLIENT_URL || 'http://localhost:3000'}/invoice/${documentId}`;
+    const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
+    const path = documentType === 'CONTRACT' ? 'contract' : documentType === 'PAYMENT_LINK' ? 'pay' : 'invoice';
+    const publicUrl = doc.payment_link_url || `${WEB_CLIENT_URL}/${path}/${documentId}`;
     const pdfUrl = `${publicUrl}?print=1`;
     const title = doc.title || `Document ${documentId}`;
 
