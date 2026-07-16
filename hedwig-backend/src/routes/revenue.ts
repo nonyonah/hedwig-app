@@ -858,7 +858,7 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
             return;
         }
 
-        const currencyCode = String(currency).toUpperCase();
+        const currencyCode = KNOWN_CURRENCIES.has(String(currency).toUpperCase()) ? String(currency).toUpperCase() : 'USD';
         const numericAmount = Number(amount);
         let usdAmount: number;
         if (convertedAmountUsd !== undefined && convertedAmountUsd !== null) {
@@ -920,7 +920,7 @@ router.patch('/expenses/:id', authenticate, async (req: Request, res: Response, 
 
         const updates: Record<string, any> = {};
         if (amount !== undefined) updates.amount = Number(amount);
-        if (currency !== undefined) updates.currency = String(currency).toUpperCase();
+        if (currency !== undefined) updates.currency = KNOWN_CURRENCIES.has(String(currency).toUpperCase()) ? String(currency).toUpperCase() : 'USD';
         if (convertedAmountUsd !== undefined) {
             updates.converted_amount_usd = Number(convertedAmountUsd);
         } else if (amount !== undefined || currency !== undefined) {
@@ -936,7 +936,7 @@ router.patch('/expenses/:id', authenticate, async (req: Request, res: Response, 
                 if (existingError) throw new Error(`expense lookup failed: ${summarizeError(existingError)}`);
                 effectiveAmount = Number(existing?.amount);
             }
-            const effectiveCurrency = updates.currency || String(currency || 'USD').toUpperCase();
+            const effectiveCurrency = updates.currency || (KNOWN_CURRENCIES.has(String(currency || 'USD').toUpperCase()) ? String(currency || 'USD').toUpperCase() : 'USD');
             if (effectiveCurrency === 'USD') {
                 updates.converted_amount_usd = effectiveAmount;
             } else {
@@ -1021,10 +1021,29 @@ const SUPPORTED_MIME = new Set([
   'image/webp',
 ]);
 
+const KNOWN_CURRENCIES = new Set([
+  'AED','AFN','ALL','AMD','ANG','AOA','ARS','AUD','AWG','AZN',
+  'BAM','BBD','BDT','BGN','BHD','BIF','BMD','BND','BOB','BRL',
+  'BSD','BTN','BWP','BYN','BZD','CAD','CDF','CHF','CLP','CNY',
+  'COP','CRC','CUP','CVE','CZK','DJF','DKK','DOP','DZD','EGP',
+  'ERN','ETB','EUR','FJD','FKP','FOK','GBP','GEL','GHS','GIP',
+  'GMD','GNF','GTQ','GYD','HKD','HNL','HRK','HTG','HUF','IDR',
+  'ILS','INR','IQD','IRR','ISK','JMD','JOD','JPY','KES','KGS',
+  'KHR','KID','KMF','KRW','KWD','KYD','KZT','LAK','LBP','LKR',
+  'LRD','LSL','LYD','MAD','MDL','MGA','MKD','MMK','MNT','MOP',
+  'MRU','MUR','MVR','MWK','MXN','MYR','MZN','NAD','NGN','NIO',
+  'NOK','NPR','NZD','OMR','PAB','PEN','PGK','PHP','PKR','PLN',
+  'PYG','QAR','RON','RSD','RUB','RWF','SAR','SBD','SCR','SDG',
+  'SEK','SGD','SHP','SLL','SOS','SRD','SSP','STN','SVC','SYP',
+  'SZL','THB','TJS','TMT','TND','TOP','TRY','TTD','TVD','TWD',
+  'TZS','UAH','UGX','USD','UYU','UZS','VES','VND','VUV','WST',
+  'XAF','XCD','XDR','XOF','XPF','YER','ZAR','ZMW',
+]);
+
 function normalizeCurrency(currency: unknown): string | null {
   if (!currency || typeof currency !== 'string') return null;
   const clean = currency.trim().toUpperCase().replace(/[^A-Z]/g, '');
-  if (clean.length === 3) return clean;
+  if (KNOWN_CURRENCIES.has(clean)) return clean;
   if (clean === 'NGN' || currency.includes('₦') || /naira/i.test(currency)) return 'NGN';
   if (clean === 'EUR' || currency.includes('€')) return 'EUR';
   if (clean === 'GBP' || currency.includes('£')) return 'GBP';
