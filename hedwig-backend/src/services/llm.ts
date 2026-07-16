@@ -190,14 +190,15 @@ export class LLMService {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) throw new Error('OpenRouter is not configured');
 
-    const model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+    const hasFiles = options.files && options.files.length > 0;
+    const model = process.env.OPENROUTER_MODEL || 'google/gemini-3.1-flash-lite';
+
     const messages: { role: string; content: any }[] = [];
 
     if (options.systemPrompt) {
       messages.push({ role: 'system', content: options.systemPrompt });
     }
 
-    const hasFiles = options.files && options.files.length > 0;
     if (hasFiles) {
       messages.push({
         role: 'user',
