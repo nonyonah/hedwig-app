@@ -989,14 +989,13 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
 
     if (!doc) { res.status(404).json({ success: false, error: 'Document not found' }); return; }
 
-    const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
+    const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
     const path = documentType === 'CONTRACT' ? 'contract' : documentType === 'PAYMENT_LINK' ? 'pay' : 'invoice';
     const publicUrl = doc.payment_link_url || `${WEB_CLIENT_URL}/${path}/${documentId}`;
-    const pdfUrl = `${publicUrl}?print=1`;
     const title = doc.title || `Document ${documentId}`;
 
     const fileData = await stageFileForComposio({
-      fileUrl: pdfUrl,
+      fileUrl: publicUrl,
       toolSlug: 'GOOGLEDRIVE_UPLOAD_FILE',
       toolkitSlug: 'googledrive',
     });
@@ -1006,7 +1005,7 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
       slug: 'GOOGLEDRIVE_UPLOAD_FILE',
       input: {
         file_to_upload: fileData,
-        file_name: `${title}.pdf`,
+        file_name: `${title}.html`,
       },
     });
 

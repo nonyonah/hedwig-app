@@ -5,7 +5,7 @@ import { createCalendarEventFromSource } from '../routes/calendar';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Actions');
-const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
+const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
 
 export interface ActionParams {
     [key: string]: any;

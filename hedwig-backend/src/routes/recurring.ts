@@ -14,7 +14,7 @@ function getEffectiveWorkspaceId(req: Request, userId: string): string {
   return wsId || `ws_personal_${userId}`;
 }
 
-const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
+const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
 
 async function resolveEmailSenderName(userId: string, workspaceId?: string | null): Promise<string> {
   if (workspaceId) {
