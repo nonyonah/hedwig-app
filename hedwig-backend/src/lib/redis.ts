@@ -4,6 +4,7 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('Redis');
 
 let client: Redis | null = null;
+let pendingClient: Redis | null = null;
 let connectionFailed = false;
 
 export function isRedisFailClosed(): boolean {
@@ -11,6 +12,46 @@ export function isRedisFailClosed(): boolean {
     if (explicit === 'true') return true;
     if (explicit === 'false') return false;
     return process.env.NODE_ENV === 'production';
+}
+
+function initClient(): void {
+    const failClosed = isRedisFailClosed();
+    const url = process.env.REDIS_URL;
+    if (!url) return;
+
+    // Don't reconnect after a past failure
+    if (connectionFailed) return;
+
+    // Prevent duplicate init
+    if (client || pendingClient) return;
+
+    pendingClient = new Redis(url, {
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 1,
+        retryStrategy: () => {
+            connectionFailed = true;
+            pendingClient?.disconnect();
+            pendingClient = null;
+            logger.warn('Redis unavailable, falling back to in-memory', {
+                fallbackMode: failClosed ? 'disabled (fail-closed)' : 'in-memory',
+            });
+            return null;
+        },
+        lazyConnect: true,
+    });
+
+    pendingClient.on('error', (err) => {
+        logger.error('Redis error', { error: err.message });
+    });
+
+    pendingClient.connect().then(() => {
+        logger.info('Redis connected');
+        client = pendingClient;
+        pendingClient = null;
+    }).catch(() => {
+        connectionFailed = true;
+        pendingClient = null;
+    });
 }
 
 export function getRedis(): Redis | null {
@@ -28,45 +69,18 @@ export function getRedis(): Redis | null {
         return null;
     }
 
-    if (!client) {
-        client = new Redis(process.env.REDIS_URL, {
-            // Null = no limit on queued commands, but we handle failure by
-            // nulling out the client below rather than crashing the process.
-            maxRetriesPerRequest: null,
-            retryStrategy: (times) => {
-                if (times >= 3) {
-                    // Give up retrying — fall back to in-memory for this run.
-                    logger.warn('Redis unavailable after 3 attempts', {
-                        fallbackMode: failClosed ? 'disabled (fail-closed)' : 'in-memory',
-                    });
-                    connectionFailed = true;
-                    client?.disconnect();
-                    client = null;
-                    return null; // stops retrying
-                }
-                return Math.min(times * 200, 2000);
-            },
-            enableOfflineQueue: true,
-            lazyConnect: false,
-        });
-
-        client.on('connect', () => {
-            connectionFailed = false;
-            logger.info('Redis connected');
-        });
-
-        client.on('error', (err) => {
-            // Log but don't throw — the retryStrategy handles giving up.
-            logger.error('Redis error', { error: err.message });
-        });
-
-        client.on('reconnecting', () => logger.warn('Redis reconnecting'));
+    if (!client && !pendingClient) {
+        initClient();
     }
 
     return client;
 }
 
 export async function closeRedis(): Promise<void> {
+    if (pendingClient) {
+        await pendingClient.quit().catch(() => {});
+        pendingClient = null;
+    }
     if (client) {
         await client.quit().catch(() => {});
         client = null;
