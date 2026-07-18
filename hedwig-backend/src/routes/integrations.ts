@@ -41,6 +41,9 @@ import {
   unlinkLinearProject,
 } from '../services/composioCommercial';
 import { executeComposioWrite, stageFileForComposio } from '../services/agent/composio-tools';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { createLogger } from '../utils/logger';
 import { requireProFeatureAccess } from '../services/billingRules';
 
@@ -968,7 +971,7 @@ Deadline: ${deadline || 'N/A'}`;
   }
 });
 
-// POST /api/integrations/composio/drive/upload-from-doc — upload document PDF to Google Drive
+// POST /api/integrations/composio/drive/upload-from-doc — upload document (PDF/HTML) to Google Drive
 router.post('/composio/drive/upload-from-doc', async (req: Request, res: Response) => {
   const userId = await getUserId(req);
   if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
@@ -983,19 +986,35 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
   try {
     const { data: doc } = await supabase
       .from('documents')
-      .select('title, payment_link_url')
+      .select('title, payment_link_url, content')
       .eq('id', documentId)
       .maybeSingle();
 
     if (!doc) { res.status(404).json({ success: false, error: 'Document not found' }); return; }
 
-    const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
-    const path = documentType === 'CONTRACT' ? 'contract' : documentType === 'PAYMENT_LINK' ? 'pay' : 'invoice';
-    const publicUrl = doc.payment_link_url || `${WEB_CLIENT_URL}/${path}/${documentId}`;
     const title = doc.title || `Document ${documentId}`;
+    let fileUrl: string;
+    let fileName: string;
+
+    if (documentType === 'CONTRACT') {
+      // For contracts, read the stored HTML content and generate clean HTML
+      const content = doc.content as any;
+      const htmlContent = content?.html_content || content?.generated_content || '';
+      const cleanHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:system-ui,-apple-system,sans-serif;line-height:1.6;max-width:800px;margin:0 auto;padding:2rem;color:#1a1a1a}h1{font-size:1.5rem;margin-bottom:1rem}p{margin-bottom:0.75rem}</style></head><body>${htmlContent}</body></html>`;
+      const tmpFile = path.join(os.tmpdir(), `hedwig-contract-${documentId}.html`);
+      fs.writeFileSync(tmpFile, cleanHtml, 'utf-8');
+      fileUrl = tmpFile;
+      fileName = `${title}.html`;
+    } else {
+      // For invoices and payment links, use the public page URL
+      const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
+      const pagePath = documentType === 'PAYMENT_LINK' ? 'pay' : 'invoice';
+      fileUrl = doc.payment_link_url || `${WEB_CLIENT_URL}/${pagePath}/${documentId}`;
+      fileName = `${title}.html`;
+    }
 
     const fileData = await stageFileForComposio({
-      fileUrl: publicUrl,
+      fileUrl,
       toolSlug: 'GOOGLEDRIVE_UPLOAD_FILE',
       toolkitSlug: 'googledrive',
     });
@@ -1005,9 +1024,14 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
       slug: 'GOOGLEDRIVE_UPLOAD_FILE',
       input: {
         file_to_upload: fileData,
-        file_name: `${title}.html`,
+        file_name: fileName,
       },
     });
+
+    // Clean up temp file
+    if (documentType === 'CONTRACT') {
+      try { fs.unlinkSync(fileUrl); } catch { /* ignore */ }
+    }
 
     res.json({ success: true, data: result });
   } catch (error: any) {
