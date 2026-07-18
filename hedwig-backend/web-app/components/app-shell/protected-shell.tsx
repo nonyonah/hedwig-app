@@ -3,38 +3,17 @@ import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/auth/session';
 import { hedwigApi } from '@/lib/api/client';
 import { ShellLayout } from '@/components/app-shell/shell-layout';
+import { HedwigLogo } from '@/components/ui/hedwig-logo';
 
 function ShellSkeleton() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex h-12 items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-background)] px-4">
-        <div className="flex items-center gap-2">
-          <div className="h-5 w-5 rounded bg-[var(--color-surface-tertiary)] animate-pulse" />
-          <div className="h-3 w-24 rounded bg-[var(--color-surface-tertiary)] animate-pulse" />
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="h-7 w-48 rounded-full bg-[var(--color-surface-tertiary)] animate-pulse" />
-          <div className="h-7 w-7 rounded-full bg-[var(--color-surface-tertiary)] animate-pulse" />
-        </div>
-      </header>
-      <div className="flex flex-1">
-        <aside className="hidden w-[60px] border-r border-[var(--color-border-light)] bg-[var(--color-background)] lg:flex lg:flex-col lg:items-center lg:gap-2 lg:px-3 lg:py-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-4 w-4 rounded bg-[var(--color-surface-tertiary)] animate-pulse" />
-          ))}
-        </aside>
-        <main className="flex-1 p-6">
-          <div className="space-y-3">
-            <div className="h-5 w-48 rounded bg-[var(--color-surface-tertiary)] animate-pulse" />
-            <div className="h-3 w-72 rounded bg-[var(--color-surface-tertiary)] animate-pulse" />
-            <div className="mt-6 grid gap-4 lg:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-32 rounded-2xl bg-[var(--color-surface)] animate-pulse ring-1 ring-[var(--color-border)]" />
-              ))}
-            </div>
-          </div>
-        </main>
-      </div>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-7 bg-[var(--color-surface-secondary)]">
+      <HedwigLogo width={44} height={44} priority />
+      <div
+        className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]"
+        role="status"
+        aria-label="Loading"
+      />
     </div>
   );
 }

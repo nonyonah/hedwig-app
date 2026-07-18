@@ -385,7 +385,7 @@ export function AssistantPanel({ className }: { className?: string }) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig Assistant</h2>
-              <span className="rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">Beta</span>
+              <span className="rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)]">Beta</span>
             </div>
             <p className="text-[11px] text-[var(--color-text-muted)]">Read-only workspace intelligence</p>
           </div>

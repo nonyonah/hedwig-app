@@ -49,7 +49,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
 
   return (
     <TutorialProvider isDemo={isDemo}>
-        <div className="min-h-screen bg-[var(--color-background)] text-foreground">
+        <div className="min-h-screen bg-[var(--color-surface-secondary)] text-foreground">
           {isDemo && (
             <div className="flex flex-col items-center justify-center gap-2 border-b border-[var(--color-primary-light)] bg-[var(--color-accent-soft)] px-4 py-2 text-center text-[13px] font-medium text-[var(--color-primary-dark)] sm:flex-row">
               <span>Demo mode — sample data only. Explore freely, then start when you are ready.</span>
@@ -66,7 +66,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
             accessToken={accessToken ?? null}
             fallbackWorkspace={fallbackWorkspace ?? { id: 'ws_personal', name: user.fullName || 'My Workspace', slug: 'my-workspace', type: 'personal', plan: 'beta', timezone: 'UTC' }}
           >
-            <div className="flex h-screen overflow-hidden">
+            <div className="flex h-screen overflow-hidden p-[var(--panel-gap)] gap-[var(--panel-gap)]">
               <AppSidebar
                 open={sidebarOpen}
                 onToggle={toggleSidebar}
@@ -74,7 +74,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
                 mobileOpen={mobileSidebarOpen}
                 onCloseMobile={() => setMobileSidebarOpen(false)}
               />
-              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--panel-radius)] bg-[var(--color-surface)] shadow-lg">
                 <AppTopbar
                   sidebarOpen={sidebarOpen}
                   onToggleSidebar={toggleSidebar}
@@ -83,7 +83,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
                   accessToken={accessToken}
                   user={user}
                 />
-                <main className="flex-1 overflow-y-auto px-4 py-5 lg:px-6 lg:py-6">{children}</main>
+                <main className="flex-1 overflow-y-auto px-5 py-5 lg:px-6 lg:py-6">{children}</main>
               </div>
             </div>
             <CreateWorkspaceDialog />

@@ -1261,7 +1261,6 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const paymentsUrl = `${APP_URL}/payments`;
         const nudgeStage = data.nudgeStage || (data.isSecondNudge ? 'day3' : 'day0');
 
         const stageConfig: Record<string, {
@@ -1273,36 +1272,36 @@ export const EmailService = {
             url: string;
         }> = {
             day0: {
-                subject: 'Your first invoice takes 90 seconds',
+                subject: 'Your business account is ready',
                 eyebrow: 'Getting started',
-                heading: 'Your first invoice takes 90 seconds',
-                body: `You built something worth paying for. Hedwig gives you a way to get paid by anyone, anywhere — without chasing clients, sharing bank details, or waiting two weeks for a transfer to clear. No setup. You already have a wallet.`,
-                cta: 'Create your first invoice',
-                url: `${paymentsUrl}?create=invoice`,
+                heading: 'Your business account is ready',
+                body: `You built something worth paying for. Hedwig is your financial OS — receive payments, track time and expenses, manage clients, and run payroll without juggling tools. Create an invoice, import a bank statement, or set up your first project.`,
+                cta: 'Open your treasury',
+                url: `https://hedwigbot.xyz/dashboard`,
             },
             day3: {
-                subject: 'The real cost of waiting to get paid',
-                eyebrow: 'The math',
-                heading: 'The real cost of waiting to get paid',
-                body: `A $2,000 payment from a US client through Payoneer costs you roughly $40 in fees. Then your bank holds it for 3 to 5 days. That math doesn't work for anyone running a business. Hedwig's payment links settle in minutes. One percent when you withdraw, nothing else.`,
-                cta: 'Create a payment link',
-                url: `${paymentsUrl}?create=payment-link`,
+                subject: 'More than just getting paid',
+                eyebrow: 'The full picture',
+                heading: 'More than just getting paid',
+                body: `Hedwig auto-categorizes your income and expenses, tracks time against projects, and lets you run payroll for your team. Try importing a bank statement or setting up a project — both take less than two minutes.`,
+                cta: 'Try something new',
+                url: `https://hedwigbot.xyz/dashboard`,
             },
             day7: {
-                subject: 'Someone in Lagos got paid before lunch today',
+                subject: 'Your business, connected',
                 eyebrow: 'What\'s possible',
-                heading: 'Someone in Lagos got paid before lunch today',
-                body: `A designer in Yaba sent an invoice at 9:47am. Her client in Toronto opened it, paid by card, and the funds landed before her second meeting. No follow-up emails. No "the transfer is still processing." That's how it works when you remove the middlemen.`,
-                cta: 'Create your first invoice',
-                url: `${paymentsUrl}?create=invoice`,
+                heading: 'Your business, connected',
+                body: `Link your bank statements to auto-categorize transactions, assign projects to team members, sync deadlines from Google Calendar, or set up a recurring payroll run. Hedwig works the way you work.`,
+                cta: 'Explore your workspace',
+                url: `https://hedwigbot.xyz/dashboard`,
             },
             day14: {
-                subject: 'This is my last email',
+                subject: 'One last thing',
                 eyebrow: 'One last thing',
-                heading: 'This is my last email',
-                body: `You signed up two weeks ago. You haven't created an invoice yet. That's fine — maybe the timing wasn't right. Every week you wait is another week of paying fees you don't need to pay and waiting for money you've already earned. Two minutes. One invoice. See if it works for you.`,
-                cta: 'Create an invoice in 2 minutes',
-                url: `${paymentsUrl}?create=invoice`,
+                heading: 'One last thing',
+                body: `You signed up two weeks ago and haven't tried Hedwig yet. That's fine. But if you're still juggling different tools for payments, time tracking, expenses, and payroll — give it two minutes. Import a statement, log time against a project, or send your first invoice. See if it fits.`,
+                cta: 'Give it two minutes',
+                url: `https://hedwigbot.xyz/dashboard`,
             },
         };
 
@@ -1639,7 +1638,7 @@ export const EmailService = {
                         ${escapeHtml(data.inviterName)} has invited you to join <strong>${escapeHtml(data.workspaceName)}</strong> as a <strong>${escapeHtml(roleLabel)}</strong> on Hedwig.
                     </p>
                     <p class="description">
-                        With Hedwig, you can manage clients, send invoices and payment links, track revenue, and get paid in stablecoins — together as a team.
+                        With Hedwig, you can run your business together — manage clients and projects, track time, run payroll, reconcile expenses, and get paid in stablecoins, all from one account.
                     </p>
                     <div style="text-align:center;margin:28px 0;">
                         <a href="${inviteUrl}" style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">

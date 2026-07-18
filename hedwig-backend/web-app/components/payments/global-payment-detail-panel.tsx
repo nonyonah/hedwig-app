@@ -226,7 +226,7 @@ export function GlobalPaymentDetailPanel({ accessToken }: { accessToken?: string
   return (
     <ClientPortal>
       <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={close} />
-      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] animate-in slide-in-from-right-full duration-300 ease-out">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
         {isLoading ? (
           <>
             <PanelHeader label="Payment detail" id="Loading..." onClose={close} />

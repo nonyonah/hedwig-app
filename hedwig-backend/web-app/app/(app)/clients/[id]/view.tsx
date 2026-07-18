@@ -94,7 +94,7 @@ function SectionCard({ title, count, action, children }: {
 }
 
 function ColHead({ children }: { children: React.ReactNode }) {
-  return <th className="px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-placeholder)]">{children}</th>;
+  return <th className="px-5 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">{children}</th>;
 }
 
 function EmptyRow({ text }: { text: string }) {

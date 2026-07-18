@@ -293,7 +293,7 @@ export function WalletView({
       )}
 
       <div>
-        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+        <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
           <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
             <div>
               <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Recent activity</p>

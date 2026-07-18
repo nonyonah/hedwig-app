@@ -181,10 +181,13 @@ export default function WorkspaceSettingsPage() {
         </div>
       </div>
 
+      <div className="space-y-8">
       {/* Workspace info */}
-      <section className="mb-8">
-        <h2 className="mb-3 text-[15px] font-semibold text-[var(--color-foreground)]">Workspace</h2>
-        <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+      <section className="space-y-2">
+        <div className="px-0.5">
+          <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">Workspace</h2>
+        </div>
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-sm font-bold text-[var(--color-text-secondary)]">
               {activeWorkspace.name.charAt(0).toUpperCase()}
@@ -275,20 +278,18 @@ export default function WorkspaceSettingsPage() {
       </section>
 
       {/* Team */}
-      <section className="mb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Team</h2>
-          <div className="flex items-center gap-2">
-            {canManage && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-invite-member'))}
-              >
-                Invite member
-              </Button>
-            )}
-          </div>
+      <section className="space-y-2">
+        <div className="flex items-center justify-between px-0.5">
+          <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">Team</h2>
+          {canManage && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-invite-member'))}
+            >
+              Invite member
+            </Button>
+          )}
         </div>
 
         {loadingMembers ? (
@@ -296,7 +297,7 @@ export default function WorkspaceSettingsPage() {
             <p className="text-[13px] text-[var(--color-text-tertiary)]">Loading members...</p>
           </div>
         ) : (
-          <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[14px] font-medium text-[var(--color-foreground)]">
@@ -320,16 +321,15 @@ export default function WorkspaceSettingsPage() {
 
       {/* Pending invitations */}
       {invitations.length > 0 && (
-        <section className="mb-8">
-          <h2 className="mb-3 text-[15px] font-semibold text-[var(--color-foreground)]">Pending invitations</h2>
-          <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <section className="space-y-2">
+          <div className="px-0.5">
+            <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">Pending invitations</h2>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
             {invitations.filter((inv) => inv.status === 'pending').map((inv, i) => (
               <div
                 key={inv.id}
-                className={cn(
-                  'flex items-center gap-3 px-5 py-3',
-                  i < invitations.filter((iv) => iv.status === 'pending').length - 1 && 'border-b border-[var(--color-border-light)]'
-                )}
+                className="flex items-center gap-3 px-5 py-3"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-warning-soft)] text-[12px] font-bold text-[var(--color-warning)]">
                   {inv.email.charAt(0).toUpperCase()}
@@ -358,17 +358,22 @@ export default function WorkspaceSettingsPage() {
       )}
 
       {/* External recipients */}
-      <section className="mb-8">
-        <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+      <section className="space-y-2">
+        <div className="px-0.5">
+          <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">External recipients</h2>
+        </div>
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <ExternalRecipientsPanel workspaceId={activeWorkspace?.id || ''} accessToken={accessToken} />
         </div>
       </section>
 
       {/* Danger zone — delete workspace (org only) */}
       {isOwner && isOrg && (
-        <section className="mb-8">
-          <h2 className="mb-3 text-[15px] font-semibold text-red-600">Danger zone</h2>
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5">
+        <section className="space-y-2">
+          <div className="px-0.5">
+            <h2 className="text-[13px] font-semibold text-red-600">Danger zone</h2>
+          </div>
+          <div className="rounded-xl border border-red-300 bg-red-50/50 p-5">
             <p className="mb-1 text-[14px] font-medium text-red-800">Delete this workspace</p>
             <p className="mb-4 text-[13px] text-red-700">
               This permanently deletes the workspace and all associated data. Members will lose access. This cannot be undone.
@@ -403,6 +408,7 @@ export default function WorkspaceSettingsPage() {
           </div>
         </section>
       )}
+      </div>
 
       {/* Transfer ownership confirmation modal */}
       {showTransferConfirm && transferTarget && (

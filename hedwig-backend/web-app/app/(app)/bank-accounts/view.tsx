@@ -123,7 +123,7 @@ export function BankAccountsView({
           />
 
           {shouldShowUsdSetupCard ? (
-            <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+            <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
               <div className="flex items-start gap-5 px-5 py-5">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
                   <Bank className="h-5 w-5 text-[var(--color-primary)]" weight="bold" />
@@ -213,7 +213,7 @@ export function BankAccountsView({
 
           {accountTransactions.length > 0 ? (
             <div>
-              <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+              <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
                 <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
                   <div>
                     <p className="text-[15px] font-semibold text-[var(--color-foreground)]">USD activity</p>

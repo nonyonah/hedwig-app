@@ -135,10 +135,10 @@ export function ClientsClient({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Clients</h1>
-        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Manage your client relationships and track outstanding work.</p>
+        <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Clients</h1>
+        <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Manage your client relationships and track outstanding work.</p>
       </div>
 
       <AttachedStatGrid
@@ -163,53 +163,44 @@ export function ClientsClient({
         className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
       />
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
-        {/* Unified header */}
-        <div className="flex items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{clients.length} clients</span>
-            {totalOutstanding > 0 && (
-              <>
-                <span className="h-3 w-px shrink-0 bg-[var(--color-surface-tertiary)]" />
-                <span className="truncate text-[12px] text-[var(--color-text-muted)]">
-                  {formatAmount(totalOutstanding, { compact: true })} outstanding
-                </span>
-              </>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end">
-            {ALL_FILTERS.map((s) => (
-              <Button
-                key={s}
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilter(s)}
-                className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
-                  filter === s
-                    ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
-                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {FILTER_LABELS[s]}
-              </Button>
-            ))}
-            <div className="mx-1 h-4 w-px bg-[var(--color-surface-tertiary)]" />
-            {canCreate && (
-            <button
-              type="button"
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 px-0.5">
+        <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
+          {clients.length} client{clients.length !== 1 ? 's' : ''}
+        </span>
+        <div className="flex items-center gap-1">
+          {ALL_FILTERS.map((s) => (
+            <Button
+              key={s}
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilter(s)}
+              className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
+                filter === s
+                  ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {FILTER_LABELS[s]}
+            </Button>
+          ))}
+          {canCreate && (
+            <Button
+              variant="default"
+              size="sm"
               onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow: 'client' } }))}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-semibold text-white transition duration-150 hover:bg-[var(--color-primary-dark)]"
             >
               <Plus className="h-3.5 w-3.5" weight="bold" />
               New client
-            </button>
-            )}
-          </div>
+            </Button>
+          )}
         </div>
+      </div>
 
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
+        <div className="grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
           <ColHead>Client</ColHead>
           <ColHead>Segment</ColHead>
           <ColHead>Status</ColHead>
@@ -223,14 +214,14 @@ export function ClientsClient({
         {filtered.length === 0 ? (
           <EmptyState text={filter === 'all' ? 'No clients yet.' : 'No clients match this filter.'} />
         ) : (
-          <div className="divide-y divide-[var(--color-surface-secondary)]">
+          <div className="divide-y divide-[var(--color-border)]">
             {filtered.map((client) => {
               const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
               const segMeta = SEGMENT_META[client.segment];
               return (
                 <div
                   key={client.id}
-                  className="group grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]"
+                  className="group grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)]"
                 >
                   <Link href={`/clients/${client.id}`} className="flex min-w-0 items-center gap-2.5">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-secondary)] text-[11px] font-bold text-[var(--color-text-tertiary)]">
@@ -312,7 +303,7 @@ export function ClientsClient({
 
 function ColHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <span className={`text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)] ${right ? 'text-right' : ''}`}>
+    <span className={`text-[11px] font-medium text-[var(--color-text-tertiary)] ${right ? 'text-right' : ''}`}>
       {children}
     </span>
   );

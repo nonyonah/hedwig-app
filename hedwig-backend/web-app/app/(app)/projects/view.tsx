@@ -184,10 +184,10 @@ export function ProjectsClient({
   }, [toast]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Projects</h1>
-        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Track deliverables, milestones, and project progress.</p>
+        <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Projects</h1>
+        <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Track deliverables, milestones, and project progress.</p>
       </div>
 
       <AttachedStatGrid
@@ -199,53 +199,53 @@ export function ProjectsClient({
         className="grid-cols-1 md:grid-cols-3"
       />
 
-      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
-        {/* Unified header */}
-        <div className="flex items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{projects.length} projects</span>
-            {activeCount > 0 && (
-              <>
-                <span className="h-3 w-px shrink-0 bg-[var(--color-surface-tertiary)]" />
-                <span className="truncate text-[12px] text-[var(--color-text-muted)]">
-                  {activeCount} active · {formatAmount(isMember ? totalPayout : totalBudget, { compact: true })} {isMember ? 'assigned pay' : 'total budget'}
-                </span>
-              </>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {STATUS_FILTERS.map((s) => (
-              <Button
-                key={s}
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilter(s)}
-                className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
-                  filter === s
-                    ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
-                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {s === 'all' ? 'All' : PROJECT_STATUS[s as keyof typeof PROJECT_STATUS]?.label ?? s}
-              </Button>
-            ))}
-            <div className="mx-1 h-4 w-px bg-[var(--color-surface-tertiary)]" />
-            <ExportMenu onCsv={downloadCsv} onPdf={downloadPdf} />
-            {canCreate && (
-            <button
-              type="button"
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 px-0.5">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
+            {projects.length} project{projects.length !== 1 ? 's' : ''}
+          </span>
+          {activeCount > 0 && (
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              · {activeCount} active · {formatAmount(isMember ? totalPayout : totalBudget, { compact: true })} {isMember ? 'assigned pay' : 'total budget'}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {STATUS_FILTERS.map((s) => (
+            <Button
+              key={s}
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilter(s)}
+              className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
+                filter === s
+                  ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {s === 'all' ? 'All' : PROJECT_STATUS[s as keyof typeof PROJECT_STATUS]?.label ?? s}
+            </Button>
+          ))}
+          <div className="mx-1 h-4 w-px bg-[var(--color-border)]" />
+          <ExportMenu onCsv={downloadCsv} onPdf={downloadPdf} />
+          {canCreate && (
+            <Button
+              variant="default"
+              size="sm"
               onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow: 'project' } }))}
-              className="bg-[var(--color-accent)] text-white rounded-full px-4 py-2 text-[13px] font-semibold inline-flex items-center gap-1.5 hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
             >
               <Plus className="h-3.5 w-3.5" weight="bold" />
               New project
-            </button>
-            )}
-          </div>
+            </Button>
+          )}
         </div>
+      </div>
 
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
+        <div className="grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
           <ColHead>Project</ColHead>
           <ColHead>Status</ColHead>
           <ColHead>Contract</ColHead>
@@ -260,7 +260,7 @@ export function ProjectsClient({
         {filtered.length === 0 ? (
           <EmptyState text={filter === 'all' ? 'No projects yet.' : 'No projects match this filter.'} />
         ) : (
-          <div className="divide-y divide-[var(--color-surface-secondary)]">
+          <div className="divide-y divide-[var(--color-border)]">
             {filtered.map((project) => {
               const s = PROJECT_STATUS[project.status] ?? PROJECT_STATUS.active;
               const cs = project.contract
@@ -269,7 +269,7 @@ export function ProjectsClient({
               return (
                 <div
                   key={project.id}
-                  className="group grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]"
+                  className="group grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)]"
                 >
                   <Link href={`/projects/${project.id}`} className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
@@ -372,7 +372,7 @@ export function ProjectsClient({
 
 function ColHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <span className={`text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)] ${right ? 'text-right' : ''}`}>
+    <span className={`text-[11px] font-medium text-[var(--color-text-tertiary)] ${right ? 'text-right' : ''}`}>
       {children}
     </span>
   );

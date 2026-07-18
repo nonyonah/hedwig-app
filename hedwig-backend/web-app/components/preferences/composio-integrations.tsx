@@ -139,7 +139,7 @@ export function ComposioIntegrations() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">Workspace integrations</h2>
-            <span className="rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">Beta</span>
+            <span className="rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)]">Beta</span>
           </div>
           <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
             Connect the tools your assistant and agent can read from and act on.

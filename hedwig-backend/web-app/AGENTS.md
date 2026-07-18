@@ -8,7 +8,9 @@
 
 ## Constraints & Preferences
 - Payout banks moved from Settings to Wallet page, not duplicate
-- Design language: `rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs` containers, `text-[15px] font-semibold text-[var(--color-foreground)]` titles, `text-[13px] text-[var(--color-text-muted)]` descriptions, `space-y-6` page spacing
+- Design language: `rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]` containers (was `rounded-2xl ring-1 ring-border shadow-xs`), `text-[18px] font-semibold text-[var(--color-foreground)]` page headings, `text-[13px] font-semibold text-[var(--color-foreground)]` section labels on canvas, `text-[13px] text-[var(--color-text-tertiary)]` descriptions, `space-y-6` page spacing
+- Linear grouped-box pattern: section labels on canvas (outside bordered box), related rows in one box with `divide-y divide-[var(--color-border)]` dividers, `py-[18px]` row padding
+- Linear table pattern: toolbar on canvas (count + filter pills + action button), column headers `text-[11px] font-medium text-tertiary` (sentence case, no uppercase), rows in `rounded-xl border` container with `divide-y` and hover state
 - CSV/OFX/QFX parsed to AI (Gemini → AI Gateway → OpenRouter fallback) for categorization & client matching
 - Only Hedwig assistant chat sidebar removed — contextual suggestions, dashboard brief panel, and all other AI features kept
 - Calendar sync via Composio `GOOGLECALENDAR_EVENTS_LIST`, both push and pull
@@ -39,6 +41,35 @@
 
 ### In Progress
 - (none)
+
+## Session Summary (Jul 18, 2026) — Linear-style restyling
+
+### Changed design tokens
+- `--panel-gap`, `--panel-radius` CSS variables added to `globals.css`
+- All Linear-style tables and containers now use `rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]` (replacing old `rounded-2xl ring-1 ring-border shadow-xs`)
+- Dividers standardized to `border-[var(--color-border)]` (was `border-surface-tertiary` / `border-surface-secondary`)
+- Column headers use sentence case `text-[11px] font-medium text-[var(--color-text-tertiary)]` (was `uppercase tracking-wider`)
+- Page headings use `text-[18px] font-semibold text-[var(--color-foreground)]` with `mt-1 text-[13px] text-tertiary` subtitle
+
+### Settings (grouped-box pattern)
+- **`components/preferences/settings-section.tsx`** — refactored: label/title sits on canvas outside a `rounded-xl border` box; children wrapped in `divide-y divide-border`
+- **`components/preferences/settings-row.tsx`** — increased vertical padding from `py-3.5` (14px) to `py-[18px]`; added `leading-relaxed` to descriptions
+- **`components/preferences/settings-page-client.tsx`** — profile card updated to `rounded-xl border`; page gap `gap-5`→`gap-6`; divider colors updated; Account section converted to `SettingsSection`
+- **`app/(app)/workspace/settings/page.tsx`** — all sections (Workspace, Team, Pending invitations, External recipients, Danger zone) converted to grouped-box pattern with `space-y-2` label+box structure wrapped in `space-y-8`; headings `text-[13px] font-semibold`; containers `rounded-xl border border-border`
+
+### Tables (Linear pattern)
+- **`app/(app)/workspace/members/view.tsx`** — toolbar (count + filter pills + Invite) moved above bordered container on canvas; column headers sentence-case; container `rounded-xl border`; dividers `border-border`; row padding `py-3.5`
+- **`app/(app)/clients/view.tsx`** — same pattern; toolbar moved to canvas; filter as `Button` components; row padding `py-3.5`
+- **`app/(app)/contracts/view.tsx`** — same pattern; count + subtitle in toolbar; `divide-y divide-border`
+- **`app/(app)/projects/view.tsx`** — same pattern; ExportMenu preserved; New project as `Button`; row padding `py-3.5`
+- **`app/(app)/payments/view.tsx`** — outer card to `rounded-xl border`; tab bar/divider colors updated; column headers sentence-case; dividers fixed
+- **`app/(app)/bank-accounts/view.tsx`** — USD setup card + USD activity card to `rounded-xl border`
+- **`app/(app)/wallet/view.tsx`** — Recent activity card to `rounded-xl border`
+
+### Column headers (detail pages)
+- **`app/(app)/clients/[id]/view.tsx`** — `ColHead` `<th>`: removed `uppercase tracking-wider`, sentence-case
+- **`app/(app)/projects/[id]/view.tsx`** — `ColHead` `<th>`: same treatment
+- **`app/(app)/tax/view.tsx`** — deduction review table `<th>` elements: same treatment; `divide-y` border fix
 
 ## Cron Job Recommendation
 **Platform: cron-job.org** (not Inngest — not available/desired)

@@ -11,6 +11,7 @@ import { HedwigPostHogProvider } from '@/components/providers/posthog-provider';
 import { UserbackProvider } from '@/components/providers/userback-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { GlobalErrorHandler } from '@/components/providers/global-error-handler';
+import { SWRegister } from '@/components/pwa/sw-register';
 
 export const metadata: Metadata = {
   title: 'Hedwig',
@@ -18,8 +19,16 @@ export const metadata: Metadata = {
   icons: {
     icon: '/hedwig-icon.png',
     shortcut: '/hedwig-icon.png',
-    apple: '/hedwig-icon.png'
-  }
+    apple: '/hedwig-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Hedwig',
+    statusBarStyle: 'default',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -57,7 +66,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <CurrencyProvider>
               <ToastProvider>
                 <GlobalErrorHandler>
-                  <AuthGate>{children}</AuthGate>
+                  <AuthGate>
+                    <SWRegister />
+                    {children}
+                  </AuthGate>
                 </GlobalErrorHandler>
               </ToastProvider>
             </CurrencyProvider>

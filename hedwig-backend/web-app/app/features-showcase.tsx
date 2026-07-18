@@ -5,28 +5,34 @@ import Image from 'next/image';
 
 const ITEMS = [
   {
-    title: 'Collect',
+    title: 'Payments',
     description:
-      'Generate branded payment links or invoices in seconds. Your customers pay from any wallet, anywhere in the world — no routing numbers, no currency confusion.',
-    preview: <ReceivePanel />,
+      'Receive payments via branded links or invoices, hold in USDC, and withdraw when you need to. Stablecoin-native business account with withdrawals and offramp.',
+    preview: <PaymentsPanel />,
   },
   {
-    title: 'Hold',
+    title: 'Bookkeeping',
     description:
-      'See your entire balance in one place. Track collected, pending, and settled funds. Convert between currencies when the rate works for you.',
-    preview: <ManagePanel />,
+      'Import bank statements and receipts, auto-match incoming payments to clients, auto-tag transactions as expenses or earnings — no manual entry.',
+    preview: <BookkeepingPanel />,
   },
   {
-    title: 'Move',
+    title: 'Clients & Projects',
     description:
-      'Auto-settle daily to your bank account or withdraw on demand. No minimums, no holds. Batch payouts to team members, contractors, or suppliers.',
-    preview: <MovePanel />,
+      'Send client reminders, message clients in-app, generate contracts from project scopes, and track time against billable work — all tied to client records.',
+    preview: <ClientsPanel />,
   },
   {
-    title: 'Automate',
+    title: 'Payroll & Team',
     description:
-      'Your AI assistant handles the routine — surfacing insights, flagging anomalies, and recommending actions. Connect your tools and let Hedwig do the heavy lifting.',
-    preview: <ScalePanel />,
+      'Run payroll on any schedule, assign projects to team members, manage workspace roles and permissions as a core feature, not an afterthought.',
+    preview: <PayrollPanel />,
+  },
+  {
+    title: 'Integrations',
+    description:
+      'Sync projects from Linear, keep deadlines on Google Calendar, and back up contracts and invoices to Google Docs. Your tools, connected.',
+    preview: <IntegrationsPanel />,
   },
 ];
 
@@ -42,7 +48,7 @@ export function FeaturesShowcase() {
   }, []);
 
   return (
-    <section className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-8 py-24">
+    <section id="features" className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-8 py-24">
       <div className="mx-auto max-w-[1400px]">
         <div className="grid gap-16 lg:grid-cols-[400px_1fr] lg:items-start xl:grid-cols-[460px_1fr]">
 
@@ -125,34 +131,23 @@ export function FeaturesShowcase() {
   );
 }
 
-/* ── Pillar 1: Receive ───────────────────────────────────────── */
+/* ── Pillar 1: Payments ──────────────────────────────────────── */
 
-function ReceivePanel() {
+function PaymentsPanel() {
   const links = [
     { name: 'Brand sprint — payment link', amount: '$1,800', status: 'Paid', statusColor: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]', method: 'Wallet' },
     { name: 'Logo package — invoice', amount: '$450', status: 'Pending', statusColor: 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]', method: 'Invoice' },
-    { name: 'Web redesign M2 — payment link', amount: '$3,200', status: 'Overdue', statusColor: 'text-[var(--color-text-tertiary)] bg-[var(--color-warning-soft)]', method: 'Wallet' },
-    { name: 'Motion kit delivery — invoice', amount: '$900', status: 'Draft', statusColor: 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]', method: 'Invoice' },
-    { name: 'Copywriting retainer — payment link', amount: '$2,000', status: 'Paid', statusColor: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]', method: 'Wallet' },
+    { name: 'Web redesign M2 — invoice', amount: '$3,200', status: 'Overdue', statusColor: 'text-[var(--color-text-tertiary)] bg-[var(--color-warning-soft)]', method: 'Invoice' },
+    { name: 'Motion kit delivery — payment link', amount: '$900', status: 'Paid', statusColor: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]', method: 'Wallet' },
   ];
 
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-[var(--color-surface-secondary)] px-6 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Receive</p>
-        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Payment links & invoices</h3>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Payments</p>
+        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Invoices, payment links, and withdrawals</h3>
       </div>
-      <div className="px-6 pt-4 pb-2">
-        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
-          {[{ l: 'Total collected', v: '$8,350' }, { l: 'This month', v: '$4,200' }, { l: 'Pending', v: '$1,800' }].map((s) => (
-            <div key={s.l} className="bg-[var(--color-surface)] px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{s.l}</p>
-              <p className="mt-1 text-[18px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{s.v}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex-1 overflow-hidden px-6 pb-4 pt-3">
+      <div className="flex-1 overflow-hidden px-6 pt-4">
         <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 border-b border-[var(--color-surface-secondary)] px-4 py-2.5">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Item</p>
@@ -165,7 +160,7 @@ function ReceivePanel() {
               <div key={r.name} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[10px] font-bold text-[var(--color-text-tertiary)]">
-                    {r.method === 'Wallet' ? '⟐' : '⟐'}
+                    ⟐
                   </div>
                   <p className="truncate text-[12px] font-semibold text-[var(--color-foreground)]">{r.name}</p>
                 </div>
@@ -181,41 +176,37 @@ function ReceivePanel() {
   );
 }
 
-/* ── Pillar 2: Manage ────────────────────────────────────────── */
+/* ── Pillar 2: Bookkeeping ───────────────────────────────────── */
 
-function ManagePanel() {
+function BookkeepingPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-[var(--color-surface-secondary)] px-6 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Manage</p>
-        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Treasury & currency management</h3>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Bookkeeping</p>
+        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Auto-categorized income & expenses</h3>
       </div>
-      <div className="flex-1 overflow-auto px-6 py-4">
-          <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] p-4 ring-1 ring-[var(--color-border)]">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">USDC balance</p>
-            <p className="mt-2 text-[24px] font-bold leading-none tracking-[-0.03em] text-[var(--color-foreground)]">42,800</p>
-            <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">≈ $42,800.00</p>
-          </div>
+      <div className="flex-1 overflow-auto px-6 py-4 space-y-3">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-accent-soft)] p-4 text-center ring-1 ring-[var(--color-border)]">
+          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Last import</p>
+          <p className="mt-1 text-[13px] font-semibold text-[var(--color-foreground)]">statement-2026-06.csv</p>
+          <p className="text-[11px] text-[var(--color-text-muted)]">34 transactions · Auto-categorized</p>
+        </div>
         <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
           <div className="border-b border-[var(--color-surface-secondary)] px-4 py-2.5">
-            <p className="text-[11px] font-semibold text-[var(--color-foreground)]">Conversion history</p>
+            <p className="text-[11px] font-semibold text-[var(--color-foreground)]">Recent transactions</p>
           </div>
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {[
-              { from: 'USDC', to: 'NGN', amount: '$2,000', rate: '1,540', status: 'Completed', color: 'text-[var(--color-text-tertiary)]' },
-              { from: 'USDC', to: 'KES', amount: '$1,200', rate: '129.50', status: 'Completed', color: 'text-[var(--color-text-tertiary)]' },
-            ].map((c) => (
-              <div key={c.from + c.to + c.amount} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-semibold text-[var(--color-foreground)]">{c.from}</span>
-                    <span className="text-[11px] text-[var(--color-text-muted)]">→</span>
-                    <span className="text-[13px] font-semibold text-[var(--color-foreground)]">{c.to}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{c.amount} @ {c.rate}</p>
-                  <p className={`text-[11px] font-semibold ${c.color}`}>{c.status}</p>
+              { desc: 'Payment from Acme Corp', amount: '+$1,800', tag: 'Income', tagStyle: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },
+              { desc: 'Design tools subscription', amount: '-$49', tag: 'Expense', tagStyle: 'text-[var(--color-text-tertiary)] bg-[var(--color-surface-tertiary)]' },
+              { desc: 'Invoice #1042 — Ola Design', amount: '+$450', tag: 'Income', tagStyle: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },
+              { desc: 'Hosting (DigitalOcean)', amount: '-$24', tag: 'Expense', tagStyle: 'text-[var(--color-text-tertiary)] bg-[var(--color-surface-tertiary)]' },
+            ].map((t) => (
+              <div key={t.desc} className="flex items-center justify-between px-4 py-3">
+                <p className="text-[12px] text-[var(--color-foreground)]">{t.desc}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[12px] font-semibold text-[var(--color-foreground)]">{t.amount}</p>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${t.tagStyle}`}>{t.tag}</span>
                 </div>
               </div>
             ))}
@@ -226,21 +217,52 @@ function ManagePanel() {
   );
 }
 
-/* ── Pillar 3: Move ──────────────────────────────────────────── */
+/* ── Pillar 3: Clients & Projects ────────────────────────────── */
 
-function MovePanel() {
+function ClientsPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-[var(--color-surface-secondary)] px-6 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Move</p>
-        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Settlements & payouts</h3>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Clients & Projects</p>
+        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Work, time, and communication</h3>
       </div>
       <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="mb-3 grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+          <div className="divide-y divide-[var(--color-surface-secondary)]">
+            {[
+              { client: 'Acme Corp', project: 'Brand redesign', time: '12h logged', status: 'Active', statusStyle: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },
+              { client: 'Ola Design', project: 'Logo package', time: '4h logged', status: 'Review', statusStyle: 'text-[var(--color-text-secondary)] bg-[var(--color-warning-soft)]' },
+              { client: 'Zenith Labs', project: 'Web redesign', time: '—', status: 'Contract sent', statusStyle: 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]' },
+            ].map((c) => (
+              <div key={c.client} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{c.project}</p>
+                  <p className="text-[11px] text-[var(--color-text-muted)]">{c.client} · {c.time}</p>
+                </div>
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${c.statusStyle}`}>{c.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Pillar 4: Payroll & Team ────────────────────────────────── */
+
+function PayrollPanel() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-[var(--color-surface-secondary)] px-6 py-4">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Payroll & Team</p>
+        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Run payroll, assign work, manage access</h3>
+      </div>
+      <div className="flex-1 overflow-auto px-6 py-4">
+        <div className="mb-3 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
           {[
-            { l: 'Settled (30d)', v: '$31,080' },
-            { l: 'Pending settlement', v: '$1,200' },
-            { l: 'Next settlement', v: 'Today, 4pm' },
+            { l: 'Team members', v: '4' },
+            { l: 'Next payroll', v: 'Fri, Jul 25' },
           ].map((s) => (
             <div key={s.l} className="bg-[var(--color-surface)] px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{s.l}</p>
@@ -250,26 +272,22 @@ function MovePanel() {
         </div>
         <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
           <div className="border-b border-[var(--color-surface-secondary)] px-4 py-2.5">
-            <p className="text-[11px] font-semibold text-[var(--color-foreground)]">Settlement schedule</p>
+            <p className="text-[11px] font-semibold text-[var(--color-foreground)]">Team</p>
           </div>
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {[
-              { label: 'Auto-settlement', detail: 'Daily to Primary Account', amount: 'Up to $50,000/day', state: 'Active', stateColor: 'text-[var(--color-text-tertiary)]' },
-              { label: 'Last payout', detail: 'NGN — GTBank', amount: '$2,400', state: 'Completed', stateColor: 'text-[var(--color-text-tertiary)]' },
-              { label: 'Pending', detail: 'NGN — GTBank', amount: '$1,200', state: 'Tomorrow', stateColor: 'text-[var(--color-text-secondary)]' },
-              { label: 'Batch payout', detail: '3 contractors', amount: '$4,500', state: 'Scheduled', stateColor: 'text-[var(--color-text-secondary)]' },
-            ].map((row) => (
-              <div key={row.label} className="flex items-center justify-between px-4 py-3">
+              { name: 'You', role: 'Owner', projects: '3 active' },
+              { name: 'Chioma A.', role: 'Member', projects: '2 active' },
+              { name: 'Kofi A.', role: 'Member', projects: '1 active' },
+              { name: 'Sandra O.', role: 'Viewer', projects: '—' },
+            ].map((m) => (
+              <div key={m.name} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[11px] font-bold text-[var(--color-text-tertiary)]">{m.name[0]}</div>
                   <div>
-                    <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{row.label}</p>
-                    <p className="text-[11px] text-[var(--color-text-muted)]">{row.detail}</p>
+                    <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{m.name}</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">{m.role} · {m.projects}</p>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{row.amount}</p>
-                  <p className={`text-[11px] font-semibold ${row.stateColor}`}>{row.state}</p>
                 </div>
               </div>
             ))}
@@ -280,52 +298,24 @@ function MovePanel() {
   );
 }
 
-/* ── Pillar 4: Scale ─────────────────────────────────────────── */
+/* ── Pillar 5: Integrations ──────────────────────────────────── */
 
-function ScalePanel() {
+function IntegrationsPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-[var(--color-surface-secondary)] px-6 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Scale</p>
-        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">AI assistant & integrations</h3>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Integrations</p>
+        <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Your tools, connected</h3>
       </div>
-      <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="mb-3 overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
-          <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
-            <p className="text-[14px] font-semibold text-[var(--color-foreground)]">AI assistant</p>
-            <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">Active · Summarizes activity daily</p>
-          </div>
-          <div className="divide-y divide-[var(--color-surface-secondary)]">
-            {[
-              { label: 'Daily summary', desc: '3 payments collected ($4,200) · 1 overdue invoice · 1 settlement completed', tag: 'Just now' },
-              { label: 'Flagged', desc: 'Invoice #1042 is 14 days overdue — consider sending a reminder', tag: '2 hrs ago' },
-              { label: 'Suggested', desc: 'USDC balance above $40K — convert to local currency? Rate is favorable today', tag: 'Yesterday' },
-            ].map((row) => (
-              <div key={row.label} className="flex items-center justify-between px-5 py-3.5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[11px]">
-                    ✦
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold text-[var(--color-foreground)]">{row.label}</p>
-                    <p className="text-[11px] text-[var(--color-text-muted)]">{row.desc}</p>
-                  </div>
-                </div>
-                <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">{row.tag}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex-1 overflow-auto px-6 py-4 space-y-3">
         <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
-          <div className="border-b border-[var(--color-surface-secondary)] px-4 py-2.5">
-            <p className="text-[11px] font-semibold text-[var(--color-foreground)]">Integrations</p>
-          </div>
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {[
               { name: 'Google Workspace', status: 'Connected', statusClass: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },
+              { name: 'Linear', status: 'Connected', statusClass: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },
+              { name: 'Google Calendar', status: 'Connected', statusClass: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },
               { name: 'QuickBooks', status: 'Coming soon', statusClass: 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]' },
               { name: 'Slack', status: 'Coming soon', statusClass: 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]' },
-              { name: 'Xero', status: 'Coming soon', statusClass: 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]' },
             ].map((m) => (
               <div key={m.name} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">

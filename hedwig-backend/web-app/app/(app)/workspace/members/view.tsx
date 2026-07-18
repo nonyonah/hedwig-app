@@ -116,10 +116,10 @@ export function MembersClient() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Members</h1>
-        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Manage team members and roles.</p>
+        <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Members</h1>
+        <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Manage team members and roles.</p>
       </div>
 
       <AttachedStatGrid
@@ -130,38 +130,28 @@ export function MembersClient() {
         className="grid-cols-1 md:grid-cols-2"
       />
 
-      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
-        {/* Header bar */}
-        <div className="flex items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{members.length} members</span>
-            {activeCount > 0 && (
-              <>
-                <span className="h-3 w-px shrink-0 bg-[var(--color-surface-tertiary)]" />
-                <span className="truncate text-[12px] text-[var(--color-text-muted)]">
-                  {activeCount} team
-                </span>
-              </>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {ROLE_FILTERS.map((r) => (
-              <Button
-                key={r}
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilter(r)}
-                className={cn(
-                  'rounded-md px-2.5 py-1 text-[12px] font-medium',
-                  filter === r
-                    ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
-                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
-                )}
-              >
-                {r === 'all' ? 'All' : ROLE_CONFIG[r]?.label ?? r}
-              </Button>
-            ))}
-          </div>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 px-0.5">
+        <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
+          {members.length} member{members.length !== 1 ? 's' : ''}
+        </span>
+        <div className="flex items-center gap-1">
+          {ROLE_FILTERS.map((r) => (
+            <Button
+              key={r}
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilter(r)}
+              className={cn(
+                'rounded-md px-2.5 py-1 text-[12px] font-medium',
+                filter === r
+                  ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
+              )}
+            >
+              {r === 'all' ? 'All' : ROLE_CONFIG[r]?.label ?? r}
+            </Button>
+          ))}
           <Button
             variant="default"
             size="sm"
@@ -170,9 +160,12 @@ export function MembersClient() {
             <Plus className="h-3.5 w-3.5" weight="bold" /> Invite
           </Button>
         </div>
+      </div>
 
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_100px_100px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
+        <div className="grid grid-cols-[1fr_100px_100px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
           <ColHead>Member</ColHead>
           <ColHead>Role</ColHead>
           <ColHead right>Joined</ColHead>
@@ -185,7 +178,7 @@ export function MembersClient() {
         ) : filtered.length === 0 ? (
           <EmptyState text={filter === 'all' ? 'No members yet.' : 'No members match this filter.'} />
         ) : (
-          <div className="divide-y divide-[var(--color-surface-secondary)]">
+          <div className="divide-y divide-[var(--color-border)]">
             {filtered.map((member) => {
               const roleCfg = ROLE_CONFIG[member.role];
 
@@ -204,7 +197,7 @@ export function MembersClient() {
               return (
                 <div
                   key={member.userId}
-                  className="group grid grid-cols-[1fr_100px_100px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]"
+                  className="group grid grid-cols-[1fr_100px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)]"
                 >
                   {/* Member */}
                   <div className="flex items-center gap-3 min-w-0">
@@ -257,7 +250,7 @@ export function MembersClient() {
 
 function ColHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <span className={`text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)] ${right ? 'text-right' : ''}`}>
+    <span className={`text-[11px] font-medium text-[var(--color-text-tertiary)] ${right ? 'text-right' : ''}`}>
       {children}
     </span>
   );

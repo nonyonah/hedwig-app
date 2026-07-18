@@ -14,9 +14,9 @@
   --surface: #ffffff;
   --border: #e5e5e5;
 
-  --hedwig-primary: #2563eb;
-  --hedwig-primary-dark: #1d4ed8;
-  --hedwig-primary-light: #dbeafe;
+  --hedwig-primary: #2196f3;
+  --hedwig-primary-dark: #1976d2;
+  --hedwig-primary-light: #e3f2fd;
 
   --hedwig-text-primary: #171717;
   --hedwig-text-secondary: #404040;
@@ -50,9 +50,9 @@
     --surface: #121214;
     --border: #27272a;
     --muted: #52525b;
-    --hedwig-primary: #60a5fa;
-    --hedwig-primary-dark: #3b82f6;
-    --hedwig-primary-light: #1e3a5f;
+    --hedwig-primary: #42a5f5;
+    --hedwig-primary-dark: #2196f3;
+    --hedwig-primary-light: #0d47a1;
     --hedwig-text-primary: #e5e5e5;
     --hedwig-text-secondary: #a1a1aa;
     --hedwig-text-tertiary: #71717a;
@@ -84,9 +84,9 @@
   --border: #27272a;
   --muted: #52525b;
 
-  --hedwig-primary: #60a5fa;
-  --hedwig-primary-dark: #3b82f6;
-  --hedwig-primary-light: #1e3a5f;
+  --hedwig-primary: #42a5f5;
+  --hedwig-primary-dark: #2196f3;
+  --hedwig-primary-light: #0d47a1;
 
   --hedwig-text-primary: #e5e5e5;
   --hedwig-text-secondary: #a1a1aa;
@@ -173,6 +173,10 @@
   --radius-2xl: 1rem;
   --radius-3xl: 1.5rem;
   --radius-full: 9999px;
+
+  /* Panel layout (Linear-style floating panels) */
+  --panel-gap: 0.75rem;
+  --panel-radius: var(--radius-xl);
 }
 
 /* ── Base styles ───────────────────────────────────────────────────────── */

@@ -852,15 +852,15 @@ export function TaxWorkspaceClient({
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
-                    <tr className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)]">
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Expense</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Category</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Deductible</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Client</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Project</th>
+                    <tr className="border-b border-[var(--color-border)]">
+                      <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Expense</th>
+                      <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Category</th>
+                      <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Deductible</th>
+                      <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</th>
+                      <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--color-surface-secondary)]">
+                  <tbody className="divide-y divide-[var(--color-border)]">
                     {uncategorizedExpenses.map((expense) => (
                       <tr key={expense.id}>
                         <td className="px-4 py-3 align-top">

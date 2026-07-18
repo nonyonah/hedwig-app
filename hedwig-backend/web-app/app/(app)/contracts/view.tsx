@@ -180,10 +180,10 @@ export function ContractsClient({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Contracts</h1>
-        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Create, send, and manage signed agreements with your clients.</p>
+        <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Contracts</h1>
+        <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Create, send, and manage signed agreements with your clients.</p>
       </div>
 
       <AttachedStatGrid
@@ -195,46 +195,45 @@ export function ContractsClient({
         className="grid-cols-1 md:grid-cols-3"
       />
 
-      {/* Table card */}
-      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
-        {/* Unified header */}
-        <div className="flex items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{contracts.length} contracts</span>
-            {(signedCount > 0 || reviewCount > 0) && (
-              <>
-                <span className="h-3 w-px shrink-0 bg-[var(--color-surface-tertiary)]" />
-                <span className="truncate text-[12px] text-[var(--color-text-muted)]">
-                  {signedCount} signed{reviewCount > 0 ? ` · ${reviewCount} in review` : ''}
-                  {isRefreshing ? ' · syncing…' : ''}
-                </span>
-              </>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {STATUS_FILTERS.map((s) => (
-              <Button
-                key={s}
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilter(s)}
-                className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
-                  filter === s
-                    ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
-                    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {s === 'all' ? 'All' : CONTRACT_STATUS[s as keyof typeof CONTRACT_STATUS]?.label ?? s}
-              </Button>
-            ))}
-          </div>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 px-0.5">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
+            {contracts.length} contract{contracts.length !== 1 ? 's' : ''}
+          </span>
+          {(signedCount > 0 || reviewCount > 0) && (
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              · {signedCount} signed{reviewCount > 0 ? `, ${reviewCount} in review` : ''}
+              {isRefreshing ? ' · syncing…' : ''}
+            </span>
+          )}
         </div>
+        <div className="flex items-center gap-1">
+          {STATUS_FILTERS.map((s) => (
+            <Button
+              key={s}
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilter(s)}
+              className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${
+                filter === s
+                  ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {s === 'all' ? 'All' : CONTRACT_STATUS[s as keyof typeof CONTRACT_STATUS]?.label ?? s}
+            </Button>
+          ))}
+        </div>
+      </div>
 
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_110px_160px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Title</span>
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Status</span>
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Client</span>
+        <div className="grid grid-cols-[1fr_110px_160px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
+          <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Title</span>
+          <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</span>
+          <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</span>
           <span />
         </div>
 
@@ -242,7 +241,7 @@ export function ContractsClient({
         {filtered.length === 0 ? (
           <EmptyState text="No contracts match this filter." />
         ) : (
-          <div className="divide-y divide-[var(--color-surface-secondary)]">
+          <div className="divide-y divide-[var(--color-border)]">
             {filtered.map((contract) => {
               const s = CONTRACT_STATUS[contract.status] ?? CONTRACT_STATUS.draft;
               const isHighlighted = contract.id === highlightedContractId;

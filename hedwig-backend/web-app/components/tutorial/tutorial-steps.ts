@@ -25,7 +25,7 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     screenId: 'dashboard',
     route: '/dashboard',
     title: 'Your workspace at a glance',
-    body: 'Dashboard brings together earnings, outstanding invoices, active projects, reminders, and your assistant summary so you can see what needs attention first.',
+    body: 'Dashboard brings together payments, active projects, team activity, upcoming reminders, and your assistant summary so you can see what needs attention first.',
     position: 'center',
   },
   {
@@ -64,8 +64,8 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     id: 'payments_intro',
     screenId: 'payments',
     route: '/payments',
-    title: 'Invoices and payment links',
-    body: 'Send invoices, create payment links, manage recurring invoices, and use native reminders for client follow-up. Imported paid invoices are kept for revenue bookkeeping.',
+    title: 'Payments and client billing',
+    body: 'Send invoices, create payment links, manage recurring billing, import bank statements for bookkeeping, and use native reminders for client follow-up. Paid items feed into revenue tracking.',
     position: 'top',
   },
   {

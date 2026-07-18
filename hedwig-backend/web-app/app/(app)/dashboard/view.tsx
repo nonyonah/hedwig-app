@@ -14,6 +14,7 @@ import {
   Link as LinkIcon,
   Repeat,
   Sparkle,
+  UsersThree,
   X
 } from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
@@ -449,38 +450,38 @@ export function DashboardClient({
 
 const CORE_INTRO_STEPS = [
   {
-    title: 'Create client-ready invoices',
-    description: 'Start with one client, amount, and due date. If the client email is included, Hedwig sends the invoice automatically.',
-    label: 'Invoice',
-    Icon: FileText,
+    title: 'Receive payments in USDC',
+    description: 'Send branded payment links or invoices. Clients pay from anywhere — funds land in your account in minutes, not days.',
+    label: 'Payments',
+    Icon: CurrencyDollar,
     accent: 'bg-[var(--color-accent-soft)] text-[var(--color-primary)]',
   },
   {
     title: 'Track clients and projects',
-    description: 'Keep client details, project work, documents, and payment history tied together from the first invoice.',
+    description: 'Keep client records, project scopes, contracts, and time tracking tied together from day one.',
     label: 'Clients',
     Icon: IdentificationCard,
     accent: 'bg-[var(--color-success-soft)] text-[var(--color-success)]',
   },
   {
-    title: 'Automatic payment reminders',
-    description: 'Hedwig can remind clients before and after due dates so you spend less time chasing payments manually.',
-    label: 'Reminders',
-    Icon: Bell,
+    title: 'Import and reconcile automatically',
+    description: 'Import bank statements and receipts. Hedwig auto-matches payments to clients and tags expenses — no manual entry.',
+    label: 'Bookkeeping',
+    Icon: FileText,
     accent: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]',
   },
   {
-    title: 'Hedwig assistant keeps watch',
-    description: 'The assistant summarizes payment activity, highlights next steps, and helps draft client follow-ups when needed.',
-    label: 'Assistant',
-    Icon: Sparkle,
+    title: 'Run payroll and manage your team',
+    description: 'Pay your team on any schedule, assign projects to members, and manage roles and permissions from one workspace.',
+    label: 'Team',
+    Icon: UsersThree,
     accent: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]',
   },
   {
-    title: 'Track payment until it lands',
-    description: 'See what is paid, pending, or overdue without checking every message thread manually.',
-    label: 'Track',
-    Icon: CurrencyDollar,
+    title: 'Your assistant handles the routine',
+    description: 'Hedwig surfaces daily summaries, flags overdue items and unlogged time, and suggests next steps so nothing slips.',
+    label: 'Assistant',
+    Icon: Sparkle,
     accent: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]',
   },
 ];
@@ -586,10 +587,10 @@ function FirstInvoiceCard({ onStart }: { onStart: () => void }) {
         <div className="bg-[var(--color-foreground)] p-6">
           <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-accent-soft)]">First session goal</p>
           <h2 className="mt-2 max-w-2xl text-[24px] font-bold tracking-[-0.035em]">
-            Create your first invoice in 60 seconds.
+            Set up your first payment in 60 seconds.
           </h2>
           <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--color-text-placeholder)]">
-            Start with one client, an amount, and a due date. Hedwig will turn it into a client-ready invoice you can share.
+            Start with one client, an amount, and a due date. Hedwig handles the rest — invoices, reminders, and bookkeeping are all connected.
           </p>
           <Button
             variant="secondary"
@@ -601,9 +602,9 @@ function FirstInvoiceCard({ onStart }: { onStart: () => void }) {
           </Button>
         </div>
         <div className="bg-[var(--color-foreground)] p-6">
-          <p className="text-[13px] font-semibold text-white">What happens next</p>
+          <p className="text-[13px] font-semibold text-white">Then you can</p>
           <div className="mt-4 space-y-3">
-            {['Create the invoice', 'Invoice is sent automatically to the client', 'Track payment when it lands'].map((item, index) => (
+            {['Import bank statements and auto-categorize expenses', 'Track time against projects and contracts', 'Run payroll and manage your team'].map((item, index) => (
               <div key={item} className="flex items-center gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface)]/10 text-[12px] font-semibold text-white">
                   {index + 1}
@@ -632,21 +633,21 @@ function OnboardingChecklist({
   onCreatePaymentLink: () => void;
 }) {
   const steps = [
-    { label: 'Create your first invoice or payment link', complete: hasCreated },
-    { label: 'Invoice is sent automatically to the client', complete: hasShared },
-    { label: 'Receive your first payment', complete: hasReceived },
+    { label: 'Create your first payment request', complete: hasCreated },
+    { label: 'Payment request is shared with the client', complete: hasShared },
+    { label: 'Receive your first payment into Hedwig', complete: hasReceived },
   ];
 
   return (
     <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">Getting paid checklist</p>
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">First payment checklist</p>
           <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">
-            Keep going until the first payment lands.
+            Get your first payment lined up.
           </h2>
           <p className="mt-1 text-[13px] leading-5 text-[var(--color-text-tertiary)]">
-            Once your first request is sent, you can set a monthly earnings goal from Insights.
+            Once your first payment lands, you can set a monthly earnings goal from Insights and explore time tracking, payroll, and integrations.
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">

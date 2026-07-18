@@ -18,6 +18,7 @@ export interface GenerateTextOptions {
   maxOutputTokens?: number;
   purpose?: LLMPurpose;
   files?: LLMFilePart[];
+  provider?: 'auto' | 'gemini' | 'gateway' | 'openrouter';
 }
 
 export interface GenerateObjectOptions extends GenerateTextOptions {
@@ -252,21 +253,33 @@ export class LLMService {
   ): Promise<string> {
     if (!this.configured) throw new Error('No configured LLM provider available');
 
-    if (this.gemini) {
-      try {
-        return await this.generateWithGemini(prompt, options);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        logger.warn('Gemini failed, falling back to AI Gateway', { message: err.message });
+    const provider = options.provider || 'auto';
+
+    if (provider === 'openrouter' || provider === 'auto') {
+      if (this.openRouterConfigured && (provider === 'openrouter' || (!this.gemini && !this.gatewayConfigured))) {
+        return this.generateWithOpenRouter(prompt, options);
       }
     }
 
-    if (this.gatewayConfigured) {
-      try {
-        return await this.generateWithGateway(prompt, options);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        logger.warn('AI Gateway failed, falling back to OpenRouter', { message: err.message });
+    if (provider === 'gemini' || provider === 'auto') {
+      if (this.gemini) {
+        try {
+          return await this.generateWithGemini(prompt, options);
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          logger.warn('Gemini failed, falling back to AI Gateway', { message: err.message });
+        }
+      }
+    }
+
+    if (provider === 'gateway' || provider === 'auto') {
+      if (this.gatewayConfigured) {
+        try {
+          return await this.generateWithGateway(prompt, options);
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          logger.warn('AI Gateway failed, falling back to OpenRouter', { message: err.message });
+        }
       }
     }
 

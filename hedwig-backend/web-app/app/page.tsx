@@ -17,7 +17,7 @@ export default async function IndexPage() {
 }
 
 const NAV_GROUPS = [
-  { label: 'Overview', items: ['Dashboard', 'Insights', 'Treasury'] },
+  { label: 'Overview', items: ['Dashboard', 'Insights', 'Account'] },
   { label: 'Payments', items: ['Payment Links', 'Payouts'] },
   { label: 'Settings', items: ['Team', 'Integrations'] },
 ];
@@ -44,6 +44,9 @@ function LandingPage() {
             >
               Pricing
             </Link>
+            <a href="https://help.hedwigbot.xyz" target="_blank" rel="noreferrer" className="hidden text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
+              Help
+            </a>
             <Link
               href="/sign-in"
               className="inline-flex h-8 items-center rounded-full border border-[var(--color-border-input)] px-3.5 text-[13px] font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-secondary)]"
@@ -55,7 +58,7 @@ function LandingPage() {
       </nav>
 
       {/* ── Hero ──────────────────────────────────────────────── */}
-      <section id="features" className="relative overflow-hidden border-b border-[var(--color-surface-tertiary)] bg-[var(--color-accent-soft)] px-8 pb-0 pt-20">
+      <section className="relative overflow-hidden border-b border-[var(--color-surface-tertiary)] bg-[var(--color-accent-soft)] px-8 pb-0 pt-20">
         <div className="pointer-events-none absolute left-1/4 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse,rgba(37,99,235,0.10),transparent_70%)]" />
 
         <div className="relative mx-auto max-w-[1400px]">
@@ -65,20 +68,20 @@ function LandingPage() {
               style={{ animationDelay: '0ms' }}
             >
               <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
-                Built for freelancers. Powerful enough for teams.
+                The financial OS for independent businesses
               </span>
             </div>
             <h1
               className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[var(--color-foreground)] md:text-[68px] lg:text-[80px]"
               style={{ animationDelay: '80ms' }}
             >
-              Keep more of what you earn.<br />Move it anywhere.
+              Run your business on stablecoin.<br />All from one account.
             </h1>
             <p
               className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[var(--color-text-muted)]"
               style={{ animationDelay: '160ms' }}
             >
-               Receive payments from clients anywhere in the world. Hold them in USDC. Run your payroll, manage your team, and withdraw to your bank — all from one account.
+               Receive payments in seconds, track time and expenses, run payroll, manage clients and projects, and withdraw to your bank — without juggling different tools.
             </p>
             <div
               className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
@@ -88,7 +91,7 @@ function LandingPage() {
                 href="/api/auth/exit-demo"
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--color-primary)] px-8 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:bg-[var(--color-primary-dark)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.32)]"
               >
-                Open your treasury
+                Get started
                 <ArrowRight className="h-4 w-4" weight="bold" />
               </a>
               <a
@@ -128,12 +131,12 @@ function LandingPage() {
                         <div
                           key={item}
                           className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium ${
-                            item === 'Treasury'
+                            item === 'Account'
                               ? 'bg-[var(--color-accent-soft)] font-semibold text-[var(--color-text-tertiary)]'
                               : 'text-[var(--color-text-secondary)]'
                           }`}
                         >
-                          <span className={`h-1.5 w-1.5 rounded-full ${item === 'Treasury' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border-input)]'}`} />
+                          <span className={`h-1.5 w-1.5 rounded-full ${item === 'Account' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border-input)]'}`} />
                           {item}
                         </div>
                       ))}
@@ -144,7 +147,7 @@ function LandingPage() {
                 <main className="flex-1 overflow-hidden bg-[var(--color-surface-secondary)] p-5">
                   <div className="mb-4">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Overview</p>
-                    <h2 className="mt-0.5 text-[17px] font-semibold text-[var(--color-foreground)]">Treasury</h2>
+                    <h2 className="mt-0.5 text-[17px] font-semibold text-[var(--color-foreground)]">Account</h2>
                   </div>
                   <div className="mb-4 grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
                     {[
@@ -222,9 +225,9 @@ function LandingPage() {
       <section className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-8 py-24">
         <div className="mx-auto max-w-[1400px]">
           <AnimateIn className="mb-14 text-center">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">From freelancers to teams</p>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">From solo to team</p>
             <p className="mx-auto max-w-lg text-[15px] leading-7 text-[var(--color-text-muted)]">
-              Hedwig started as a better way for freelancers to get paid. Now it handles payroll, team access, and automations — while staying just as simple for solo operators.
+              Hedwig started as a better way for freelancers to get paid. Now it handles payroll, bookkeeping, team management, and automations — while staying just as simple for solo operators.
             </p>
           </AnimateIn>
 
@@ -238,7 +241,7 @@ function LandingPage() {
               {
                 name: 'Sarah K.',
                 company: 'Operations Lead, Blend Studios',
-                quote: 'Our clients are in the US and Europe. Hedwig lets us invoice in seconds and manage everything from one treasury. We stopped juggling five payment tools.',
+                quote: 'Our clients are in the US and Europe. Hedwig lets us invoice, track time, and manage our team from one place. We stopped juggling five tools.',
               },
             ].map((t, i) => (
               <AnimateIn key={t.name} delay={i * 80}>
@@ -261,15 +264,15 @@ function LandingPage() {
           <AnimateIn className="mb-14 text-center">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">How it works</p>
             <h2 className="text-[32px] font-bold tracking-[-0.04em] text-[var(--color-foreground)] md:text-[44px]">
-              From payment received. To funds in your account.
+              From getting paid to running your business.
             </h2>
           </AnimateIn>
           <div className="grid gap-px overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-[var(--color-border)] md:grid-cols-4">
             {[
-              { step: '01', label: 'Create a payment link or invoice', desc: 'Send a branded link. Your client pays in seconds from anywhere in the world.', accent: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]' },
-              { step: '02', label: 'Funds arrive in USDC', desc: 'Within minutes, not days. No 3-5 business day waits. Payments land in your unified treasury instantly.', accent: 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]' },
-              { step: '03', label: 'Hold, convert, or manage', desc: 'Keep your balance in USDC or convert when the rate is right. Control who on your team has access.', accent: 'bg-[var(--color-warning-soft)] text-[var(--color-text-tertiary)]' },
-              { step: '04', label: 'Withdraw to your bank', desc: 'Daily auto-settlement or on demand. 1% fee only when funds move out. Supports NGN, KES, GHS, USD, EUR, and more.', accent: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]' },
+              { step: '01', label: 'Collect what you\'re owed', desc: 'Send invoices or payment links, import bank statements, and auto-match income to clients. Payments land in your account in minutes.', accent: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]' },
+              { step: '02', label: 'Know where your money goes', desc: 'Auto-categorize income and expenses, import receipts from Gmail, and reconcile payments — no manual entry.', accent: 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]' },
+              { step: '03', label: 'Manage work and people', desc: 'Track time against projects, generate contracts, send client reminders, and manage team roles from one workspace.', accent: 'bg-[var(--color-warning-soft)] text-[var(--color-text-tertiary)]' },
+              { step: '04', label: 'Pay out and scale', desc: 'Run payroll on any schedule, batch-pay contractors, withdraw to your bank, or convert to local currency. One percent fee only when money moves.', accent: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
                 <div className="flex h-full flex-col bg-[var(--color-surface)] px-8 py-10">
@@ -295,10 +298,10 @@ function LandingPage() {
                 <div className="flex flex-col justify-center px-10 py-14 md:px-14">
                   <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">Mobile companion</p>
                   <h2 className="text-[30px] font-bold tracking-[-0.04em] text-[var(--color-foreground)] md:text-[38px]">
-                    Your treasury, in your pocket.
+                    Your account, in your pocket.
                   </h2>
                   <p className="mt-4 max-w-sm text-[15px] leading-7 text-[var(--color-text-muted)]">
-                    Monitor your balance, track payments, and manage your treasury from anywhere. The same account, the same data — on web and mobile.
+                    Monitor your balance, track payments, and manage your account from anywhere. The same account, the same data — on web and mobile.
                   </p>
                   <div className="mt-9 flex flex-col gap-6">
                     {[
@@ -312,7 +315,7 @@ function LandingPage() {
                       },
                       {
                         title: 'Quick actions',
-                        desc: 'Withdraw, convert currencies, or send payment links — all from your phone.',
+                        desc: 'Withdraw, convert currencies, send payment links, or review expenses — all from your phone.',
                       },
                     ].map((f) => (
                       <div key={f.title}>
@@ -358,15 +361,15 @@ function LandingPage() {
             {[
               {
                 q: 'How does pricing work?',
-                a: 'Creating payment links and invoices is free. You pay a 1% fee only when you withdraw funds. Starter ($5/mo) and Pro ($12/mo) plans unlock payroll, automations, and team features. Exchange rates are market-based with no hidden markup.',
+                a: 'Receiving payments is free. You pay a 1% fee only when you withdraw funds. Starter ($5/mo) and Pro ($12/mo) plans unlock payroll, bookkeeping imports, automations, and team features. Exchange rates are market-based with no hidden markup.',
               },
               {
                 q: 'How fast do payments arrive?',
-                a: 'Payments land in your Hedwig treasury within minutes. Withdrawals are available on demand and most settle same-day.',
+                a: 'Payments land in your Hedwig account within minutes. Withdrawals are available on demand and most settle same-day.',
               },
               {
                 q: 'Can I collect payments from international customers?',
-                a: 'Yes. That is exactly what Hedwig is built for. Your customers can pay from anywhere in the world using a payment link or invoice. You see everything in your unified treasury.',
+                a: 'Yes. Your customers can pay from anywhere in the world using a payment link or invoice. Hedwig also auto-matches incoming payments to clients via Gmail and lets you track time, expenses, and projects tied to each client.',
               },
               {
                 q: 'Which countries do you support?',
@@ -374,11 +377,11 @@ function LandingPage() {
               },
               {
                 q: 'Does Hedwig integrate with my existing tools?',
-                a: 'Hedwig connects with Google Workspace for team access. QuickBooks, Slack, and Xero integrations are coming soon. You can also invite team members with role-based access and manage everything from one account.',
+                a: 'Hedwig connects with Google Workspace for team access. Sync projects from Linear, keep deadlines on Google Calendar, and back up contracts and invoices to Google Docs. Bank statement imports (CSV, OFX, QFX) with auto-categorization are supported. QuickBooks, Slack, and Xero are coming soon.',
               },
               {
-                q: 'Can my team use Hedwig too?',
-                a: 'Yes. You can invite team members with role-based access. Control who can send payments, view balances, and manage settings — all from one account.',
+                q: 'Can I run payroll and manage my team?',
+                a: 'Yes. Hedwig supports payroll on any schedule, batch payouts to contractors, and project assignment to team members with role-based access. Control who can send payments, view balances, and manage settings — all from one workspace.',
               },
             ].map((faq, i) => (
               <AnimateIn key={faq.q} delay={i * 60}>
@@ -402,16 +405,16 @@ function LandingPage() {
               <div className="relative">
                 <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Get started</p>
                 <h2 className="text-[32px] font-bold tracking-[-0.04em] text-white md:text-[48px]">
-                  Your treasury should work<br className="hidden md:block" /> as hard as you do.
+                  Your account should work<br className="hidden md:block" /> as hard as you do.
                 </h2>
                 <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-[var(--color-text-placeholder)]">
-                  Receive payments from anywhere, hold in USDC, and withdraw when you need to. Free to start.
+                  Receive payments, track time and expenses, run payroll, manage your team, and withdraw when you need to. Free to start.
                 </p>
                 <a
                   href="/api/auth/exit-demo"
                   className="mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-surface)] px-8 text-[14px] font-semibold text-[var(--color-foreground)] transition-all duration-200 hover:bg-[var(--color-accent-soft)] hover:shadow-lg"
                 >
-                  Open your treasury
+                Get started
                   <ArrowRight className="h-4 w-4" weight="bold" />
                 </a>
               </div>

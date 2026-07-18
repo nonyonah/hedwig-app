@@ -509,11 +509,11 @@ export function PaymentsClient({
 
   /* ─── render ─── */
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Payments</h1>
-          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Invoice clients and collect payments in one workflow.</p>
+          <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Payments</h1>
+          <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Invoice clients and collect payments in one workflow.</p>
         </div>
       </div>
       <AttachedStatGrid
@@ -543,7 +543,7 @@ export function PaymentsClient({
         className="grid-cols-1 md:grid-cols-3"
       />
 
-      <div className="flex items-start gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-text-secondary)] shadow-xs">
+      <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-text-secondary)]">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]" weight="bold" />
         <p className="text-[13px] text-[var(--color-text-tertiary)]">
           Need to move funds out? You can access and manage your available balance from the Hedwig mobile app.
@@ -552,7 +552,7 @@ export function PaymentsClient({
 
       {/* Highlighted invoice banner */}
       {highlightedInvoice && (
-        <div className="flex items-start gap-3 rounded-2xl border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-text-secondary)]">
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-text-secondary)]">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]" weight="bold" />
           <p className="text-[13px]">
             Opened from calendar — invoice{' '}
@@ -569,13 +569,13 @@ export function PaymentsClient({
       />
 
       {/* Main card */}
-      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         {/* Unified header */}
-        <div className="flex items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-3">
+        <div className="flex items-center gap-3 border-b border-[var(--color-border)] px-5 py-3">
           <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{allInvoiceItems.length + paymentLinkItems.length} records</span>
           {(stats.outstanding > 0 || stats.paid > 0) && (
             <>
-              <span className="h-3 w-px shrink-0 bg-[var(--color-surface-tertiary)]" />
+                <span className="h-3 w-px shrink-0 bg-[var(--color-border)]" />
               <span className="truncate text-[12px] text-[var(--color-text-muted)]">
                 {formatAmount(stats.outstanding, { compact: true })} outstanding · {formatAmount(stats.paid, { compact: true })} collected
                 {stats.activeLinks > 0 ? ` · ${stats.activeLinks} active link${stats.activeLinks > 1 ? 's' : ''}` : ''}
@@ -585,7 +585,7 @@ export function PaymentsClient({
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-end gap-1 border-b border-[var(--color-border-light)] px-5">
+        <div className="flex items-end gap-1 border-b border-[var(--color-border)] px-5">
           <TabBtn
             active={activeTab === 'invoices'}
             onClick={() => {
@@ -624,7 +624,7 @@ export function PaymentsClient({
         </div>
 
         {/* Filter chips */}
-        <div className="flex items-center gap-1 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
+        <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-5 py-2">
           {activeTab === 'invoices'
             ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue'] as const).map((s) => (
                 <FilterChip
@@ -666,13 +666,13 @@ export function PaymentsClient({
 
         {/* Table header — hidden on recurring tab (it has its own headers) */}
         {activeTab !== 'recurring' && (
-          <div className="grid grid-cols-[1fr_120px_110px_100px_44px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+          <div className="grid grid-cols-[1fr_120px_110px_100px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
+            <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">
               {activeTab === 'invoices' ? 'Invoice' : 'Title'}
             </span>
-            <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Status</span>
-            <span className="text-right text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Amount</span>
-            <span className="text-right text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+            <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</span>
+            <span className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Amount</span>
+            <span className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">
               {activeTab === 'invoices' ? 'Due' : 'Chain'}
             </span>
             <span />
@@ -707,7 +707,7 @@ export function PaymentsClient({
           filteredInvoices.length === 0 ? (
             <EmptyState icon={<FileText className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />} text="No invoices match this filter." />
           ) : (
-            <div className="divide-y divide-[var(--color-surface-secondary)]">
+            <div className="divide-y divide-[var(--color-border)]">
               {filteredInvoices.map((inv) => {
                 const s = INV_STATUS[inv.status];
                 return (
@@ -823,7 +823,7 @@ export function PaymentsClient({
           />
 
           {/* Panel */}
-          <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-[440px] flex-col overflow-hidden bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] animate-in slide-in-from-right-full duration-300 ease-out">
+          <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-[440px] flex-col overflow-hidden bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
             {selectedRecurring ? (
               <RecurringPanel
                 item={selectedRecurring}

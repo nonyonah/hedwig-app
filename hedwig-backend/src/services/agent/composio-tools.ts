@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { createLogger } from '../../utils/logger';
 import type { AgentToolDefinition } from './types';
 import type { ComposioProvider } from '../composio';
+import os from 'os';
+import path from 'path';
 
 const logger = createLogger('ComposioTools');
 
@@ -12,7 +14,11 @@ let cachedSdk: Composio | null = null;
 function getSdk(): Composio {
   if (!COMPOSIO_API_KEY) throw new Error('COMPOSIO_API_KEY is not configured');
   if (cachedSdk) return cachedSdk;
-  cachedSdk = new Composio({ apiKey: COMPOSIO_API_KEY });
+  cachedSdk = new Composio({
+    apiKey: COMPOSIO_API_KEY,
+    dangerouslyAllowAutoUploadDownloadFiles: true,
+    fileUploadDirs: [os.tmpdir()],
+  });
   return cachedSdk;
 }
 

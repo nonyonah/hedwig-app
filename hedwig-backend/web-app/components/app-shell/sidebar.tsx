@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getUserback } from '@userback/widget';
-import { CurrencyDollar, Question, SidebarSimple } from '@/components/ui/lucide-icons';
+import { useCallback, useRef, useState } from 'react';
+import { CaretDown, CurrencyDollar, Question, SidebarSimple } from '@/components/ui/lucide-icons';
 import { navigationGroups, type WorkspaceRole } from '@/lib/utils/navigation';
 import { cn } from '@/lib/utils';
 import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
@@ -27,6 +28,27 @@ export function AppSidebar({
   const { activeWorkspace } = useWorkspaceContext();
   const role: WorkspaceRole = (activeWorkspace?.role as WorkspaceRole) ?? 'owner';
   const wsType = (activeWorkspace?.type as 'personal' | 'organization' | undefined) ?? 'personal';
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
+
+  const toggleGroup = useCallback((index: number) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const onPeelEnter = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setHoverOpen(true);
+  }, []);
+
+  const onPeelLeave = useCallback(() => {
+    hoverTimerRef.current = setTimeout(() => setHoverOpen(false), 150);
+  }, []);
 
   const handleFeedbackClick = () => {
     const widget = getUserback();
@@ -38,14 +60,22 @@ export function AppSidebar({
 
   const NavItems = ({ onNavigate }: { onNavigate?: () => void }) => (
     <nav className="flex flex-1 flex-col gap-0 overflow-y-auto px-2 py-3">
-      {navigationGroups.map((group, groupIndex) => (
+      {navigationGroups.map((group, groupIndex) => {
+        const isCollapsed = collapsedGroups.has(groupIndex);
+        return (
         <div key={`group-${groupIndex}`} className={groupIndex > 0 ? 'mt-3' : ''}>
-          <div className="mb-0.5 px-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-              {group.label}
-            </span>
-          </div>
-          <ul className="flex flex-col gap-0.5">
+          <button
+            type="button"
+            onClick={() => toggleGroup(groupIndex)}
+            className="mb-0.5 flex w-full items-center justify-between rounded-md px-2.5 py-1 text-left text-[11px] font-semibold tracking-[0.08em] text-[var(--color-text-muted)] hover:text-[var(--color-text-tertiary)]"
+          >
+            {group.label}
+            <CaretDown
+              className={cn('h-3 w-3 text-[var(--color-text-muted)] transition-transform duration-200', isCollapsed && '-rotate-90')}
+              weight="bold"
+            />
+          </button>
+          <ul className={cn('flex flex-col gap-0.5', isCollapsed && 'hidden')}>
             {group.items.filter(i => !lockedRouteSet.has(i.href) && i.roles.includes(role) && (!i.workspaceTypes || i.workspaceTypes.includes(wsType))).map(item => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
@@ -72,7 +102,8 @@ export function AppSidebar({
             })}
           </ul>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 
@@ -100,21 +131,47 @@ export function AppSidebar({
     <>
       {/* Desktop: always rendered for CSS transition */}
       <div className={cn(
-        'hidden shrink-0 flex-col border-r border-[var(--color-border-light)] bg-[var(--color-background)] transition-all duration-300 ease-out lg:flex lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto',
-        open ? 'w-[220px] opacity-100' : 'w-0 overflow-hidden opacity-0 border-r-0'
+        'hidden shrink-0 flex-col rounded-[var(--panel-radius)] bg-[var(--color-surface)] shadow-lg transition-all duration-300 ease-out lg:flex',
+        open
+          ? 'w-[220px] opacity-100'
+          : 'w-0 overflow-hidden opacity-0'
       )}>
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border-light)] px-3">
+        <div className="flex h-12 shrink-0 items-center border-b border-[var(--color-border-light)] px-3">
           <WorkspaceSwitcher collapsed={false} onOpenCreate={() => {
             window.dispatchEvent(new CustomEvent('hedwig:open-create-workspace'));
           }} />
-          <button type="button" onClick={onToggle} aria-label="Close sidebar"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-placeholder)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)] lg:flex">
-            <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
-          </button>
         </div>
         <NavItems />
         <Footer />
       </div>
+
+      {/* Desktop: hover-to-reveal sidebar overlay when collapsed */}
+      {!open && (
+        <>
+          <div
+            className="fixed left-0 top-0 z-40 h-screen w-3"
+            onMouseEnter={onPeelEnter}
+          />
+          <div
+            className="fixed left-[var(--panel-gap)] top-[var(--panel-gap)] bottom-[var(--panel-gap)] z-50 flex w-[220px] flex-col rounded-[var(--panel-radius)] bg-[var(--color-surface)] shadow-lg transition-all duration-300 ease-out"
+            style={{
+              transform: hoverOpen ? 'translateX(0)' : 'translateX(-232px)',
+              opacity: hoverOpen ? 1 : 0,
+              pointerEvents: hoverOpen ? 'auto' as const : 'none' as const,
+            }}
+            onMouseEnter={onPeelEnter}
+            onMouseLeave={onPeelLeave}
+          >
+            <div className="flex h-12 shrink-0 items-center border-b border-[var(--color-border-light)] px-3">
+              <WorkspaceSwitcher collapsed={false} onOpenCreate={() => {
+                window.dispatchEvent(new CustomEvent('hedwig:open-create-workspace'));
+              }} />
+            </div>
+            <NavItems onNavigate={onPeelLeave} />
+            <Footer onNavigate={onPeelLeave} />
+          </div>
+        </>
+      )}
 
       {/* Mobile overlay */}
       {mobileOpen && (

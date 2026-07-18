@@ -1222,22 +1222,24 @@ export const SchedulerService = {
 
                     const stagePushConfig: Record<string, { pushTitle: string; pushBody: string }> = {
                         day0: {
-                            pushTitle: 'Your first invoice takes 90 seconds',
+                            pushTitle: 'Your business account is ready',
                             pushBody: firstName
-                                ? `${firstName}, get paid by anyone, anywhere — no bank details, no waiting.`
-                                : 'Get paid by anyone, anywhere — no bank details, no waiting.',
+                                ? `${firstName}, receive payments, track time and expenses, and manage clients — all from one account.`
+                                : 'Receive payments, track time and expenses, and manage clients — all from one account.',
                         },
                         day3: {
-                            pushTitle: 'The real cost of waiting to get paid',
-                            pushBody: 'Payment links settle in minutes. One percent when you withdraw.',
+                            pushTitle: 'More than just getting paid',
+                            pushBody: 'Hedwig auto-categorizes income and expenses, tracks time against projects, and handles payroll. Try something new.',
                         },
                         day7: {
-                            pushTitle: 'Someone in Lagos got paid before lunch today',
-                            pushBody: 'Invoice sent, client paid, funds landed. No middlemen.',
+                            pushTitle: 'Your business, connected',
+                            pushBody: 'Link your bank statements, assign projects to team members, or set up a recurring payroll run. All from one place.',
                         },
                         day14: {
-                            pushTitle: 'This is my last message',
-                            pushBody: 'Two minutes. One invoice. See if Hedwig works for you.',
+                            pushTitle: 'One last thing',
+                            pushBody: firstName
+                                ? `${firstName}, try importing a bank statement, tracking time against a project, or sending your first payment link. Two minutes is all it takes.`
+                                : 'Try importing a bank statement, tracking time against a project, or sending a payment link. Two minutes is all it takes.',
                         },
                     };
 
@@ -1546,10 +1548,10 @@ export const SchedulerService = {
                     const amount = doc.amount ? `${doc.amount} ${doc.currency || 'USDC'}` : '';
                     const firstName = String(user.first_name || '').trim();
 
-                    const title = isInvoice ? 'Invoice opened — follow up now' : 'Payment link opened';
+                    const title = isInvoice ? 'Invoice viewed — follow up' : 'Payment request viewed';
                     const pushBody = firstName
-                        ? `${firstName}, ${clientName} viewed your ${isInvoice ? 'invoice' : 'payment link'}${amount ? ` for ${amount}` : ''}. A quick follow-up can close the deal.`
-                        : `${clientName} viewed your ${isInvoice ? 'invoice' : 'payment link'}${amount ? ` for ${amount}` : ''}. Follow up while it's fresh.`;
+                        ? `${firstName}, ${clientName} viewed your ${isInvoice ? 'invoice' : 'payment request'}${amount ? ` for ${amount}` : ''}. Follow up to close, or check time logged against this project.`
+                        : `${clientName} viewed your ${isInvoice ? 'invoice' : 'payment request'}${amount ? ` for ${amount}` : ''}. Follow up to close the deal.`;
 
                     await NotificationService.notifyUser(userId, {
                         title,
@@ -1560,8 +1562,8 @@ export const SchedulerService = {
                     if (user.email) {
                         await EmailService.sendSmartReminder(
                             user.email,
-                            isInvoice ? 'Your invoice was opened — follow up?' : 'Your payment link was opened',
-                            `<p class="eyebrow">Payment update</p><h1 class="heading">${title}</h1><p class="description">${clientName} ${isInvoice ? 'viewed your invoice' : 'opened your payment link'}${amount ? ` for ${amount}` : ''}. Reach out while you're top of mind to close the deal.</p>`,
+                            isInvoice ? 'Your invoice was opened — follow up?' : 'Your payment request was viewed',
+                            `<p class="eyebrow">Client activity</p><h1 class="heading">${title}</h1><p class="description">${clientName} ${isInvoice ? 'viewed your invoice' : 'opened your payment request'}${amount ? ` for ${amount}` : ''}. Reach out while you're top of mind, or log any outstanding time against this project first.</p>`,
                             isInvoice ? `https://hedwigbot.xyz/invoice/${doc.id}` : `https://hedwigbot.xyz/pay/${doc.id}`,
                             'Follow Up'
                         );
@@ -1972,10 +1974,10 @@ export const SchedulerService = {
                     const linkTitle = doc.title || 'Your payment link';
                     const amount = doc.amount ? `${doc.amount} ${doc.currency || 'USDC'}` : '';
 
-                    const title = 'Your payment link is waiting to be shared';
+                    const title = 'You have a payment request waiting';
                     const pushBody = firstName
-                        ? `${firstName}, share "${linkTitle}"${amount ? ` (${amount})` : ''} to start getting paid.`
-                        : `Share "${linkTitle}"${amount ? ` (${amount})` : ''} with your client to get paid.`;
+                        ? `${firstName}, your ${doc.title ? `${doc.title}` : 'payment request'}${amount ? ` for ${amount}` : ''} is ready. Send it to your client or log time against a project first.`
+                        : `Your payment request${amount ? ` for ${amount}` : ''} is ready. Send it to your client or log time against a project first.`;
 
                     await NotificationService.notifyUser(userId, {
                         title,
@@ -1986,10 +1988,10 @@ export const SchedulerService = {
                     if (user.email) {
                         await EmailService.sendSmartReminder(
                             user.email,
-                            `"${linkTitle}" hasn't been shared yet`,
-                            `<p class="eyebrow">Payment link</p><h1 class="heading">Share your link to get paid</h1><p class="description">Your payment link "${linkTitle}"${amount ? ` for ${amount}` : ''} hasn't been opened yet. Share it with your client — they pay in seconds, no invoice needed.</p>`,
+                            `"${linkTitle}" hasn't been sent yet`,
+                            `<p class="eyebrow">Payment reminder</p><h1 class="heading">Send your payment request</h1><p class="description">"${linkTitle}"${amount ? ` for ${amount}` : ''} is ready but hasn't been sent yet. Share it with your client, or if this is tied to a milestone, log the time against the project first.</p>`,
                             `https://hedwigbot.xyz/pay/${doc.id}`,
-                            'Share Link'
+                            'Send Now'
                         );
                     }
 

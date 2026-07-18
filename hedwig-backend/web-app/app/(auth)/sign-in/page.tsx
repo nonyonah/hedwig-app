@@ -1,13 +1,12 @@
 'use client';
 
-import Image from 'next/image';
 import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import { Input } from '@/components/ui/input';
-import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
+import { CaretLeft } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
@@ -300,7 +299,9 @@ export default function SignInPage() {
               >
                 <span className="flex w-full items-center">
                   <span className="flex w-11 justify-start pl-3">
-                    <Image src="/icons/apple-logo.svg" alt="Apple" width={18} height={18} className="shrink-0" />
+                    <svg width="18" height="22" viewBox="0 0 42 51" fill="none" className="shrink-0 text-[var(--color-foreground)]">
+                      <path d="M40.2 17.4c-3.4 2.1-5.5 5.7-5.5 9.7 0 4.5 2.7 8.6 6.8 10.3-.8 2.6-2 5-3.5 7.2-2.2 3.1-4.5 6.3-7.9 6.3s-4.4-2-8.4-2c-3.9 0-5.3 2.1-8.5 2.1s-5.4-2.9-7.9-6.5C2 39.5.1 33.7 0 27.6 0 17.7 6.4 12.4 12.8 12.4c3.4 0 6.2 2.2 8.3 2.2 2 0 5.2-2.3 9-2.3 4.1 0 7.9 1.9 10.1 5.1zM28.3 8.1C30 6.1 30.9 3.6 31 1c0-.3 0-.7-.1-1-2.9.3-5.6 1.7-7.5 3.9-1.7 1.9-2.7 4.3-2.8 6.9 0 .3 0 .6.1.9.2 0 .5.1.7.1C24.1 11.6 26.6 10.2 28.3 8.1z" fill="currentColor" />
+                    </svg>
                   </span>
                   <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Apple</span>
                   <span className="w-11" />
@@ -428,9 +429,9 @@ export default function SignInPage() {
 
         {/* ── Loading ── */}
         {stage === 'loading' && (
-          <div className="py-12 text-center">
-            <SpinnerGap className="mx-auto h-6 w-6 animate-spin text-[var(--color-primary)]" weight="bold" />
-            <p className="mt-4 text-[14px] text-[var(--color-text-muted)]">{loadingLabel}</p>
+          <div className="flex flex-col items-center gap-6 py-12">
+            <HedwigLogo width={44} height={44} priority />
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]" role="status" aria-label="Loading" />
           </div>
         )}
 
