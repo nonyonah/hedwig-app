@@ -4,7 +4,6 @@ import { createLogger } from '../../utils/logger';
 import type { AgentToolDefinition } from './types';
 import type { ComposioProvider } from '../composio';
 import os from 'os';
-import path from 'path';
 
 const logger = createLogger('ComposioTools');
 
