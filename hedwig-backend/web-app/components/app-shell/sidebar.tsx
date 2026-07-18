@@ -29,7 +29,7 @@ export function AppSidebar({
   const role: WorkspaceRole = (activeWorkspace?.role as WorkspaceRole) ?? 'owner';
   const wsType = (activeWorkspace?.type as 'personal' | 'organization' | undefined) ?? 'personal';
   const [hoverOpen, setHoverOpen] = useState(false);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
 
   const toggleGroup = useCallback((index: number) => {
