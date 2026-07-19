@@ -106,8 +106,8 @@ export function MembersClient() {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Members</h1>
-          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">
+          <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Members</h1>
+          <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">
             {!isOrg ? 'Team members are available in organization workspaces.' : 'Loading workspace…'}
           </p>
         </div>

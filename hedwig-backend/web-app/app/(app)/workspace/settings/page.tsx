@@ -166,7 +166,7 @@ export default function WorkspaceSettingsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-[var(--color-foreground)]">Workspace settings</h1>
+            <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Workspace settings</h1>
             <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Manage your workspace, members, and invitations.</p>
           </div>
           <Button

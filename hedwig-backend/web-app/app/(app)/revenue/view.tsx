@@ -738,12 +738,12 @@ export function RevenueClient({
   const clientForId = (id: string | null) => clients.find((c) => c.id === id);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="space-y-6">
       {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Revenue</h1>
-          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Operational financial dashboard — what is happening with your money right now.</p>
+          <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Revenue</h1>
+          <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Operational financial dashboard — what is happening with your money right now.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
           <div className="relative">

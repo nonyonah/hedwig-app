@@ -316,10 +316,10 @@ export function DashboardClient({
 
       {/* Page header */}
       <div>
-        <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">
+        <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">
           {getTimeOfDayGreeting(hour)}, {greetingName}
         </h1>
-        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Here&rsquo;s what&rsquo;s happening today.</p>
+        <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Here&rsquo;s what&rsquo;s happening today.</p>
       </div>
 
       {/* Financial snapshot — gap-px stats bar */}

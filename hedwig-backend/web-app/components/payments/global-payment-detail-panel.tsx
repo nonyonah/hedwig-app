@@ -97,7 +97,7 @@ export function GlobalPaymentDetailPanel({ accessToken }: { accessToken?: string
   }, [openTarget, loadData]);
 
   const selectedInvoice = useMemo(
-    () => (openTarget?.kind === 'invoice' ? invoices.find((item) => item.id === openTarget.id) ?? null : null),
+    () => (openTarget?.kind === 'invoice' ? invoices.find((item) => item.id === openTarget.id || item.number === openTarget.id) ?? null : null),
     [openTarget, invoices]
   );
   const selectedPaymentLink = useMemo(

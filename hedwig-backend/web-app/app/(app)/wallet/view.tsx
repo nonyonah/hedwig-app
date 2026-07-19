@@ -197,8 +197,8 @@ export function WalletView({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Accounts</h1>
-          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Your crypto wallets, payout bank accounts, earnings, and settlements.</p>
+          <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Accounts</h1>
+          <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Your crypto wallets, payout bank accounts, earnings, and settlements.</p>
         </div>
         <div className="shrink-0 pt-1 flex items-center gap-2">
           {onrampAllowed && (

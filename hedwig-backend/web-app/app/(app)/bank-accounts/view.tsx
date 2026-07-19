@@ -93,8 +93,8 @@ export function BankAccountsView({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Bank accounts</h1>
-        <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">USD account, virtual accounts, and payout bank details.</p>
+        <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Bank accounts</h1>
+        <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">USD account, virtual accounts, and payout bank details.</p>
       </div>
 
       {usdAccountsEnabled ? (

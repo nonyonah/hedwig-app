@@ -521,8 +521,8 @@ export function CalendarClient({
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[var(--color-foreground)]">Calendar</h1>
-          <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">
+          <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Calendar</h1>
+          <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">
             Reminders, milestones, invoice due dates, and project deadlines.
           </p>
         </div>

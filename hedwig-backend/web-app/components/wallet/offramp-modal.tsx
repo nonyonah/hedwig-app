@@ -477,7 +477,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                   <select
                     value={chain}
                     onChange={e => handleChainSwitch(e.target.value)}
-                    className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] py-2 pl-9 pr-3 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)]"
+                    className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] py-2 pl-9 pr-8 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)]"
                   >
                     {shownChains.map((c) => (
                       <option key={c} value={c}>{CHAIN_CONFIG[c].name}</option>
@@ -490,7 +490,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
                     height={16}
                     className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 rounded-full"
                   />
-                  <svg className="pointer-events-none absolute right-5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none">
+                  <svg className="pointer-events-none absolute right-8 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none">
                     <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
