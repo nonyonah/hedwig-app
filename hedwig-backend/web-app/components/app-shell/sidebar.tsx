@@ -85,15 +85,15 @@ export function AppSidebar({
                     className={cn(
                       'group relative flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all duration-100 ease-linear',
                       active
-                        ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary)] font-semibold'
+                        ? 'bg-[var(--color-sidebar-active-bg)] text-[var(--color-sidebar-active-text)] font-semibold'
                         : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]'
                     )}>
                     {active && (
-                      <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[var(--color-primary)]" />
+                      <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[var(--color-sidebar-active-text)]" />
                     )}
-                    <Icon className={cn('mr-2.5 h-4 w-4 shrink-0', active ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]')}
+                    <Icon className={cn('mr-2.5 h-4 w-4 shrink-0', active ? 'text-[var(--color-sidebar-active-text)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]')}
                       weight={active ? 'bold' : 'regular'} />
-                    <span className={cn('whitespace-nowrap', active ? 'text-[var(--color-primary)]' : 'group-hover:text-[var(--color-foreground)]')}>
+                    <span className={cn('whitespace-nowrap', active ? 'text-[var(--color-sidebar-active-text)]' : 'group-hover:text-[var(--color-foreground)]')}>
                       {item.title}
                     </span>
                   </Link>

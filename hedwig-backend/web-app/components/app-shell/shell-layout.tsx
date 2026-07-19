@@ -7,7 +7,6 @@ import { TokenRefresher } from '@/components/app-shell/token-refresher';
 import { TutorialProvider } from '@/components/tutorial/tutorial-provider';
 import { TutorialCard } from '@/components/tutorial/tutorial-card';
 import { CreateMenu } from '@/components/app-shell/create-menu';
-import { GlobalPaymentDetailPanel } from '@/components/payments/global-payment-detail-panel';
 import { WorkspaceProvider } from '@/lib/workspace/workspace-context';
 import { CreateWorkspaceDialog } from '@/components/workspace/create-workspace-dialog';
 import { EmojiPickerDialog } from '@/components/workspace/emoji-picker-dialog';
@@ -92,7 +91,6 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
           </WorkspaceProvider>
           <TutorialCard />
           <CreateMenu accessToken={accessToken ?? null} />
-          <GlobalPaymentDetailPanel accessToken={accessToken ?? null} />
         </div>
     </TutorialProvider>
   );
