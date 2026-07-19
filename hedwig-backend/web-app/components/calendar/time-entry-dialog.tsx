@@ -165,7 +165,7 @@ export function TimeEntryDialog({
                     <Button variant="ghost" size="sm" onClick={() => setShowCreateProject(false)} className="flex-1 text-[12px]">
                       Cancel
                     </Button>
-                    <Button variant="default" size="sm" onClick={handleCreateProject} disabled={creatingProject || !newProjectName.trim()} className="flex-1 text-[12px]">
+                    <Button variant="default" size="sm" onClick={handleCreateProject} disabled={creatingProject || !newProjectName.trim()} className="create-btn flex-1 text-[12px]">
                       {creatingProject ? 'Creating…' : 'Create & select'}
                     </Button>
                   </div>
@@ -262,7 +262,7 @@ export function TimeEntryDialog({
           )}
           <div className="flex gap-3 border-t border-[var(--color-border)] px-5 py-4">
             <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button variant="default" onClick={handleSave} disabled={saving} className="flex-1">
+            <Button variant="default" onClick={handleSave} disabled={saving} className="create-btn flex-1">
               {saving ? 'Saving…' : isEditing ? 'Update' : 'Save entry'}
             </Button>
           </div>

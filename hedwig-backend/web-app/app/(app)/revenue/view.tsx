@@ -335,7 +335,7 @@ function ExpenseDialog({
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !form.amount}>
+          <Button className="create-btn" onClick={handleSave} disabled={isSaving || !form.amount}>
             {isSaving ? 'Saving…' : editing ? 'Save changes' : 'Add expense'}
           </Button>
         </DialogFooter>
@@ -477,7 +477,7 @@ function CreditDialog({
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !form.amount}>
+          <Button className="create-btn" onClick={handleSave} disabled={isSaving || !form.amount}>
             {isSaving ? 'Saving…' : 'Record credit'}
           </Button>
         </DialogFooter>
@@ -747,7 +747,7 @@ export function RevenueClient({
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
           <div className="relative">
-            <Button onClick={() => setShowImportDialog(true)}>
+            <Button className="create-btn" onClick={() => setShowImportDialog(true)}>
               <Plus className="h-4 w-4" weight="bold" />
               Import
             </Button>
@@ -1062,7 +1062,7 @@ export function RevenueClient({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => setShowImportDialog(true)}>
+            <Button className="create-btn" onClick={() => setShowImportDialog(true)}>
               <Plus className="h-4 w-4" weight="bold" />
               Import
             </Button>

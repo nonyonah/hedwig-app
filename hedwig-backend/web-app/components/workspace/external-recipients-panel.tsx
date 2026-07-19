@@ -143,7 +143,7 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
           {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
           <div className="flex items-center justify-end gap-3">
             <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button variant="default" size="sm" disabled={!displayName || !walletAddress || saving} onClick={handleCreate}>
+            <Button variant="default" size="sm" className="create-btn" disabled={!displayName || !walletAddress || saving} onClick={handleCreate}>
               Add recipient
             </Button>
           </div>

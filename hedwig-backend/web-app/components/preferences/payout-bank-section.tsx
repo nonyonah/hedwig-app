@@ -73,7 +73,7 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
           </p>
         </div>
         {!showForm && records.length > 0 && (
-          <Button size="sm" onClick={() => { setAdding(true); setEditing(null); }}>
+          <Button size="sm" className="create-btn" onClick={() => { setAdding(true); setEditing(null); }}>
             <Plus className="h-3.5 w-3.5" weight="bold" /> Add account
           </Button>
         )}
@@ -89,7 +89,7 @@ export function PayoutBankSection({ accessToken }: { accessToken: string | null 
             <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
               Add a Nigerian, US, UK, or Ghanaian bank so clients can pay you by transfer.
             </p>
-            <Button className="mt-3" onClick={() => setAdding(true)}>
+            <Button className="create-btn mt-3" onClick={() => setAdding(true)}>
               <Plus className="h-3.5 w-3.5" weight="bold" /> Add bank account
             </Button>
           </div>

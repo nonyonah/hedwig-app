@@ -285,6 +285,7 @@ export default function WorkspaceSettingsPage() {
             <Button
               variant="default"
               size="sm"
+              className="create-btn"
               onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-invite-member'))}
             >
               Invite member

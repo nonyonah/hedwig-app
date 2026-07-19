@@ -203,7 +203,7 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--color-accent)] px-5 py-2 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--color-create)] px-5 py-2 text-[13px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-create-dark)] disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>

@@ -121,7 +121,7 @@ export function InviteMemberDialog() {
               <button
                 type="submit"
                 disabled={!email.trim() || saving}
-                className="rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
+                className="rounded-full bg-[var(--color-create)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-create-dark)] disabled:opacity-50"
               >
                 {saving ? 'Sending...' : 'Send invitation'}
               </button>

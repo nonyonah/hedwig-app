@@ -584,7 +584,7 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
             <>
               <Button variant="secondary" onClick={handleClose} disabled={docSubmitting}>Cancel</Button>
               {docStep === 'preview' && (
-                <Button onClick={handleDocConfirm} disabled={docSubmitting || !editAmount}>
+                <Button className="create-btn" onClick={handleDocConfirm} disabled={docSubmitting || !editAmount}>
                   {docSubmitting ? 'Importing…' : `Import ${entryType === 'expense' ? 'expense' : 'earning'}`}
                 </Button>
               )}
@@ -598,7 +598,7 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
               {stmtStep === 'review' && (
                 <>
                   <Button variant="secondary" onClick={handleClose} disabled={stmtSubmitting}>Cancel</Button>
-                  <Button onClick={handleStmtConfirm} disabled={stmtData?.transactions.length === skippedRows.size || stmtSubmitting}>
+                  <Button className="create-btn" onClick={handleStmtConfirm} disabled={stmtData?.transactions.length === skippedRows.size || stmtSubmitting}>
                     Import {stmtData ? stmtData.transactions.length - skippedRows.size : 0} transactions
                   </Button>
                 </>

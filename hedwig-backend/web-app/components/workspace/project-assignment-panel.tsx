@@ -187,7 +187,7 @@ export function ProjectAssignmentPanel({ projectId, canManage }: ProjectAssignme
               placeholder="0"
               className="w-[70px] rounded-md border border-[var(--color-border)] px-1.5 py-1 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
             />
-            <Button variant="default" size="sm" onClick={confirmAssign}>Add</Button>
+            <Button variant="default" size="sm" className="create-btn" onClick={confirmAssign}>Add</Button>
             <Button variant="ghost" size="sm" onClick={() => setShowPayoutInput(false)} className="text-[11px] text-[var(--color-text-tertiary)]">Cancel</Button>
           </div>
         </div>

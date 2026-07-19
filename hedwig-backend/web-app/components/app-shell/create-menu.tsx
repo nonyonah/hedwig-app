@@ -1264,7 +1264,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                 void handleProjectCreate();
               }}
               disabled={isSubmitting || !hasSession}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-4 py-2 text-[13px] font-semibold text-white transition duration-100 hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-create)] px-4 py-2 text-[13px] font-semibold text-white transition duration-100 hover:bg-[var(--color-create-dark)] disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>

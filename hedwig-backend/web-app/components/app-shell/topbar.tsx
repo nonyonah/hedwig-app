@@ -106,8 +106,8 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
             className={cn(
               'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition',
               createOpen
-                ? 'border-[var(--color-primary-dark)] bg-[var(--color-primary-dark)] text-white shadow-[var(--color-accent)]/20'
-                : 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white shadow-[var(--color-accent)]/20 hover:border-[var(--color-primary-dark)] hover:bg-[var(--color-primary-dark)]'
+                ? 'border-[var(--color-create-dark)] bg-[var(--color-create-dark)] text-white shadow-[var(--color-accent)]/20'
+                : 'border-[var(--color-create)] bg-[var(--color-create)] text-white shadow-[var(--color-accent)]/20 hover:border-[var(--color-create-dark)] hover:bg-[var(--color-create-dark)]'
             )}
           >
             <Plus className="h-4 w-4" weight="bold" />

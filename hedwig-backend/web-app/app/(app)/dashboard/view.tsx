@@ -570,7 +570,7 @@ function CoreFeaturesIntro({
               }
               onStepChange(activeStep + 1);
             }}
-            className="mt-7 w-full rounded-xl"
+            className="create-btn mt-7 w-full rounded-xl"
           >
             {isLast ? 'Create first invoice' : 'Next'}
           </Button>
@@ -654,6 +654,7 @@ function OnboardingChecklist({
           <Button
             variant="default"
             size="sm"
+            className="create-btn"
             onClick={onCreatePaymentLink}
           >
             New payment link

@@ -155,6 +155,7 @@ export function MembersClient() {
           <Button
             variant="default"
             size="sm"
+            className="create-btn"
             onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-invite-member'))}
           >
             <Plus className="h-3.5 w-3.5" weight="bold" /> Invite
