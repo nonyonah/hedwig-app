@@ -2,10 +2,7 @@
 
 import { Avatar as HeroUIAvatar } from '@heroui/react';
 import { cn, initials } from '@/lib/utils';
-import {
-  FolderSimple,
-  type IconWeight
-} from '@/components/ui/lucide-icons';
+import { FolderSimple } from '@/components/ui/lucide-icons';
 
 function parseAvatarSrc(src: string): { type: 'image'; url: string } | { type: 'emoji'; value: string } | { type: 'icon'; name: string; color: string } {
   if (src.startsWith('emoji:')) return { type: 'emoji', value: src.slice(6) };
