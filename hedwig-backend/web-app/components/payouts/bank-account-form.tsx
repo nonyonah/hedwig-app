@@ -276,46 +276,56 @@ export function BankAccountForm({
       {/* Country selector */}
       <div>
         <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Country</label>
-        <select
-          className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-          value={state.country}
-          onChange={(e) => {
-            const code = e.target.value as BankCountry;
-            setState((cur) => ({
-              ...EMPTY_STATE,
-              country: code,
-              accountHolderName: cur.accountHolderName,
-              showOnInvoice: cur.showOnInvoice,
-            }));
-          }}
-        >
-          {COUNTRY_OPTIONS.map((opt) => (
-            <option key={opt.code} value={opt.code}>
-              {opt.flag}  {opt.label} ({opt.currency})
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            className="h-10 w-full appearance-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 pr-8 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
+            value={state.country}
+            onChange={(e) => {
+              const code = e.target.value as BankCountry;
+              setState((cur) => ({
+                ...EMPTY_STATE,
+                country: code,
+                accountHolderName: cur.accountHolderName,
+                showOnInvoice: cur.showOnInvoice,
+              }));
+            }}
+          >
+            {COUNTRY_OPTIONS.map((opt) => (
+              <option key={opt.code} value={opt.code}>
+                {opt.flag}  {opt.label} ({opt.currency})
+              </option>
+            ))}
+          </select>
+          <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 4.5L6 7.5L9 4.5" />
+          </svg>
+        </div>
       </div>
 
       {/* Bank picker / free-form bank name */}
       {state.country === 'NG' || state.country === 'GH' ? (
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Bank</label>
-          <select
-            className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-            value={state.bankCode}
-            onChange={(e) => {
-              const code = e.target.value;
-              const bank = banks.find((b) => b.code === code);
-              setState((cur) => ({ ...cur, bankCode: code, bankName: bank?.name || '' }));
-            }}
-            disabled={banksLoading}
-          >
-            <option value="">{banksLoading ? 'Loading banks…' : 'Select your bank'}</option>
-            {banks.map((b) => (
-              <option key={b.code} value={b.code}>{b.name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              className="h-10 w-full appearance-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 pr-8 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
+              value={state.bankCode}
+              onChange={(e) => {
+                const code = e.target.value;
+                const bank = banks.find((b) => b.code === code);
+                setState((cur) => ({ ...cur, bankCode: code, bankName: bank?.name || '' }));
+              }}
+              disabled={banksLoading}
+            >
+              <option value="">{banksLoading ? 'Loading banks…' : 'Select your bank'}</option>
+              {banks.map((b) => (
+                <option key={b.code} value={b.code}>{b.name}</option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4.5L6 7.5L9 4.5" />
+            </svg>
+          </div>
         </div>
       ) : (
         <div>
@@ -395,15 +405,20 @@ export function BankAccountForm({
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account type</label>
-              <select
-                className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] text-[var(--color-foreground)]"
-                value={state.accountType}
-                onChange={(e) => update('accountType', (e.target.value || '') as FormState['accountType'])}
-              >
-                <option value="">Select</option>
-                <option value="checking">Checking</option>
-                <option value="savings">Savings</option>
-              </select>
+              <div className="relative">
+                <select
+                  className="h-10 w-full appearance-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 pr-8 text-[13px] text-[var(--color-foreground)]"
+                  value={state.accountType}
+                  onChange={(e) => update('accountType', (e.target.value || '') as FormState['accountType'])}
+                >
+                  <option value="">Select</option>
+                  <option value="checking">Checking</option>
+                  <option value="savings">Savings</option>
+                </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 4.5L6 7.5L9 4.5" />
+                </svg>
+              </div>
             </div>
           </div>
         </>

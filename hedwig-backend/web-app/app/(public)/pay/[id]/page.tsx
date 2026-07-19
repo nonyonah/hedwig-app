@@ -10,155 +10,155 @@ import { fetchPublicDocument } from '@/lib/api/public-documents';
 import { getExplorerUrl, getSolanaExplorerUrl, resolvePublicSettlementChain, type PublicPaymentToken } from '@/lib/payments/public-constants';
 
 const CHAIN_META: Record<string, { icon: string; label: string }> = {
-  base:     { icon: '/icons/networks/base.png',     label: 'Base' },
-  solana:   { icon: '/icons/networks/solana.png',   label: 'Solana' },
-  arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
-  polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
-  optimism: { icon: '/icons/networks/optimism.png', label: 'Optimism' },
-  celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
+ base: { icon: '/icons/networks/base.png', label: 'Base' },
+ solana: { icon: '/icons/networks/solana.png', label: 'Solana' },
+ arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
+ polygon: { icon: '/icons/networks/polygon.png', label: 'Polygon' },
+ optimism: { icon: '/icons/networks/optimism.png', label: 'Optimism' },
+ celo: { icon: '/icons/networks/celo.png', label: 'Celo' },
 };
 function getChainMeta(chain: string) {
-  return CHAIN_META[chain.toLowerCase()] ?? CHAIN_META['base'];
+ return CHAIN_META[chain.toLowerCase()] ?? CHAIN_META['base'];
 }
 
 function formatCurrency(amount: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2
-  }).format(amount || 0);
+ return new Intl.NumberFormat('en-US', {
+ style: 'currency',
+ currency,
+ maximumFractionDigits: 2
+ }).format(amount || 0);
 }
 
 export default async function PublicPaymentLinkPage({
-  params,
-  searchParams,
+ params,
+ searchParams,
 }: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ print?: string }>;
+ params: Promise<{ id: string }>;
+ searchParams: Promise<{ print?: string }>;
 }) {
-  const { id } = await params;
-  const query = await searchParams;
-  const shouldPrint = query.print === '1';
-  const document = await fetchPublicDocument(id);
+ const { id } = await params;
+ const query = await searchParams;
+ const shouldPrint = query.print === '1';
+ const document = await fetchPublicDocument(id);
 
-  if (!document || String(document.type).toUpperCase() !== 'PAYMENT_LINK') {
-    notFound();
-  }
+ if (!document || String(document.type).toUpperCase() !== 'PAYMENT_LINK') {
+ notFound();
+ }
 
-  const merchantName = [document.user?.first_name, document.user?.last_name].filter(Boolean).join(' ') || document.user?.email || 'Merchant';
-  const evmWalletAddress = document.user?.ethereum_wallet_address || null;
-  const solanaWalletAddress = document.user?.solana_wallet_address || null;
-  const paymentToken: PublicPaymentToken = 'USDC';
-  const paymentCurrency = String(document.currency || 'USDC').toUpperCase();
-  const settlementChain = resolvePublicSettlementChain(document.chain, document.content?.blockradar_url);
-  const { icon: chainIcon, label: chainLabel } = getChainMeta(document.chain || settlementChain);
-  const tokenIcon = '/icons/tokens/usdc.png';
-  const isPaid = String(document.status).toLowerCase() === 'paid';
-  const txHash = String((document.content as any)?.tx_hash || '');
-  const explorerUrl = txHash
-    ? settlementChain === 'solana'
-      ? getSolanaExplorerUrl('mainnet', txHash)
-      : getExplorerUrl('base', txHash)
-    : null;
+ const merchantName = [document.user?.first_name, document.user?.last_name].filter(Boolean).join(' ') || document.user?.email || 'Merchant';
+ const evmWalletAddress = document.user?.ethereum_wallet_address || null;
+ const solanaWalletAddress = document.user?.solana_wallet_address || null;
+ const paymentToken: PublicPaymentToken = 'USDC';
+ const paymentCurrency = String(document.currency || 'USDC').toUpperCase();
+ const settlementChain = resolvePublicSettlementChain(document.chain, document.content?.blockradar_url);
+ const { icon: chainIcon, label: chainLabel } = getChainMeta(document.chain || settlementChain);
+ const tokenIcon = '/icons/tokens/usdc.png';
+ const isPaid = String(document.status).toLowerCase() === 'paid';
+ const txHash = String((document.content as any)?.tx_hash || '');
+ const explorerUrl = txHash
+ ? settlementChain === 'solana'
+ ? getSolanaExplorerUrl('mainnet', txHash)
+ : getExplorerUrl('base', txHash)
+ : null;
 
-  if (isPaid) {
-    return (
-      <PublicDocumentFrame title="Payment received">
-        <PublicResultCard
-          kind="success"
-          title="Payment successful"
-          message={`Your payment has already been sent to ${merchantName}.`}
-          amountLabel={`${formatCurrency(Number(document.amount || 0))} · ${paymentCurrency}`}
-          txHash={txHash || null}
-          explorerUrl={explorerUrl}
-        />
-      </PublicDocumentFrame>
-    );
-  }
+ if (isPaid) {
+ return (
+ <PublicDocumentFrame title="Payment received">
+ <PublicResultCard
+ kind="success"
+ title="Payment successful"
+ message={`Your payment has already been sent to ${merchantName}.`}
+ amountLabel={`${formatCurrency(Number(document.amount || 0))} · ${paymentCurrency}`}
+ txHash={txHash || null}
+ explorerUrl={explorerUrl}
+ />
+ </PublicDocumentFrame>
+ );
+ }
 
-  return (
-    <PublicDocumentFrame title="Payment link">
-      <PrintTrigger enabled={shouldPrint} />
-      <DocumentViewTracker documentId={document.id} />
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+ return (
+ <PublicDocumentFrame title="Payment link">
+ <PrintTrigger enabled={shouldPrint} />
+ <DocumentViewTracker documentId={document.id} />
+ <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
 
-        {/* ── Left: payment detail card ── */}
-        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ {/* ── Left: payment detail card ── */}
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
 
-          {/* Header */}
-          <div className="border-b border-[var(--color-border)] px-6 py-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Payment link</p>
-                <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{document.title}</h1>
-                <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">from {merchantName}</p>
-              </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
-                Active
-              </span>
-            </div>
-          </div>
+ {/* Header */}
+ <div className="border-b border-[var(--color-border)] px-6 py-5">
+ <div className="flex items-start justify-between gap-4">
+ <div className="min-w-0">
+ <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Payment link</p>
+ <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">{document.title}</h1>
+ <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">from {merchantName}</p>
+ </div>
+ <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+ <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
+ Active
+ </span>
+ </div>
+ </div>
 
-          {/* Amount hero */}
-          <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-6 py-5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount</p>
-            <p className="mt-1.5 text-[34px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
-              {formatCurrency(Number(document.amount || 0))}
-            </p>
-          </div>
+ {/* Amount hero */}
+ <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-6 py-5">
+ <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Amount</p>
+ <p className="mt-1.5 text-[34px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
+ {formatCurrency(Number(document.amount || 0))}
+ </p>
+ </div>
 
-          {/* Token + chain pills */}
-          <div className="flex items-center gap-2 px-6 py-4">
-            <div className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
-              <Image src={tokenIcon} alt={paymentToken} width={14} height={14} className="rounded-full" />
-              {paymentCurrency}
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
-              <Image src={chainIcon} alt={chainLabel} width={14} height={14} className="rounded-full" />
-              {chainLabel}
-            </div>
-          </div>
+ {/* Token + chain pills */}
+ <div className="flex items-center gap-2 px-6 py-4">
+ <div className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
+ <Image src={tokenIcon} alt={paymentToken} width={14} height={14} className="rounded-full" />
+ {paymentCurrency}
+ </div>
+ <div className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
+ <Image src={chainIcon} alt={chainLabel} width={14} height={14} className="rounded-full" />
+ {chainLabel}
+ </div>
+ </div>
 
-          {/* Instructions */}
-          <div className="px-6 pb-6">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-4">
-              <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">How to pay</p>
-              <ol className="space-y-1.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
-                <li>1. Select your preferred network in the checkout panel.</li>
-                <li>2. Connect a wallet that holds {paymentCurrency} on {chainLabel}.</li>
-                {/* Celo / MiniPay support temporarily disabled. */}
-                <li>3. Confirm the amount and approve the transaction.</li>
-                <li>4. Wait for the confirmation screen before closing this page.</li>
-              </ol>
-            </div>
+ {/* Instructions */}
+ <div className="px-6 pb-6">
+ <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-4">
+ <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">How to pay</p>
+ <ol className="space-y-1.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
+ <li>1. Select your preferred network in the checkout panel.</li>
+ <li>2. Connect a wallet that holds {paymentCurrency} on {chainLabel}.</li>
+ {/* Celo / MiniPay support temporarily disabled. */}
+ <li>3. Confirm the amount and approve the transaction.</li>
+ <li>4. Wait for the confirmation screen before closing this page.</li>
+ </ol>
+ </div>
 
-            {Array.isArray((document.user as any)?.bank_accounts) && (document.user as any).bank_accounts.length > 0 ? (
-              <div className="mt-4">
-                <PublicBankPayout banks={(document.user as any).bank_accounts as PublicBankAccountPayout[]} />
-              </div>
-            ) : (document.user as any)?.bank_account ? (
-              <div className="mt-4">
-                <PublicBankPayout bank={(document.user as any).bank_account as PublicBankAccountPayout} />
-              </div>
-            ) : null}
-          </div>
-        </div>
+ {Array.isArray((document.user as any)?.bank_accounts) && (document.user as any).bank_accounts.length > 0 ? (
+ <div className="mt-4">
+ <PublicBankPayout banks={(document.user as any).bank_accounts as PublicBankAccountPayout[]} />
+ </div>
+ ) : (document.user as any)?.bank_account ? (
+ <div className="mt-4">
+ <PublicBankPayout bank={(document.user as any).bank_account as PublicBankAccountPayout} />
+ </div>
+ ) : null}
+ </div>
+ </div>
 
-        {/* ── Right: checkout ── */}
-        <div className="space-y-4">
-          <PublicPaymentLinkPanel
-            documentId={document.id}
-            title={document.title}
-            amount={Number(document.amount || 0)}
-            currencyLabel={paymentCurrency}
-            preferredChain={settlementChain}
-            token={paymentToken}
-            evmMerchantAddress={evmWalletAddress}
-            solanaMerchantAddress={solanaWalletAddress}
-          />
-        </div>
-      </div>
-    </PublicDocumentFrame>
-  );
+ {/* ── Right: checkout ── */}
+ <div className="space-y-4">
+ <PublicPaymentLinkPanel
+ documentId={document.id}
+ title={document.title}
+ amount={Number(document.amount || 0)}
+ currencyLabel={paymentCurrency}
+ preferredChain={settlementChain}
+ token={paymentToken}
+ evmMerchantAddress={evmWalletAddress}
+ solanaMerchantAddress={solanaWalletAddress}
+ />
+ </div>
+ </div>
+ </PublicDocumentFrame>
+ );
 }

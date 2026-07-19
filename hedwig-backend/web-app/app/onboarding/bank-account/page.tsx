@@ -6,48 +6,48 @@ import { getCurrentSession } from '@/lib/auth/session';
 import { OnboardingBankAccountClient } from './view';
 
 export default async function OnboardingBankAccountPage() {
-  const session = await getCurrentSession();
-  if (!session.accessToken) {
-    redirect('/');
-  }
+ const session = await getCurrentSession();
+ if (!session.accessToken) {
+ redirect('/');
+ }
 
-  const existing = await hedwigApi.listBankAccounts({ accessToken: session.accessToken }).catch(() => [] as Awaited<ReturnType<typeof hedwigApi.listBankAccounts>>);
+ const existing = await hedwigApi.listBankAccounts({ accessToken: session.accessToken }).catch(() => [] as Awaited<ReturnType<typeof hedwigApi.listBankAccounts>>);
 
-  return (
-    <main className="min-h-screen bg-[var(--color-surface-secondary)]">
-      <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <HedwigLogo width={28} height={28} priority />
-            <span className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig</span>
-          </Link>
-          <Link href="/dashboard" className="text-[12px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
-            Skip for now
-          </Link>
-        </div>
-      </header>
+ return (
+ <main className="min-h-screen bg-[var(--color-surface-secondary)]">
+ <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+ <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+ <Link href="/dashboard" className="flex items-center gap-2">
+ <HedwigLogo width={28} height={28} priority />
+ <span className="text-[14px] font-semibold text-[var(--color-foreground)]">Hedwig</span>
+ </Link>
+ <Link href="/dashboard" className="text-[12px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
+ Skip for now
+ </Link>
+ </div>
+ </header>
 
-      <div className="mx-auto max-w-2xl px-6 py-10">
-        <div className="mb-6 text-center">
-          <span className="inline-flex rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-primary)]">
-            One last step
-          </span>
-          <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">
-            Add your payout bank
-          </h1>
-          <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
-            Clients see this on every invoice and payment link, so they can pay you by bank transfer in addition to crypto.
-            You can change this later in Settings.
-          </p>
-        </div>
+ <div className="mx-auto max-w-2xl px-6 py-10">
+ <div className="mb-6 text-center">
+ <span className="inline-flex rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--color-primary)]">
+ One last step
+ </span>
+ <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">
+ Add your payout bank
+ </h1>
+ <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
+ Clients see this on every invoice and payment link, so they can pay you by bank transfer in addition to crypto.
+ You can change this later in Settings.
+ </p>
+ </div>
 
-        <div className="rounded-2xl bg-[var(--color-surface)] p-6 shadow-xs ring-1 ring-[var(--color-border)]">
-          <OnboardingBankAccountClient
-            accessToken={session.accessToken}
-            initial={existing}
-          />
-        </div>
-      </div>
-    </main>
-  );
+ <div className="rounded-2xl bg-[var(--color-surface)] p-6 shadow-xs ring-1 ring-[var(--color-border)]">
+ <OnboardingBankAccountClient
+ accessToken={session.accessToken}
+ initial={existing}
+ />
+ </div>
+ </div>
+ </main>
+ );
 }

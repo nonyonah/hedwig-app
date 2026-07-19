@@ -215,19 +215,24 @@ export function PayoutPanel({
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">
                 Add member
               </label>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) { addItem(e.target.value); e.target.value = ''; }
-                }}
-                className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
-              >
-                <option value="">Select a member…</option>
-                {availableMembers.map(m => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) { addItem(e.target.value); e.target.value = ''; }
+                  }}
+                  className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                >
+                  <option value="">Select a member…</option>
+                  {availableMembers.map(m => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}
+                    </option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 4.5L6 7.5L9 4.5" />
+                </svg>
+              </div>
               {availableMembers.length === 0 && members.length > 0 && (
                 <p className="mt-1.5 text-[11px] text-[var(--color-text-muted)]">
                   All members with wallets have been added.
@@ -271,8 +276,8 @@ export function PayoutPanel({
                       <select
                         value={item.chain}
                         onChange={e => updateItem(i, 'chain', e.target.value as SendChain)}
-                        className="w-full rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] py-1.5 text-[11px] text-[var(--color-foreground)] outline-none"
-                        style={{ paddingLeft: item.chain ? '28px' : '8px', paddingRight: '8px' }}
+                        className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] py-1.5 pr-8 text-[11px] text-[var(--color-foreground)] outline-none"
+                        style={{ paddingLeft: item.chain ? '28px' : '8px' }}
                       >
                         {SUPPORTED_CHAINS.map(c => (
                           <option key={c} value={c} disabled={!getAddressForChain(m!, c)}>
@@ -280,6 +285,9 @@ export function PayoutPanel({
                           </option>
                         ))}
                       </select>
+                      <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 4.5L6 7.5L9 4.5" />
+                      </svg>
                     </div>
 
                     <div className="flex items-center gap-1">

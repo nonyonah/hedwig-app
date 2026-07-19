@@ -1,13 +1,47 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState, useRef } from 'react';
-import { ArrowRight, X, PencilSimple, ArrowsClockwise } from '@/components/ui/lucide-icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ArrowRight, X, PencilSimple, ArrowsClockwise,
+  Bank, Bell, BellRinging, Buildings, CalendarBlank, CalendarDots,
+  ChartBar, CheckCircle, ClockCountdown, Coins, Copy, CreditCard,
+  CurrencyCircleDollar, CurrencyDollar, DownloadSimple, Envelope,
+  FileText, FlagPennant, FolderSimple, Globe, House, IdentificationCard,
+  Link as LinkIcon, Lock, MagicWand, MapPin, NotePencil, PaperPlaneRight,
+  Printer, Receipt, ShareNetwork, Shield,
+  ShieldCheck, Sparkle, Target, UploadSimple, User, UserPlus, UsersThree, Wallet,
+} from '@/components/ui/lucide-icons';
 import { ExternalRecipientsPanel } from '@/components/workspace/external-recipients-panel';
 import { Button } from '@/components/ui/button';
+import { IconEmojiPicker, type PickerResult } from '@/components/ui/icon-emoji-picker';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 import { cn } from '@/lib/utils';
+
+const ICON_MAP_WS: Record<string, React.ComponentType<any>> = {
+  Bank, Bell, BellRinging, Buildings, CalendarBlank, CalendarDots,
+  ChartBar, CheckCircle, ClockCountdown, Coins, Copy, CreditCard,
+  CurrencyCircleDollar, CurrencyDollar, DownloadSimple, Envelope,
+  FileText, FlagPennant, FolderSimple, Globe, House, IdentificationCard,
+  Link: LinkIcon, Lock, MagicWand, MapPin, NotePencil, PaperPlaneRight,
+  Printer, Receipt, ShareNetwork, Shield, ShieldCheck,
+  Sparkle, Target, UploadSimple, User, UserPlus, UsersThree, Wallet,
+};
+
+function WorkspaceIconIcon({ name, color, size = 18 }: { name: string; color: string; size?: number }) {
+  const Icon = ICON_MAP_WS[name];
+  if (!Icon) return null;
+  return <Icon className="h-5 w-5" weight="bold" style={{ color }} />;
+}
+
+function parseWorkspaceIcon(icon: string): { type: 'emoji' | 'icon' | null; value: string; color: string } {
+  if (!icon) return { type: null, value: '', color: '#0d47a1' };
+  const parts = icon.split(':');
+  if (parts[0] === 'emoji') return { type: 'emoji', value: parts.slice(1).join(':'), color: '#0d47a1' };
+  if (parts[0] === 'icon') return { type: 'icon', value: parts[1], color: parts[2] || '#0d47a1' };
+  return { type: 'emoji', value: icon, color: '#0d47a1' };
+}
 
 interface Member {
   id: string;
@@ -30,7 +64,7 @@ interface Invitation {
 }
 
 export default function WorkspaceSettingsPage() {
-  const { activeWorkspace, accessToken, refresh } = useWorkspaceContext();
+  const { activeWorkspace, accessToken, refresh, updateWorkspaceIcon } = useWorkspaceContext();
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -45,6 +79,33 @@ export default function WorkspaceSettingsPage() {
   // Delete state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Icon picker state
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const iconPickerRef = useRef<HTMLDivElement | null>(null);
+
+  const wsIcon = activeWorkspace?.icon ?? '';
+  const resolvedIcon = parseWorkspaceIcon(wsIcon);
+
+  const handleIconSelect = (result: PickerResult) => {
+    const iconStr = result.type === 'emoji'
+      ? `emoji:${result.value}`
+      : `icon:${result.value}:${result.color}`;
+    updateWorkspaceIcon(activeWorkspace!.id, iconStr);
+    setShowIconPicker(false);
+  };
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showIconPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (iconPickerRef.current && !iconPickerRef.current.contains(e.target as Node)) {
+        setShowIconPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showIconPicker]);
 
   // Transfer ownership state
   const [transferTarget, setTransferTarget] = useState<string | null>(null);
@@ -189,9 +250,30 @@ export default function WorkspaceSettingsPage() {
         </div>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-sm font-bold text-[var(--color-text-secondary)]">
-              {activeWorkspace.name.charAt(0).toUpperCase()}
-            </span>
+            <div className="relative" ref={iconPickerRef}>
+              <button
+                type="button"
+                onClick={() => setShowIconPicker(!showIconPicker)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-sm font-bold text-[var(--color-text-secondary)] transition hover:ring-2 hover:ring-[var(--color-accent)] hover:ring-offset-2 hover:ring-offset-[var(--color-surface)]"
+              >
+                {resolvedIcon.type === 'emoji' ? (
+                  <span className="text-[20px]">{resolvedIcon.value}</span>
+                ) : resolvedIcon.type === 'icon' ? (
+                  <WorkspaceIconIcon name={resolvedIcon.value} color={resolvedIcon.color} />
+                ) : (
+                  activeWorkspace.name.charAt(0).toUpperCase()
+                )}
+              </button>
+              {showIconPicker && (
+                <div className="absolute left-0 top-12 z-50">
+                  <IconEmojiPicker
+                    initialColor={resolvedIcon.type === 'icon' ? resolvedIcon.color : '#0d47a1'}
+                    onSelect={handleIconSelect}
+                    onClose={() => setShowIconPicker(false)}
+                  />
+                </div>
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               {editingName ? (
                 <div className="flex items-center gap-2">
@@ -250,10 +332,11 @@ export default function WorkspaceSettingsPage() {
             <div className="mt-4 border-t border-[var(--color-border-light)] pt-4">
               <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Transfer ownership</label>
               <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                 <select
                   value={transferTarget ?? ''}
                   onChange={(e) => setTransferTarget(e.target.value || null)}
-                  className="flex-1 rounded-full border border-[var(--color-border-light)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+                  className="w-full appearance-none rounded-full border border-[var(--color-border-light)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
                 >
                   <option value="">Select a member...</option>
                   {members.filter((m) => m.role !== 'owner').map((m) => (
@@ -262,6 +345,10 @@ export default function WorkspaceSettingsPage() {
                     </option>
                   ))}
                 </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 4.5L6 7.5L9 4.5" />
+                </svg>
+              </div>
                 <Button
                   variant="ghost"
                   size="sm"

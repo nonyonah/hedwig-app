@@ -3,13 +3,13 @@
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
+ Area,
+ AreaChart,
+ CartesianGrid,
+ ResponsiveContainer,
+ Tooltip,
+ XAxis,
+ YAxis
 } from 'recharts';
 import { ArrowDown, ArrowSquareOut, ArrowUp, Check, Copy, Globe, XLogo, X } from '@/components/ui/lucide-icons';
 import { ClientPortal } from '@/components/ui/client-portal';
@@ -20,363 +20,363 @@ const TIMEFRAMES = ['1D', '7D', '1M', '3M', '1Y'] as const;
 type Timeframe = typeof TIMEFRAMES[number];
 
 const TOKEN_ICON: Record<string, string> = {
-  'Base:USDC':   '/icons/tokens/usdc.png',
-  'Solana:USDC': '/icons/tokens/usdc.png'
+ 'Base:USDC': '/icons/tokens/usdc.png',
+ 'Solana:USDC': '/icons/tokens/usdc.png'
 };
 const CHAIN_ICON: Record<string, string> = {
-  Base:   '/icons/networks/base.png',
-  Solana: '/icons/networks/solana.png'
+ Base: '/icons/networks/base.png',
+ Solana: '/icons/networks/solana.png'
 };
 const EXPLORER_BASE = (addr: string) => `https://basescan.org/token/${addr}`;
-const EXPLORER_SOL  = (addr: string) => `https://solscan.io/token/${addr}`;
+const EXPLORER_SOL = (addr: string) => `https://solscan.io/token/${addr}`;
 
 type ChartPoint = { t: number; p: number };
 type MarketData = {
-  prices: ChartPoint[];
-  currentPrice: number | null;
-  change24h: number | null;
-  high24h: number | null;
-  low24h: number | null;
-  marketCap: number | null;
-  rank: number | null;
-  circulatingSupply: number | null;
-  description: string | null;
-  contractAddress: string | null;
-  website: string | null;
-  twitter: string | null;
+ prices: ChartPoint[];
+ currentPrice: number | null;
+ change24h: number | null;
+ high24h: number | null;
+ low24h: number | null;
+ marketCap: number | null;
+ rank: number | null;
+ circulatingSupply: number | null;
+ description: string | null;
+ contractAddress: string | null;
+ website: string | null;
+ twitter: string | null;
 };
 
 // ── formatters ────────────────────────────────────────────────────────────────
 
 function fmtUsd(n: number | null | undefined, decimals = 2) {
-  if (n == null) return '—';
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`;
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: decimals }).format(n);
+ if (n == null) return '—';
+ if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+ if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+ if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+ return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: decimals }).format(n);
 }
 
 function fmtSupply(n: number | null, symbol: string) {
-  if (n == null) return '—';
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B ${symbol}`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M ${symbol}`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(2)}K ${symbol}`;
-  return `${n.toFixed(2)} ${symbol}`;
+ if (n == null) return '—';
+ if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B ${symbol}`;
+ if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M ${symbol}`;
+ if (n >= 1e3) return `${(n / 1e3).toFixed(2)}K ${symbol}`;
+ return `${n.toFixed(2)} ${symbol}`;
 }
 
 function fmtCrypto(n: number, symbol: string) {
-  if (n <= 0) return `0 ${symbol}`;
-  const dec = 2;
-  return `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: dec })} ${symbol}`;
+ if (n <= 0) return `0 ${symbol}`;
+ const dec = 2;
+ return `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: dec })} ${symbol}`;
 }
 
 function fmtTime(ts: number, tf: Timeframe) {
-  const d = new Date(ts);
-  if (tf === '1D') return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+ const d = new Date(ts);
+ if (tf === '1D') return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+ return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
 function CustomTooltip({ active, payload, timeframe }: any) {
-  if (!active || !payload?.length) return null;
-  const { t, p } = payload[0].payload as ChartPoint;
-  return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 shadow-lg">
-      <p className="text-[11px] text-[var(--color-text-muted)]">{fmtTime(t, timeframe)}</p>
-      <p className="text-[14px] font-bold text-[var(--color-foreground)]">{fmtUsd(p)}</p>
-    </div>
-  );
+ if (!active || !payload?.length) return null;
+ const { t, p } = payload[0].payload as ChartPoint;
+ return (
+ <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 shadow-lg">
+ <p className="text-[11px] text-[var(--color-text-muted)]">{fmtTime(t, timeframe)}</p>
+ <p className="text-[14px] font-bold text-[var(--color-foreground)]">{fmtUsd(p)}</p>
+ </div>
+ );
 }
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1800);
-        });
-      }}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:text-[var(--color-text-tertiary)]"
-    >
-      {copied
-        ? <Check className="h-3 w-3 text-[var(--color-text-tertiary)]" weight="bold" />
-        : <Copy className="h-3 w-3" weight="bold" />
-      }
-    </button>
-  );
+ const [copied, setCopied] = useState(false);
+ return (
+ <button
+ type="button"
+ onClick={() => {
+ navigator.clipboard.writeText(text).then(() => {
+ setCopied(true);
+ setTimeout(() => setCopied(false), 1800);
+ });
+ }}
+ className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:text-[var(--color-text-tertiary)]"
+ >
+ {copied
+ ? <Check className="h-3 w-3 text-[var(--color-text-tertiary)]" weight="bold" />
+ : <Copy className="h-3 w-3" weight="bold" />
+ }
+ </button>
+ );
 }
 
 function LinkPill({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)]"
-    >
-      {icon}
-      {label}
-    </a>
-  );
+ return (
+ <a
+ href={href}
+ target="_blank"
+ rel="noreferrer"
+ className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)]"
+ >
+ {icon}
+ {label}
+ </a>
+ );
 }
 
 // ── main component ────────────────────────────────────────────────────────────
 
 export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClose: () => void }) {
-  const [timeframe, setTimeframe] = useState<Timeframe>('1D');
-  const [market, setMarket]       = useState<MarketData | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [hoverPrice, setHoverPrice] = useState<number | null>(null);
-  const prevKey = useRef<string | null>(null);
+ const [timeframe, setTimeframe] = useState<Timeframe>('1D');
+ const [market, setMarket] = useState<MarketData | null>(null);
+ const [loading, setLoading] = useState(true);
+ const [hoverPrice, setHoverPrice] = useState<number | null>(null);
+ const prevKey = useRef<string | null>(null);
 
-  const fetchData = useCallback(async (sym: string, tf: Timeframe) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/market/chart?symbol=${sym}&chain=${asset.chain}&timeframe=${tf}`);
-      if (res.ok) setMarket(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [asset.chain]);
+ const fetchData = useCallback(async (sym: string, tf: Timeframe) => {
+ setLoading(true);
+ try {
+ const res = await fetch(`/api/market/chart?symbol=${sym}&chain=${asset.chain}&timeframe=${tf}`);
+ if (res.ok) setMarket(await res.json());
+ } finally {
+ setLoading(false);
+ }
+ }, [asset.chain]);
 
-  useEffect(() => {
-    const key = `${asset.symbol}:${timeframe}`;
-    if (key === prevKey.current) return;
-    prevKey.current = key;
-    fetchData(asset.symbol, timeframe);
-  }, [asset.symbol, timeframe, fetchData]);
+ useEffect(() => {
+ const key = `${asset.symbol}:${timeframe}`;
+ if (key === prevKey.current) return;
+ prevKey.current = key;
+ fetchData(asset.symbol, timeframe);
+ }, [asset.symbol, timeframe, fetchData]);
 
-  const tokenIcon  = TOKEN_ICON[`${asset.chain}:${asset.symbol}`];
-  const chainIcon  = CHAIN_ICON[asset.chain];
-  const displayPrice = hoverPrice ?? market?.currentPrice ?? null;
-  const change       = market?.change24h ?? asset.changePct24h ?? 0;
-  const isPositive   = change >= 0;
-  const chartColor   = loading ? 'var(--color-border)' : isPositive ? 'var(--color-success)' : 'var(--color-danger)';
-  const priceDecimals = 4;
+ const tokenIcon = TOKEN_ICON[`${asset.chain}:${asset.symbol}`];
+ const chainIcon = CHAIN_ICON[asset.chain];
+ const displayPrice = hoverPrice ?? market?.currentPrice ?? null;
+ const change = market?.change24h ?? asset.changePct24h ?? 0;
+ const isPositive = change >= 0;
+ const chartColor = loading ? 'var(--color-border)' : isPositive ? 'var(--color-success)' : 'var(--color-danger)';
+ const priceDecimals = 4;
 
-  const contractAddr = market?.contractAddress ?? null;
-  const explorerLink = contractAddr
-    ? (asset.chain === 'Solana' ? EXPLORER_SOL(contractAddr) : EXPLORER_BASE(contractAddr))
-    : null;
-  const shortAddr = contractAddr
-    ? `${contractAddr.slice(0, 10)}…${contractAddr.slice(-6)}`
-    : null;
+ const contractAddr = market?.contractAddress ?? null;
+ const explorerLink = contractAddr
+ ? (asset.chain === 'Solana' ? EXPLORER_SOL(contractAddr) : EXPLORER_BASE(contractAddr))
+ : null;
+ const shortAddr = contractAddr
+ ? `${contractAddr.slice(0, 10)}…${contractAddr.slice(-6)}`
+ : null;
 
-  return (
-    <ClientPortal>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
+ return (
+ <ClientPortal>
+ {/* Backdrop */}
+ <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
 
-      {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
+ {/* Panel */}
+ <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
 
-        {/* ── Header ── */}
-        <div className="flex items-center gap-4 border-b border-[var(--color-border)] px-5 py-4">
-          <div className="relative shrink-0">
-            {tokenIcon
-              ? <Image src={tokenIcon} alt={asset.name} width={44} height={44} className="rounded-full" />
-              : <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[13px] font-bold text-[var(--color-text-muted)]">{asset.symbol.slice(0, 3)}</div>
-            }
-            {chainIcon && (
-              <Image src={chainIcon} alt={asset.chain} width={18} height={18}
-                className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="text-[16px] font-bold text-[var(--color-foreground)]">{asset.name}</p>
-              {market?.rank && (
-                <span className="inline-flex items-center rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
-                  #{market.rank}
-                </span>
-              )}
-            </div>
-            <div className="mt-0.5 flex items-center gap-2">
-              <span className="text-[12px] text-[var(--color-text-muted)]">{asset.symbol}</span>
-              <span className="text-[var(--color-border)]">·</span>
-              <span className="text-[12px] text-[var(--color-text-muted)]">{asset.chain}</span>
-            </div>
-          </div>
-          <button type="button" onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]">
-            <X className="h-4 w-4" weight="bold" />
-          </button>
-        </div>
+ {/* ── Header ── */}
+ <div className="flex items-center gap-4 border-b border-[var(--color-border)] px-5 py-4">
+ <div className="relative shrink-0">
+ {tokenIcon
+ ? <Image src={tokenIcon} alt={asset.name} width={44} height={44} className="rounded-full" />
+ : <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[13px] font-bold text-[var(--color-text-muted)]">{asset.symbol.slice(0, 3)}</div>
+ }
+ {chainIcon && (
+ <Image src={chainIcon} alt={asset.chain} width={18} height={18}
+ className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white" />
+ )}
+ </div>
+ <div className="min-w-0 flex-1">
+ <div className="flex items-center gap-2">
+ <p className="text-[16px] font-bold text-[var(--color-foreground)]">{asset.name}</p>
+ {market?.rank && (
+ <span className="inline-flex items-center rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+ #{market.rank}
+ </span>
+ )}
+ </div>
+ <div className="mt-0.5 flex items-center gap-2">
+ <span className="text-[12px] text-[var(--color-text-muted)]">{asset.symbol}</span>
+ <span className="text-[var(--color-border)]">·</span>
+ <span className="text-[12px] text-[var(--color-text-muted)]">{asset.chain}</span>
+ </div>
+ </div>
+ <button type="button" onClick={onClose}
+ className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]">
+ <X className="h-4 w-4" weight="bold" />
+ </button>
+ </div>
 
-        {/* ── Scrollable body ── */}
-        <div className="flex-1 overflow-y-auto">
+ {/* ── Scrollable body ── */}
+ <div className="flex-1 overflow-y-auto">
 
-          {/* Balance hero */}
-          <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Your balance</p>
-            <p className="mt-1 text-[26px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
-              {fmtCrypto(asset.balance, asset.symbol)}
-            </p>
-            <p className="mt-1.5 text-[13px] font-medium text-[var(--color-text-tertiary)]">
-              {fmtUsd(asset.valueUsd)}{' '}
-              <span className="text-[11px] font-normal text-[var(--color-text-muted)]">portfolio value</span>
-            </p>
-          </div>
+ {/* Balance hero */}
+ <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-5">
+ <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Your balance</p>
+ <p className="mt-1 text-[26px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
+ {fmtCrypto(asset.balance, asset.symbol)}
+ </p>
+ <p className="mt-1.5 text-[13px] font-medium text-[var(--color-text-tertiary)]">
+ {fmtUsd(asset.valueUsd)}{' '}
+ <span className="text-[11px] font-normal text-[var(--color-text-muted)]">portfolio value</span>
+ </p>
+ </div>
 
-          {/* Market price */}
-          <div className="px-5 pt-5 pb-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-              {hoverPrice ? 'Price at cursor' : 'Market price'}
-            </p>
-            <div className="mt-1 flex items-end gap-3">
-              <p className="text-[30px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
-                {loading
-                  ? <span className="inline-block h-8 w-32 animate-pulse rounded-xl bg-[var(--color-surface-tertiary)]" />
-                  : fmtUsd(displayPrice, priceDecimals)
-                }
-              </p>
-              {!loading && change !== null && (
-                <span className={`mb-0.5 flex items-center gap-1 text-[13px] font-semibold ${isPositive ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-tertiary)]'}`}>
-                  {isPositive ? <ArrowUp className="h-3.5 w-3.5" weight="bold" /> : <ArrowDown className="h-3.5 w-3.5" weight="bold" />}
-                  {Math.abs(change).toFixed(2)}%
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">24h change</p>
-          </div>
+ {/* Market price */}
+ <div className="px-5 pt-5 pb-2">
+ <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">
+ {hoverPrice ? 'Price at cursor' : 'Market price'}
+ </p>
+ <div className="mt-1 flex items-end gap-3">
+ <p className="text-[30px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">
+ {loading
+ ? <span className="inline-block h-8 w-32 animate-pulse rounded-xl bg-[var(--color-surface-tertiary)]" />
+ : fmtUsd(displayPrice, priceDecimals)
+ }
+ </p>
+ {!loading && change !== null && (
+ <span className={`mb-0.5 flex items-center gap-1 text-[13px] font-semibold ${isPositive ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-tertiary)]'}`}>
+ {isPositive ? <ArrowUp className="h-3.5 w-3.5" weight="bold" /> : <ArrowDown className="h-3.5 w-3.5" weight="bold" />}
+ {Math.abs(change).toFixed(2)}%
+ </span>
+ )}
+ </div>
+ <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">24h change</p>
+ </div>
 
-          {/* Timeframe pills */}
-          <div className="px-5 py-3">
-            <div className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-1">
-              {TIMEFRAMES.map((tf) => (
-                <button key={tf} type="button" onClick={() => setTimeframe(tf)}
-                  className={`flex-1 rounded-full py-1.5 text-[12px] font-semibold transition duration-100 ${
-                    timeframe === tf ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
-                  }`}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          </div>
+ {/* Timeframe pills */}
+ <div className="px-5 py-3">
+ <div className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-1">
+ {TIMEFRAMES.map((tf) => (
+ <button key={tf} type="button" onClick={() => setTimeframe(tf)}
+ className={`flex-1 rounded-full py-1.5 text-[12px] font-semibold transition duration-100 ${
+ timeframe === tf ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+ }`}
+ >
+ {tf}
+ </button>
+ ))}
+ </div>
+ </div>
 
-          {/* Chart */}
-          <div className="h-[200px] px-2">
-            {loading ? (
-              <div className="flex h-full items-center justify-center">
-                <div className="h-1 w-24 animate-pulse rounded-full bg-[var(--color-border)]" />
-              </div>
-            ) : market?.prices?.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={market.prices} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-                  onMouseLeave={() => setHoverPrice(null)}>
-                  <defs>
-                    <linearGradient id={`pg-${asset.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={chartColor} stopOpacity={0.22} />
-                      <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} stroke="var(--color-surface-tertiary)" />
-                  <XAxis dataKey="t" tickFormatter={(v) => fmtTime(v, timeframe)}
-                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false}
-                    interval="preserveStartEnd" minTickGap={60} />
-                  <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
-                    axisLine={false} tickLine={false} width={46}
-                    tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${Number(v).toFixed(0)}`} />
-                  <Tooltip content={<CustomTooltip timeframe={timeframe} />}
-                    cursor={{ stroke: chartColor, strokeWidth: 1.5, strokeDasharray: '4 2' }} />
-                  <Area type="monotone" dataKey="p" stroke={chartColor} strokeWidth={2}
-                    fill={`url(#pg-${asset.symbol})`} dot={false}
-                    activeDot={{ r: 4, fill: chartColor, stroke: 'white', strokeWidth: 2 }}
-                    onMouseMove={(point: any) => {
-                      const p = point?.activePayload?.[0]?.payload?.p;
-                      if (p != null) setHoverPrice(p);
-                    }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-[12px] text-[var(--color-text-muted)]">No price data</p>
-              </div>
-            )}
-          </div>
+ {/* Chart */}
+ <div className="h-[200px] px-2">
+ {loading ? (
+ <div className="flex h-full items-center justify-center">
+ <div className="h-1 w-24 animate-pulse rounded-full bg-[var(--color-border)]" />
+ </div>
+ ) : market?.prices?.length ? (
+ <ResponsiveContainer width="100%" height="100%">
+ <AreaChart data={market.prices} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+ onMouseLeave={() => setHoverPrice(null)}>
+ <defs>
+ <linearGradient id={`pg-${asset.symbol}`} x1="0" y1="0" x2="0" y2="1">
+ <stop offset="5%" stopColor={chartColor} stopOpacity={0.22} />
+ <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+ </linearGradient>
+ </defs>
+ <CartesianGrid vertical={false} stroke="var(--color-surface-tertiary)" />
+ <XAxis dataKey="t" tickFormatter={(v) => fmtTime(v, timeframe)}
+ tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false}
+ interval="preserveStartEnd" minTickGap={60} />
+ <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
+ axisLine={false} tickLine={false} width={46}
+ tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${Number(v).toFixed(0)}`} />
+ <Tooltip content={<CustomTooltip timeframe={timeframe} />}
+ cursor={{ stroke: chartColor, strokeWidth: 1.5, strokeDasharray: '4 2' }} />
+ <Area type="monotone" dataKey="p" stroke={chartColor} strokeWidth={2}
+ fill={`url(#pg-${asset.symbol})`} dot={false}
+ activeDot={{ r: 4, fill: chartColor, stroke: 'white', strokeWidth: 2 }}
+ onMouseMove={(point: any) => {
+ const p = point?.activePayload?.[0]?.payload?.p;
+ if (p != null) setHoverPrice(p);
+ }} />
+ </AreaChart>
+ </ResponsiveContainer>
+ ) : (
+ <div className="flex h-full items-center justify-center">
+ <p className="text-[12px] text-[var(--color-text-muted)]">No price data</p>
+ </div>
+ )}
+ </div>
 
-          <AttachedStatGrid
-            items={[
-              { id: '24h-high', title: '24h high', value: fmtUsd(market?.high24h), loading },
-              { id: '24h-low', title: '24h low', value: fmtUsd(market?.low24h), loading },
-              { id: 'market-cap', title: 'Market cap', value: fmtUsd(market?.marketCap), loading },
-              { id: 'rank', title: 'Rank', value: market?.rank ? `#${market.rank}` : '—', loading },
-              { id: 'circulating-supply', title: 'Circulating supply', value: fmtSupply(market?.circulatingSupply ?? null, asset.symbol), loading, className: 'col-span-2' },
-            ]}
-            className="mx-5 mt-5 grid-cols-2"
-          />
+ <AttachedStatGrid
+ items={[
+ { id: '24h-high', title: '24h high', value: fmtUsd(market?.high24h), loading },
+ { id: '24h-low', title: '24h low', value: fmtUsd(market?.low24h), loading },
+ { id: 'market-cap', title: 'Market cap', value: fmtUsd(market?.marketCap), loading },
+ { id: 'rank', title: 'Rank', value: market?.rank ? `#${market.rank}` : '—', loading },
+ { id: 'circulating-supply', title: 'Circulating supply', value: fmtSupply(market?.circulatingSupply ?? null, asset.symbol), loading, className: 'col-span-2' },
+ ]}
+ className="mx-5 mt-5 grid-cols-2"
+ />
 
-          {/* Links: website + X */}
-          {(!loading && (market?.website || market?.twitter)) && (
-            <div className="mx-5 mt-4">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Links</p>
-              <div className="flex flex-wrap gap-2">
-                {market.website && (
-                  <LinkPill
-                    href={market.website}
-                    icon={<Globe className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />}
-                    label="Website"
-                  />
-                )}
-                {market.twitter && (
-                  <LinkPill
-                    href={market.twitter}
-                    icon={<XLogo className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />}
-                    label="X / Twitter"
-                  />
-                )}
-              </div>
-            </div>
-          )}
+ {/* Links: website + X */}
+ {(!loading && (market?.website || market?.twitter)) && (
+ <div className="mx-5 mt-4">
+ <p className="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">Links</p>
+ <div className="flex flex-wrap gap-2">
+ {market.website && (
+ <LinkPill
+ href={market.website}
+ icon={<Globe className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />}
+ label="Website"
+ />
+ )}
+ {market.twitter && (
+ <LinkPill
+ href={market.twitter}
+ icon={<XLogo className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="bold" />}
+ label="X / Twitter"
+ />
+ )}
+ </div>
+ </div>
+ )}
 
-          {/* Contract address */}
-          <div className="mx-5 mt-4 overflow-hidden rounded-2xl border border-[var(--color-border)]">
-            <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-4 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Contract address</p>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3">
-              {chainIcon && (
-                <Image src={chainIcon} alt={asset.chain} width={18} height={18} className="shrink-0 rounded-full" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-[12px] text-[var(--color-text-secondary)]">
-                  {shortAddr ?? 'Native asset — no contract'}
-                </p>
-                <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
-                  {contractAddr
-                    ? `${asset.symbol} on ${asset.chain}`
-                    : `${asset.symbol} is native to ${asset.chain}`}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {contractAddr && <CopyButton text={contractAddr} />}
-                {explorerLink && (
-                  <a href={explorerLink} target="_blank" rel="noreferrer"
-                    title={asset.chain === 'Base' ? 'View on BaseScan' : 'View on Solscan'}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:text-[var(--color-text-tertiary)]">
-                    <ArrowSquareOut className="h-3 w-3" weight="bold" />
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
+ {/* Contract address */}
+ <div className="mx-5 mt-4 overflow-hidden rounded-2xl border border-[var(--color-border)]">
+ <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-4 py-2.5">
+ <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Contract address</p>
+ </div>
+ <div className="flex items-center gap-3 px-4 py-3">
+ {chainIcon && (
+ <Image src={chainIcon} alt={asset.chain} width={18} height={18} className="shrink-0 rounded-full" />
+ )}
+ <div className="min-w-0 flex-1">
+ <p className="truncate font-mono text-[12px] text-[var(--color-text-secondary)]">
+ {shortAddr ?? 'Native asset — no contract'}
+ </p>
+ <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+ {contractAddr
+ ? `${asset.symbol} on ${asset.chain}`
+ : `${asset.symbol} is native to ${asset.chain}`}
+ </p>
+ </div>
+ <div className="flex shrink-0 items-center gap-1.5">
+ {contractAddr && <CopyButton text={contractAddr} />}
+ {explorerLink && (
+ <a href={explorerLink} target="_blank" rel="noreferrer"
+ title={asset.chain === 'Base' ? 'View on BaseScan' : 'View on Solscan'}
+ className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-input)] hover:text-[var(--color-text-tertiary)]">
+ <ArrowSquareOut className="h-3 w-3" weight="bold" />
+ </a>
+ )}
+ </div>
+ </div>
+ </div>
 
-          {/* About */}
-          {market?.description && (
-            <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-border)] px-4 py-4">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">About {asset.name}</p>
-              <p className="text-[12px] leading-[1.7] text-[var(--color-text-tertiary)] line-clamp-6">{market.description}</p>
-            </div>
-          )}
+ {/* About */}
+ {market?.description && (
+ <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-border)] px-4 py-4">
+ <p className="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">About {asset.name}</p>
+ <p className="text-[12px] leading-[1.7] text-[var(--color-text-tertiary)] line-clamp-6">{market.description}</p>
+ </div>
+ )}
 
-          <div className="h-8" />
-        </div>
-      </div>
-    </ClientPortal>
-  );
+ <div className="h-8" />
+ </div>
+ </div>
+ </ClientPortal>
+ );
 }

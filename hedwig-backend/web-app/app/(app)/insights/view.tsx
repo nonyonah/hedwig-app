@@ -368,23 +368,14 @@ export function InsightsClient({
           <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Revenue trends, expense patterns, and business intelligence.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
-          <button
-            type="button"
-            onClick={() => setShowExportDialog(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
-          >
+          <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
             <DownloadSimple className="h-4 w-4" weight="bold" />
             Export
-          </button>
-          <button
-            type="button"
-            onClick={() => fetchData(range)}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-100 ease-linear hover:bg-[var(--color-background)]"
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => fetchData(range)} disabled={loading}>
             <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
             Refresh
-          </button>
+          </Button>
         </div>
         <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
       </div>

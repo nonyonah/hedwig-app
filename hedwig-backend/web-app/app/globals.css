@@ -6,23 +6,23 @@
 /* ── Hedwig light theme ────────────────────────────────────────────────── */
 .light,
 [data-theme="light"] {
-  --accent: #0466c8;
+  --accent: #0d47a1;
   --accent-foreground: #ffffff;
 
   --background: #fafafa;
-  --foreground: #171717;
+  --foreground: #333333;
   --surface: #ffffff;
   --border: #e5e5e5;
 
-  --hedwig-primary: #0466c8;
-  --hedwig-primary-dark: #034d9b;
-  --hedwig-primary-light: #eef4ff;
+  --hedwig-primary: #0d47a1;
+  --hedwig-primary-dark: #093680;
+  --hedwig-primary-light: #e3edfc;
 
-  --hedwig-create: #0466c8;
-  --hedwig-create-dark: #034d9b;
-  --hedwig-create-light: #eef4ff;
+  --hedwig-create: #0d47a1;
+  --hedwig-create-dark: #093680;
+  --hedwig-create-light: #e3edfc;
 
-  --hedwig-text-primary: #171717;
+  --hedwig-text-primary: #333333;
   --hedwig-text-secondary: #404040;
   --hedwig-text-tertiary: #737373;
   --hedwig-text-muted: #a3a3a3;
@@ -41,7 +41,7 @@
   --hedwig-danger: #dc2626;
   --hedwig-danger-soft: #fef2f2;
 
-  --hedwig-accent-soft: #eef4ff;
+  --hedwig-accent-soft: #e3edfc;
   --hedwig-sidebar-active-bg: #f5f5f5;
   --hedwig-sidebar-active-text: #525252;
 }
@@ -49,21 +49,21 @@
 /* Dark mode FIRST-PAINT guard (system preference) */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --accent: #3b82f6;
+    --accent: #5b8ef7;
     --accent-foreground: #ffffff;
     --background: #09090b;
-    --foreground: #e5e5e5;
+    --foreground: #d4d4d8;
     --surface: #121214;
     --border: #27272a;
     --muted: #52525b;
-    --hedwig-primary: #3b82f6;
-    --hedwig-primary-dark: #2563eb;
-    --hedwig-primary-light: #1e3a5f;
+    --hedwig-primary: #5b8ef7;
+    --hedwig-primary-dark: #3b82f6;
+    --hedwig-primary-light: #1a2a5e;
 
-    --hedwig-create: #3b82f6;
-    --hedwig-create-dark: #2563eb;
-    --hedwig-create-light: #1e3a5f;
-    --hedwig-text-primary: #e5e5e5;
+    --hedwig-create: #5b8ef7;
+    --hedwig-create-dark: #3b82f6;
+    --hedwig-create-light: #1a2a5e;
+    --hedwig-text-primary: #d4d4d8;
     --hedwig-text-secondary: #a1a1aa;
     --hedwig-text-tertiary: #71717a;
     --hedwig-text-muted: #52525b;
@@ -78,7 +78,7 @@
     --hedwig-warning-soft: #451a03;
     --hedwig-danger: #f87171;
     --hedwig-danger-soft: #450a0a;
-    --hedwig-accent-soft: #1e3a5f;
+    --hedwig-accent-soft: #1a2a5e;
     --hedwig-sidebar-active-bg: #262626;
     --hedwig-sidebar-active-text: #a3a3a3;
   }
@@ -87,24 +87,24 @@
 /* ── Hedwig dark theme ─────────────────────────────────────────────────── */
 .dark,
 [data-theme="dark"] {
-  --accent: #3b82f6;
+  --accent: #4f8cf7;
   --accent-foreground: #ffffff;
 
   --background: #09090b;
-  --foreground: #e5e5e5;
+  --foreground: #d4d4d8;
   --surface: #121214;
   --border: #27272a;
   --muted: #52525b;
 
-  --hedwig-primary: #3b82f6;
-  --hedwig-primary-dark: #2563eb;
-  --hedwig-primary-light: #1e3a5f;
+  --hedwig-primary: #4f8cf7;
+  --hedwig-primary-dark: #3b82f6;
+  --hedwig-primary-light: #1a2a5e;
 
-  --hedwig-create: #3b82f6;
-  --hedwig-create-dark: #2563eb;
-  --hedwig-create-light: #1e3a5f;
+  --hedwig-create: #4f8cf7;
+  --hedwig-create-dark: #3b82f6;
+  --hedwig-create-light: #1a2a5e;
 
-  --hedwig-text-primary: #e5e5e5;
+  --hedwig-text-primary: #d4d4d8;
   --hedwig-text-secondary: #a1a1aa;
   --hedwig-text-tertiary: #71717a;
   --hedwig-text-muted: #52525b;
@@ -123,7 +123,7 @@
   --hedwig-danger: #f87171;
   --hedwig-danger-soft: #450a0a;
 
-  --hedwig-accent-soft: #1e3a5f;
+  --hedwig-accent-soft: #1a2a5e;
   --hedwig-sidebar-active-bg: #262626;
   --hedwig-sidebar-active-text: #a3a3a3;
 

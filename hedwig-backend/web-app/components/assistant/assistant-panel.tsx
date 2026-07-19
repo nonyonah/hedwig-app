@@ -28,16 +28,16 @@ type Tab = 'today' | 'week' | 'attention' | 'suggestions';
 
 const SEV_ICON = { urgent: WarningCircle, warning: Warning, info: Info };
 const SEV_COLOR = { urgent: 'text-[var(--color-danger)]', warning: 'text-[var(--color-warning)]', info: 'text-[var(--color-accent)]' };
-const SEV_BG   = { urgent: 'bg-[var(--color-danger-soft)]',  warning: 'bg-[var(--color-warning-soft)]',   info: 'bg-[var(--color-accent-soft)]'  };
+const SEV_BG   = { urgent: 'hover:bg-[var(--color-danger-soft)]',  warning: 'hover:bg-[var(--color-warning-soft)]',   info: 'hover:bg-[var(--color-accent-soft)]'  };
 
 function EventRow({ event }: { event: AssistantEvent }) {
   const Icon = SEV_ICON[event.severity];
   const { formatUsdText } = useCurrency();
   const inner = (
-    <div className={cn('flex items-start gap-3 rounded-xl px-3 py-2.5', SEV_BG[event.severity])}>
+    <div className={cn('flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors', SEV_BG[event.severity])}>
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', SEV_COLOR[event.severity])} weight="fill" />
       <div className="min-w-0 flex-1">
-        <p className={cn('text-[13px] font-semibold', SEV_COLOR[event.severity])}>{event.title}</p>
+        <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{event.title}</p>
         {event.body && <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{formatUsdText(event.body)}</p>}
       </div>
       {event.href && <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-text-placeholder)]" />}
@@ -65,9 +65,9 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-[var(--color-background)] px-4 py-3">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
         <div className="mb-1.5 flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Daily brief</span>
+          <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Daily brief</span>
         </div>
         <p className="text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{formatUsdText(brief.summary)}</p>
         {brief.highlights.map((h, i) => (
@@ -77,28 +77,27 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
 
       {/* Financial trend */}
       {brief.financialTrend && (
-        <div className={cn(
-          'flex items-center gap-2 rounded-xl px-3 py-2',
-          brief.financialTrend.direction === 'up' ? 'bg-[var(--color-success-soft)]' :
-          brief.financialTrend.direction === 'down' ? 'bg-[var(--color-danger-soft)]' : 'bg-[var(--color-background)]'
-        )}>
-          <span className="text-[18px]">
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+          <span className={cn('text-[16px] font-bold',
+            brief.financialTrend.direction === 'up' ? 'text-[var(--color-success)]' :
+            brief.financialTrend.direction === 'down' ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-tertiary)]'
+          )}>
             {brief.financialTrend.direction === 'up' ? '↑' : brief.financialTrend.direction === 'down' ? '↓' : '→'}
           </span>
           <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">{formatUsdText(brief.financialTrend.description)}</p>
         </div>
       )}
 
-      {/* Metrics strip */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Metrics strip — Linear-style grouped stat boxes */}
+      <div className="flex divide-x divide-[var(--color-border)] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         {[
           { label: 'Unpaid',    value: brief.metrics.unpaidCount,    sub: formatAmount(brief.metrics.unpaidAmountUsd, { compact: true }),  warn: brief.metrics.unpaidCount > 0 },
           { label: 'Overdue',   value: brief.metrics.overdueCount,   sub: formatAmount(brief.metrics.overdueAmountUsd, { compact: true }), warn: brief.metrics.overdueCount > 0 },
           { label: 'Deadlines', value: brief.metrics.upcomingDeadlines, sub: 'next 14 days', warn: brief.metrics.upcomingDeadlines > 0 },
         ].map(({ label, value, sub, warn }) => (
-          <div key={label} className={cn('rounded-xl px-3 py-2.5 text-center', warn && value > 0 ? 'bg-[var(--color-warning-soft)]' : 'bg-[var(--color-background)]')}>
-            <p className={cn('text-[18px] font-bold tracking-[-0.03em]', warn && value > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-foreground)]')}>{value}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{label}</p>
+          <div key={label} className="flex-1 px-4 py-3 text-center">
+            <p className={cn('text-[18px] font-bold tracking-[-0.03em]', warn && value > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-foreground)]')}>{value}</p>
+            <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">{label}</p>
             <p className="mt-0.5 text-[10px] text-[var(--color-text-placeholder)]">{sub}</p>
           </div>
         ))}
@@ -106,30 +105,30 @@ function TodayTab({ brief, loading }: { brief: AssistantBrief | null; loading: b
 
       {/* Events / all clear */}
       {allClear ? (
-        <div className="flex items-center gap-2 rounded-xl bg-[var(--color-success-soft)] px-4 py-3">
-          <CheckCircle className="h-4 w-4 text-[var(--color-success)]" weight="fill" />
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+          <CheckCircle className="h-4 w-4 shrink-0 text-[var(--color-success)]" weight="fill" />
           <p className="text-[13px] font-semibold text-[var(--color-success)]">All clear — nothing needs attention today</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-[var(--color-border)]">
           {brief.events.map((event) => <EventRow key={event.id} event={event} />)}
         </div>
       )}
 
       {/* Tax hint */}
       {brief.taxHint && (
-        <div className="flex items-start gap-2 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
+        <div className="flex items-start gap-2 rounded-xl border border-[var(--color-warning-soft)] px-4 py-3">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
-          <p className="text-[12px] text-[var(--color-warning)]">{formatUsdText(brief.taxHint)}</p>
+          <p className="text-[12px] text-[var(--color-text-secondary)]">{formatUsdText(brief.taxHint)}</p>
         </div>
       )}
 
       {/* Project alerts */}
       {(brief.projectAlerts ?? []).length > 0 && (
-        <div className="space-y-1.5">
+        <div className="divide-y divide-[var(--color-border)]">
           {brief.projectAlerts!.map((a, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-lg bg-[var(--color-background)] px-3 py-2">
-              <Warning className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" />
+            <div key={i} className="flex items-center gap-2 px-3 py-2">
+              <Warning className="h-3.5 w-3.5 shrink-0 text-[var(--color-warning)]" weight="fill" />
               <p className="text-[12px] text-[var(--color-text-tertiary)]">{formatUsdText(a)}</p>
             </div>
           ))}
@@ -150,7 +149,7 @@ function WeekTab({ weekly, loading }: { weekly: WeeklySummary | null; loading: b
 
   return (
     <div className="space-y-4">
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{weekly.weekLabel}</p>
+      <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">{weekly.weekLabel}</p>
 
       <div className="grid grid-cols-2 gap-2">
         {[
@@ -162,7 +161,7 @@ function WeekTab({ weekly, loading }: { weekly: WeeklySummary | null; loading: b
             highlight: weekly.overdueCount > 0,
             sub: weekly.overdueCount > 0 ? <span className="text-[var(--color-danger)]">{formatAmount(weekly.overdueAmountUsd, { compact: true })}</span> : null },
         ].map(({ label, value, icon: Icon, highlight, sub }) => (
-          <div key={label} className={cn('rounded-xl px-3 py-3', highlight ? 'bg-[var(--color-accent-soft)]' : 'bg-[var(--color-background)]')}>
+          <div key={label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3">
             <Icon className={cn('h-3.5 w-3.5 mb-1', highlight ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]')} weight="fill" />
             <p className={cn('text-[20px] font-bold tracking-[-0.03em]', highlight ? 'text-[var(--color-accent)]' : 'text-[var(--color-foreground)]')}>{value}</p>
             <p className="text-[11px] text-[var(--color-text-muted)]">{label}</p>
@@ -173,10 +172,10 @@ function WeekTab({ weekly, loading }: { weekly: WeeklySummary | null; loading: b
 
       {weekly.topClients.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Top clients</p>
-          <div className="space-y-1.5">
+          <p className="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">Top clients</p>
+          <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
             {weekly.topClients.map((c) => (
-              <div key={c.name} className="flex items-center justify-between rounded-lg bg-[var(--color-background)] px-3 py-2">
+              <div key={c.name} className="flex items-center justify-between px-3 py-2">
                 <p className="text-[13px] font-medium text-[var(--color-text-secondary)]">{c.name}</p>
                 <p className="text-[13px] font-bold tabular-nums text-[var(--color-foreground)]">{formatAmount(c.amountUsd, { compact: true })}</p>
               </div>
@@ -185,9 +184,9 @@ function WeekTab({ weekly, loading }: { weekly: WeeklySummary | null; loading: b
         </div>
       )}
 
-      <div className="rounded-xl bg-[var(--color-background)] px-4 py-3">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
         <div className="mb-1.5 flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Weekly insight</span>
+          <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Weekly insight</span>
         </div>
         <p className="text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{formatUsdText(weekly.aiInsight)}</p>
       </div>
@@ -218,19 +217,19 @@ function AttentionTab({ brief, loading }: { brief: AssistantBrief | null; loadin
     <div className="space-y-4">
       {urgent.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-danger)]">Urgent</p>
+          <p className="mb-2 text-[11px] font-semibold text-[var(--color-danger)]">Urgent</p>
           <div className="space-y-2">{urgent.map((e) => <EventRow key={e.id} event={e} />)}</div>
         </div>
       )}
       {warning.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-warning)]">Review</p>
+          <p className="mb-2 text-[11px] font-semibold text-[var(--color-warning)]">Review</p>
           <div className="space-y-2">{warning.map((e) => <EventRow key={e.id} event={e} />)}</div>
         </div>
       )}
       {info.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Info</p>
+          <p className="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">Info</p>
           <div className="space-y-2">{info.map((e) => <EventRow key={e.id} event={e} />)}</div>
         </div>
       )}
@@ -256,7 +255,7 @@ function SuggestionsTab({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
+        <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">
           {suggestions.length > 0 ? `${suggestions.length} active` : 'No active suggestions'}
         </p>
         <button

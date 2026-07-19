@@ -139,7 +139,7 @@ export function ContextualSuggestions({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={cn('text-[10px] font-bold uppercase tracking-wider', meta.color)}>{meta.label}</span>
+                      <span className={cn('text-[10px] font-bold', meta.color)}>{meta.label}</span>
                       {badges.slice(0, 2).map((badge) => (
                         <span key={badge} className="rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)] ring-1 ring-[var(--color-border-light)]">
                           {badge}

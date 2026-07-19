@@ -154,17 +154,22 @@ export function TreasuryCard() {
 
           {/* Add member */}
           <div className="mb-3">
-            <select
-              onChange={(e) => { if (e.target.value) addPayoutItem(e.target.value); e.target.value = ''; }}
-              className="w-full rounded-full border border-[var(--color-border)] px-3 py-2 text-[13px]"
-            >
-              <option value="">Add member...</option>
-              {members.filter(m => !payoutItems.some(i => i.userId === m.userId)).map(m => (
-                <option key={m.userId} value={m.userId}>
-                  {m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                onChange={(e) => { if (e.target.value) addPayoutItem(e.target.value); e.target.value = ''; }}
+                className="w-full appearance-none rounded-full border border-[var(--color-border)] px-3 py-2 pr-8 text-[13px]"
+              >
+                <option value="">Add member...</option>
+                {members.filter(m => !payoutItems.some(i => i.userId === m.userId)).map(m => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}
+                  </option>
+                ))}
+              </select>
+              <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4.5L6 7.5L9 4.5" />
+              </svg>
+            </div>
           </div>
 
           {/* Payout items */}

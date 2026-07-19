@@ -1,10 +1,20 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { CaretDown, Plus, Check } from '@/components/ui/lucide-icons';
+import { CaretDown, Plus, Check, FolderSimple } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
+
+function parseWsIcon(icon?: string | null, name?: string) {
+  if (!icon) return { type: 'initial' as const, value: (name || 'H').charAt(0).toUpperCase() };
+  if (icon.startsWith('emoji:')) return { type: 'emoji' as const, value: icon.slice(6) };
+  if (icon.startsWith('icon:')) {
+    const parts = icon.split(':');
+    return { type: 'icon' as const, value: parts[1], color: parts[2] || '#0d47a1' };
+  }
+  return { type: 'emoji' as const, value: icon };
+}
 
 type WorkspaceSwitcherProps = {
   collapsed: boolean;
@@ -12,7 +22,7 @@ type WorkspaceSwitcherProps = {
 };
 
 export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcherProps) {
-  const { workspaces, activeWorkspace, switchWorkspace, updateWorkspaceIcon } = useWorkspaceContext();
+  const { workspaces, activeWorkspace, switchWorkspace } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -23,26 +33,15 @@ export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcher
     setOpen(false);
   };
 
-  const handleIconPick = (emoji: string) => {
-    if (!activeWorkspace) return;
-    updateWorkspaceIcon(activeWorkspace.id, emoji);
-  };
-
-  const openEmojiPicker = () => {
-    window.dispatchEvent(new CustomEvent('hedwig:open-emoji-picker', {
-      detail: { workspaceId: activeWorkspace?.id },
-    }));
-  };
-
   const iconEl = (icon?: string | null, name?: string) => {
-    if (icon) {
-      return <span className="text-[14px] leading-none">{icon}</span>;
+    const parsed = parseWsIcon(icon, name);
+    if (parsed.type === 'initial') {
+      return <span className="text-[10px] font-bold text-[var(--color-text-tertiary)]">{parsed.value}</span>;
     }
-    return (
-      <span className="text-[10px] font-bold text-[var(--color-text-tertiary)]">
-        {(name || 'H').charAt(0).toUpperCase()}
-      </span>
-    );
+    if (parsed.type === 'emoji') {
+      return <span className="text-[14px] leading-none">{parsed.value}</span>;
+    }
+    return <FolderSimple className="h-3.5 w-3.5" weight="bold" style={{ color: parsed.color }} />;
   };
 
   if (collapsed) {
@@ -105,9 +104,7 @@ export function WorkspaceSwitcher({ collapsed, onOpenCreate }: WorkspaceSwitcher
         className="flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-[var(--color-surface-tertiary)]"
       >
         <span
-          onClick={(e) => { e.stopPropagation(); openEmojiPicker(); }}
-          className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)] transition hover:bg-[var(--color-surface-secondary)]"
-          title="Change icon"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-surface-tertiary)]"
         >
           {iconEl(activeWorkspace?.icon, activeWorkspace?.name)}
         </span>

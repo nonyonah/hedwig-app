@@ -6,11 +6,13 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   CaretRight,
   Key,
+  PencilSimple,
   SignOut,
   Trash,
   WarningCircle
 } from '@/components/ui/lucide-icons';
 import { Avatar } from '@/components/ui/avatar';
+import { AvatarEditDialog, type AvatarValue } from '@/components/ui/avatar-edit-dialog';
 import { useToast } from '@/components/providers/toast-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,7 +35,7 @@ import { useCurrency } from '@/components/providers/currency-provider';
 import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
 import { isProPlan, isOnPaidPlan } from '@/lib/billing/feature-gates';
-import { billingSwitchErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
+
 
 type SettingsClientProps = {
   accessToken: string | null;
@@ -79,14 +81,15 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteStep, setDeleteStep] = useState<'backup' | 'warn' | 'confirm'>('backup');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [billingStatus, setBillingStatus] = useState<BillingStatusSummary | null>(null);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
   const [isOpeningSubscriptionManagement, setIsOpeningSubscriptionManagement] = useState(false);
-  const [switchingBillingInterval, setSwitchingBillingInterval] = useState<'monthly' | 'annual' | null>(null);
-
   const [clientRemindersEnabled, setClientRemindersEnabled] = useState(true);
   const [isSavingReminders, setIsSavingReminders] = useState(false);
 
@@ -190,48 +193,26 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     }
   };
 
-  const switchBillingInterval = async (interval: 'monthly' | 'annual') => {
-    if (!accessToken) {
-      router.push('/sign-in');
-      return;
-    }
-
-    if (subscriptionProvider === 'revenue_cat') {
-      toast({
-        type: 'info',
-        title: 'Subscription managed on mobile',
-        message: 'Plan interval changes for this subscription need to be made from the mobile app store.',
-      });
-      return;
-    }
-
-    setSwitchingBillingInterval(interval);
+  const handleSaveAvatar = async (avatar: AvatarValue) => {
+    if (!accessToken) return;
+    setSavingAvatar(true);
     try {
-      const response = await fetch('/api/billing/polar/switch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interval }),
-      });
-      const data = await response.json().catch(() => null) as { success?: boolean; error?: string; code?: string; data?: { changed?: boolean } } | null;
-      if (!response.ok || !data?.success) {
-        throw new Error(billingSwitchErrorMessage(data));
+      let value: string;
+      if (avatar.type === 'emoji') {
+        value = `emoji:${avatar.value}`;
+      } else if (avatar.type === 'icon') {
+        value = `icon:${avatar.value}:${avatar.color}`;
+      } else {
+        value = avatar.value;
       }
-      toast({
-        type: 'success',
-        title: data.data?.changed === false ? 'Plan already active' : 'Billing plan updated',
-        message: interval === 'annual'
-          ? 'Your subscription is now set to yearly billing.'
-          : 'Your subscription is now set to monthly billing.',
-      });
-      await loadBillingStatus();
+      const updated = await hedwigApi.updateUserProfile({ avatar: value }, { accessToken, disableMockFallback: true });
+      setAvatarUrl(updated.avatarUrl || null);
+      setAvatarDialogOpen(false);
+      toast({ type: 'success', title: 'Avatar updated' });
     } catch (error: any) {
-      toast({
-        type: 'error',
-        title: 'Could not switch billing',
-        message: friendlyErrorMessage(error, 'Please open subscription management and try again.'),
-      });
+      toast({ type: 'error', title: 'Could not update avatar', message: error?.message || 'Please try again.' });
     } finally {
-      setSwitchingBillingInterval(null);
+      setSavingAvatar(false);
     }
   };
 
@@ -391,7 +372,12 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
         <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
           <div className="flex items-center gap-4 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
-            <Avatar className="h-12 w-12 text-[14px]" label={fullName} src={avatarUrl} />
+            <button type="button" onClick={() => setAvatarDialogOpen(true)} className="group relative shrink-0">
+              <Avatar className="h-12 w-12 text-[14px]" label={fullName} src={avatarUrl} />
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-accent)] text-[9px] text-white opacity-0 shadow-xs transition-opacity group-hover:opacity-100">
+                <PencilSimple className="h-2.5 w-2.5" weight="bold" />
+              </span>
+            </button>
             <div>
               <div className="flex items-center gap-2">
                 <p className="text-[16px] font-semibold text-[var(--color-foreground)]">{fullName}</p>
@@ -426,17 +412,22 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             label="Display currency"
             description="USD-stored amounts (revenue, balances, expenses) are converted to this currency at current rates."
           >
-            <select
-              value={displayCurrency}
-              onChange={(event) => setDisplayCurrency(event.target.value)}
-              className="rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition hover:bg-[var(--color-background)] focus:border-[var(--color-accent)] focus:outline-none"
-            >
-              {currencyOptions.map((option) => (
-                <option key={option.code} value={option.code}>
-                  {option.flag} {option.code} · {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={displayCurrency}
+                onChange={(event) => setDisplayCurrency(event.target.value)}
+                className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 py-1.5 pr-8 text-[12px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition hover:bg-[var(--color-background)] focus:border-[var(--color-accent)] focus:outline-none"
+              >
+                {currencyOptions.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.flag} {option.code} · {option.label}
+                  </option>
+                ))}
+              </select>
+              <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4.5L6 7.5L9 4.5" />
+              </svg>
+            </div>
           </SettingsRow>
 
           <SettingsRow label="Connection diagnostics" description="Run a quick API reachability check.">
@@ -547,39 +538,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               </Badge>
             </div>
           </SettingsRow>
-
-          {isProUser && subscriptionProvider !== 'revenue_cat' ? (
-            <SettingsRow
-              label="Billing cadence"
-              description={
-                billingInterval === 'annual'
-                  ? 'Switch back to monthly billing if you prefer more flexibility.'
-                  : 'Upgrade to yearly billing to lock in the annual discount.'
-              }
-            >
-              <div className="flex items-center rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] p-1">
-                {(['monthly', 'annual'] as const).map((interval) => {
-                  const active = billingInterval === interval;
-                  const busy = switchingBillingInterval === interval;
-                  return (
-                    <button
-                      key={interval}
-                      type="button"
-                      onClick={() => switchBillingInterval(interval)}
-                      disabled={active || switchingBillingInterval !== null}
-                      className={`rounded-full px-3 py-1 text-[12px] font-semibold transition disabled:cursor-not-allowed ${
-                        active
-                          ? 'bg-[var(--color-accent)] text-white'
-                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)] disabled:opacity-60'
-                      }`}
-                    >
-                      {busy ? 'Opening…' : interval === 'annual' ? 'Yearly' : 'Monthly'}
-                    </button>
-                  );
-                })}
-              </div>
-            </SettingsRow>
-          ) : null}
 
           <SettingsRow
             label="Cancel or change plan"
@@ -718,6 +676,14 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           )}
         </DialogContent>
       </Dialog>
+
+      <AvatarEditDialog
+        open={avatarDialogOpen}
+        onOpenChange={setAvatarDialogOpen}
+        currentSrc={avatarUrl}
+        onSave={handleSaveAvatar}
+        saving={savingAvatar}
+      />
     </>
   );
 }

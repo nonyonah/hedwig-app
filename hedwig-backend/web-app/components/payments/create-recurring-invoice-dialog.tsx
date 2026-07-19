@@ -9,363 +9,368 @@ import { useToast } from '@/components/providers/toast-provider';
 import { Button } from '@/components/ui/button';
 
 const FREQUENCIES: { value: RecurringFrequency; label: string; description: string }[] = [
-  { value: 'weekly',    label: 'Weekly',    description: 'Every 7 days' },
-  { value: 'biweekly',  label: 'Bi-weekly', description: 'Every 14 days' },
-  { value: 'monthly',   label: 'Monthly',   description: 'Same day each month' },
-  { value: 'quarterly', label: 'Quarterly', description: 'Every 3 months' },
-  { value: 'annual',    label: 'Annual',    description: 'Once a year' },
+ { value: 'weekly', label: 'Weekly', description: 'Every 7 days' },
+ { value: 'biweekly', label: 'Bi-weekly', description: 'Every 14 days' },
+ { value: 'monthly', label: 'Monthly', description: 'Same day each month' },
+ { value: 'quarterly', label: 'Quarterly', description: 'Every 3 months' },
+ { value: 'annual', label: 'Annual', description: 'Once a year' },
 ];
 
 type Prefill = {
-  clientName?: string;
-  clientEmail?: string;
-  amount?: string;
-  frequency?: RecurringFrequency;
-  title?: string;
-  startDate?: string;
-  endDate?: string;
-  autoSend?: boolean;
+ clientName?: string;
+ clientEmail?: string;
+ amount?: string;
+ frequency?: RecurringFrequency;
+ title?: string;
+ startDate?: string;
+ endDate?: string;
+ autoSend?: boolean;
 };
 
 type Props = {
-  open: boolean;
-  clients: Client[];
-  accessToken: string | null;
-  prefill?: Prefill;
-  onOpenChange: (open: boolean) => void;
-  onCreated: (invoice: Awaited<ReturnType<typeof hedwigApi.createRecurringInvoice>>) => void;
+ open: boolean;
+ clients: Client[];
+ accessToken: string | null;
+ prefill?: Prefill;
+ onOpenChange: (open: boolean) => void;
+ onCreated: (invoice: Awaited<ReturnType<typeof hedwigApi.createRecurringInvoice>>) => void;
 };
 
 const CHAINS = [
-  { value: 'BASE',     label: 'Base',     logo: '/icons/networks/base.png' },
-  { value: 'ARBITRUM', label: 'Arbitrum', logo: '/icons/networks/arbitrum.png' },
-  { value: 'POLYGON',  label: 'Polygon',  logo: '/icons/networks/polygon.png' },
-  { value: 'OPTIMISM', label: 'Optimism', logo: '/icons/networks/optimism.png' },
-  // Celo temporarily disabled.
-  { value: 'SOLANA',   label: 'Solana',   logo: '/icons/networks/solana.png' },
+ { value: 'BASE', label: 'Base', logo: '/icons/networks/base.png' },
+ { value: 'ARBITRUM', label: 'Arbitrum', logo: '/icons/networks/arbitrum.png' },
+ { value: 'POLYGON', label: 'Polygon', logo: '/icons/networks/polygon.png' },
+ { value: 'OPTIMISM', label: 'Optimism', logo: '/icons/networks/optimism.png' },
+ // Celo temporarily disabled.
+ { value: 'SOLANA', label: 'Solana', logo: '/icons/networks/solana.png' },
 ];
 
 function ChainDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const selected = CHAINS.find((c) => c.value === value) ?? CHAINS[0];
+ const [open, setOpen] = useState(false);
+ const ref = useRef<HTMLDivElement>(null);
+ const selected = CHAINS.find((c) => c.value === value) ?? CHAINS[0];
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+ useEffect(() => {
+ const handler = (e: MouseEvent) => {
+ if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+ };
+ document.addEventListener('mousedown', handler);
+ return () => document.removeEventListener('mousedown', handler);
+ }, []);
 
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-left transition-colors hover:border-[var(--color-text-placeholder)] focus:border-[var(--color-accent)] focus:outline-none"
-      >
-        <img src={selected.logo} alt={selected.label} className="h-5 w-5 rounded-full object-cover" />
-        <span className="flex-1 text-[14px] text-[var(--color-foreground)]">{selected.label}</span>
-        <CaretDown className={`h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} weight="bold" />
-      </button>
-      {open && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
-          {CHAINS.map((chain) => (
-            <button
-              key={chain.value}
-              type="button"
-              onClick={() => { onChange(chain.value); setOpen(false); }}
-              className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-background)] ${value === chain.value ? 'bg-[var(--color-accent-soft)]' : ''}`}
-            >
-              <img src={chain.logo} alt={chain.label} className="h-5 w-5 rounded-full object-cover" />
-              <span className={`text-[13px] font-medium ${value === chain.value ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-foreground)]'}`}>{chain.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+ return (
+ <div ref={ref} className="relative">
+ <button
+ type="button"
+ onClick={() => setOpen((o) => !o)}
+ className="flex w-full items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-left transition-colors hover:border-[var(--color-text-placeholder)] focus:border-[var(--color-accent)] focus:outline-none"
+ >
+ <img src={selected.logo} alt={selected.label} className="h-5 w-5 rounded-full object-cover" />
+ <span className="flex-1 text-[14px] text-[var(--color-foreground)]">{selected.label}</span>
+ <CaretDown className={`h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} weight="bold" />
+ </button>
+ {open && (
+ <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
+ {CHAINS.map((chain) => (
+ <button
+ key={chain.value}
+ type="button"
+ onClick={() => { onChange(chain.value); setOpen(false); }}
+ className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-background)] ${value === chain.value ? 'bg-[var(--color-accent-soft)]' : ''}`}
+ >
+ <img src={chain.logo} alt={chain.label} className="h-5 w-5 rounded-full object-cover" />
+ <span className={`text-[13px] font-medium ${value === chain.value ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-foreground)]'}`}>{chain.label}</span>
+ </button>
+ ))}
+ </div>
+ )}
+ </div>
+ );
 }
 
 const TODAY = new Date().toISOString().split('T')[0];
 
 export function CreateRecurringInvoiceDialog({ open, clients, accessToken, prefill, onOpenChange, onCreated }: Props) {
-  const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
+ const { toast } = useToast();
+ const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState<{
-    clientId: string;
-    clientEmail: string;
-    clientName: string;
-    title: string;
-    amount: string;
-    chain: string;
-    memo: string;
-    frequency: RecurringFrequency;
-    startDate: string;
-    endDate: string;
-    autoSend: boolean;
-  }>({
-    clientId: '',
-    clientEmail: prefill?.clientEmail ?? '',
-    clientName: prefill?.clientName ?? '',
-    title: prefill?.title ?? '',
-    amount: prefill?.amount ?? '',
-    chain: 'BASE',
-    memo: '',
-    frequency: prefill?.frequency ?? 'monthly',
-    startDate: prefill?.startDate ?? TODAY,
-    endDate: prefill?.endDate ?? '',
-    autoSend: prefill?.autoSend ?? false,
-  });
+ const [form, setForm] = useState<{
+ clientId: string;
+ clientEmail: string;
+ clientName: string;
+ title: string;
+ amount: string;
+ chain: string;
+ memo: string;
+ frequency: RecurringFrequency;
+ startDate: string;
+ endDate: string;
+ autoSend: boolean;
+ }>({
+ clientId: '',
+ clientEmail: prefill?.clientEmail ?? '',
+ clientName: prefill?.clientName ?? '',
+ title: prefill?.title ?? '',
+ amount: prefill?.amount ?? '',
+ chain: 'BASE',
+ memo: '',
+ frequency: prefill?.frequency ?? 'monthly',
+ startDate: prefill?.startDate ?? TODAY,
+ endDate: prefill?.endDate ?? '',
+ autoSend: prefill?.autoSend ?? false,
+ });
 
-  const set = (field: keyof typeof form, value: string | boolean) =>
-    setForm((f) => ({ ...f, [field]: value }));
+ const set = (field: keyof typeof form, value: string | boolean) =>
+ setForm((f) => ({ ...f, [field]: value }));
 
-  const handleClientChange = (clientId: string) => {
-    const client = clients.find((c) => c.id === clientId);
-    setForm((f) => ({
-      ...f,
-      clientId,
-      clientName: client?.name || f.clientName,
-      clientEmail: client?.email || f.clientEmail,
-    }));
-  };
+ const handleClientChange = (clientId: string) => {
+ const client = clients.find((c) => c.id === clientId);
+ setForm((f) => ({
+ ...f,
+ clientId,
+ clientName: client?.name || f.clientName,
+ clientEmail: client?.email || f.clientEmail,
+ }));
+ };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.amount || parseFloat(form.amount) <= 0) {
-      toast({ type: 'error', title: 'Amount required', message: 'Please enter a valid amount.' });
-      return;
-    }
+ const handleSubmit = async (e: React.FormEvent) => {
+ e.preventDefault();
+ if (!form.amount || parseFloat(form.amount) <= 0) {
+ toast({ type: 'error', title: 'Amount required', message: 'Please enter a valid amount.' });
+ return;
+ }
 
-    setSaving(true);
-    try {
-      const input: CreateRecurringInvoiceInput = {
-        clientId: form.clientId || undefined,
-        clientName: form.clientName || undefined,
-        clientEmail: form.clientEmail || undefined,
-        title: form.title || undefined,
-        amount: parseFloat(form.amount),
-        chain: form.chain,
-        memo: form.memo || undefined,
-        frequency: form.frequency,
-        startDate: form.startDate,
-        endDate: form.endDate || undefined,
-        autoSend: form.autoSend,
-      };
+ setSaving(true);
+ try {
+ const input: CreateRecurringInvoiceInput = {
+ clientId: form.clientId || undefined,
+ clientName: form.clientName || undefined,
+ clientEmail: form.clientEmail || undefined,
+ title: form.title || undefined,
+ amount: parseFloat(form.amount),
+ chain: form.chain,
+ memo: form.memo || undefined,
+ frequency: form.frequency,
+ startDate: form.startDate,
+ endDate: form.endDate || undefined,
+ autoSend: form.autoSend,
+ };
 
-      const result = await hedwigApi.createRecurringInvoice(input, { accessToken });
-      toast({
-        type: 'success',
-        title: 'Recurring invoice created',
-        message: `Will generate ${form.frequency} — first invoice on ${form.startDate}.`,
-      });
-      onCreated(result);
-      onOpenChange(false);
-    } catch (err: any) {
-      toast({ type: 'error', title: 'Failed to create', message: err?.message || 'Please try again.' });
-    } finally {
-      setSaving(false);
-    }
-  };
+ const result = await hedwigApi.createRecurringInvoice(input, { accessToken });
+ toast({
+ type: 'success',
+ title: 'Recurring invoice created',
+ message: `Will generate ${form.frequency} — first invoice on ${form.startDate}.`,
+ });
+ onCreated(result);
+ onOpenChange(false);
+ } catch (err: any) {
+ toast({ type: 'error', title: 'Failed to create', message: err?.message || 'Please try again.' });
+ } finally {
+ setSaving(false);
+ }
+ };
 
-  if (!open) return null;
+ if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={() => onOpenChange(false)} />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-6 py-4">
-          <div>
-            <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Set up recurring invoice</p>
-            <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">Generates automatically on schedule</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
-          >
-            <X className="h-4 w-4" weight="bold" />
-          </button>
-        </div>
+ return (
+ <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+ <div className="absolute inset-0 bg-black/40" onClick={() => onOpenChange(false)} />
+ <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]">
+ {/* Header */}
+ <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-6 py-4">
+ <div>
+ <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Set up recurring invoice</p>
+ <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">Generates automatically on schedule</p>
+ </div>
+ <button
+ type="button"
+ onClick={() => onOpenChange(false)}
+ className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+ >
+ <X className="h-4 w-4" weight="bold" />
+ </button>
+ </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto px-6 py-5 space-y-4">
+ <form onSubmit={handleSubmit}>
+ <div className="max-h-[calc(100vh-200px)] overflow-y-auto px-6 py-5 space-y-4">
 
-            {/* Client */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Client</label>
-              {clients.length > 0 ? (
-                <select
-                  value={form.clientId}
-                  onChange={(e) => handleClientChange(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-                >
-                  <option value="">Select client…</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              ) : null}
-              {!form.clientId && (
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <input
-                    type="text"
-                    placeholder="Client name"
-                    value={form.clientName}
-                    onChange={(e) => set('clientName', e.target.value)}
-                    className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Client email"
-                    value={form.clientEmail}
-                    onChange={(e) => set('clientEmail', e.target.value)}
-                    className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
-                  />
-                </div>
-              )}
-            </div>
+ {/* Client */}
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">Client</label>
+  {clients.length > 0 ? (
+  <div className="relative">
+    <select
+    value={form.clientId}
+    onChange={(e) => handleClientChange(e.target.value)}
+    className="w-full appearance-none rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 pr-8 text-[14px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
+    >
+    <option value="">Select client…</option>
+    {clients.map((c) => (
+    <option key={c.id} value={c.id}>{c.name}</option>
+    ))}
+    </select>
+    <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4.5L6 7.5L9 4.5" />
+    </svg>
+  </div>
+  ) : null}
+ {!form.clientId && (
+ <div className="grid grid-cols-2 gap-2 mt-2">
+ <input
+ type="text"
+ placeholder="Client name"
+ value={form.clientName}
+ onChange={(e) => set('clientName', e.target.value)}
+ className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+ />
+ <input
+ type="email"
+ placeholder="Client email"
+ value={form.clientEmail}
+ onChange={(e) => set('clientEmail', e.target.value)}
+ className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+ />
+ </div>
+ )}
+ </div>
 
-            {/* Title + Amount */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Invoice title</label>
-              <input
-                type="text"
-                placeholder="e.g. Monthly retainer"
-                value={form.title}
-                onChange={(e) => set('title', e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
-              />
-            </div>
+ {/* Title + Amount */}
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">Invoice title</label>
+ <input
+ type="text"
+ placeholder="e.g. Monthly retainer"
+ value={form.title}
+ onChange={(e) => set('title', e.target.value)}
+ className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+ />
+ </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Amount (USDC)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  placeholder="0.00"
-                  value={form.amount}
-                  onChange={(e) => set('amount', e.target.value)}
-                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Chain</label>
-                <ChainDropdown value={form.chain} onChange={(v) => set('chain', v)} />
-              </div>
-            </div>
+ <div className="grid grid-cols-2 gap-3">
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">Amount (USDC)</label>
+ <input
+ type="number"
+ min="0"
+ step="0.01"
+ required
+ placeholder="0.00"
+ value={form.amount}
+ onChange={(e) => set('amount', e.target.value)}
+ className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+ />
+ </div>
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">Chain</label>
+ <ChainDropdown value={form.chain} onChange={(v) => set('chain', v)} />
+ </div>
+ </div>
 
-            {/* Frequency */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Frequency</label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {FREQUENCIES.map((f) => (
-                  <button
-                    key={f.value}
-                    type="button"
-                    onClick={() => set('frequency', f.value)}
-                    className={`flex flex-col items-center rounded-xl border px-2 py-2.5 text-center transition-colors ${
-                      form.frequency === f.value
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
-                        : 'border-[var(--color-border)] text-[var(--color-text-tertiary)] hover:border-[var(--color-text-placeholder)]'
-                    }`}
-                  >
-                    <span className="text-[12px] font-semibold">{f.label}</span>
-                    <span className="mt-0.5 text-[10px] opacity-70">{f.description}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+ {/* Frequency */}
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">Frequency</label>
+ <div className="grid grid-cols-5 gap-1.5">
+ {FREQUENCIES.map((f) => (
+ <button
+ key={f.value}
+ type="button"
+ onClick={() => set('frequency', f.value)}
+ className={`flex flex-col items-center rounded-xl border px-2 py-2.5 text-center transition-colors ${
+ form.frequency === f.value
+ ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
+ : 'border-[var(--color-border)] text-[var(--color-text-tertiary)] hover:border-[var(--color-text-placeholder)]'
+ }`}
+ >
+ <span className="text-[12px] font-semibold">{f.label}</span>
+ <span className="mt-0.5 text-[10px] opacity-70">{f.description}</span>
+ </button>
+ ))}
+ </div>
+ </div>
 
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">First invoice date</label>
-                <input
-                  type="date"
-                  required
-                  value={form.startDate}
-                  onChange={(e) => set('startDate', e.target.value)}
-                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">End date (optional)</label>
-                <input
-                  type="date"
-                  value={form.endDate}
-                  min={form.startDate}
-                  onChange={(e) => set('endDate', e.target.value)}
-                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
-                />
-              </div>
-            </div>
+ {/* Dates */}
+ <div className="grid grid-cols-2 gap-3">
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">First invoice date</label>
+ <input
+ type="date"
+ required
+ value={form.startDate}
+ onChange={(e) => set('startDate', e.target.value)}
+ className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
+ />
+ </div>
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">End date (optional)</label>
+ <input
+ type="date"
+ value={form.endDate}
+ min={form.startDate}
+ onChange={(e) => set('endDate', e.target.value)}
+ className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+ />
+ </div>
+ </div>
 
-            {/* Memo */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Memo (optional)</label>
-              <input
-                type="text"
-                placeholder="Notes for the client"
-                value={form.memo}
-                onChange={(e) => set('memo', e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
-              />
-            </div>
+ {/* Memo */}
+ <div className="space-y-1.5">
+ <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">Memo (optional)</label>
+ <input
+ type="text"
+ placeholder="Notes for the client"
+ value={form.memo}
+ onChange={(e) => set('memo', e.target.value)}
+ className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+ />
+ </div>
 
-            {/* Auto-send toggle */}
-            <button
-              type="button"
-              onClick={() => set('autoSend', !form.autoSend)}
-              className={`w-full rounded-xl border p-4 text-left transition-colors ${
-                form.autoSend ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-placeholder)]'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className={`text-[13px] font-semibold ${form.autoSend ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-foreground)]'}`}>
-                    Auto-send invoices
-                  </p>
-                  <p className="mt-0.5 text-[12px] leading-[1.5] text-[var(--color-text-tertiary)]">
-                    {form.autoSend
-                      ? 'Hedwig will send each invoice automatically on the due date.'
-                      : 'Each invoice saved as a draft for you to review and send manually.'}
-                  </p>
-                </div>
-                {/* Toggle track */}
-                <div
-                  className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${
-                    form.autoSend ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-6 w-6 rounded-full bg-[var(--color-surface)] shadow-sm transition-transform duration-200 ${
-                      form.autoSend ? 'translate-x-[22px]' : 'translate-x-0.5'
-                    }`}
-                  />
-                </div>
-              </div>
-            </button>
-          </div>
+ {/* Auto-send toggle */}
+ <button
+ type="button"
+ onClick={() => set('autoSend', !form.autoSend)}
+ className={`w-full rounded-xl border p-4 text-left transition-colors ${
+ form.autoSend ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-placeholder)]'
+ }`}
+ >
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <p className={`text-[13px] font-semibold ${form.autoSend ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-foreground)]'}`}>
+ Auto-send invoices
+ </p>
+ <p className="mt-0.5 text-[12px] leading-[1.5] text-[var(--color-text-tertiary)]">
+ {form.autoSend
+ ? 'Hedwig will send each invoice automatically on the due date.'
+ : 'Each invoice saved as a draft for you to review and send manually.'}
+ </p>
+ </div>
+ {/* Toggle track */}
+ <div
+ className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${
+ form.autoSend ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
+ }`}
+ >
+ <span
+ className={`absolute top-0.5 h-6 w-6 rounded-full bg-[var(--color-surface)] shadow-sm transition-transform duration-200 ${
+ form.autoSend ? 'translate-x-[22px]' : 'translate-x-0.5'
+ }`}
+ />
+ </div>
+ </div>
+ </button>
+ </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-surface-tertiary)] px-6 py-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Creating…' : 'Create recurring invoice'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+ {/* Footer */}
+ <div className="flex items-center justify-end gap-2 border-t border-[var(--color-surface-tertiary)] px-6 py-4">
+ <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+ Cancel
+ </Button>
+ <Button type="submit" disabled={saving}>
+ {saving ? 'Creating…' : 'Create recurring invoice'}
+ </Button>
+ </div>
+ </form>
+ </div>
+ </div>
+ );
 }

@@ -9,7 +9,7 @@ import { TutorialCard } from '@/components/tutorial/tutorial-card';
 import { CreateMenu } from '@/components/app-shell/create-menu';
 import { WorkspaceProvider } from '@/lib/workspace/workspace-context';
 import { CreateWorkspaceDialog } from '@/components/workspace/create-workspace-dialog';
-import { EmojiPickerDialog } from '@/components/workspace/emoji-picker-dialog';
+
 import { InviteMemberDialog } from '@/components/workspace/invite-member-dialog';
 import type { Workspace } from '@/lib/models/entities';
 
@@ -86,7 +86,6 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
               </div>
             </div>
             <CreateWorkspaceDialog />
-            <EmojiPickerDialog />
             <InviteMemberDialog />
           </WorkspaceProvider>
           <TutorialCard />

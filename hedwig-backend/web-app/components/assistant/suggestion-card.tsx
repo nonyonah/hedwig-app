@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/lucide-icons';
 import { cn } from '@/lib/utils';
 import type { AssistantSuggestion } from '@/lib/types/assistant';
-import { SUGGESTION_META, getConfidenceBadge, getEntityBadges, getPriorityBadge } from './suggestion-meta';
+import { SUGGESTION_META, getConfidenceBadge, getEntityBadges } from './suggestion-meta';
 
 interface SuggestionCardProps {
   suggestion: AssistantSuggestion;
@@ -20,7 +20,6 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
   const cfg = SUGGESTION_META[suggestion.type] ?? SUGGESTION_META.invoice_reminder;
   const Icon = cfg.icon;
   const confidence = getConfidenceBadge(suggestion.confidenceScore);
-  const priority = getPriorityBadge(suggestion.priority);
   const badges = getEntityBadges(suggestion);
   const actions = Array.isArray(suggestion.actions) ? suggestion.actions : [];
   const primaryActionLabel = actions[0]?.label || 'Review';
@@ -44,16 +43,13 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className={cn('text-[10px] font-bold uppercase tracking-wider', cfg.color)}>{cfg.label}</span>
-            <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold', confidence.color)}>
+            <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">{cfg.label}</span>
+            <span className="inline-flex items-center rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
               {confidence.label}
-            </span>
-            <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold', priority.color)}>
-              {priority.label}
             </span>
           </div>
 
-          <p className="mt-1 text-[13px] font-semibold leading-snug text-[var(--color-foreground)]">{suggestion.title}</p>
+          <p className="mt-1 text-[13px] font-medium leading-snug text-[var(--color-text-secondary)]">{suggestion.title}</p>
           <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">{suggestion.description}</p>
 
           {badges.length > 0 && (
@@ -70,7 +66,7 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
             <button
               type="button"
               onClick={() => onReview(suggestion)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-primary-dark)]"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-primary-dark)]"
             >
               <CheckCircle className="h-3 w-3" weight="bold" />
               {primaryActionLabel}
@@ -79,7 +75,7 @@ export function SuggestionCard({ suggestion, onReview, onQuickReject }: Suggesti
               type="button"
               onClick={handleReject}
               disabled={rejecting}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger-soft)] disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-[12px] font-semibold text-[var(--color-text-tertiary)] transition-colors hover:border-[var(--color-danger-soft)] hover:text-[var(--color-danger)] disabled:opacity-50"
             >
               <Warning className="h-3 w-3" />
               Dismiss

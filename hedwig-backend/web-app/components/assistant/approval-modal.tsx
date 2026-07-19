@@ -84,7 +84,7 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+              <p className="text-[11px] font-bold text-[var(--color-text-muted)]">
                 {meta.label}
               </p>
               <DialogTitle className="mt-1">{suggestion.title}</DialogTitle>
@@ -109,7 +109,7 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
             <div className="flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] px-4 py-3">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-accent)]" weight="fill" />
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Why Hedwig is suggesting this</p>
+                <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Why Hedwig is suggesting this</p>
                 <p className="mt-1 text-[13px] text-[var(--color-text-secondary)]">{suggestion.reason}</p>
               </div>
             </div>
@@ -117,7 +117,7 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
 
           {badges.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Context</p>
+              <p className="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">Context</p>
               <div className="flex flex-wrap gap-2">
                 {badges.map((badge) => (
                   <span key={badge} className="inline-flex items-center rounded-lg bg-[var(--color-background)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-secondary)]">
@@ -137,7 +137,7 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
 
           {actions.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">Available actions</p>
+              <p className="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">Available actions</p>
               <div className="flex flex-wrap gap-2">
                 {actions.map((action) => (
                   <button

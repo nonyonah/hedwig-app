@@ -96,7 +96,7 @@ export default function JoinPage() {
         {/* Loading */}
         {state.kind === 'loading' && (
           <div className="flex flex-col items-center gap-3 py-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#eef0f3] border-t-[#2563eb]" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#eef0f3] border-t-[#03045e]" />
             <p className="text-[14px] text-[#8d9096]">Loading invitation...</p>
           </div>
         )}

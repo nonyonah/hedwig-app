@@ -4,178 +4,183 @@ import { useMemo, useState } from 'react';
 import { Bank, ShieldCheck } from '@/components/ui/lucide-icons';
 
 export type PublicBankAccountPayout = {
-  id?: string;
-  country: 'NG' | 'US' | 'UK' | 'GH';
-  currency: string;
-  account_holder_name: string;
-  bank_name: string;
-  account_number: string | null;
-  routing_number: string | null;
-  sort_code: string | null;
-  iban: string | null;
-  swift_bic: string | null;
-  account_type: 'checking' | 'savings' | null;
-  is_verified: boolean;
-  is_default?: boolean;
+ id?: string;
+ country: 'NG' | 'US' | 'UK' | 'GH';
+ currency: string;
+ account_holder_name: string;
+ bank_name: string;
+ account_number: string | null;
+ routing_number: string | null;
+ sort_code: string | null;
+ iban: string | null;
+ swift_bic: string | null;
+ account_type: 'checking' | 'savings' | null;
+ is_verified: boolean;
+ is_default?: boolean;
 };
 
 const COUNTRY_FLAG: Record<PublicBankAccountPayout['country'], string> = {
-  NG: '🇳🇬',
-  US: '🇺🇸',
-  UK: '🇬🇧',
-  GH: '🇬🇭',
+ NG: '🇳🇬',
+ US: '🇺🇸',
+ UK: '🇬🇧',
+ GH: '🇬🇭',
 };
 
 const COUNTRY_LABEL: Record<PublicBankAccountPayout['country'], string> = {
-  NG: 'Nigeria',
-  US: 'United States',
-  UK: 'United Kingdom',
-  GH: 'Ghana',
+ NG: 'Nigeria',
+ US: 'United States',
+ UK: 'United Kingdom',
+ GH: 'Ghana',
 };
 
 const CURRENCY_LABEL: Record<string, string> = {
-  NGN: 'Nigerian Naira (NGN)',
-  GHS: 'Ghanaian Cedi (GHS)',
-  USD: 'US Dollar (USD)',
-  GBP: 'British Pound (GBP)',
+ NGN: 'Nigerian Naira (NGN)',
+ GHS: 'Ghanaian Cedi (GHS)',
+ USD: 'US Dollar (USD)',
+ GBP: 'British Pound (GBP)',
 };
 
 function CopyableRow({ label, value, mono, big }: { label: string; value: string | null; mono?: boolean; big?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  if (!value) return null;
+ const [copied, setCopied] = useState(false);
+ if (!value) return null;
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* ignore */
-    }
-  };
+ const handleCopy = async () => {
+ try {
+ await navigator.clipboard.writeText(value);
+ setCopied(true);
+ window.setTimeout(() => setCopied(false), 1500);
+ } catch {
+ /* ignore */
+ }
+ };
 
-  return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
-      <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{label}</span>
-      <div className="flex items-center gap-2">
-        <span
-          className={
-            mono
-              ? `font-mono tabular-nums text-[var(--color-foreground)] ${big ? 'text-[16px] font-bold tracking-[0.04em]' : 'text-[13px]'}`
-              : 'text-right text-[13px] font-semibold text-[var(--color-foreground)]'
-          }
-        >
-          {value}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-background)]"
-        >
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-    </div>
-  );
+ return (
+ <div className="flex items-center justify-between gap-3 py-2.5">
+ <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">{label}</span>
+ <div className="flex items-center gap-2">
+ <span
+ className={
+ mono
+ ? `font-mono tabular-nums text-[var(--color-foreground)] ${big ? 'text-[16px] font-bold tracking-[0.04em]' : 'text-[13px]'}`
+ : 'text-right text-[13px] font-semibold text-[var(--color-foreground)]'
+ }
+ >
+ {value}
+ </span>
+ <button
+ type="button"
+ onClick={handleCopy}
+ className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-background)]"
+ >
+ {copied ? 'Copied' : 'Copy'}
+ </button>
+ </div>
+ </div>
+ );
 }
 
 function PayoutCard({ bank }: { bank: PublicBankAccountPayout }) {
-  return (
-    <div className="px-4 py-3">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-[16px] leading-none">{COUNTRY_FLAG[bank.country]}</span>
-        <span className="text-[12px] text-[var(--color-text-tertiary)]">
-          {COUNTRY_LABEL[bank.country]} · {bank.currency}
-        </span>
-      </div>
+ return (
+ <div className="px-4 py-3">
+ <div className="mb-2 flex items-center gap-2">
+ <span className="text-[16px] leading-none">{COUNTRY_FLAG[bank.country]}</span>
+ <span className="text-[12px] text-[var(--color-text-tertiary)]">
+ {COUNTRY_LABEL[bank.country]} · {bank.currency}
+ </span>
+ </div>
 
-      <div className="divide-y divide-[var(--color-surface-tertiary)]">
-        <CopyableRow label="Bank" value={bank.bank_name} />
-        <CopyableRow label="Account name" value={bank.account_holder_name} />
-        <CopyableRow label="Account no." value={bank.account_number} mono big />
-        <CopyableRow label="Routing" value={bank.routing_number} mono />
-        <CopyableRow label="Sort code" value={bank.sort_code} mono />
-        <CopyableRow label="IBAN" value={bank.iban} mono />
-        <CopyableRow label="SWIFT / BIC" value={bank.swift_bic} mono />
-        <CopyableRow
-          label="Account type"
-          value={bank.account_type ? bank.account_type[0].toUpperCase() + bank.account_type.slice(1) : null}
-        />
-      </div>
+ <div className="divide-y divide-[var(--color-surface-tertiary)]">
+ <CopyableRow label="Bank" value={bank.bank_name} />
+ <CopyableRow label="Account name" value={bank.account_holder_name} />
+ <CopyableRow label="Account no." value={bank.account_number} mono big />
+ <CopyableRow label="Routing" value={bank.routing_number} mono />
+ <CopyableRow label="Sort code" value={bank.sort_code} mono />
+ <CopyableRow label="IBAN" value={bank.iban} mono />
+ <CopyableRow label="SWIFT / BIC" value={bank.swift_bic} mono />
+ <CopyableRow
+ label="Account type"
+ value={bank.account_type ? bank.account_type[0].toUpperCase() + bank.account_type.slice(1) : null}
+ />
+ </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-        After paying, share the transfer reference with {bank.account_holder_name.split(' ')[0]} so they can mark this invoice as paid in Hedwig.
-      </p>
-    </div>
-  );
+ <p className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+ After paying, share the transfer reference with {bank.account_holder_name.split(' ')[0]} so they can mark this invoice as paid in Hedwig.
+ </p>
+ </div>
+ );
 }
 
 export function PublicBankPayout({
-  banks,
-  // backwards compatible single-account prop
-  bank: legacyBank,
+ banks,
+ // backwards compatible single-account prop
+ bank: legacyBank,
 }: {
-  banks?: PublicBankAccountPayout[];
-  bank?: PublicBankAccountPayout;
+ banks?: PublicBankAccountPayout[];
+ bank?: PublicBankAccountPayout;
 }) {
-  const accounts = useMemo<PublicBankAccountPayout[]>(() => {
-    if (banks && banks.length > 0) return banks;
-    if (legacyBank) return [legacyBank];
-    return [];
-  }, [banks, legacyBank]);
+ const accounts = useMemo<PublicBankAccountPayout[]>(() => {
+ if (banks && banks.length > 0) return banks;
+ if (legacyBank) return [legacyBank];
+ return [];
+ }, [banks, legacyBank]);
 
-  const [selectedId, setSelectedId] = useState<string>(() => {
-    const def = accounts.find((b) => b.is_default) ?? accounts[0];
-    return def?.id || `${def?.country || 'NG'}-0`;
-  });
+ const [selectedId, setSelectedId] = useState<string>(() => {
+ const def = accounts.find((b) => b.is_default) ?? accounts[0];
+ return def?.id || `${def?.country || 'NG'}-0`;
+ });
 
-  const selected = useMemo(() => {
-    if (accounts.length === 0) return null;
-    const found = accounts.find((b, i) => (b.id || `${b.country}-${i}`) === selectedId);
-    return found ?? accounts[0];
-  }, [accounts, selectedId]);
+ const selected = useMemo(() => {
+ if (accounts.length === 0) return null;
+ const found = accounts.find((b, i) => (b.id || `${b.country}-${i}`) === selectedId);
+ return found ?? accounts[0];
+ }, [accounts, selectedId]);
 
-  if (!selected) return null;
+ if (!selected) return null;
 
-  return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--color-surface-tertiary)] px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Bank className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" weight="bold" />
-          <p className="text-[12px] font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Pay by bank transfer</p>
-        </div>
-        {selected.is_verified ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
-            <ShieldCheck className="h-2.5 w-2.5" weight="bold" />
-            Verified
-          </span>
-        ) : null}
-      </div>
+ return (
+ <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+ <div className="flex items-center justify-between gap-3 border-b border-[var(--color-surface-tertiary)] px-4 py-3">
+ <div className="flex items-center gap-2">
+ <Bank className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" weight="bold" />
+ <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">Pay by bank transfer</p>
+ </div>
+ {selected.is_verified ? (
+ <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
+ <ShieldCheck className="h-2.5 w-2.5" weight="bold" />
+ Verified
+ </span>
+ ) : null}
+ </div>
 
-      {accounts.length > 1 ? (
-        <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-4 py-3">
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-            Choose currency
-          </label>
-          <select
-            className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-            value={selected.id || `${selected.country}-0`}
-            onChange={(e) => setSelectedId(e.target.value)}
-          >
-            {accounts.map((b, i) => {
-              const id = b.id || `${b.country}-${i}`;
-              const label = CURRENCY_LABEL[b.currency] || `${b.currency}`;
-              return (
-                <option key={id} value={id}>
-                  {COUNTRY_FLAG[b.country]}  {label}{b.is_default ? ' · Default' : ''}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-      ) : null}
+ {accounts.length > 1 ? (
+ <div className="border-b border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-4 py-3">
+ <label className="mb-1 block text-[11px] font-semibold text-[var(--color-text-muted)]">
+ Choose currency
+ </label>
+  <div className="relative">
+    <select
+    className="h-9 w-full appearance-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 pr-8 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
+    value={selected.id || `${selected.country}-0`}
+    onChange={(e) => setSelectedId(e.target.value)}
+    >
+    {accounts.map((b, i) => {
+    const id = b.id || `${b.country}-${i}`;
+    const label = CURRENCY_LABEL[b.currency] || `${b.currency}`;
+    return (
+    <option key={id} value={id}>
+    {COUNTRY_FLAG[b.country]} {label}{b.is_default ? ' · Default' : ''}
+    </option>
+    );
+    })}
+    </select>
+    <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4.5L6 7.5L9 4.5" />
+    </svg>
+  </div>
+ </div>
+ ) : null}
 
-      <PayoutCard bank={selected} />
-    </div>
-  );
+ <PayoutCard bank={selected} />
+ </div>
+ );
 }

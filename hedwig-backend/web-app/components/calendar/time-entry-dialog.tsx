@@ -128,13 +128,18 @@ export function TimeEntryDialog({
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Project</label>
               <div className="flex gap-2">
-                <select value={projectId} onChange={e => setProjectId(e.target.value)}
-                  className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
-                  <option value="">No project</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}{p.client ? ` (${p.client.name})` : ''}</option>
-                  ))}
-                </select>
+                <div className="relative flex-1">
+                  <select value={projectId} onChange={e => setProjectId(e.target.value)}
+                    className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
+                    <option value="">No project</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}{p.client ? ` (${p.client.name})` : ''}</option>
+                    ))}
+                  </select>
+                  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 4.5L6 7.5L9 4.5" />
+                  </svg>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowCreateProject(true)}
@@ -234,13 +239,18 @@ export function TimeEntryDialog({
             {hasMembers && (
               <div>
                 <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Assigned to</label>
-                <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
-                  className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
-                  <option value="">Myself</option>
-                  {workspaceMembers!.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}{m.email ? ` (${m.email})` : ''}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
+                    className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
+                    <option value="">Myself</option>
+                    {workspaceMembers!.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}{m.email ? ` (${m.email})` : ''}</option>
+                    ))}
+                  </select>
+                  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 4.5L6 7.5L9 4.5" />
+                  </svg>
+                </div>
               </div>
             )}
 

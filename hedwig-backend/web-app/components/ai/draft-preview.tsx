@@ -6,83 +6,83 @@ import { useCurrency } from '@/components/providers/currency-provider';
 import { formatShortDate } from '@/lib/utils';
 
 interface DraftPreviewProps {
-  invoiceDraft?: InvoiceDraft | null;
-  paymentLinkDraft?: PaymentLinkDraft | null;
+ invoiceDraft?: InvoiceDraft | null;
+ paymentLinkDraft?: PaymentLinkDraft | null;
 }
 
 export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewProps) {
-  const { formatAmount } = useCurrency();
+ const { formatAmount } = useCurrency();
 
-  if (!invoiceDraft && !paymentLinkDraft) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Draft preview</CardTitle>
-          <CardDescription>Prompt-generated billing drafts appear here before confirmation.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-[15px] border border-dashed border-border bg-secondary/40 p-8 text-sm leading-6 text-muted-foreground">
-            Start with a prompt like “Invoice Northstar Labs $2,100 for March milestone due next Friday.”
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+ if (!invoiceDraft && !paymentLinkDraft) {
+ return (
+ <Card>
+ <CardHeader>
+ <CardTitle>Draft preview</CardTitle>
+ <CardDescription>Prompt-generated billing drafts appear here before confirmation.</CardDescription>
+ </CardHeader>
+ <CardContent>
+ <div className="rounded-[15px] border border-dashed border-border bg-secondary/40 p-8 text-sm leading-6 text-muted-foreground">
+ Start with a prompt like “Invoice Northstar Labs $2,100 for March milestone due next Friday.”
+ </div>
+ </CardContent>
+ </Card>
+ );
+ }
 
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <CardTitle>{invoiceDraft ? 'Invoice draft' : 'Payment link draft'}</CardTitle>
-            <CardDescription>Preview, edit, and confirm before calling the shared Hedwig backend.</CardDescription>
-          </div>
-          <Badge variant="default">AI draft</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {invoiceDraft ? (
-          <>
-            <div className="grid gap-4 md:grid-cols-3">
-              <Stat label="Client" value={invoiceDraft.clientName} />
-              <Stat label="Amount" value={formatAmount(invoiceDraft.amountUsd)} />
-              <Stat label="Due" value={formatShortDate(invoiceDraft.dueAt)} />
-            </div>
-            <div className="space-y-3 rounded-[15px] border border-[var(--color-border)] bg-[var(--color-background)] p-4">
-              {invoiceDraft.lineItems.map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">{item.label}</span>
-                  <span className="font-semibold text-foreground">{formatAmount(item.amountUsd)}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : null}
+ return (
+ <Card>
+ <CardHeader>
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <CardTitle>{invoiceDraft ? 'Invoice draft' : 'Payment link draft'}</CardTitle>
+ <CardDescription>Preview, edit, and confirm before calling the shared Hedwig backend.</CardDescription>
+ </div>
+ <Badge variant="default">AI draft</Badge>
+ </div>
+ </CardHeader>
+ <CardContent className="space-y-6">
+ {invoiceDraft ? (
+ <>
+ <div className="grid gap-4 md:grid-cols-3">
+ <Stat label="Client" value={invoiceDraft.clientName} />
+ <Stat label="Amount" value={formatAmount(invoiceDraft.amountUsd)} />
+ <Stat label="Due" value={formatShortDate(invoiceDraft.dueAt)} />
+ </div>
+ <div className="space-y-3 rounded-[15px] border border-[var(--color-border)] bg-[var(--color-background)] p-4">
+ {invoiceDraft.lineItems.map((item) => (
+ <div key={item.label} className="flex items-center justify-between gap-4 text-sm">
+ <span className="text-muted-foreground">{item.label}</span>
+ <span className="font-semibold text-foreground">{formatAmount(item.amountUsd)}</span>
+ </div>
+ ))}
+ </div>
+ </>
+ ) : null}
 
-        {paymentLinkDraft ? (
-          <div className="grid gap-4 md:grid-cols-4">
-            <Stat label="Title" value={paymentLinkDraft.title} />
-            <Stat label="Amount" value={formatAmount(paymentLinkDraft.amountUsd)} />
-            <Stat label="Asset" value={paymentLinkDraft.asset} />
-            <Stat label="Chain" value={paymentLinkDraft.chain} />
-          </div>
-        ) : null}
+ {paymentLinkDraft ? (
+ <div className="grid gap-4 md:grid-cols-4">
+ <Stat label="Title" value={paymentLinkDraft.title} />
+ <Stat label="Amount" value={formatAmount(paymentLinkDraft.amountUsd)} />
+ <Stat label="Asset" value={paymentLinkDraft.asset} />
+ <Stat label="Chain" value={paymentLinkDraft.chain} />
+ </div>
+ ) : null}
 
-        <div className="flex flex-wrap gap-3">
-          <Button>Edit draft</Button>
-          <Button variant="secondary">Confirm and continue</Button>
-          <Button variant="ghost">Discard</Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+ <div className="flex flex-wrap gap-3">
+ <Button>Edit draft</Button>
+ <Button variant="secondary">Confirm and continue</Button>
+ <Button variant="ghost">Discard</Button>
+ </div>
+ </CardContent>
+ </Card>
+ );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[15px] border border-[var(--color-border)] bg-[var(--color-background)] p-4 shadow-xs">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
-    </div>
-  );
+ return (
+ <div className="rounded-[15px] border border-[var(--color-border)] bg-[var(--color-background)] p-4 shadow-xs">
+ <p className="text-xs font-semibold text-[var(--color-text-tertiary)]">{label}</p>
+ <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
+ </div>
+ );
 }

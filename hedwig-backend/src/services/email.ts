@@ -73,7 +73,7 @@ const SHARED_STYLES = `
     .description { color: #535862; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }
     .divider { border: none; border-top: 1px solid #f1f2f4; margin: 24px 0; }
     .btn-container { text-align: center; margin-top: 28px; }
-    .btn { display: inline-block; background-color: #0466c8; color: #ffffff !important; font-weight: 600; padding: 13px 32px; line-height: 1.4; border-radius: 50px; text-decoration: none; font-size: 15px; letter-spacing: -0.01em; mso-padding-alt: 0; }
+    .btn { display: inline-block; background-color: #0d47a1; color: #ffffff !important; font-weight: 600; padding: 13px 32px; line-height: 1.4; border-radius: 50px; text-decoration: none; font-size: 15px; letter-spacing: -0.01em; mso-padding-alt: 0; }
     .footer { background-color: #f9fafb; padding: 20px 28px; text-align: center; font-size: 12px; color: #a4a7ae; border-top: 1px solid #f1f2f4; }
     .footer a { color: #717680; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
@@ -346,7 +346,7 @@ export const EmailService = {
                     <div style="margin:22px 0 8px;">
                         <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a4a7ae;">What matters</p>
                         ${highlights.map((highlight) => `
-                        <div style="border-left:3px solid #0466c8;background:#f9fafb;border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:8px;">
+                        <div style="border-left:3px solid #0d47a1;background:#f9fafb;border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:8px;">
                             <p style="margin:0;color:#414651;font-size:14px;line-height:1.5;">${escapeHtml(highlight)}</p>
                         </div>`).join('')}
                     </div>` : ''}
@@ -645,7 +645,7 @@ export const EmailService = {
                     </div>
 
                     <p style="text-align:center; font-size: 13px; color: #a4a7ae; margin: 0 0 24px;">
-                        Tx: <a href="https://basescan.org/tx/${data.txHash}" style="color: #0466c8; text-decoration: none; font-family: monospace;">${data.txHash.substring(0, 10)}...${data.txHash.substring(data.txHash.length - 6)}</a>
+                        Tx: <a href="https://basescan.org/tx/${data.txHash}" style="color: #0d47a1; text-decoration: none; font-family: monospace;">${data.txHash.substring(0, 10)}...${data.txHash.substring(data.txHash.length - 6)}</a>
                     </p>
 
                     <div class="btn-container">
@@ -757,7 +757,7 @@ export const EmailService = {
             ${EMAIL_FONT_HEAD}
             <style>
                 ${SHARED_STYLES}
-                .milestone-pill { display: inline-block; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 50px; padding: 5px 14px; font-size: 13px; color: #0466c8; font-weight: 600; margin-top: 14px; }
+                .milestone-pill { display: inline-block; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 50px; padding: 5px 14px; font-size: 13px; color: #0d47a1; font-weight: 600; margin-top: 14px; }
             </style>
         </head>
         <body style="font-family:${EMAIL_FONT_FAMILY};">
@@ -1128,7 +1128,7 @@ export const EmailService = {
                     <p class="eyebrow">Account</p>
                     <h1 class="heading">Your account has been deleted</h1>
                     <p class="description">Hi ${name}, this email confirms that your Hedwig account and all associated data have been permanently deleted as requested.</p>
-                    <p class="description">If you did not request this or believe this was a mistake, please contact our support team immediately at <a href="mailto:support@hedwigbot.xyz" style="color:#0466c8;text-decoration:none;">support@hedwigbot.xyz</a>.</p>
+                    <p class="description">If you did not request this or believe this was a mistake, please contact our support team immediately at <a href="mailto:support@hedwigbot.xyz" style="color:#0d47a1;text-decoration:none;">support@hedwigbot.xyz</a>.</p>
                     <hr class="divider" />
                     <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">Thank you for using Hedwig. We hope to see you again in the future.</p>
                 </div>
@@ -1431,7 +1431,7 @@ export const EmailService = {
                     </div>
                     <p style="margin-top:14px;font-size:12px;color:#717680;text-align:center;">
                         Don't have the app installed?
-                        <a href="${fallbackUrl}" style="color:#0466c8;">Open on web</a>
+                        <a href="${fallbackUrl}" style="color:#0d47a1;">Open on web</a>
                     </p>
                 </div>
                 <div class="footer"><p>${FOOTER_NOTE}</p></div>
@@ -1497,7 +1497,7 @@ export const EmailService = {
                     </div>
                     <p style="margin-top:14px;font-size:12px;color:#717680;text-align:center;">
                         Prefer web?
-                        <a href="${fallbackUrl}" style="color:#0466c8;">Open settings</a>
+                        <a href="${fallbackUrl}" style="color:#0d47a1;">Open settings</a>
                     </p>
                 </div>
                 <div class="footer"><p>${FOOTER_NOTE}</p></div>
@@ -1575,7 +1575,7 @@ export const EmailService = {
                     </div>
                     <p style="margin-top:14px;font-size:12px;color:#717680;text-align:center;">
                         Prefer web?
-                        <a href="${fallbackUrl}" style="color:#0466c8;">Open wallet</a>
+                        <a href="${fallbackUrl}" style="color:#0d47a1;">Open wallet</a>
                     </p>
                 </div>
                 <div class="footer"><p>${FOOTER_NOTE}</p></div>
@@ -1641,7 +1641,7 @@ export const EmailService = {
                         With Hedwig, you can run your business together — manage clients and projects, track time, run payroll, reconcile expenses, and get paid in stablecoins, all from one account.
                     </p>
                     <div style="text-align:center;margin:28px 0;">
-                        <a href="${inviteUrl}" style="display:inline-block;background-color:#0466c8;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                        <a href="${inviteUrl}" style="display:inline-block;background-color:#0d47a1;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
                             Join workspace
                         </a>
                     </div>
@@ -1715,10 +1715,10 @@ export const EmailService = {
                 subject: `You received $${data.amount.toLocaleString()} USDC from ${escapeHtml(data.workspaceName)}`,
                 html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
                     <h2 style="color:#181d27;margin-bottom:8px">Payout received</h2>
-                    <p style="font-size:28px;font-weight:700;color:#0466c8;margin:8px 0">$${data.amount.toLocaleString()} USDC</p>
+                    <p style="font-size:28px;font-weight:700;color:#0d47a1;margin:8px 0">$${data.amount.toLocaleString()} USDC</p>
                     <p style="color:#525866">From <strong>${escapeHtml(data.workspaceName)}</strong> ${reasonStr}</p>
                     <p style="color:#8d9096;font-size:13px">The funds will be sent to your wallet shortly.</p>
-                    <a href="${walletUrl}" style="display:inline-block;background:#0466c8;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px">View wallet</a>
+                    <a href="${walletUrl}" style="display:inline-block;background:#0d47a1;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px">View wallet</a>
                 </div>`,
             });
         } catch (error) {
@@ -1744,7 +1744,7 @@ export const EmailService = {
                 html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
                     <h2 style="color:#181d27">Milestone completed</h2>
                     <p><strong>${escapeHtml(data.memberName)}</strong> marked <strong>${escapeHtml(data.milestoneTitle)}</strong> as complete in <strong>${escapeHtml(data.projectName)}</strong>.</p>
-                    <a href="${projectUrl}" style="display:inline-block;background:#0466c8;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">View project</a>
+                    <a href="${projectUrl}" style="display:inline-block;background:#0d47a1;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">View project</a>
                 </div>`,
             });
         } catch (error) {
@@ -1778,7 +1778,7 @@ export const EmailService = {
                     <h1 class="heading">${escapeHtml(data.projectName)} is ready for review</h1>
                     <p class="description"><strong>${escapeHtml(data.memberName)}</strong> has marked this project as complete and it is awaiting your approval.</p>
                     <div style="text-align:center;margin:28px 0;">
-                        <a href="${projectUrl}" style="display:inline-block;background-color:#0466c8;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">Review project</a>
+                        <a href="${projectUrl}" style="display:inline-block;background-color:#0d47a1;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">Review project</a>
                     </div>
                 </div>
                 <div class="footer"><p>${FOOTER_NOTE}</p></div>
@@ -1826,7 +1826,7 @@ export const EmailService = {
                     <h1 class="heading">${escapeHtml(data.projectName)} is ready for review</h1>
                     <p class="description"><strong>${escapeHtml(data.memberName)}</strong> has marked this project as complete and it is awaiting your approval.</p>
                     <div style="text-align:center;margin:28px 0;">
-                        <a href="${projectUrl}" style="display:inline-block;background-color:#0466c8;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                        <a href="${projectUrl}" style="display:inline-block;background-color:#0d47a1;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
                             Review project
                         </a>
                     </div>
@@ -1910,7 +1910,7 @@ export const EmailService = {
                         <strong>${escapeHtml(data.memberName)}</strong> has accepted your invitation and joined <strong>${escapeHtml(data.workspaceName)}</strong> as a <strong>${escapeHtml(roleLabel)}</strong>.
                     </p>
                     <div style="text-align:center;margin:28px 0;">
-                        <a href="${settingsUrl}" style="display:inline-block;background-color:#0466c8;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                        <a href="${settingsUrl}" style="display:inline-block;background-color:#0d47a1;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
                             View workspace members
                         </a>
                     </div>
@@ -1964,7 +1964,7 @@ export const EmailService = {
                         Open the project to track milestones, log time, and mark work as complete when ready for review.
                     </p>
                     <div style="text-align:center;margin:28px 0;">
-                        <a href="${projectUrl}" style="display:inline-block;background-color:#0466c8;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                        <a href="${projectUrl}" style="display:inline-block;background-color:#0d47a1;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
                             View project
                         </a>
                     </div>
@@ -2146,7 +2146,7 @@ async function sendProjectOutcomeEmail(
                 <h1 class="heading">${escapeHtml(data.projectName)} ${verb}</h1>
                 <p class="description"><strong>${escapeHtml(name)}</strong> has ${outcome === 'approved' ? 'approved' : 'requested changes on'} your work on <strong>${escapeHtml(data.projectName)}</strong>.</p>
                 <div style="text-align:center;margin:28px 0;">
-                    <a href="${projectUrl}" style="display:inline-block;background-color:#0466c8;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                    <a href="${projectUrl}" style="display:inline-block;background-color:#0d47a1;color:#ffffff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;">
                         View project
                     </a>
                 </div>
