@@ -114,6 +114,8 @@ const CSP_CONNECT_SOURCES = [
   // Circle RPC (CCTP / Gateway infrastructure)
   'https://iris-api.circle.com',
   'https://iris-api-sandbox.circle.com',
+  // Google Fonts (service worker fetches the CSS at runtime)
+  'https://fonts.googleapis.com',
 ];
 
 const CSP_FRAME_SOURCES = [

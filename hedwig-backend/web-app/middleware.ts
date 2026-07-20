@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { AUTH_CHECK_COOKIE, authCheckCookieOptions, clearAuthCookieOptions, isRecentAuthCheck } from '@/lib/auth/cookies';
 
-const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.riftlabs.xyz';
+const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwigbot.xyz';
 
 const PUBLIC_PATHS = [
   '/sign-in',
@@ -95,10 +95,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const isPublic = isPublicPath(pathname);
-
-  if (!isPublic && !token) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
-  }
 
   if (!token) {
     return NextResponse.next();

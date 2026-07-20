@@ -19,9 +19,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+  // Don't intercept external URLs — avoids CSP violations in connect-src
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const url = new URL(event.request.url);
       if (url.origin === self.location.origin && response.status === 200) {
         const copy = response.clone();
         caches.open(CACHE).then((cache) => cache.put(event.request, copy));
