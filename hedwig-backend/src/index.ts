@@ -221,9 +221,9 @@ const inferredOrigins = [
     normalizeOrigin(process.env.APP_URL || ''),
     'https://hedwig.riftlabs.xyz',
     'https://www.hedwig.riftlabs.xyz',
-    'https://money.hedwig.riftlabs.xyz',
+    'https://pay.riftlabs.xyz',
     'https://hedwig-app-wuqvha-production.up.railway.app',
-    'https://pay.hedwig.riftlabs.xyz',
+    'https://pay.riftlabs.xyz',
 ].filter(Boolean);
 
 const allowedOriginSet = new Set<string>();

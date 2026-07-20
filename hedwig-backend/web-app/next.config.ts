@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import path from 'path';
 import { withSentryConfig } from '@sentry/nextjs';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwig.riftlabs.xyz';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.riftlabs.xyz';
 const uploadSentrySourceMaps = process.env.SENTRY_UPLOAD_SOURCE_MAPS === 'true';
 
 // ─── Content-Security-Policy ────────────────────────────────────────────────

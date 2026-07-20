@@ -29,7 +29,7 @@ const APP_URL = canonicalizePublicUrl(RAW_APP_URL);
 const EMAIL_ASSET_BASE_URL = canonicalizePublicUrl(
     process.env.EMAIL_ASSET_BASE_URL ||
     process.env.API_PUBLIC_URL ||
-    'https://pay.hedwig.riftlabs.xyz'
+    'https://pay.riftlabs.xyz'
 );
 
 const resolvePublicUrl = (candidate: string | undefined, fallbackPath: string): string => {

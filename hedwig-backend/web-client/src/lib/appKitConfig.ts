@@ -2,7 +2,7 @@ export const appKitConfig = {
   metadata: {
     name: 'Hedwig Payments',
     description: 'Secure crypto payments for freelancers',
-    url: 'https://pay.hedwig.riftlabs.xyz',
+    url: 'https://pay.riftlabs.xyz',
     icons: ['/hedwig-logo.png'],
   },
   themeMode: 'dark' as const,

@@ -32,7 +32,7 @@ Create a `.env` file in the root directory with the following variables:
 VITE_REOWN_PROJECT_ID=your_project_id_here
 
 # Backend API URL
-VITE_API_URL=https://money.hedwig.riftlabs.xyz
+VITE_API_URL=https://pay.riftlabs.xyz
 
 # Solana RPC endpoint
 VITE_SOLANA_RPC=https://api.mainnet-beta.solana.com

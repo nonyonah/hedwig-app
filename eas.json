@@ -13,7 +13,7 @@
       },
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-        "EXPO_PUBLIC_API_URL": "https://money.hedwig.riftlabs.xyz",
+        "EXPO_PUBLIC_API_URL": "https://pay.riftlabs.xyz",
         "EAS_USE_PRECOMPILED_MODULES": "0",
         "EXPO_USE_PRECOMPILED_MODULES": "0"
       },
@@ -25,7 +25,7 @@
         "image": "macos-sequoia-15.6-xcode-26.0"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://money.hedwig.riftlabs.xyz",
+        "EXPO_PUBLIC_API_URL": "https://pay.riftlabs.xyz",
         "EXPO_PUBLIC_WEB_CLIENT_URL": "https://hedwig.riftlabs.xyz",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       },
@@ -43,7 +43,7 @@
         "credentialsSource": "remote"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://money.hedwig.riftlabs.xyz",
+        "EXPO_PUBLIC_API_URL": "https://pay.riftlabs.xyz",
         "EXPO_PUBLIC_WEB_CLIENT_URL": "https://hedwig.riftlabs.xyz",
         "EXPO_PUBLIC_NETWORK_MODE": "mainnet",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",

@@ -1,8 +1,8 @@
 const LEGACY_PUBLIC_HOSTS = [
-  'https://pay.hedwig.riftlabs.xyz',
-  'http://pay.hedwig.riftlabs.xyz',
-  'https://www.pay.hedwig.riftlabs.xyz',
-  'http://www.pay.hedwig.riftlabs.xyz'
+  'https://pay.riftlabs.xyz',
+  'http://pay.riftlabs.xyz',
+  'https://www.pay.riftlabs.xyz',
+  'http://www.pay.riftlabs.xyz'
 ];
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://hedwig.riftlabs.xyz';

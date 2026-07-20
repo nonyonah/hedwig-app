@@ -64,7 +64,7 @@ async function main() {
 
   // PATCH with all addresses
   const { ok, body: result, status } = await circle('PATCH', `/v2/notifications/subscriptions/permissionless/${evmSubId}`, {
-    endpoint: 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway',
+    endpoint: 'https://pay.riftlabs.xyz/api/webhooks/circle-gateway',
     name: 'Gateway Webhooks EVM',
     enabled: true,
     environment: 'TEST',
@@ -84,7 +84,7 @@ async function main() {
     for (let i = 0; i < evm.length; i += batchSize) {
       const batch = evm.slice(i, i + batchSize);
       const r = await circle('PATCH', `/v2/notifications/subscriptions/permissionless/${evmSubId}`, {
-        endpoint: 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway',
+        endpoint: 'https://pay.riftlabs.xyz/api/webhooks/circle-gateway',
         name: 'Gateway Webhooks EVM',
         enabled: true,
         environment: 'TEST',
@@ -100,7 +100,7 @@ async function main() {
   console.log(`\nSetting up Solana subscription...`);
 
   const solPayload = {
-    endpoint: 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway/solana',
+    endpoint: 'https://pay.riftlabs.xyz/api/webhooks/circle-gateway/solana',
     name: 'Gateway Webhooks Solana',
     enabled: true,
     environment: 'TEST',
@@ -111,7 +111,7 @@ async function main() {
 
   // Check if solana endpoint already has a subscription
   const { body: subs } = await circle('GET', '/v2/notifications/subscriptions/permissionless?environment=TEST');
-  const existing = (subs.data || []).find((s: any) => s.endpoint === 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway/solana');
+  const existing = (subs.data || []).find((s: any) => s.endpoint === 'https://pay.riftlabs.xyz/api/webhooks/circle-gateway/solana');
 
   if (existing) {
     console.log(`Patching existing Solana sub ${existing.id}...`);
