@@ -5,9 +5,9 @@ import { useMemo, useState } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { ArrowsLeftRight, ArrowDown, Bank, PaperPlaneTilt, Wallet, X, UploadSimple } from '@/components/ui/lucide-icons';
-import { GatewayUnifiedBalanceCard } from '@/components/wallet/gateway-unified-balance-card';
 import { SendTokenDialog } from '@/components/wallet/send-token-dialog';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
+import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { PayoutPanel } from '@/components/workspace/payout-panel';
@@ -293,6 +293,11 @@ export function WalletView({
  </div>
  )}
 
+ <WalletAssetsTable
+ assetsByChain={assetsByChain}
+ totalCrypto={totalCrypto}
+ />
+
  <div>
  <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
  <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
@@ -368,7 +373,6 @@ export function WalletView({
  onClose={() => setSelectedActivity(null)}
  />
  ) : null}
-  <GatewayUnifiedBalanceCard accessToken={accessToken} />
   <PayoutBankSection accessToken={accessToken} />
   <PayoutPanel gatewayAutoDepositEnabled={gatewayAutoDepositEnabled} />
  {onrampAllowed && (
