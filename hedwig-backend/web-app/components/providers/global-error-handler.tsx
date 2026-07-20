@@ -3,22 +3,19 @@
 import { useEffect } from 'react';
 import { useToast } from './toast-provider';
 
-const DEV = process.env.NODE_ENV === 'development';
+if (process.env.NODE_ENV !== 'development') {
+  const noop = () => {};
+  console.error = noop;
+  console.warn  = noop;
+  console.log   = noop;
+  console.debug = noop;
+  console.info  = noop;
+}
 
 export function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    /* Suppress console.* in production — no error noise on Sentry or console */
-    if (!DEV) {
-      const noop = () => {};
-      console.error = noop;
-      console.warn  = noop;
-      console.log   = noop;
-      console.debug = noop;
-      console.info  = noop;
-    }
-
     const onRejection = (event: PromiseRejectionEvent) => {
       const msg = event.reason?.message || String(event.reason || '');
       if (!msg) return;

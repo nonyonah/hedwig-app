@@ -1,16 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
- ArrowsClockwise,
- CaretLeft,
- CaretRight,
- ClockCountdown,
- FlagPennant,
- FolderSimple,
- NotePencil,
- Plus,
+  ArrowsClockwise,
+  CaretLeft,
+  CaretRight,
+  ClockCountdown,
+  FlagPennant,
+  FolderSimple,
+  NotePencil,
  Receipt,
  X,
 } from '@/components/ui/lucide-icons';
@@ -22,10 +21,7 @@ import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { hedwigApi } from '@/lib/api/client';
 import { cn, formatShortDate } from '@/lib/utils';
 import type { Invoice, Milestone, Project, Reminder } from '@/lib/models/entities';
-import type { TimeEntry } from '@/components/time/types';
-import { CalendarTimeTable } from '@/components/calendar/calendar-time-table';
 import { DayDetailDialog } from '@/components/calendar/day-detail-dialog';
-import { TimeEntryDialog } from '@/components/calendar/time-entry-dialog';
 
 import type { FilterValue, PlannerItem } from '@/components/calendar/types';
 
@@ -44,8 +40,7 @@ const FILTERS: { value: FilterValue; label: string }[] = [
  { value: 'reminder', label: 'Reminders' },
  { value: 'milestone', label: 'Milestones' },
  { value: 'invoice', label: 'Invoices' },
- { value: 'project', label: 'Projects' },
- { value: 'time_entry', label: 'Time' },
+  { value: 'project', label: 'Projects' },
 ];
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -79,28 +74,25 @@ const buildMonthGrid = (year: number, month: number): Array<{ date: Date; inMont
 
 // ─── Visual helpers ───────────────────────────────────────────────────────────
 
-const iconByKind = {
- reminder: ClockCountdown,
- milestone: FlagPennant,
- invoice: Receipt,
- project: FolderSimple,
- time_entry: ClockCountdown,
-} satisfies Record<PlannerItem['kind'], typeof ClockCountdown>;
-
-const badgeToneByKind: Record<PlannerItem['kind'], string> = {
- reminder: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
- milestone: 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]',
- invoice: 'bg-[var(--color-warning-soft)] text-[var(--color-text-tertiary)]',
- project: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
- time_entry: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
+const iconByKind: Partial<Record<PlannerItem['kind'], typeof ClockCountdown>> = {
+  reminder: ClockCountdown,
+  milestone: FlagPennant,
+  invoice: Receipt,
+  project: FolderSimple,
 };
 
-const dotColorByKind: Record<PlannerItem['kind'], string> = {
- reminder: 'bg-[var(--color-primary)]',
- milestone: 'bg-[var(--color-success)]',
- invoice: 'bg-[var(--color-warning)]',
- project: 'bg-[var(--color-accent)]',
- time_entry: 'bg-[var(--color-primary)]',
+const badgeToneByKind: Partial<Record<PlannerItem['kind'], string>> = {
+  reminder: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
+  milestone: 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]',
+  invoice: 'bg-[var(--color-warning-soft)] text-[var(--color-text-tertiary)]',
+  project: 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]',
+};
+
+const dotColorByKind: Partial<Record<PlannerItem['kind'], string>> = {
+  reminder: 'bg-[var(--color-primary)]',
+  milestone: 'bg-[var(--color-success)]',
+  invoice: 'bg-[var(--color-warning)]',
+  project: 'bg-[var(--color-accent)]',
 };
 
 // ─── Main client ──────────────────────────────────────────────────────────────
@@ -141,14 +133,8 @@ export function CalendarClient({
  const [draftTitle, setDraftTitle] = useState('');
  const [draftDueDate, setDraftDueDate] = useState('');
 
- // Time entry state
- const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
- const [activeTimers, setActiveTimers] = useState<TimeEntry[]>([]);
- const [projects, setProjects] = useState<{ id: string; name: string; client?: { id: string; name: string } }[]>([]);
- const [elapsedMap, setElapsedMap] = useState<Record<string, number>>({});
- const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
- const [editingTimeEntry, setEditingTimeEntry] = useState<TimeEntry | null>(null);
- const [workspaceMembers, setWorkspaceMembers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<{ id: string; name: string; email: string }[]>([]);
 
  useEffect(() => {
  if (!accessToken) return;
@@ -163,113 +149,20 @@ export function CalendarClient({
  .catch(() => setGcalConnected(false));
  }, [accessToken]);
 
- // Fetch time data on mount
- const opts = { accessToken, workspaceId: activeWorkspace?.id, disableMockFallback: true } as any;
- const todayDate = today.toISOString().slice(0, 10);
+  // Fetch projects and workspace members
+  const opts = { accessToken, workspaceId: activeWorkspace?.id, disableMockFallback: true } as any;
 
- useEffect(() => {
- if (!accessToken) return;
- const workspaceId = activeWorkspace?.id;
- Promise.all([
- hedwigApi.timeEntries({ from: todayDate, to: todayDate }, opts).catch(() => ({ entries: [] })),
- hedwigApi.timeEntryActiveAll(opts).catch(() => ({ entries: [] })),
- hedwigApi.projects(opts).catch(() => []),
- workspaceId ? hedwigApi.workspaceMembers(workspaceId, opts).catch(() => ({ members: [] })) : Promise.resolve({ members: [] }),
- ]).then(([entriesRes, activeRes, projList, membersRes]) => {
- setTimeEntries(entriesRes.entries || []);
- setActiveTimers(activeRes.entries || []);
- setProjects(projList as any[]);
- setWorkspaceMembers((membersRes as any)?.members || []);
- });
- }, [accessToken, activeWorkspace?.id]);
-
- // Live elapsed timer for all active timers
- useEffect(() => {
- if (activeTimers.length === 0) { setElapsedMap({}); return; }
- const tick = () => {
- const next: Record<string, number> = {};
- for (const t of activeTimers) {
- const start = new Date(t.startTime).getTime();
- next[t.id] = Math.max(0, Math.floor((Date.now() - start) / 1000));
- }
- setElapsedMap(next);
- };
- tick();
- const interval = setInterval(tick, 1000);
- return () => clearInterval(interval);
- }, [activeTimers]);
-
- const refreshTimeData = useCallback(async () => {
- if (!accessToken) return;
- const workspaceId = activeWorkspace?.id;
- const [entriesRes, activeRes, projList, membersRes] = await Promise.all([
- hedwigApi.timeEntries({ from: todayDate, to: todayDate }, opts).catch(() => ({ entries: [] })),
- hedwigApi.timeEntryActiveAll(opts).catch(() => ({ entries: [] })),
- hedwigApi.projects(opts).catch(() => []),
- workspaceId ? hedwigApi.workspaceMembers(workspaceId, opts).catch(() => ({ members: [] })) : Promise.resolve({ members: [] }),
- ]);
- setTimeEntries(entriesRes.entries || []);
- setActiveTimers(activeRes.entries || []);
- setProjects(projList as any[]);
- setWorkspaceMembers((membersRes as any)?.members || []);
- }, [accessToken, activeWorkspace?.id]);
-
- const handleTimeStart = async (projectId?: string, assignedTo?: string) => {
- if (!accessToken) return;
- try {
- const res = await hedwigApi.createTimeEntry({ projectId, status: 'running', assignedTo: assignedTo || null }, opts);
- setActiveTimers(prev => [res.entry, ...prev]);
- refreshTimeData();
- } catch (e: any) {
- toast({ type: 'error', title: 'Failed to start timer', message: e?.message || 'Please try again.' });
- }
- };
-
- const handleTimeStop = async (entryId: string) => {
- if (!accessToken) return;
- try {
- const res = await hedwigApi.updateTimeEntry(entryId, { action: 'stop' }, opts);
- setActiveTimers(prev => prev.filter(t => t.id !== entryId));
- setElapsedMap(prev => { const next = { ...prev }; delete next[entryId]; return next; });
- refreshTimeData();
- } catch (e: any) {
- toast({ type: 'error', title: 'Failed to stop timer', message: e?.message || 'Please try again.' });
- }
- };
-
- const handleTimeCreate = async (data: any) => {
- if (!accessToken) return;
- try {
- await hedwigApi.createTimeEntry({ ...data, status: 'manual' }, opts);
- setShowTimeEntryForm(false);
- setEditingTimeEntry(null);
- refreshTimeData();
- } catch (e: any) {
- toast({ type: 'error', title: 'Failed to save time entry', message: e?.message || 'Please try again.' });
- }
- };
-
- const handleTimeUpdate = async (data: any) => {
- if (!editingTimeEntry || !accessToken) return;
- try {
- await hedwigApi.updateTimeEntry(editingTimeEntry.id, data, opts);
- setShowTimeEntryForm(false);
- setEditingTimeEntry(null);
- refreshTimeData();
- } catch (e: any) {
- toast({ type: 'error', title: 'Failed to update time entry', message: e?.message || 'Please try again.' });
- }
- };
-
- const handleTimeDelete = async (id: string) => {
- if (!accessToken) return;
- try {
- await hedwigApi.deleteTimeEntry(id, opts);
- refreshTimeData();
- } catch (e: any) {
- toast({ type: 'error', title: 'Failed to delete time entry', message: e?.message || 'Please try again.' });
- }
- };
+  useEffect(() => {
+    if (!accessToken) return;
+    const workspaceId = activeWorkspace?.id;
+    Promise.all([
+      hedwigApi.projects(opts).catch(() => []),
+      workspaceId ? hedwigApi.workspaceMembers(workspaceId, opts).catch(() => ({ members: [] })) : Promise.resolve({ members: [] }),
+    ]).then(([projList, membersRes]) => {
+      setProjects(projList as any[]);
+      setWorkspaceMembers((membersRes as any)?.members || []);
+    });
+  }, [accessToken, activeWorkspace?.id]);
 
  const allItems = useMemo<PlannerItem[]>(
  () =>
@@ -301,35 +194,17 @@ export function CalendarClient({
  date: i.dueAt,
  href: `/payments?invoice=${i.id}`,
  })),
- ...data.projects.map((i) => ({
- id: i.id,
- kind: 'project' as const,
- title: i.name,
- subtitle: i.status,
- meta: 'Project deadline',
- date: i.nextDeadlineAt,
- href: `/projects/${i.id}`,
- })),
- ...timeEntries.map((i) => ({
- id: i.id,
- kind: 'time_entry' as const,
- title: i.project?.name || i.description || 'Time entry',
- subtitle: i.description || (i.project?.name ? 'Time tracked' : 'No description'),
- meta: 'Time entry',
- date: i.startTime,
- timeEntry: i,
- })),
- ...activeTimers.map((i) => ({
- id: i.id,
- kind: 'time_entry' as const,
- title: i.project?.name || i.description || 'Running timer',
- subtitle: i.description ? `Running · ${i.description}` : 'Running',
- meta: 'Time entry',
- date: i.startTime,
- timeEntry: i,
- })),
- ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
- [editableReminders, data.milestones, data.invoices, data.projects, timeEntries, activeTimers]
+  ...data.projects.map((i) => ({
+    id: i.id,
+    kind: 'project' as const,
+    title: i.name,
+    subtitle: i.status,
+    meta: 'Project deadline',
+    date: i.nextDeadlineAt,
+    href: `/projects/${i.id}`,
+  })),
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+  [editableReminders, data.milestones, data.invoices, data.projects]
  );
 
  const filteredItems = useMemo(
@@ -702,47 +577,7 @@ export function CalendarClient({
  )}
  </section>
 
- {/* Time table */}
- {accessToken && (
- <>
- <div className="flex items-start justify-between gap-4">
- <div>
- <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Time tracking</h2>
- <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">
- Per-project timers for {selectedDate ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'today'}.
- </p>
- </div>
- <Button variant="secondary" size="sm" onClick={() => { setEditingTimeEntry(null); setShowTimeEntryForm(true); }}>
- <Plus className="h-3.5 w-3.5" weight="bold" /> Log time
- </Button>
- </div>
- <CalendarTimeTable
- entries={timeEntries}
- activeTimers={activeTimers}
- projects={projects}
- accessToken={accessToken}
- selectedDate={selectedDate}
- onStart={handleTimeStart}
- onStop={handleTimeStop}
- onEdit={(entry) => { setEditingTimeEntry(entry); setShowTimeEntryForm(true); }}
- onDelete={handleTimeDelete}
- elapsed={elapsedMap}
- workspaceMembers={workspaceMembers}
- />
- </>
- )}
 
- {/* Time entry dialogs */}
- {showTimeEntryForm && (
- <TimeEntryDialog
- initial={editingTimeEntry}
- selectedDate={selectedDate}
- accessToken={accessToken}
- workspaceMembers={workspaceMembers}
- onSave={editingTimeEntry ? handleTimeUpdate : handleTimeCreate}
- onClose={() => { setShowTimeEntryForm(false); setEditingTimeEntry(null); }}
- />
- )}
  </div>
  );
 }
@@ -806,29 +641,29 @@ function WeekView({
  key={day.toISOString()}
  type="button"
  onClick={() => onSelectDate(day)}
- className={cn(
- 'flex flex-col items-center gap-1.5 rounded-xl py-3 transition',
- isSelected
- ? 'bg-[var(--color-primary)]'
- : isToday
- ? 'bg-[var(--color-foreground)]'
- : 'hover:bg-[var(--color-surface)] hover:shadow-xs'
- )}
- >
- <span
- className={cn(
- 'text-[11px] font-medium',
- isSelected ? 'text-white/70' : isToday ? 'text-[var(--color-background)]/70' : 'text-[var(--color-text-muted)]'
- )}
- >
- {day.toLocaleString('en-US', { weekday: 'short' })}
- </span>
- <span
- className={cn(
- 'text-[16px] font-semibold leading-none',
- isSelected ? 'text-white' : isToday ? 'text-[var(--color-background)]' : 'text-[var(--color-foreground)]'
- )}
- >
+  className={cn(
+  'flex flex-col items-center gap-1.5 rounded-xl py-3 transition',
+  isSelected
+  ? 'bg-[var(--color-primary)]'
+  : isToday
+  ? 'ring-2 ring-[var(--color-primary)]'
+  : 'hover:bg-[var(--color-surface)] hover:shadow-xs'
+  )}
+  >
+  <span
+  className={cn(
+  'text-[11px] font-medium',
+  isSelected ? 'text-white/70' : isToday ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'
+  )}
+  >
+  {day.toLocaleString('en-US', { weekday: 'short' })}
+  </span>
+  <span
+  className={cn(
+  'text-[16px] font-semibold leading-none',
+  isSelected ? 'text-white' : isToday ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]'
+  )}
+  >
  {day.getDate()}
  </span>
  <span
@@ -971,21 +806,21 @@ function MonthView({
  key={date.toISOString()}
  type="button"
  onClick={() => onSelectDate(date)}
- className={cn(
- 'group flex min-h-[76px] flex-col bg-[var(--color-surface)] px-2 py-2 text-left transition hover:bg-[var(--color-background)]',
- isSelected && 'bg-[var(--color-accent-soft)] hover:bg-[var(--color-accent-soft)]',
- !inMonth && 'opacity-40'
- )}
- >
- <span
- className={cn(
- 'inline-flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-semibold',
- isSelected
- ? 'bg-[var(--color-primary)] text-white'
- : isToday
- ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
- : 'text-[var(--color-foreground)] group-hover:bg-[var(--color-surface-tertiary)]'
- )}
+  className={cn(
+  'group flex min-h-[76px] flex-col bg-[var(--color-surface)] px-2 py-2 text-left transition hover:bg-[var(--color-background)]',
+  isSelected && 'bg-[var(--color-primary)]/5',
+  !inMonth && 'opacity-40'
+  )}
+  >
+  <span
+  className={cn(
+  'inline-flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-semibold',
+  isSelected
+  ? 'bg-[var(--color-primary)] text-white'
+  : isToday
+  ? 'bg-[var(--color-primary)] text-white'
+  : 'text-[var(--color-foreground)] group-hover:bg-[var(--color-surface-tertiary)]'
+  )}
  >
  {date.getDate()}
  </span>
@@ -1087,21 +922,21 @@ function DayView({
  key={date.toISOString()}
  type="button"
  onClick={() => onSelectDate(date)}
- className={cn(
- 'flex flex-col items-center gap-0.5 rounded-lg py-1 transition',
- isSelected
- ? 'bg-[var(--color-primary)]'
- : isToday
- ? 'bg-[var(--color-foreground)]'
- : 'hover:bg-[var(--color-surface-tertiary)]',
- !inMonth && 'opacity-30'
- )}
- >
- <span
- className={cn(
- 'text-[12px] font-semibold leading-none',
- isSelected ? 'text-white' : isToday ? 'text-[var(--color-background)]' : 'text-[var(--color-foreground)]'
- )}
+  className={cn(
+  'flex flex-col items-center gap-0.5 rounded-lg py-1 transition',
+  isSelected
+  ? 'bg-[var(--color-primary)]'
+  : isToday
+  ? 'ring-2 ring-[var(--color-primary)]'
+  : 'hover:bg-[var(--color-surface-tertiary)]',
+  !inMonth && 'opacity-30'
+  )}
+  >
+  <span
+  className={cn(
+  'text-[12px] font-semibold leading-none',
+  isSelected ? 'text-white' : isToday ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]'
+  )}
  >
  {date.getDate()}
  </span>
@@ -1311,30 +1146,30 @@ function EventRow({
  item: PlannerItem;
  onSelectItem: (item: PlannerItem) => void;
 }) {
- const Icon = iconByKind[item.kind];
+  const Icon = iconByKind[item.kind];
 
- return (
- <div
- className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[var(--color-surface-secondary)]"
- onClick={() => onSelectItem(item)}
- role="button"
- tabIndex={0}
- onKeyDown={(e) => {
- if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectItem(item); }
- }}
- >
- <span className={cn('h-2 w-2 shrink-0 rounded-full', dotColorByKind[item.kind])} />
- <div className="min-w-0 flex-1">
- <p className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{item.title}</p>
- <div className="mt-0.5 flex items-center gap-2">
- <span
- className={cn(
- 'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
- badgeToneByKind[item.kind]
- )}
- >
- <Icon className="h-3 w-3" weight="bold" />
- {item.meta}
+  return (
+  <div
+  className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[var(--color-surface-secondary)]"
+  onClick={() => onSelectItem(item)}
+  role="button"
+  tabIndex={0}
+  onKeyDown={(e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectItem(item); }
+  }}
+  >
+  <span className={cn('h-2 w-2 shrink-0 rounded-full', dotColorByKind[item.kind])} />
+  <div className="min-w-0 flex-1">
+  <p className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{item.title}</p>
+  <div className="mt-0.5 flex items-center gap-2">
+  <span
+  className={cn(
+  'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+  badgeToneByKind[item.kind]
+  )}
+  >
+  {Icon && <Icon className="h-3 w-3" weight="bold" />}
+  {item.meta}
  </span>
  <span className="text-[11px] text-[var(--color-text-muted)]">{item.subtitle}</span>
  </div>

@@ -881,31 +881,24 @@ export function PaymentsClient({
  </DialogDescription>
  </DialogHeader>
  <DialogBody className="space-y-4">
- <div>
- <p className="mb-2 text-[12px] font-semibold text-[var(--color-text-secondary)]">Payment method</p>
- <div className="grid grid-cols-2 gap-2">
- {([
- { code: 'bank_transfer', label: 'Bank transfer' },
- { code: 'crypto', label: 'Crypto' },
- { code: 'cash', label: 'Cash' },
- { code: 'other', label: 'Other' },
- ] as const).map((opt) => (
- <Button
- key={opt.code}
- variant="outline"
- size="sm"
- onClick={() => setMarkPaidVia(opt.code)}
- className={`rounded-xl px-3 py-2 text-left text-[12px] ${
- markPaidVia === opt.code
- ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold'
- : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-input)]'
- }`}
- >
- {opt.label}
- </Button>
- ))}
- </div>
- </div>
+  <div>
+  <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Payment method</label>
+  <div className="relative">
+  <select
+  value={markPaidVia}
+  onChange={(e) => setMarkPaidVia(e.target.value as typeof markPaidVia)}
+  className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)]"
+  >
+  <option value="bank_transfer">Bank transfer</option>
+  <option value="crypto">Stablecoin</option>
+  <option value="cash">Cash</option>
+  <option value="other">Other</option>
+  </select>
+  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <path d="M3 4.5L6 7.5L9 4.5" />
+  </svg>
+  </div>
+  </div>
 
  <div>
  <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">

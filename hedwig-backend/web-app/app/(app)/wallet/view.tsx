@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { ArrowsLeftRight, ArrowDown, Bank, PaperPlaneTilt, Wallet, X, UploadSimple } from '@/components/ui/lucide-icons';
+import { GatewayUnifiedBalanceCard } from '@/components/wallet/gateway-unified-balance-card';
 import { SendTokenDialog } from '@/components/wallet/send-token-dialog';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
@@ -367,8 +368,9 @@ export function WalletView({
  onClose={() => setSelectedActivity(null)}
  />
  ) : null}
- <PayoutBankSection accessToken={accessToken} />
- <PayoutPanel gatewayAutoDepositEnabled={gatewayAutoDepositEnabled} />
+  <GatewayUnifiedBalanceCard accessToken={accessToken} />
+  <PayoutBankSection accessToken={accessToken} />
+  <PayoutPanel gatewayAutoDepositEnabled={gatewayAutoDepositEnabled} />
  {onrampAllowed && (
  <OnrampModal
  open={onrampOpen}

@@ -1,30 +1,11 @@
 'use client';
 
 import { PrivyProvider } from '@privy-io/react-auth';
-import { ReactNode, useEffect, useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { privyConfig } from '@/lib/auth/config';
 import { getPrivySolanaRpcs } from '@/lib/gateway/privy-solana-rpc';
 
-// Privy SDK passes `isActive` to native DOM elements in React 19 which now
-// forwards unknown props instead of silently dropping them. Suppress just this
-// warning until Privy ships a fix.
-function useSuppressPrivyDomPropWarning() {
-  useEffect(() => {
-    const original = console.error.bind(console);
-    console.error = (...args: unknown[]) => {
-      if (
-        typeof args[0] === 'string' &&
-        args[0].includes('isActive') &&
-        args[0].includes('DOM element')
-      ) return;
-      original(...args);
-    };
-    return () => { console.error = original; };
-  }, []);
-}
-
 export function HedwigPrivyProvider({ children }: { children: ReactNode }) {
-  useSuppressPrivyDomPropWarning();
   const solanaRpcs = useMemo(() => getPrivySolanaRpcs(), []);
 
   if (!privyConfig.appId) {

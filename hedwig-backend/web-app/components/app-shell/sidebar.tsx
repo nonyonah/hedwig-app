@@ -81,7 +81,7 @@ export function AppSidebar({
               const Icon = item.icon;
               return (
                 <li key={item.href}>
-                  <Link href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined}
+                  <Link href={item.href} prefetch={false} onClick={onNavigate} aria-current={active ? 'page' : undefined}
                     className={cn(
                       'group relative flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all duration-100 ease-linear',
                       active
