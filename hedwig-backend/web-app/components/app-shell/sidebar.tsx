@@ -109,7 +109,7 @@ export function AppSidebar({
 
   const Footer = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div className="flex shrink-0 flex-col gap-0.5 border-t border-[var(--color-surface-tertiary)] px-2 py-2">
-      <a href="https://help.hedwigbot.xyz" target="_blank" rel="noreferrer" onClick={onNavigate}
+      <a href="https://help.hedwig.riftlabs.xyz" target="_blank" rel="noreferrer" onClick={onNavigate}
         className="group flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium text-[var(--color-text-placeholder)] transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]">
         <Question className="mr-2.5 h-4 w-4 shrink-0" weight="regular" />
         <span>Help Center</span>

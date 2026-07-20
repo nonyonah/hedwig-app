@@ -6,7 +6,7 @@ import { backendConfig } from '@/lib/auth/config';
 
 export const runtime = 'nodejs';
 
-const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwigbot.xyz').replace(/\/$/, '');
+const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwig.riftlabs.xyz').replace(/\/$/, '');
 
 function googleRedirectUri() {
   // Both Gmail and Google Calendar share the same callback route.

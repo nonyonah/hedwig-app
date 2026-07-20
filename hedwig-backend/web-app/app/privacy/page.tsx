@@ -44,8 +44,8 @@ export default function PrivacyPolicyPage() {
  <p className="max-w-[760px] text-[14px] leading-7 text-[var(--color-text-secondary)]">
  This Privacy Notice for <strong>Rift Labs</strong> (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) explains how we access,
  collect, store, use, and share your personal information when you use Hedwig services, including
- <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">
- www.hedwigbot.xyz
+ <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="https://www.hedwig.riftlabs.xyz" target="_blank" rel="noopener noreferrer">
+ www.hedwig.riftlabs.xyz
  </a>
  and the Hedwig mobile application.
  </p>
@@ -165,8 +165,8 @@ export default function PrivacyPolicyPage() {
  <Section id="contact" title="12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?">
  <p>
  Email:
- <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
- nonso@hedwigbot.xyz
+ <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwig.riftlabs.xyz">
+ nonso@hedwig.riftlabs.xyz
  </a>
  </p>
  <p>Rift Labs, No 10b Press Lane Achara Layout, Enugu, Enugu 400105, Nigeria</p>

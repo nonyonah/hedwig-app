@@ -86,7 +86,7 @@ async function getUserId(req: Request): Promise<string | null> {
 
 // GET /api/integrations/oauth-url — mobile: generate Google OAuth URL directly
 // Returns the accounts.google.com URL so the mobile app can open it without
-// bouncing through hedwigbot.xyz first.
+// bouncing through hedwig.riftlabs.xyz first.
 router.get('/oauth-url', async (req: Request, res: Response) => {
   const userId = await getUserId(req);
   if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
@@ -99,7 +99,7 @@ router.get('/oauth-url', async (req: Request, res: Response) => {
   const auth = req.headers.authorization!;
   const accessToken = auth.slice(7);
 
-  const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwigbot.xyz').replace(/\/$/, '');
+  const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwig.riftlabs.xyz').replace(/\/$/, '');
   const redirectUri  = `${WEB_BASE_URL}/api/integrations/callback/google`;
   const state        = require('crypto').randomBytes(24).toString('hex');
 
@@ -1007,7 +1007,7 @@ router.post('/composio/drive/upload-from-doc', async (req: Request, res: Respons
       fileName = `${title}.html`;
     } else {
       // For invoices and payment links, use the public page URL
-      const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
+      const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwig.riftlabs.xyz').replace(/\/+$/, '');
       const pagePath = documentType === 'PAYMENT_LINK' ? 'pay' : 'invoice';
       fileUrl = doc.payment_link_url || `${WEB_CLIENT_URL}/${pagePath}/${documentId}`;
       fileName = `${title}.html`;

@@ -28,8 +28,8 @@ import { TUTORIAL_STORAGE_KEY } from '../../context/TutorialContext';
 
 const DEMO_EMAIL = 'demo@hedwig.app';
 const DEMO_CODE = '123456';
-const PRIVACY_POLICY_URL = 'https://www.hedwigbot.xyz/privacy';
-const TERMS_OF_SERVICE_URL = 'https://www.hedwigbot.xyz/terms';
+const PRIVACY_POLICY_URL = 'https://www.hedwig.riftlabs.xyz/privacy';
+const TERMS_OF_SERVICE_URL = 'https://www.hedwig.riftlabs.xyz/terms';
 
 export default function LoginScreen() {
     const router = useRouter();

@@ -92,7 +92,7 @@ async function resolveEmailSenderName(userId: string, workspaceId?: string | nul
 }
 
 // Canonical public web URL for invoice and payment link pages.
-const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
+const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwig.riftlabs.xyz').replace(/\/+$/, '');
 
 const attachUsdAccountDetails = async (doc: any) => {
     const userId = doc?.user?.id;

@@ -44,7 +44,7 @@ function LandingPage() {
  >
  Pricing
  </Link>
- <a href="https://help.hedwigbot.xyz" target="_blank" rel="noreferrer" className="hidden text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
+ <a href="https://help.hedwig.riftlabs.xyz" target="_blank" rel="noreferrer" className="hidden text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
  Help
  </a>
  <Link
@@ -434,9 +434,9 @@ function LandingPage() {
  <Link href="/privacy" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Privacy</Link>
  <Link href="/terms" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Terms</Link>
  <Link href="/returns" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Returns</Link>
- <a href="https://help.hedwigbot.xyz" target="_blank" rel="noreferrer" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Help</a>
+ <a href="https://help.hedwig.riftlabs.xyz" target="_blank" rel="noreferrer" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Help</a>
  <a href="/api/auth/exit-demo" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Sign in</a>
- <a href="mailto:support@hedwigbot.xyz" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Support</a>
+ <a href="mailto:support@hedwig.riftlabs.xyz" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Support</a>
  <a href="https://x.com/hedwigagent" target="_blank" rel="noreferrer" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">X</a>
  <a href="https://t.me/hedwigofficial" target="_blank" rel="noreferrer" className="text-[13px] text-[var(--color-text-tertiary)] transition-colors duration-200 hover:text-[var(--color-foreground)]">Telegram</a>
  </div>

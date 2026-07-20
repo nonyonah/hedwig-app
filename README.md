@@ -169,7 +169,7 @@ npm run dev          # starts on port 3001
 1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials
 2. Create an OAuth 2.0 Client ID (Web application)
 3. Add authorized redirect URIs:
-   - `https://hedwigbot.xyz/api/integrations/callback/google`
+   - `https://hedwig.riftlabs.xyz/api/integrations/callback/google`
    - `http://localhost:3001/api/integrations/callback/google` (dev)
 4. Enable **Gmail API** and **Google Calendar API** in the API Library
 5. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in backend `.env`
@@ -178,7 +178,7 @@ npm run dev          # starts on port 3001
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → Create New App
 2. Under OAuth & Permissions, add redirect URL:
-   - `https://hedwigbot.xyz/api/integrations/callback/slack`
+   - `https://hedwig.riftlabs.xyz/api/integrations/callback/slack`
 3. Add Bot Token Scopes: `channels:read`, `chat:write`, `users:read`
 4. Set `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` in backend `.env`
 

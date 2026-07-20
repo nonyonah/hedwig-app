@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import path from 'path';
 import { withSentryConfig } from '@sentry/nextjs';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwigbot.xyz';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwig.riftlabs.xyz';
 const uploadSentrySourceMaps = process.env.SENTRY_UPLOAD_SOURCE_MAPS === 'true';
 
 // ─── Content-Security-Policy ────────────────────────────────────────────────
@@ -208,7 +208,7 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     // Mintlify-hosted help docs proxied under /docs so the URL stays
-    // hedwigbot.xyz/docs (no separate help.hedwigbot.xyz needed).
+    // hedwig.riftlabs.xyz/docs (no separate help.hedwig.riftlabs.xyz needed).
     const MINTLIFY_PROJECT = 'https://hedwig-94348504.mintlify.dev';
 
     return [

@@ -106,7 +106,7 @@ export const mockInvoiceExtraction: ExtractedInvoiceData = {
   issuer_name: 'Acme Studio',
   sender_email: 'accounts@acmestudio.co',
   recipient_name: 'Hedwig Labs',
-  recipient_email: 'ops@hedwigbot.xyz',
+  recipient_email: 'ops@hedwig.riftlabs.xyz',
   project_reference: 'Website Redesign',
   title: 'Website redesign - April milestone invoice',
   currency: 'USD',

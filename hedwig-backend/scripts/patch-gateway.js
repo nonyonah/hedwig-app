@@ -51,7 +51,7 @@ async function main() {
   console.log('\nPatching EVM subscription', evmSubId, 'with', evm.length, 'addresses...');
 
   const { ok, body: result, status } = await circle('PATCH', '/v2/notifications/subscriptions/permissionless/' + evmSubId, {
-    endpoint: 'https://money.hedwigbot.xyz/api/webhooks/circle-gateway',
+    endpoint: 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway',
     name: 'Gateway Webhooks EVM',
     enabled: true,
     environment: 'TEST',
@@ -71,7 +71,7 @@ async function main() {
     for (let i = 0; i < evm.length; i += batchSize) {
       const batch = evm.slice(i, i + batchSize);
       const r = await circle('PATCH', '/v2/notifications/subscriptions/permissionless/' + evmSubId, {
-        endpoint: 'https://money.hedwigbot.xyz/api/webhooks/circle-gateway',
+        endpoint: 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway',
         name: 'Gateway Webhooks EVM',
         enabled: true,
         environment: 'TEST',
@@ -86,7 +86,7 @@ async function main() {
   // Solana
   console.log('\nSetting up Solana subscription...');
   const solPayload = {
-    endpoint: 'https://money.hedwigbot.xyz/api/webhooks/circle-gateway/solana',
+    endpoint: 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway/solana',
     name: 'Gateway Webhooks Solana',
     enabled: true,
     environment: 'TEST',
@@ -96,7 +96,7 @@ async function main() {
   };
 
   const { body: subs } = await circle('GET', '/v2/notifications/subscriptions/permissionless?environment=TEST');
-  const existingSol = (subs.data || []).find(s => s.endpoint === 'https://money.hedwigbot.xyz/api/webhooks/circle-gateway/solana');
+  const existingSol = (subs.data || []).find(s => s.endpoint === 'https://money.hedwig.riftlabs.xyz/api/webhooks/circle-gateway/solana');
   let solSubId = null;
 
   if (existingSol) {

@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 
 const logger = createLogger('EmailService');
 
-const DEFAULT_PUBLIC_APP_URL = 'https://hedwigbot.xyz';
+const DEFAULT_PUBLIC_APP_URL = 'https://hedwig.riftlabs.xyz';
 const RAW_APP_URL = process.env.APP_URL || process.env.WEB_CLIENT_URL || DEFAULT_PUBLIC_APP_URL;
 
 const canonicalizePublicUrl = (input?: string | null): string => {
@@ -16,8 +16,8 @@ const canonicalizePublicUrl = (input?: string | null): string => {
     try {
         const url = new URL(normalized);
         const hostname = url.hostname.toLowerCase();
-        if (hostname === 'hedwigbot.xyz' || hostname === 'hedwigbot.xyz' || hostname === 'www.hedwigbot.xyz') {
-            url.hostname = 'hedwigbot.xyz';
+        if (hostname === 'hedwig.riftlabs.xyz' || hostname === 'hedwig.riftlabs.xyz' || hostname === 'www.hedwig.riftlabs.xyz') {
+            url.hostname = 'hedwig.riftlabs.xyz';
         }
         return url.toString().replace(/\/+$/, '');
     } catch {
@@ -29,7 +29,7 @@ const APP_URL = canonicalizePublicUrl(RAW_APP_URL);
 const EMAIL_ASSET_BASE_URL = canonicalizePublicUrl(
     process.env.EMAIL_ASSET_BASE_URL ||
     process.env.API_PUBLIC_URL ||
-    'https://pay.hedwigbot.xyz'
+    'https://pay.hedwig.riftlabs.xyz'
 );
 
 const resolvePublicUrl = (candidate: string | undefined, fallbackPath: string): string => {
@@ -183,7 +183,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject,
                 html,
@@ -271,11 +271,11 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Nonso from Hedwig <nonso@hedwigbot.xyz>',
+                from: 'Nonso from Hedwig <nonso@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: segmentCopy.subject,
                 html,
-                replyTo: 'nonso@hedwigbot.xyz',
+                replyTo: 'nonso@hedwig.riftlabs.xyz',
             });
             logger.info('Conversion research email sent', { to: data.to, segment: data.segment });
             return true;
@@ -362,7 +362,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: data.subject,
                 html,
@@ -461,7 +461,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `${capFreq} invoicing set up by ${data.senderName}`,
                 html,
@@ -524,7 +524,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `New Invoice from ${data.senderName}`,
                 html: html,
@@ -587,7 +587,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `Payment Request from ${data.senderName}`,
                 html: html,
@@ -662,7 +662,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `Payment Received: ${data.amount} ${data.currency}`,
                 html: html,
@@ -717,7 +717,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [to],
                 subject: subject,
                 html: html,
@@ -793,7 +793,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `Contract for Review: ${data.contractTitle} from ${data.senderName}`,
                 html: html,
@@ -868,7 +868,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `Contract Approved: ${data.contractTitle}`,
                 html: html,
@@ -939,7 +939,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `New Proposal: ${data.proposalTitle}`,
                 html: html,
@@ -1014,7 +1014,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `${ordinal(data.generationNumber)} ${freqLabel.charAt(0).toUpperCase() + freqLabel.slice(1)} Invoice from ${data.senderName}`,
                 html: html,
@@ -1086,7 +1086,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `Proposal Accepted: ${data.proposalTitle}`,
                 html: html,
@@ -1128,7 +1128,7 @@ export const EmailService = {
                     <p class="eyebrow">Account</p>
                     <h1 class="heading">Your account has been deleted</h1>
                     <p class="description">Hi ${name}, this email confirms that your Hedwig account and all associated data have been permanently deleted as requested.</p>
-                    <p class="description">If you did not request this or believe this was a mistake, please contact our support team immediately at <a href="mailto:support@hedwigbot.xyz" style="color:#0d47a1;text-decoration:none;">support@hedwigbot.xyz</a>.</p>
+                    <p class="description">If you did not request this or believe this was a mistake, please contact our support team immediately at <a href="mailto:support@hedwig.riftlabs.xyz" style="color:#0d47a1;text-decoration:none;">support@hedwig.riftlabs.xyz</a>.</p>
                     <hr class="divider" />
                     <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">Thank you for using Hedwig. We hope to see you again in the future.</p>
                 </div>
@@ -1140,7 +1140,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: 'Your Hedwig account has been deleted',
                 html,
@@ -1236,7 +1236,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: 'Get the Hedwig mobile app',
                 html,
@@ -1277,7 +1277,7 @@ export const EmailService = {
                 heading: 'Your business account is ready',
                 body: `You built something worth paying for. Hedwig is your financial OS — receive payments, track time and expenses, manage clients, and run payroll without juggling tools. Create an invoice, import a bank statement, or set up your first project.`,
                 cta: 'Open your treasury',
-                url: `https://hedwigbot.xyz/dashboard`,
+                url: `https://hedwig.riftlabs.xyz/dashboard`,
             },
             day3: {
                 subject: 'More than just getting paid',
@@ -1285,7 +1285,7 @@ export const EmailService = {
                 heading: 'More than just getting paid',
                 body: `Hedwig auto-categorizes your income and expenses, tracks time against projects, and lets you run payroll for your team. Try importing a bank statement or setting up a project — both take less than two minutes.`,
                 cta: 'Try something new',
-                url: `https://hedwigbot.xyz/dashboard`,
+                url: `https://hedwig.riftlabs.xyz/dashboard`,
             },
             day7: {
                 subject: 'Your business, connected',
@@ -1293,7 +1293,7 @@ export const EmailService = {
                 heading: 'Your business, connected',
                 body: `Link your bank statements to auto-categorize transactions, assign projects to team members, sync deadlines from Google Calendar, or set up a recurring payroll run. Hedwig works the way you work.`,
                 cta: 'Explore your workspace',
-                url: `https://hedwigbot.xyz/dashboard`,
+                url: `https://hedwig.riftlabs.xyz/dashboard`,
             },
             day14: {
                 subject: 'One last thing',
@@ -1301,7 +1301,7 @@ export const EmailService = {
                 heading: 'One last thing',
                 body: `You signed up two weeks ago and haven't tried Hedwig yet. That's fine. But if you're still juggling different tools for payments, time tracking, expenses, and payroll — give it two minutes. Import a statement, log time against a project, or send your first invoice. See if it fits.`,
                 cta: 'Give it two minutes',
-                url: `https://hedwigbot.xyz/dashboard`,
+                url: `https://hedwig.riftlabs.xyz/dashboard`,
             },
         };
 
@@ -1338,7 +1338,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: config.subject,
                 html,
@@ -1442,7 +1442,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: copy.subject,
                 html,
@@ -1508,7 +1508,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: 'Your Hedwig verification is approved',
                 html,
@@ -1586,7 +1586,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `Your ${currency} account is ready`,
                 html,
@@ -1657,7 +1657,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `${escapeHtml(data.inviterName)} invited you to ${escapeHtml(data.workspaceName)}`,
                 html,
@@ -1684,7 +1684,7 @@ export const EmailService = {
         const payoutStr = data.payoutAmount > 0 ? `Your payout: $${data.payoutAmount.toLocaleString()}` : '';
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `"${escapeHtml(data.projectName)}" has been completed`,
                 html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
@@ -1710,7 +1710,7 @@ export const EmailService = {
         const walletUrl = `${APP_URL}/wallet`;
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `You received $${data.amount.toLocaleString()} USDC from ${escapeHtml(data.workspaceName)}`,
                 html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
@@ -1738,7 +1738,7 @@ export const EmailService = {
         const projectUrl = `${APP_URL}/projects/${data.projectId}`;
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `${escapeHtml(data.memberName)} completed "${escapeHtml(data.milestoneTitle)}"`,
                 html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
@@ -1787,7 +1787,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `${escapeHtml(data.memberName)} submitted ${escapeHtml(data.projectName)} for review`,
                 html,
@@ -1847,7 +1847,7 @@ export const EmailService = {
 
             try {
                 await resend.emails.send({
-                    from: 'Hedwig <team@hedwigbot.xyz>',
+                    from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                     to: [admin.email],
                     subject: `${escapeHtml(data.memberName)} submitted ${escapeHtml(data.projectName)} for review`,
                     html,
@@ -1921,7 +1921,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `${escapeHtml(data.memberName)} accepted your invitation`,
                 html,
@@ -1975,7 +1975,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>',
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
                 to: [data.to],
                 subject: `You've been assigned to ${escapeHtml(data.projectName)}`,
                 html,
@@ -2026,7 +2026,7 @@ export const EmailService = {
             </div>
         </body></html>`;
         try {
-            await resend.emails.send({ from: 'Hedwig <team@hedwigbot.xyz>', to: [data.to], subject, html });
+            await resend.emails.send({ from: 'Hedwig <team@hedwig.riftlabs.xyz>', to: [data.to], subject, html });
         } catch (error) {
             logger.error('Payroll received email failed', { error: (error as Error).message });
         }
@@ -2080,7 +2080,7 @@ export const EmailService = {
             </div>
         </body></html>`;
         try {
-            await resend.emails.send({ from: 'Hedwig <team@hedwigbot.xyz>', to: [data.to], subject, html });
+            await resend.emails.send({ from: 'Hedwig <team@hedwig.riftlabs.xyz>', to: [data.to], subject, html });
         } catch (error) {
             logger.error('Payroll complete email failed', { error: (error as Error).message });
         }
@@ -2114,7 +2114,7 @@ export const EmailService = {
                 <div class="footer"><p>${FOOTER_NOTE}</p></div>
             </div>
         </body></html>`;
-        try { await resend.emails.send({ from: 'Hedwig <team@hedwigbot.xyz>', to: [data.to], subject: 'Scheduled payroll skipped — insufficient funds', html }); }
+        try { await resend.emails.send({ from: 'Hedwig <team@hedwig.riftlabs.xyz>', to: [data.to], subject: 'Scheduled payroll skipped — insufficient funds', html }); }
         catch (error) { logger.error('Payroll skipped email failed', { error: (error as Error).message }); }
     },
 
@@ -2165,7 +2165,7 @@ async function sendProjectOutcomeEmail(
 
     try {
         await resend.emails.send({
-            from: 'Hedwig <team@hedwigbot.xyz>',
+            from: 'Hedwig <team@hedwig.riftlabs.xyz>',
             to: [user.email],
             subject: `${escapeHtml(data.projectName)} ${verb}`,
             html,

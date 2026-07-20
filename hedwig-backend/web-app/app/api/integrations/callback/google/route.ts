@@ -27,8 +27,8 @@ async function resolveTokenFromState(
 
 export const runtime = 'nodejs';
 
-const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwigbot.xyz').replace(/\/$/, '');
-const PRODUCTION_GOOGLE_REDIRECT_URI = 'https://hedwigbot.xyz/api/integrations/callback/google';
+const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwig.riftlabs.xyz').replace(/\/$/, '');
+const PRODUCTION_GOOGLE_REDIRECT_URI = 'https://hedwig.riftlabs.xyz/api/integrations/callback/google';
 const LOCAL_GOOGLE_REDIRECT_URI = 'http://localhost:3001/api/integrations/callback/google';
 
 function googleRedirectUri(req: NextRequest): string {

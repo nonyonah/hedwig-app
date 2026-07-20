@@ -683,7 +683,7 @@ export const SchedulerService = {
                             user.email,
                             creativeCopy.emailSubject,
                             `<p class=\"eyebrow\">Re-engagement</p><h1 class=\"heading\">${creativeCopy.emailHeading}</h1><p class=\"description\">${creativeCopy.emailBody}</p>`,
-                            'https://hedwigbot.xyz',
+                            'https://hedwig.riftlabs.xyz',
                             creativeCopy.ctaText || 'Open Hedwig'
                         );
                     }
@@ -791,7 +791,7 @@ export const SchedulerService = {
                             user.email,
                             copy.emailSubject,
                             `<p class=\"eyebrow\">Verification reminder</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
-                            'https://hedwigbot.xyz/settings',
+                            'https://hedwig.riftlabs.xyz/settings',
                             copy.ctaText || 'Complete Verification'
                         );
                     }
@@ -918,7 +918,7 @@ export const SchedulerService = {
                             user.email,
                             copy.emailSubject,
                             `<p class=\"eyebrow\">What to try next</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
-                            'https://hedwigbot.xyz',
+                            'https://hedwig.riftlabs.xyz',
                             copy.ctaText || 'Explore Hedwig'
                         );
                     }
@@ -1081,7 +1081,7 @@ export const SchedulerService = {
                             user.email,
                             emailSubject,
                             emailHtml,
-                            'https://hedwigbot.xyz/offramp-history/create',
+                            'https://hedwig.riftlabs.xyz/offramp-history/create',
                             'Open Hedwig'
                         );
                     }
@@ -1564,7 +1564,7 @@ export const SchedulerService = {
                             user.email,
                             isInvoice ? 'Your invoice was opened — follow up?' : 'Your payment request was viewed',
                             `<p class="eyebrow">Client activity</p><h1 class="heading">${title}</h1><p class="description">${clientName} ${isInvoice ? 'viewed your invoice' : 'opened your payment request'}${amount ? ` for ${amount}` : ''}. Reach out while you're top of mind, or log any outstanding time against this project first.</p>`,
-                            isInvoice ? `https://hedwigbot.xyz/invoice/${doc.id}` : `https://hedwigbot.xyz/pay/${doc.id}`,
+                            isInvoice ? `https://hedwig.riftlabs.xyz/invoice/${doc.id}` : `https://hedwig.riftlabs.xyz/pay/${doc.id}`,
                             'Follow Up'
                         );
                     }
@@ -1682,7 +1682,7 @@ export const SchedulerService = {
                             user.email,
                             copy.emailSubject,
                             `<p class="eyebrow">Client update</p><h1 class="heading">${copy.emailHeading}</h1><p class="description">${copy.emailBody}</p>`,
-                            'https://hedwigbot.xyz/clients',
+                            'https://hedwig.riftlabs.xyz/clients',
                             copy.ctaText || 'View Clients'
                         );
                     }
@@ -1786,7 +1786,7 @@ export const SchedulerService = {
                             user.email,
                             copy.emailSubject,
                             `<p class="eyebrow">Pro tip</p><h1 class="heading">${copy.emailHeading}</h1><p class="description">${copy.emailBody}</p>`,
-                            'https://hedwigbot.xyz/recurring',
+                            'https://hedwig.riftlabs.xyz/recurring',
                             copy.ctaText || 'Set Up Recurring'
                         );
                     }
@@ -1882,7 +1882,7 @@ export const SchedulerService = {
                             user.email,
                             copy.emailSubject,
                             `<p class="eyebrow">Coming soon</p><h1 class="heading">${copy.emailHeading}</h1><p class="description">${copy.emailBody}</p>`,
-                            'https://hedwigbot.xyz',
+                            'https://hedwig.riftlabs.xyz',
                             copy.ctaText || 'Learn More'
                         );
                     }
@@ -1990,7 +1990,7 @@ export const SchedulerService = {
                             user.email,
                             `"${linkTitle}" hasn't been sent yet`,
                             `<p class="eyebrow">Payment reminder</p><h1 class="heading">Send your payment request</h1><p class="description">"${linkTitle}"${amount ? ` for ${amount}` : ''} is ready but hasn't been sent yet. Share it with your client, or if this is tied to a milestone, log the time against the project first.</p>`,
-                            `https://hedwigbot.xyz/pay/${doc.id}`,
+                            `https://hedwig.riftlabs.xyz/pay/${doc.id}`,
                             'Send Now'
                         );
                     }
@@ -2168,7 +2168,7 @@ export const SchedulerService = {
                     ? `Hi ${clientName},\n\nThis is a reminder that your ${docType} for ${doc.amount} USDC from ${senderName} is due today. Please complete the payment at your earliest convenience.\n\nThank you!`
                     : `Hi ${clientName},\n\nJust a ${urgency} reminder that you have a ${docType} for ${doc.amount} USDC from ${senderName} due ${daysUntilDue === 1 ? 'tomorrow' : `in ${daysUntilDue} days`}.\n\nBest regards`;
 
-                const BASE_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
+                const BASE_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.riftlabs.xyz').replace(/\/+$/, '');
                 const actionLink = doc.type === 'INVOICE'
                     ? `${BASE_URL}/invoice/${doc.id}`
                     : `${BASE_URL}/pay/${doc.id}`;
@@ -2271,7 +2271,7 @@ export const SchedulerService = {
                         clientEmail,
                         subject,
                         `Hi ${clientName},\n\nThe milestone "${milestone.title}" for ${milestone.amount} USDC is ${reminderType === 'due_today' ? 'due today' : `due ${daysUntilDue === 1 ? 'tomorrow' : `in ${daysUntilDue} days`}`}.`,
-                        (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, ''),
+                        (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.riftlabs.xyz').replace(/\/+$/, ''),
                         'View Details'
                     );
                 }
@@ -2390,7 +2390,7 @@ export const SchedulerService = {
             );
 
             // Determine action link
-            const BASE_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
+            const BASE_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.riftlabs.xyz').replace(/\/+$/, '');
             const actionLink = doc.type === 'INVOICE'
                 ? `${BASE_URL}/invoice/${doc.id}`
                 : `${BASE_URL}/pay/${doc.id}`;

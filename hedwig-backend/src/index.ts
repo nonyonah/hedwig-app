@@ -219,11 +219,11 @@ const inferredOrigins = [
     normalizeOrigin(process.env.WEB_CLIENT_URL || ''),
     normalizeOrigin(process.env.PUBLIC_BASE_URL || ''),
     normalizeOrigin(process.env.APP_URL || ''),
-    'https://hedwigbot.xyz',
-    'https://www.hedwigbot.xyz',
-    'https://money.hedwigbot.xyz',
+    'https://hedwig.riftlabs.xyz',
+    'https://www.hedwig.riftlabs.xyz',
+    'https://money.hedwig.riftlabs.xyz',
     'https://hedwig-app-wuqvha-production.up.railway.app',
-    'https://pay.hedwigbot.xyz',
+    'https://pay.hedwig.riftlabs.xyz',
 ].filter(Boolean);
 
 const allowedOriginSet = new Set<string>();
@@ -233,7 +233,7 @@ for (const origin of [...configuredOrigins, ...inferredOrigins]) {
     }
 }
 
-const hedwigDomainRegex = /^https:\/\/([a-z0-9-]+\.)?hedwigbot\.xyz$/i;
+const hedwigDomainRegex = /^https:\/\/([a-z0-9-]+\.)?hedwig\.riftlabs\.xyz$/i;
 
 app.use(
     cors({
@@ -568,7 +568,7 @@ const PUBLIC_WEB_APP_URL = (
     process.env.WEB_APP_URL ||
     process.env.PUBLIC_BASE_URL ||
     process.env.WEB_CLIENT_URL ||
-    'https://hedwigbot.xyz'
+    'https://hedwig.riftlabs.xyz'
 ).replace(/\/+$/, '');
 
 const redirectToWebApp = (pathFor: (req: Request) => string) => (req: Request, res: Response) => {

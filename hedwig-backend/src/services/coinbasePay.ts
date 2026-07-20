@@ -20,7 +20,7 @@ const COINBASE_CDP_API_KEY_SECRET =
 const COINBASE_PAY_REDIRECT_URL =
     process.env.COINBASE_PAY_REDIRECT_URL ||
     process.env.APP_URL ||
-    'https://pay.hedwigbot.xyz/wallet';
+    'https://pay.hedwig.riftlabs.xyz/wallet';
 
 const coinbaseOnrampClient: AxiosInstance = axios.create({
     baseURL: CDP_ONRAMP_BASE_URL,

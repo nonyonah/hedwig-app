@@ -94,7 +94,7 @@
     "primary": {
       "type": "button",
       "label": "Sign in",
-      "href": "https://hedwigbot.xyz/sign-in"
+      "href": "https://hedwig.riftlabs.xyz/sign-in"
     }
   },
   "footer": {

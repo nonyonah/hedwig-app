@@ -65,7 +65,7 @@ export function AccountMenu({
           <div className="flex flex-col gap-0.5 px-1.5 py-1.5">
             <Link
               className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[var(--color-surface-secondary)]"
-              href="https://help.hedwigbot.xyz"
+              href="https://help.hedwig.riftlabs.xyz"
               target="_blank"
               rel="noreferrer"
               onClick={() => setOpen(false)}

@@ -23,8 +23,8 @@ export default function ReturnsPage() {
  <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">Return Process</h2>
  <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
  To request a return, email
- <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
- nonso@hedwigbot.xyz
+ <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwig.riftlabs.xyz">
+ nonso@hedwig.riftlabs.xyz
  </a>
  to receive an RMA number before shipping.
  </p>
@@ -56,8 +56,8 @@ export default function ReturnsPage() {
  <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">Questions</h2>
  <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
  If you have any questions about this policy, contact
- <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
- nonso@hedwigbot.xyz
+ <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwig.riftlabs.xyz">
+ nonso@hedwig.riftlabs.xyz
  </a>
  .
  </p>

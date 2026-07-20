@@ -23,7 +23,7 @@ RUN npm run build
 WORKDIR /app/hedwig-backend/web-client
 RUN npm ci --include=dev --legacy-peer-deps
 ENV VITE_REOWN_PROJECT_ID=e2fead0a05813697717820eaed0f18ea
-ENV VITE_API_URL=https://money.hedwigbot.xyz
+ENV VITE_API_URL=https://money.hedwig.riftlabs.xyz
 ENV VITE_PRIVY_APP_ID=cmby98gd300hxl40mrdr3mkoh
 RUN npm run build && mkdir -p dist
 

@@ -236,7 +236,7 @@ router.get('/ics-token', authenticate, async (req: Request, res: Response, next)
         if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
 
         const token = icsTokenForUser(user.id);
-        const host = process.env.APP_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz';
+        const host = process.env.APP_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.riftlabs.xyz';
         const subscribeUrl = `${host}/api/calendar/ics?token=${token}&uid=${user.id}`;
 
         res.json({ success: true, data: { token, subscribeUrl } });

@@ -1,11 +1,11 @@
 const LEGACY_PUBLIC_HOSTS = [
-  'https://pay.hedwigbot.xyz',
-  'http://pay.hedwigbot.xyz',
-  'https://www.pay.hedwigbot.xyz',
-  'http://www.pay.hedwigbot.xyz'
+  'https://pay.hedwig.riftlabs.xyz',
+  'http://pay.hedwig.riftlabs.xyz',
+  'https://www.pay.hedwig.riftlabs.xyz',
+  'http://www.pay.hedwig.riftlabs.xyz'
 ];
 
-const DEFAULT_PUBLIC_WEB_URL = 'https://hedwigbot.xyz';
+const DEFAULT_PUBLIC_WEB_URL = 'https://hedwig.riftlabs.xyz';
 
 export function normalizePublicWebUrl(url?: string | null) {
   const value = String(url || '').trim();

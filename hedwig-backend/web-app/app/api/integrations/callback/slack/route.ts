@@ -5,7 +5,7 @@ import { backendConfig } from '@/lib/auth/config';
 
 export const runtime = 'nodejs';
 
-const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwigbot.xyz').replace(/\/$/, '');
+const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwig.riftlabs.xyz').replace(/\/$/, '');
 
 export async function GET(req: NextRequest): Promise<Response> {
   const code  = req.nextUrl.searchParams.get('code');

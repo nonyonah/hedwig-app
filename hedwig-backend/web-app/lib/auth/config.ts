@@ -12,7 +12,7 @@ export const privyConfig = {
   }
 };
 
-const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwigbot.xyz';
+const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://money.hedwig.riftlabs.xyz';
 
 export const backendConfig = {
   /**

@@ -62,8 +62,8 @@ export default function TermsPage() {
  </p>
  <p className="text-[14px] leading-7 text-[var(--color-text-secondary)]">
  Contact:
- <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
- nonso@hedwigbot.xyz
+ <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwig.riftlabs.xyz">
+ nonso@hedwig.riftlabs.xyz
  </a>
  · 09114109308
  </p>
@@ -88,8 +88,8 @@ export default function TermsPage() {
  <Section id="services" title="1. OUR SERVICES">
  <p>
  We operate the website
- <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">
- www.hedwigbot.xyz
+ <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="https://www.hedwig.riftlabs.xyz" target="_blank" rel="noopener noreferrer">
+ www.hedwig.riftlabs.xyz
  </a>
  and the Hedwig mobile app, plus related services.
  </p>
@@ -264,8 +264,8 @@ export default function TermsPage() {
  <p>Phone: 09114109308</p>
  <p>
  Email:
- <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwigbot.xyz">
- nonso@hedwigbot.xyz
+ <a className="mx-1 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]" href="mailto:nonso@hedwig.riftlabs.xyz">
+ nonso@hedwig.riftlabs.xyz
  </a>
  </p>
  </Section>

@@ -78,7 +78,7 @@ class DiditService {
     this.workflowId = process.env.DIDIT_WORKFLOW_ID || '';
     this.webhookSecret = process.env.DIDIT_WEBHOOK_SECRET || '';
     const baseUrl =
-      (process.env.PUBLIC_BASE_URL || process.env.EXPO_PUBLIC_API_URL || 'https://money.hedwigbot.xyz')
+      (process.env.PUBLIC_BASE_URL || process.env.EXPO_PUBLIC_API_URL || 'https://money.hedwig.riftlabs.xyz')
         .replace(/\/api\/?$/, '')
         .replace(/\/$/, '');
     this.callbackUrl = `${baseUrl}/api/webhooks/didit`;

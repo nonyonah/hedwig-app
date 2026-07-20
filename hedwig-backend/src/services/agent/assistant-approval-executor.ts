@@ -16,7 +16,7 @@ import { convertToUsd } from '../currency';
 
 const logger = createLogger('AssistantApprovalExecutor');
 
-const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwigbot.xyz').replace(/\/+$/, '');
+const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://www.hedwig.riftlabs.xyz').replace(/\/+$/, '');
 
 const SUGGESTION_SELECT =
   'id,user_id,type,title,description,priority,confidence_score,status,reason,surface,actions,related_entities,edited_data,suggestion_key,created_at,updated_at,last_shown_at,shown_count';
