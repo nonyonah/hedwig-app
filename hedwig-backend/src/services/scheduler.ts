@@ -1361,6 +1361,9 @@ export const SchedulerService = {
 
                     const hasPayment = (paidCount ?? 0) > 0;
 
+                    // Skip users who already received a payment — they're past the nudge window
+                    if (hasPayment) return;
+
                     // Segment determination
                     const hasLoggedIn = !!user.last_login || !!user.last_app_opened_at;
                     let segment: 'a_never_opened' | 'b_incomplete' | 'c_no_transaction';
