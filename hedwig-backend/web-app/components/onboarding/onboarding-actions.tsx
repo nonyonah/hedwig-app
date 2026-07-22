@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePostHog } from 'posthog-js/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, CheckCircle, UsersThree, CurrencyDollar, FileText, FolderSimple, IdentificationCard } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
@@ -119,6 +120,7 @@ export function OnboardingActions({
   hasMember: boolean;
   hasPayroll: boolean;
 }) {
+  const router = useRouter();
   const posthog = usePostHog();
   const { activeWorkspace } = useWorkspaceContext();
   const isOrg = activeWorkspace?.type === 'organization';
@@ -205,13 +207,14 @@ export function OnboardingActions({
                 variant="default"
                 size="sm"
                 className="create-btn"
-                onClick={() => { handleAction(suggestion); markComplete(suggestion.id); }}
-                asChild
+                onClick={() => {
+                  handleAction(suggestion);
+                  markComplete(suggestion.id);
+                  if (suggestion.href) router.push(suggestion.href);
+                }}
               >
-                <Link href={suggestion.href || '#'}>
-                  {suggestion.actionLabel}
-                  <ArrowRight className="ml-1 h-3 w-3" weight="bold" />
-                </Link>
+                {suggestion.actionLabel}
+                <ArrowRight className="ml-1 h-3 w-3" weight="bold" />
               </Button>
             </div>
           </div>
@@ -242,13 +245,14 @@ export function OnboardingActions({
                   variant="default"
                   size="sm"
                   className="mt-1 self-start create-btn"
-                  asChild
-                  onClick={() => { handleAction(action); markComplete(action.id); }}
+                  onClick={() => {
+                    handleAction(action);
+                    markComplete(action.id);
+                    if (action.href) router.push(action.href);
+                  }}
                 >
-                  <Link href={action.href || '#'}>
-                    {action.actionLabel}
-                    <ArrowRight className="ml-1 h-3 w-3" weight="bold" />
-                  </Link>
+                  {action.actionLabel}
+                  <ArrowRight className="ml-1 h-3 w-3" weight="bold" />
                 </Button>
               </div>
             ))}

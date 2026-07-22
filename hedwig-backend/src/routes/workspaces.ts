@@ -4,6 +4,7 @@ import { getOrCreateUser } from '../utils/userHelper';
 import { WorkspaceService } from '../services/workspace';
 import { getWorkspaceRole } from '../middleware/workspaceRole';
 import { getUserPlan, requireProFeatureAccess, getOrgWorkspaceLimit, getTeamMemberLimit } from '../services/billingRules';
+import { EmailService } from '../services/email';
 import { supabase } from '../lib/supabase';
 
 const router = Router();
@@ -68,6 +69,15 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
     }
 
     const workspace = await WorkspaceService.createWorkspace(user.id, name, wsType, icon);
+
+    // Send welcome email to new users (fire-and-forget)
+    if (user.email) {
+        void EmailService.sendWelcomeEmail({
+            to: user.email,
+            firstName: user.first_name || '',
+            accountType: wsType,
+        }).catch(() => {});
+    }
 
     res.json({ success: true, data: { workspace } });
   } catch (error) {

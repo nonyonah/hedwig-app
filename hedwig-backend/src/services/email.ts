@@ -2196,11 +2196,77 @@ export const EmailService = {
         }
     },
 
+    async sendWelcomeEmail(data: {
+        to: string;
+        firstName: string;
+        accountType: 'personal' | 'organization';
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping welcome email.');
+            return false;
+        }
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = data.firstName || 'there';
+
+        const firstAction = data.accountType === 'organization'
+            ? 'Invite your team or set up payroll'
+            : 'Send your first invoice or add a client';
+        const ctaUrl = `${APP_URL}/dashboard`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Welcome to Hedwig 👋</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Welcome</p>
+                    <h1 class="heading">Hey ${name}, you&rsquo;re in &#x1f44b;</h1>
+                    <p class="description">Hedwig helps you run your business finances in one place &mdash; payments, invoicing, bookkeeping, and client/project tracking, all in USDC.</p>
+                    <p class="description"><strong>Here&rsquo;s what to do first:</strong><br />${firstAction}</p>
+                    <div class="btn-container">
+                        <a href="${ctaUrl}" class="btn">Go to dashboard</a>
+                    </div>
+                    <hr class="divider" />
+                    <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">Questions? Just reply &mdash; I read these myself.<br />&mdash; Nonso, Hedwig</p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Nonso from Hedwig <nonso@hedwig.riftlabs.xyz>',
+                to: [data.to],
+                subject: 'Welcome to Hedwig 👋',
+                html,
+            });
+            logger.info('Welcome email sent', { to: data.to, accountType: data.accountType });
+            return true;
+        } catch (error) {
+            logger.error('Welcome email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+            });
+            return false;
+        }
+    },
+
     async sendPayrollSkippedEmail(data: {
         to: string;
-        adminName: string;
+        firstName: string;
         deficit: string;
         nextRunAt: string;
+        userId: string;
     }): Promise<void> {
         if (!process.env.RESEND_API_KEY) return;
         const resend = new Resend(process.env.RESEND_API_KEY);
