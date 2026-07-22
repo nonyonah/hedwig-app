@@ -2,817 +2,517 @@
 
 import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
+import { usePostHog } from 'posthog-js/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import { Input } from '@/components/ui/input';
 import { CaretLeft } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
-import { BankAccountForm } from '@/components/payouts/bank-account-form';
-import { IconEmojiPicker, type PickerResult } from '@/components/ui/icon-emoji-picker';
 
-type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'workspace' | 'target' | 'bank' | 'error';
+type Stage = 'landing' | 'otp' | 'loading' | 'workspace' | 'error';
 const RESEND_COOLDOWN_SECONDS = 30;
 
 function getIdentityDetails(user: any) {
- const email = user?.email?.address || user?.google?.email || user?.apple?.email || '';
- const firstName = user?.google?.name?.split?.(' ')?.[0] || user?.apple?.firstName || user?.firstName || '';
- const lastName = user?.google?.name?.split?.(' ')?.slice(1).join(' ') || user?.apple?.lastName || user?.lastName || '';
- return { email, firstName, lastName };
+  const email = user?.email?.address || user?.google?.email || user?.apple?.email || '';
+  const firstName = user?.google?.name?.split?.(' ')?.[0] || user?.apple?.firstName || user?.firstName || '';
+  const lastName = user?.google?.name?.split?.(' ')?.slice(1).join(' ') || user?.apple?.lastName || user?.lastName || '';
+  return { email, firstName, lastName };
 }
 
 function getAuthErrorMessage(error: unknown, fallback: string) {
- const message =
- typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
- ? error.message
- : fallback;
+  const message =
+    typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : fallback;
 
- if (/too many|rate limit|429/i.test(message)) {
- return 'Too many auth attempts. Please wait a moment and try again.';
- }
+  if (/too many|rate limit|429/i.test(message)) {
+    return 'Too many auth attempts. Please wait a moment and try again.';
+  }
 
- return message || fallback;
+  return message || fallback;
 }
 
 export default function SignInPage() {
- const { authenticated, ready, user, getAccessToken } = usePrivy();
- const { sendCode, loginWithCode, state: emailState } = useLoginWithEmail();
- const { initOAuth } = useLoginWithOAuth();
- const router = useRouter();
-
- const bootstrapped = useRef(false);
-
- const [stage, setStage] = useState<Stage>('landing');
- const [loadingLabel, setLoadingLabel] = useState('Please wait…');
- const [errorMessage, setErrorMessage] = useState('');
-
- // Landing form
- const [emailInput, setEmailInput] = useState('');
- const [isSendingCode, setIsSendingCode] = useState(false);
-
- // OTP form
- const [otp, setOtp] = useState('');
- const [isVerifying, setIsVerifying] = useState(false);
- const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
- const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
-
- // Profile
- const [token, setToken] = useState<string | null>(null);
- const [email, setEmail] = useState('');
- const [firstName, setFirstName] = useState('');
- const [lastName, setLastName] = useState('');
- const [isSubmitting, setIsSubmitting] = useState(false);
-
- // Workspace type
- const [workspaceType, setWorkspaceType] = useState<'personal' | 'organization' | null>(null);
- const [orgName, setOrgName] = useState('');
- const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
-  const [iconResult, setIconResult] = useState<PickerResult | undefined>();
-  const [pickerOpen, setPickerOpen] = useState(false);
-
-  // Target
-  const [monthlyTarget, setMonthlyTarget] = useState(10000);
- const [isSavingTarget, setIsSavingTarget] = useState(false);
-
-
- const identity = useMemo(() => getIdentityDetails(user), [user]);
-
- /* ── session helpers ── */
- const finalizeSession = async (accessToken: string) => {
- setStage('loading');
- setLoadingLabel('Please wait…');
- const res = await fetch('/api/auth/session', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ token: accessToken }),
- });
- if (!res.ok) throw new Error('Could not finalize sign-in. Please try again.');
- router.replace('/dashboard');
- };
-
- const bootstrapUser = async () => {
- setErrorMessage('');
- setStage('loading');
- setLoadingLabel('Please wait…');
-
- const accessToken = await getAccessToken();
- if (!accessToken) throw new Error('Unable to get an access token from Privy.');
-
- setToken(accessToken);
- setEmail(identity.email || '');
- setFirstName((p) => p || identity.firstName || '');
- setLastName((p) => p || identity.lastName || '');
-
- const meRes = await fetch(`${backendConfig.apiBaseUrl}/api/auth/me`, {
- headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
- });
-
- if (meRes.status === 404) { setStage('profile'); return; }
- if (!meRes.ok) throw new Error('We could not load your account details.');
-
- const payload = await meRes.json().catch(() => ({}));
- const apiUser = payload?.data?.user;
- setEmail(String(apiUser?.email || identity.email || ''));
- setFirstName(String(apiUser?.firstName || identity.firstName || '').trim());
- setLastName(String(apiUser?.lastName || identity.lastName || '').trim());
- await finalizeSession(accessToken);
- };
-
- useEffect(() => {
- if (!ready) return;
- if (!authenticated) { bootstrapped.current = false; return; }
- if (bootstrapped.current) return;
- bootstrapped.current = true;
-
- void (async () => {
- try { await bootstrapUser(); }
- catch (err: any) { setStage('error'); setErrorMessage(err?.message || 'Sign-in failed. Please try again.'); }
- })();
- }, [authenticated, ready]);
-
- useEffect(() => {
- if (!resendAvailableAt) {
- setResendSecondsLeft(0);
- return;
- }
-
- const tick = () => {
- const remainingSeconds = Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000));
- setResendSecondsLeft(remainingSeconds);
- };
-
- tick();
-
- if (resendAvailableAt <= Date.now()) {
- setResendAvailableAt(null);
- return;
- }
-
- const intervalId = window.setInterval(tick, 1000);
- return () => window.clearInterval(intervalId);
- }, [resendAvailableAt]);
-
- /* ── handlers ── */
- const handleSendCode = async () => {
- const trimmed = emailInput.trim().toLowerCase();
- if (!trimmed || !trimmed.includes('@') || resendSecondsLeft > 0) return;
- setIsSendingCode(true);
- setErrorMessage('');
- try {
- await sendCode({ email: trimmed });
- setResendAvailableAt(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
- setStage('otp');
- } catch (error) {
- setErrorMessage(getAuthErrorMessage(error, 'Could not send code. Please try again.'));
- } finally {
- setIsSendingCode(false);
- }
- };
-
- const handleVerifyOtp = async () => {
- if (otp.trim().length < 6) return;
- setIsVerifying(true);
- setErrorMessage('');
- try {
- await loginWithCode({ code: otp.trim() });
- // authenticated useEffect will fire and run bootstrapUser
- } catch (error) {
- setErrorMessage(getAuthErrorMessage(error, 'Invalid code. Please try again.'));
- setIsVerifying(false);
- }
- };
-
- const handleOAuth = (provider: 'google' | 'apple') => {
- setErrorMessage('');
- initOAuth({ provider });
- };
-
- const submitProfile = async () => {
- if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
- if (!firstName.trim()) { setErrorMessage('First name is required.'); return; }
- if (!email.trim()) { setErrorMessage('No email found from your account provider.'); return; }
- setIsSubmitting(true); setErrorMessage('');
- try {
- const res = await fetch(`${backendConfig.apiBaseUrl}/api/auth/register`, {
- method: 'POST',
- headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
- body: JSON.stringify({ email: email.trim().toLowerCase(), firstName: firstName.trim(), lastName: lastName.trim() }),
- });
- if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your profile.'); }
- setStage('workspace');
- } catch (err: any) {
- setErrorMessage(err?.message || 'Could not save your profile.');
- } finally {
- setIsSubmitting(false);
- }
- };
-
- const handleCreateWorkspace = async () => {
- if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
- if (!workspaceType) { setErrorMessage('Please select a workspace type.'); return; }
- if (workspaceType === 'organization' && !orgName.trim()) { setErrorMessage('Please enter your organization name.'); return; }
- setIsSavingWorkspace(true); setErrorMessage('');
-  try {
-  const wsName = workspaceType === 'personal'
-  ? `${firstName.trim()}'s Workspace`
-  : orgName.trim();
-  const iconStr = iconResult
-    ? (iconResult.type === 'emoji' ? `emoji:${iconResult.value}` : `icon:${iconResult.value}:${iconResult.color}`)
-    : 'emoji:🚀';
-  const res = await fetch(`${backendConfig.apiBaseUrl}/api/workspaces`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-  body: JSON.stringify({ name: wsName, type: workspaceType, icon: iconStr }),
-  });
- if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not create workspace.'); }
- setStage('target');
- } catch (err: any) {
- setErrorMessage(err?.message || 'Could not create workspace.');
- } finally {
- setIsSavingWorkspace(false);
- }
- };
-
- const handleSaveTarget = async () => {
- if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
- setIsSavingTarget(true); setErrorMessage('');
- try {
- const res = await fetch(`${backendConfig.apiBaseUrl}/api/users/profile`, {
- method: 'PATCH',
- headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
- body: JSON.stringify({ monthlyTarget }),
- });
- if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your target.'); }
- } catch (err: any) {
- setErrorMessage(err?.message || 'Could not save your target.');
- setIsSavingTarget(false);
- return;
- }
- setIsSavingTarget(false);
- setStage('bank');
- };
-
- /* ── layout shell ── */
- return (
- <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-surface)] px-6 py-16">
- <div className={`w-full ${stage === 'bank' ? 'max-w-[620px]' : 'max-w-[340px]'}`}>
-
- {/* Logo mark */}
- <div className="mb-5">
- <HedwigLogo width={32} height={32} priority />
- </div>
-
- {/* ── Landing ── */}
- {stage === 'landing' && (
- <div>
- <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Welcome</h1>
- <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
- Sign in to manage your invoices, payments, and clients.
- </p>
-
- <div className="mt-8 space-y-3">
- {/* Google */}
- <Button
- variant="outline"
- size="default"
- onClick={() => handleOAuth('google')}
- className="w-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
- >
- <span className="flex w-full items-center">
- <span className="flex w-11 justify-start pl-3">
- <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">
- <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
- <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
- <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/>
- <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
- </svg>
- </span>
- <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Google</span>
- <span className="w-11" />
- </span>
- </Button>
-
- {/* Apple */}
- <Button
- variant="outline"
- size="default"
- onClick={() => handleOAuth('apple')}
- className="w-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
- >
- <span className="flex w-full items-center">
- <span className="flex w-11 justify-start pl-3">
- <svg width="18" height="22" viewBox="0 0 42 51" fill="none" className="shrink-0 text-[var(--color-foreground)]">
- <path d="M40.2 17.4c-3.4 2.1-5.5 5.7-5.5 9.7 0 4.5 2.7 8.6 6.8 10.3-.8 2.6-2 5-3.5 7.2-2.2 3.1-4.5 6.3-7.9 6.3s-4.4-2-8.4-2c-3.9 0-5.3 2.1-8.5 2.1s-5.4-2.9-7.9-6.5C2 39.5.1 33.7 0 27.6 0 17.7 6.4 12.4 12.8 12.4c3.4 0 6.2 2.2 8.3 2.2 2 0 5.2-2.3 9-2.3 4.1 0 7.9 1.9 10.1 5.1zM28.3 8.1C30 6.1 30.9 3.6 31 1c0-.3 0-.7-.1-1-2.9.3-5.6 1.7-7.5 3.9-1.7 1.9-2.7 4.3-2.8 6.9 0 .3 0 .6.1.9.2 0 .5.1.7.1C24.1 11.6 26.6 10.2 28.3 8.1z" fill="currentColor" />
- </svg>
- </span>
- <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Apple</span>
- <span className="w-11" />
- </span>
- </Button>
-
- </div>
-
- {/* Divider */}
- <div className="my-6 flex items-center gap-3">
- <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
- <span className="text-[12px] text-[var(--color-text-placeholder)]">or</span>
- <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
- </div>
-
- {/* Email */}
- <div className="space-y-3">
- <div>
- <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email</label>
- <Input
- type="email"
- autoComplete="email"
- placeholder="you@example.com"
- value={emailInput}
- onChange={(e) => setEmailInput(e.target.value)}
- onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
- className="h-10 rounded-xl"
- />
- </div>
-
- {errorMessage && (
- <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
- {errorMessage}
- </p>
- )}
-
- <Button
- variant="default"
- size="default"
- disabled={isSendingCode || !emailInput.trim()}
- onClick={handleSendCode}
- className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
- >
- {isSendingCode ? 'Sending…' : 'Continue'}
- </Button>
- </div>
-
- <p className="mt-6 text-center text-[12px] text-[var(--color-text-placeholder)]">
- By continuing, you agree to our{' '}
- <a href="/terms" className="underline hover:text-[var(--color-text-tertiary)]">Terms</a>
- {' & '}
- <a href="/privacy" className="underline hover:text-[var(--color-text-tertiary)]">Privacy</a>.
- </p>
- </div>
- )}
-
- {/* ── OTP ── */}
- {stage === 'otp' && (
- <div>
- <Button
- variant="ghost"
- size="sm"
- onClick={() => { setStage('landing'); setOtp(''); setErrorMessage(''); }}
- className="mb-6"
- >
- <CaretLeft className="h-3.5 w-3.5" weight="bold" />
- Back
- </Button>
-
- <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Check your inbox</h1>
- <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
- We sent a 6-digit code to{' '}
- <span className="font-medium text-[var(--color-text-secondary)]">{emailInput}</span>.
- </p>
-
- <div className="mt-8 space-y-3">
- <div>
- <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Verification code</label>
- <Input
- type="text"
- inputMode="numeric"
- autoComplete="one-time-code"
- maxLength={6}
- placeholder="000000"
- value={otp}
- onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
- onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
- autoFocus
- className="h-10 text-center text-[18px] font-semibold tracking-[0.2em] rounded-xl"
- />
- </div>
-
- {errorMessage && (
- <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
- {errorMessage}
- </p>
- )}
-
- <Button
- variant="default"
- size="default"
- disabled={isVerifying || otp.length < 6}
- onClick={handleVerifyOtp}
- className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
- >
- {isVerifying ? 'Verifying…' : 'Continue'}
- </Button>
-
- <Button
- variant="secondary"
- size="default"
- onClick={handleSendCode}
- disabled={isSendingCode || resendSecondsLeft > 0}
- className="w-full"
- >
- {isSendingCode
- ? 'Sending…'
- : resendSecondsLeft > 0
- ? `Resend code in ${resendSecondsLeft}s`
- : 'Resend code'}
- </Button>
- </div>
- </div>
- )}
-
- {/* ── Loading ── */}
- {stage === 'loading' && (
- <div className="flex flex-col items-center gap-6 py-12">
- <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]" role="status" aria-label="Loading" />
- </div>
- )}
-
- {/* ── Error ── */}
- {stage === 'error' && (
- <div>
- <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Something went wrong</h1>
- <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">{errorMessage || 'Please try again.'}</p>
- <Button
- variant="default"
- size="default"
- onClick={() => { setStage('landing'); setErrorMessage(''); }}
- className="mt-8 w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
- >
- Try again
- </Button>
- </div>
- )}
-
- {/* ── Profile ── */}
- {stage === 'profile' && (
- <div>
- <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Tell us about yourself</h1>
- <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">This helps Hedwig prepare client-ready documents with your name.</p>
-
- <div className="mt-8 space-y-4">
- <div className="grid grid-cols-2 gap-3">
- <div>
- <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">First name</label>
- <Input
- value={firstName}
- onChange={(e) => setFirstName(e.target.value)}
- placeholder="First"
- className="h-10 rounded-xl"
- />
- </div>
- <div>
- <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Last name</label>
- <Input
- value={lastName}
- onChange={(e) => setLastName(e.target.value)}
- placeholder="Last"
- className="h-10 rounded-xl"
- />
- </div>
- </div>
-
- <div>
- <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email</label>
- <Input
- value={email}
- disabled
- className="h-10 rounded-xl bg-[var(--color-background)] text-[var(--color-text-muted)]"
- />
- </div>
-
- {errorMessage && (
- <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
- {errorMessage}
- </p>
- )}
-
- <Button
- variant="default"
- size="default"
- disabled={isSubmitting}
- onClick={submitProfile}
- className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
- >
- {isSubmitting ? 'Saving…' : 'Continue'}
- </Button>
-
- <p className="text-center text-[12px] text-[var(--color-text-placeholder)]">Step 1 of 4</p>
- </div>
- </div>
- )}
-
- {/* ── Workspace type ── */}
- {stage === 'workspace' && (
- <div>
- <Button
- variant="ghost"
- size="sm"
- onClick={() => { setStage('profile'); setErrorMessage(''); }}
- className="mb-6"
- >
- <CaretLeft className="h-3.5 w-3.5" weight="bold" />
- Back
- </Button>
-
- <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">How will you use Hedwig?</h1>
- <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
- Choose the workspace type that fits how you work.
- </p>
-
- <div className="mt-8 space-y-3">
- <button
- type="button"
- onClick={() => { setWorkspaceType('personal'); setOrgName(''); setErrorMessage(''); }}
- className={`w-full rounded-2xl border px-5 py-4 text-left shadow-xs transition-all ${
- workspaceType === 'personal'
- ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
- : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
- }`}
- >
- <div className="flex items-start gap-4">
- <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
- workspaceType === 'personal'
- ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
- : 'border-[var(--color-text-placeholder)]'
- }`}>
- {workspaceType === 'personal' && (
- <svg width="9" height="7" viewBox="0 0 10 8" fill="none">
- <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
- </svg>
- )}
- </div>
- <div className="min-w-0">
- <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Personal</p>
- <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
- Just you — manage your own invoices, payments, and client relationships.
- </p>
- </div>
- </div>
- </button>
-
- <button
- type="button"
- onClick={() => { setWorkspaceType('organization'); setErrorMessage(''); }}
- className={`w-full rounded-2xl border px-5 py-4 text-left shadow-xs transition-all ${
- workspaceType === 'organization'
- ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
- : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
- }`}
- >
- <div className="flex items-start gap-4">
- <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
- workspaceType === 'organization'
- ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
- : 'border-[var(--color-text-placeholder)]'
- }`}>
- {workspaceType === 'organization' && (
- <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
- <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
- </svg>
- )}
- </div>
- <div className="min-w-0">
- <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Organization</p>
- <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
- A team or business — collaborate with colleagues, manage roles, and scale.
- </p>
- </div>
- </div>
- </button>
-
- {workspaceType === 'organization' && (
- <div className="pt-2">
- <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">
- Organization name
- </label>
- <Input
- value={orgName}
- onChange={(e) => setOrgName(e.target.value)}
- placeholder="e.g. Acme Inc."
- autoFocus
- className="h-10 rounded-xl"
- />
- </div>
- )}
-
-  {workspaceType && (
-  <div className="pt-2">
-  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Icon</label>
-  <div className="relative inline-block">
-  <button
-  type="button"
-  onClick={() => setPickerOpen(p => !p)}
-  className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-border-light)] transition hover:bg-[var(--color-surface-tertiary)]"
-  >
-  {iconResult ? (
-    iconResult.type === 'emoji' ? (
-      <span className="text-[22px]">{iconResult.value}</span>
-    ) : (
-      <div className="h-5 w-5" style={{ color: iconResult.color }}>■</div>
-    )
-  ) : (
-    <span className="text-[22px]">🚀</span>
-  )}
-  </button>
-  {pickerOpen && (
-  <div className="fixed inset-0 z-[200] flex items-center justify-center">
-  <div className="fixed inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={() => setPickerOpen(false)} />
-  <div className="relative">
-  <IconEmojiPicker
-  onSelect={(result) => { setIconResult(result); setPickerOpen(false); }}
-  onClose={() => setPickerOpen(false)}
-  />
-  </div>
-  </div>
-  )}
-  </div>
-  </div>
-  )}
-
- {errorMessage && (
- <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
- {errorMessage}
- </p>
- )}
-
- <Button
- variant="default"
- size="default"
- disabled={isSavingWorkspace || !workspaceType || (workspaceType === 'organization' && !orgName.trim())}
- onClick={handleCreateWorkspace}
- className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
- >
- {isSavingWorkspace ? 'Creating…' : 'Continue'}
- </Button>
- </div>
-
- <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 2 of 4</p>
- </div>
- )}
-
- {/* ── Target ── */}
- {stage === 'target' && (
- <div>
- <Button
- variant="ghost"
- size="sm"
- onClick={() => { setStage('workspace'); setErrorMessage(''); }}
- className="mb-6"
- >
- <CaretLeft className="h-3.5 w-3.5" weight="bold" />
- Back
- </Button>
-
- <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Set a monthly goal</h1>
- <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
- This helps you track your earnings. You can always change it later.
- </p>
-
- <div className="mt-8 space-y-4">
- <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
- <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">
- Monthly target (USD)
- </p>
- <div className="mt-3 flex items-center justify-center gap-3">
- <Button
- variant="default"
- size="sm"
- onClick={() => setMonthlyTarget((p) => Math.max(0, p - 500))}
- className="h-10 w-10 bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
- >
- <svg width="16" height="2" viewBox="0 0 16 2" fill="none">
- <path d="M1 1h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
- </svg>
- </Button>
- <div className="min-w-[140px] text-center">
- <p className="text-[36px] font-light leading-none tracking-[-0.03em] text-[var(--color-foreground)]">
- {monthlyTarget.toLocaleString('en-US')}
- </p>
- <p className="mt-1 text-[11px] font-semibold text-[var(--color-text-muted)]">USD/month</p>
- </div>
- <Button
- variant="default"
- size="sm"
- onClick={() => setMonthlyTarget((p) => p + 500)}
- className="h-10 w-10 bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
- >
- <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
- <path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
- </svg>
- </Button>
- </div>
- <div className="mt-4 flex justify-center gap-2">
- {[
- { label: 'Starter', value: 1000 },
- { label: 'Growing', value: 5000 },
- { label: 'Established', value: 10000 },
- ].map((preset) => (
- <Button
- key={preset.label}
- variant={monthlyTarget === preset.value ? 'default' : 'secondary'}
- size="sm"
- onClick={() => setMonthlyTarget(preset.value)}
- className=""
- >
- {preset.label}
- </Button>
- ))}
- </div>
- </div>
-
- {errorMessage && (
- <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
- {errorMessage}
- </p>
- )}
-
- <Button
- variant="default"
- size="default"
- disabled={isSavingTarget}
- onClick={handleSaveTarget}
- className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
- >
- {isSavingTarget ? 'Saving…' : 'Continue'}
- </Button>
-
- <Button
- variant="secondary"
- size="default"
- onClick={() => { setErrorMessage(''); setStage('bank'); }}
- className="w-full"
- >
- Skip for now
- </Button>
- </div>
-
- <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 3 of 4</p>
- </div>
- )}
-
- {/* ── Bank account ── */}
- {stage === 'bank' && (
- <div>
- <div className="mb-6 text-center">
- <span className="inline-flex rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--color-primary)]">
- Final step
- </span>
- <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">
- Add your payout bank
- </h1>
- <p className="mt-2 text-[13px] leading-5 text-[var(--color-text-tertiary)]">
- This lets clients see exactly where to pay you by bank transfer. You can skip this for now,
- but adding it now makes your first invoice ready to send.
- </p>
- </div>
-
- <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
- <BankAccountForm
- accessToken={token}
- initial={null}
- isFirstAccount
- showHeader={false}
- submitLabel="Save and continue"
- onSaved={() => {
- if (token) void finalizeSession(token);
- }}
- />
- </div>
-
- <div className="mt-4 flex items-center justify-between gap-3">
- <Button
- variant="secondary"
- size="default"
- onClick={() => setStage('target')}
- >
- <CaretLeft className="h-3.5 w-3.5" weight="bold" />
- Back
- </Button>
- <Button
- variant="ghost"
- size="default"
- onClick={() => {
- if (token) void finalizeSession(token);
- }}
- >
- Skip for now
- </Button>
- </div>
-
- <p className="mt-4 text-center text-[12px] text-[var(--color-text-placeholder)]">Step 4 of 4</p>
- </div>
- )}
-
- </div>
- </main>
- );
+  const { authenticated, ready, user, getAccessToken } = usePrivy();
+  const { sendCode, loginWithCode } = useLoginWithEmail();
+  const { initOAuth } = useLoginWithOAuth();
+  const router = useRouter();
+  const posthog = usePostHog();
+
+  const bootstrapped = useRef(false);
+
+  const [stage, setStage] = useState<Stage>('landing');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Landing form
+  const [emailInput, setEmailInput] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+
+  // OTP form
+  const [otp, setOtp] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+
+  // Session token
+  const [token, setToken] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  // Workspace type
+  const [workspaceType, setWorkspaceType] = useState<'personal' | 'organization' | null>(null);
+  const [orgName, setOrgName] = useState('');
+  const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
+
+  const identity = useMemo(() => getIdentityDetails(user), [user]);
+
+  /* ── session helpers ── */
+  const finalizeSession = async (accessToken: string, isNewUser: boolean) => {
+    setStage('loading');
+    const res = await fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: accessToken }),
+    });
+    if (!res.ok) throw new Error('Could not finalize sign-in. Please try again.');
+    posthog?.capture?.(isNewUser ? 'signup_completed' : 'signin_completed', {});
+    router.replace('/dashboard');
+  };
+
+  const bootstrapUser = async () => {
+    setErrorMessage('');
+    setStage('loading');
+
+    const accessToken = await getAccessToken();
+    if (!accessToken) throw new Error('Unable to get an access token from Privy.');
+
+    setToken(accessToken);
+    setEmail(identity.email || '');
+    setFirstName((p) => p || identity.firstName || '');
+    setLastName((p) => p || identity.lastName || '');
+
+    const meRes = await fetch(`${backendConfig.apiBaseUrl}/api/auth/me`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+    });
+
+    // New user — go straight to workspace choice
+    if (meRes.status === 404) {
+      posthog?.capture?.('signup_started', {});
+      setStage('workspace');
+      return;
+    }
+    if (!meRes.ok) throw new Error('We could not load your account details.');
+
+    const payload = await meRes.json().catch(() => ({}));
+    const apiUser = payload?.data?.user;
+    setEmail(String(apiUser?.email || identity.email || ''));
+    setFirstName(String(apiUser?.firstName || identity.firstName || '').trim());
+    setLastName(String(apiUser?.lastName || identity.lastName || '').trim());
+    await finalizeSession(accessToken, false);
+  };
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!authenticated) { bootstrapped.current = false; return; }
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+
+    void (async () => {
+      try { await bootstrapUser(); }
+      catch (err: any) { setStage('error'); setErrorMessage(err?.message || 'Sign-in failed. Please try again.'); }
+    })();
+  }, [authenticated, ready]);
+
+  useEffect(() => {
+    if (!resendAvailableAt) {
+      setResendSecondsLeft(0);
+      return;
+    }
+
+    const tick = () => {
+      const remainingSeconds = Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000));
+      setResendSecondsLeft(remainingSeconds);
+    };
+
+    tick();
+
+    if (resendAvailableAt <= Date.now()) {
+      setResendAvailableAt(null);
+      return;
+    }
+
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [resendAvailableAt]);
+
+  /* ── handlers ── */
+  const handleSendCode = async () => {
+    const trimmed = emailInput.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@') || resendSecondsLeft > 0) return;
+    setIsSendingCode(true);
+    setErrorMessage('');
+    posthog?.capture?.('email_sent', { email: trimmed });
+    try {
+      await sendCode({ email: trimmed });
+      setResendAvailableAt(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
+      setStage('otp');
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error, 'Could not send code. Please try again.'));
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.trim().length < 6) return;
+    setIsVerifying(true);
+    setErrorMessage('');
+    try {
+      await loginWithCode({ code: otp.trim() });
+      // authenticated useEffect will fire and run bootstrapUser
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error, 'Invalid code. Please try again.'));
+      setIsVerifying(false);
+    }
+  };
+
+  const handleOAuth = (provider: 'google' | 'apple') => {
+    setErrorMessage('');
+    posthog?.capture?.('oauth_started', { provider });
+    initOAuth({ provider });
+  };
+
+  const handleCreateWorkspace = async () => {
+    if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
+    if (!workspaceType) { setErrorMessage('Please select a workspace type.'); return; }
+    if (workspaceType === 'organization' && !orgName.trim()) { setErrorMessage('Please enter your organization name.'); return; }
+    setIsSavingWorkspace(true); setErrorMessage('');
+    try {
+      const wsName = workspaceType === 'personal'
+        ? `${firstName.trim()}'s Workspace`
+        : orgName.trim();
+      const res = await fetch(`${backendConfig.apiBaseUrl}/api/workspaces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: wsName, type: workspaceType }),
+      });
+      if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not create workspace.'); }
+      posthog?.capture?.('workspace_created', { type: workspaceType });
+      posthog?.capture?.('account_type_chosen', { type: workspaceType });
+      await finalizeSession(token, true);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Could not create workspace.');
+    } finally {
+      setIsSavingWorkspace(false);
+    }
+  };
+
+  /* ── layout shell ── */
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-surface)] px-6 py-16">
+      <div className="w-full max-w-[340px]">
+
+        {/* Logo mark */}
+        <div className="mb-5">
+          <HedwigLogo width={32} height={32} priority />
+        </div>
+
+        {/* ── Landing ── */}
+        {stage === 'landing' && (
+          <div>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Welcome</h1>
+            <p className="mt-2 text-[13px] text-[var(--color-text-tertiary)]">
+              Sign in to manage your invoices, payments, and clients.
+            </p>
+
+            <div className="mt-8 space-y-3">
+              {/* Google */}
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => handleOAuth('google')}
+                className="w-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
+              >
+                <span className="flex w-full items-center">
+                  <span className="flex w-11 justify-start pl-3">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">
+                      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
+                      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
+                      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/>
+                      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
+                    </svg>
+                  </span>
+                  <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Google</span>
+                  <span className="w-11" />
+                </span>
+              </Button>
+
+              {/* Apple */}
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => handleOAuth('apple')}
+                className="w-full bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] border-[var(--color-border)] h-10"
+              >
+                <span className="flex w-full items-center">
+                  <span className="flex w-11 justify-start pl-3">
+                    <svg width="18" height="22" viewBox="0 0 42 51" fill="none" className="shrink-0 text-[var(--color-foreground)]">
+                      <path d="M40.2 17.4c-3.4 2.1-5.5 5.7-5.5 9.7 0 4.5 2.7 8.6 6.8 10.3-.8 2.6-2 5-3.5 7.2-2.2 3.1-4.5 6.3-7.9 6.3s-4.4-2-8.4-2c-3.9 0-5.3 2.1-8.5 2.1s-5.4-2.9-7.9-6.5C2 39.5.1 33.7 0 27.6 0 17.7 6.4 12.4 12.8 12.4c3.4 0 6.2 2.2 8.3 2.2 2 0 5.2-2.3 9-2.3 4.1 0 7.9 1.9 10.1 5.1zM28.3 8.1C30 6.1 30.9 3.6 31 1c0-.3 0-.7-.1-1-2.9.3-5.6 1.7-7.5 3.9-1.7 1.9-2.7 4.3-2.8 6.9 0 .3 0 .6.1.9.2 0 .5.1.7.1C24.1 11.6 26.6 10.2 28.3 8.1z" fill="currentColor" />
+                    </svg>
+                  </span>
+                  <span className="flex-1 text-center text-[14px] font-medium text-[var(--color-foreground)]">Continue with Apple</span>
+                  <span className="w-11" />
+                </span>
+              </Button>
+
+            </div>
+
+            {/* Divider */}
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
+              <span className="text-[12px] text-[var(--color-text-placeholder)]">or</span>
+              <div className="h-px flex-1 bg-[var(--color-surface-tertiary)]" />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Email</label>
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+
+              {errorMessage && (
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                  {errorMessage}
+                </p>
+              )}
+
+              <Button
+                variant="default"
+                size="default"
+                disabled={isSendingCode || !emailInput.trim()}
+                onClick={handleSendCode}
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+              >
+                {isSendingCode ? 'Sending…' : 'Continue'}
+              </Button>
+            </div>
+
+            <p className="mt-6 text-center text-[12px] text-[var(--color-text-placeholder)]">
+              By continuing, you agree to our{' '}
+              <a href="/terms" className="underline hover:text-[var(--color-text-tertiary)]">Terms</a>
+              {' & '}
+              <a href="/privacy" className="underline hover:text-[var(--color-text-tertiary)]">Privacy</a>.
+            </p>
+          </div>
+        )}
+
+        {/* ── OTP ── */}
+        {stage === 'otp' && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setStage('landing'); setOtp(''); setErrorMessage(''); }}
+              className="mb-6"
+            >
+              <CaretLeft className="h-3.5 w-3.5" weight="bold" />
+              Back
+            </Button>
+
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Check your inbox</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
+              We sent a 6-digit code to{' '}
+              <span className="font-medium text-[var(--color-text-secondary)]">{emailInput}</span>.
+            </p>
+
+            <div className="mt-8 space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Verification code</label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
+                  autoFocus
+                  className="h-10 text-center text-[18px] font-semibold tracking-[0.2em] rounded-xl"
+                />
+              </div>
+
+              {errorMessage && (
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                  {errorMessage}
+                </p>
+              )}
+
+              <Button
+                variant="default"
+                size="default"
+                disabled={isVerifying || otp.length < 6}
+                onClick={handleVerifyOtp}
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+              >
+                {isVerifying ? 'Verifying…' : 'Continue'}
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="default"
+                onClick={handleSendCode}
+                disabled={isSendingCode || resendSecondsLeft > 0}
+                className="w-full"
+              >
+                {isSendingCode
+                  ? 'Sending…'
+                  : resendSecondsLeft > 0
+                  ? `Resend code in ${resendSecondsLeft}s`
+                  : 'Resend code'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Loading ── */}
+        {stage === 'loading' && (
+          <div className="flex flex-col items-center gap-6 py-12">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]" role="status" aria-label="Loading" />
+          </div>
+        )}
+
+        {/* ── Error ── */}
+        {stage === 'error' && (
+          <div>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">Something went wrong</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">{errorMessage || 'Please try again.'}</p>
+            <Button
+              variant="default"
+              size="default"
+              onClick={() => { setStage('landing'); setErrorMessage(''); }}
+              className="mt-8 w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+            >
+              Try again
+            </Button>
+          </div>
+        )}
+
+        {/* ── Workspace type (only step for new users) ── */}
+        {stage === 'workspace' && (
+          <div>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--color-foreground)]">How will you use Hedwig?</h1>
+            <p className="mt-1.5 text-[14px] text-[var(--color-text-muted)]">
+              Choose the workspace type that fits how you work.
+            </p>
+
+            <div className="mt-8 space-y-3">
+              <button
+                type="button"
+                onClick={() => { setWorkspaceType('personal'); setOrgName(''); setErrorMessage(''); }}
+                className={`w-full rounded-2xl border px-5 py-4 text-left shadow-xs transition-all ${
+                  workspaceType === 'personal'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                    workspaceType === 'personal'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
+                      : 'border-[var(--color-text-placeholder)]'
+                  }`}>
+                    {workspaceType === 'personal' && (
+                      <svg width="9" height="7" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Personal</p>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
+                      Invoicing and payments for individuals
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setWorkspaceType('organization'); setErrorMessage(''); }}
+                className={`w-full rounded-2xl border px-5 py-4 text-left shadow-xs transition-all ${
+                  workspaceType === 'organization'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-accent-soft)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                    workspaceType === 'organization'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
+                      : 'border-[var(--color-text-placeholder)]'
+                  }`}>
+                    {workspaceType === 'organization' && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Organization</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
+                      Adds payroll and team workspace features
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {workspaceType === 'organization' && (
+                <div className="pt-2">
+                  <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">
+                    Organization name
+                  </label>
+                  <Input
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    placeholder="e.g. Acme Inc."
+                    autoFocus
+                    className="h-10 rounded-xl"
+                  />
+                </div>
+              )}
+
+              {errorMessage && (
+                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
+                  {errorMessage}
+                </p>
+              )}
+
+              <Button
+                variant="default"
+                size="default"
+                disabled={isSavingWorkspace || !workspaceType || (workspaceType === 'organization' && !orgName.trim())}
+                onClick={handleCreateWorkspace}
+                className="w-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] h-10 text-[14px]"
+              >
+                {isSavingWorkspace ? 'Creating…' : 'Get started'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </main>
+  );
 }

@@ -129,6 +129,12 @@ export const SchedulerService = {
                 .catch((e) => logger.error('onboarding-nudges lock error', { error: e?.message }));
         });
 
+        // Post-signup nudge sequence — hourly.
+        cron.schedule('50 * * * *', () => {
+            withLock('post-signup-nudges', hourlyLockTtl, () => this.sendPostSignupNudgeSequence())
+                .catch((e) => logger.error('post-signup-nudges lock error', { error: e?.message }));
+        });
+
         // Founder conversion research — daily at noon.
         cron.schedule('0 12 * * *', () => {
             withLock('conversion-research-nudges', dailyLockTtl, () => this.sendConversionResearchNudges())
@@ -1287,6 +1293,118 @@ export const SchedulerService = {
             });
         } catch (error: any) {
             logger.error('Error in sendOnboardingIncompleteNudges', { error: error?.message });
+        }
+    },
+
+    async sendPostSignupNudgeSequence() {
+        try {
+            const now = Date.now();
+            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+            const windowStart = new Date(now - 14 * ONE_DAY_MS).toISOString();
+            const windowEnd = new Date(now - ONE_DAY_MS).toISOString();
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, created_at, last_login, last_app_opened_at, last_post_signup_nudge_at, post_signup_nudge_day')
+                .gte('created_at', windowStart)
+                .lte('created_at', windowEnd)
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for post-signup nudges', { error: error.message });
+                return;
+            }
+            if (!users || users.length === 0) {
+                logger.debug('No users in post-signup nudge window');
+                return;
+            }
+
+            const eligible: any[] = [];
+            for (const user of users) {
+                const daysSinceSignup = Math.floor((now - new Date(user.created_at).getTime()) / ONE_DAY_MS);
+                const lastNudgeDay = user.post_signup_nudge_day || 0;
+
+                // Determine which nudge day they're due for
+                let dueDay: number | null = null;
+                if (daysSinceSignup >= 1 && daysSinceSignup <= 3 && lastNudgeDay < 1) dueDay = 1;
+                else if (daysSinceSignup >= 4 && daysSinceSignup <= 6 && lastNudgeDay < 4) dueDay = 4;
+                else if (daysSinceSignup >= 7 && daysSinceSignup <= 13 && lastNudgeDay < 7) dueDay = 7;
+                else if (daysSinceSignup >= 14 && lastNudgeDay < 14) dueDay = 14;
+
+                if (dueDay) {
+                    eligible.push({ ...user, dueDay, daysSinceSignup });
+                }
+            }
+
+            if (eligible.length === 0) {
+                logger.debug('No users eligible for post-signup nudges');
+                return;
+            }
+
+            logger.info('Sending post-signup nudges', { count: eligible.length });
+
+            await processInBatches(eligible, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const { count: docCount } = await supabase
+                        .from('documents')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', user.id)
+                        .in('type', ['INVOICE', 'PAYMENT_LINK', 'invoice', 'payment_link']);
+
+                    const hasDocument = (docCount ?? 0) > 0;
+
+                    const { count: paidCount } = await supabase
+                        .from('documents')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', user.id)
+                        .eq('status', 'paid');
+
+                    const hasPayment = (paidCount ?? 0) > 0;
+
+                    // Segment determination
+                    const hasLoggedIn = !!user.last_login || !!user.last_app_opened_at;
+                    let segment: 'a_never_opened' | 'b_incomplete' | 'c_no_transaction';
+                    if (!hasLoggedIn && !hasDocument) segment = 'a_never_opened';
+                    else if (!hasDocument) segment = 'b_incomplete';
+                    else segment = 'c_no_transaction';
+
+                    // Day 14: send to all segments regardless
+                    const effectiveDay = user.dueDay as 1 | 4 | 7 | 14;
+                    if (effectiveDay === 14) {
+                        segment = 'c_no_transaction'; // All segments get the same day 14 email
+                    }
+
+                    const firstName = String(user.first_name || '').trim();
+
+                    if (user.email) {
+                        await EmailService.sendPostSignupNudgeEmail({
+                            to: user.email,
+                            firstName,
+                            day: effectiveDay,
+                            segment,
+                        });
+                    }
+
+                    await supabase
+                        .from('users')
+                        .update({
+                            last_post_signup_nudge_at: new Date().toISOString(),
+                            post_signup_nudge_day: effectiveDay,
+                        })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'post_signup_nudge_sent', {
+                        user_id: user.id,
+                        day: effectiveDay,
+                        segment,
+                        channel: user.email ? 'email' : 'none',
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send post-signup nudge for user', { userId: user.id, error: err?.message });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Error in sendPostSignupNudgeSequence', { error: error?.message });
         }
     },
 

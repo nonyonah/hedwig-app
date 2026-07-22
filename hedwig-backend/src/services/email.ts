@@ -1351,6 +1351,116 @@ export const EmailService = {
         }
     },
 
+    async sendPostSignupNudgeEmail(data: {
+        to: string;
+        firstName: string;
+        day: 1 | 4 | 7 | 14;
+        segment: 'a_never_opened' | 'b_incomplete' | 'c_no_transaction';
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping post-signup nudge email.');
+            return false;
+        }
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = data.firstName || 'there';
+
+        const dayConfig: Record<number, {
+            subject: string;
+            subjectLine: string;
+            body: string;
+            cta: string;
+            ctaUrl: string;
+            from: string;
+            fromName: string;
+        }> = {
+            1: {
+                subject: `Your Hedwig account is ready`,
+                subjectLine: `Hey ${name}, your Hedwig account is ready 👋`,
+                body: `You're all set up. Takes about 2 minutes to get started.`,
+                cta: 'Get started',
+                ctaUrl: `${APP_URL}/dashboard`,
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
+                fromName: 'Hedwig',
+            },
+            4: {
+                subject: 'Pick up where you left off',
+                subjectLine: `Hey ${name}, pick up where you left off`,
+                body: `You were getting started with Hedwig. Want to finish setting up?`,
+                cta: 'Resume setup',
+                ctaUrl: `${APP_URL}/dashboard`,
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
+                fromName: 'Hedwig',
+            },
+            7: {
+                subject: 'Try it with a real one',
+                subjectLine: `Hey ${name}, try it with a real one`,
+                body: `Your account is ready to go. Send a real invoice or payment link and see how it works.`,
+                cta: 'Send your first invoice',
+                ctaUrl: `${APP_URL}/dashboard`,
+                from: 'Hedwig <team@hedwig.riftlabs.xyz>',
+                fromName: 'Hedwig',
+            },
+            14: {
+                subject: "What's missing?",
+                subjectLine: `Hey ${name}, what's missing?`,
+                body: `No pressure, but if something didn't work or you're not sure how to use Hedwig, just reply and tell me. I read these myself.`,
+                cta: 'Reply to this email',
+                ctaUrl: `mailto:nonso@hedwig.riftlabs.xyz`,
+                from: 'Nonso from Hedwig <nonso@hedwig.riftlabs.xyz>',
+                fromName: 'Nonso from Hedwig',
+            },
+        };
+
+        const config = dayConfig[data.day] || dayConfig[1];
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${config.subject}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">${config.subject}</p>
+                    <h1 class="heading">${config.subjectLine}</h1>
+                    <p class="description">${config.body}</p>
+                    <div class="btn-container">
+                        <a href="${config.ctaUrl}" class="btn">${config.cta}</a>
+                    </div>
+                    <hr class="divider" />
+                    <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">You're receiving this because you created a Hedwig account. If you'd rather not hear from us, you can ignore this email.</p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: config.from,
+                to: [data.to],
+                subject: config.subject,
+                html,
+            });
+            logger.info('Post-signup nudge email sent', { to: data.to, day: data.day, segment: data.segment });
+            return true;
+        } catch (error) {
+            logger.error('Post-signup nudge email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+                day: data.day,
+            });
+            return false;
+        }
+    },
+
     /**
      * Notify the user via email about a Circle Gateway event (deposit
      * finalized, transfer in flight, transfer delivered). Acts as the push

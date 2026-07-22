@@ -2,20 +2,21 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
 import {
- ArrowRight,
- Bell,
- CalendarDots,
- ChartBar,
- CheckCircle,
- CurrencyDollar,
- FileText,
- IdentificationCard,
- Link as LinkIcon,
- Repeat,
- Sparkle,
- UsersThree,
- X
+  ArrowRight,
+  Bell,
+  CalendarDots,
+  ChartBar,
+  CheckCircle,
+  CurrencyDollar,
+  FileText,
+  IdentificationCard,
+  Link as LinkIcon,
+  Repeat,
+  Sparkle,
+  UsersThree,
+  X
 } from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
@@ -26,9 +27,12 @@ import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
+import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { MemberWelcomeBanner } from '@/components/workspace/member-welcome-banner';
 import { PendingInvitationBanner } from '@/components/workspace/pending-invitation-banner';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
+import { OnboardingActions } from '@/components/onboarding/onboarding-actions';
+import { ProfileCompletionNudge } from '@/components/onboarding/profile-completion-nudge';
 
 type DashboardData = {
  totals: {
@@ -76,25 +80,31 @@ function getTimeOfDayGreeting(hour: number) {
 }
 
 export function DashboardClient({
- greetingName,
- userKey,
- data,
- billing,
- isDemo = false,
+  greetingName,
+  userKey,
+  data,
+  billing,
+  isDemo = false,
+  firstName,
+  lastName,
 }: {
- greetingName: string;
- userKey: string;
- data: DashboardData;
- billing: BillingStatusSummary | null;
- isDemo?: boolean;
+  greetingName: string;
+  userKey: string;
+  data: DashboardData;
+  billing: BillingStatusSummary | null;
+  isDemo?: boolean;
+  firstName?: string;
+  lastName?: string;
 }) {
- const { currency, formatAmount } = useCurrency();
- useAssistantPageContext('Dashboard', {
- inflow: data?.totals?.inflowUsd,
- outstanding: data?.totals?.outstandingUsd,
- projectCount: data?.projects?.length,
- invoiceCount: data?.invoices?.length,
- });
+  const { currency, formatAmount } = useCurrency();
+  const posthog = usePostHog();
+  const { activeWorkspace } = useWorkspaceContext();
+  useAssistantPageContext('Dashboard', {
+    inflow: data?.totals?.inflowUsd,
+    outstanding: data?.totals?.outstandingUsd,
+    projectCount: data?.projects?.length,
+    invoiceCount: data?.invoices?.length,
+  });
  const [hour, setHour] = useState(() => new Date().getHours());
  const [showCoreIntro, setShowCoreIntro] = useState(false);
  const [coreIntroStep, setCoreIntroStep] = useState(0);
@@ -268,54 +278,70 @@ export function DashboardClient({
  window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow } }));
  }, []);
 
- useEffect(() => {
- if (isDemo || hasCreatedPaymentWorkflow || typeof window === 'undefined') {
- setShowCoreIntro(false);
- return;
- }
+  useEffect(() => {
+    if (isDemo || hasCreatedPaymentWorkflow || typeof window === 'undefined') {
+      setShowCoreIntro(false);
+      return;
+    }
 
- setShowCoreIntro(window.localStorage.getItem(coreIntroStorageKey) !== 'true');
- }, [coreIntroStorageKey, hasCreatedPaymentWorkflow, isDemo]);
+    setShowCoreIntro(window.localStorage.getItem(coreIntroStorageKey) !== 'true');
+  }, [coreIntroStorageKey, hasCreatedPaymentWorkflow, isDemo]);
 
- const dismissCoreIntro = useCallback(() => {
- if (typeof window !== 'undefined') {
- window.localStorage.setItem(coreIntroStorageKey, 'true');
- }
- setShowCoreIntro(false);
- }, [coreIntroStorageKey]);
+  const dismissCoreIntro = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(coreIntroStorageKey, 'true');
+    }
+    setShowCoreIntro(false);
+  }, [coreIntroStorageKey]);
 
- const startFirstInvoiceFromIntro = useCallback(() => {
- dismissCoreIntro();
- openCreateFlow('invoice');
- }, [dismissCoreIntro, openCreateFlow]);
+  const startFirstInvoiceFromIntro = useCallback(() => {
+    dismissCoreIntro();
+    openCreateFlow('invoice');
+  }, [dismissCoreIntro, openCreateFlow]);
 
- return (
- <div className="flex flex-col gap-6">
- <MemberWelcomeBanner />
- <PendingInvitationBanner />
- {!isDemo && showCoreIntro ? (
- <CoreFeaturesIntro
- activeStep={coreIntroStep}
- onStepChange={setCoreIntroStep}
- onDismiss={dismissCoreIntro}
- onStart={startFirstInvoiceFromIntro}
- />
- ) : null}
- {!isDemo && !hasCreatedPaymentWorkflow ? (
- <FirstInvoiceCard onStart={() => openCreateFlow('invoice')} />
- ) : null}
- {!isDemo && hasCreatedPaymentWorkflow && !onboardingComplete ? (
- <OnboardingChecklist
- hasCreated={hasCreatedPaymentWorkflow}
- hasShared={hasSharedPaymentWorkflow}
- hasReceived={hasReceivedPayment}
- onCreateInvoice={() => openCreateFlow('invoice')}
- onCreatePaymentLink={() => openCreateFlow('payment-link')}
- />
- ) : null}
+  useEffect(() => {
+    if (isDemo) return;
+    posthog?.capture?.('dashboard_viewed', {
+      has_invoice: data.invoices.length > 0,
+      has_payment_link: data.paymentLinks.length > 0,
+      has_payment: hasReceivedPayment,
+      has_project: data.projects.length > 0,
+      workspace_type: activeWorkspace?.type ?? 'unknown',
+    });
+  }, []);
 
- {/* Page header */}
- <div>
+  return (
+    <div className="flex flex-col gap-6">
+      <MemberWelcomeBanner />
+      <PendingInvitationBanner />
+      {!isDemo && showCoreIntro ? (
+        <CoreFeaturesIntro
+          activeStep={coreIntroStep}
+          onStepChange={setCoreIntroStep}
+          onDismiss={dismissCoreIntro}
+          onStart={startFirstInvoiceFromIntro}
+        />
+      ) : null}
+      {!isDemo ? (
+        <OnboardingActions
+          userKey={userKey}
+          hasInvoice={data.invoices.length > 0}
+          hasClient={data.projects.length > 0}
+          hasPayment={hasReceivedPayment}
+          hasMember={false}
+          hasPayroll={false}
+        />
+      ) : null}
+      {!isDemo ? (
+        <ProfileCompletionNudge
+          userKey={userKey}
+          firstName={firstName ?? ''}
+          lastName={lastName ?? ''}
+        />
+      ) : null}
+
+      {/* Page header */}
+      <div>
  <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">
  {getTimeOfDayGreeting(hour)}, {greetingName}
  </h1>

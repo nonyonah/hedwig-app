@@ -7,13 +7,18 @@ import { getCurrentSession } from '@/lib/auth/session';
 import { FeaturesShowcase } from './features-showcase';
 import { AnimateIn } from './animate-in';
 import { ForceLightTheme } from './force-light-theme';
+import { LandingPageClientMount } from './landing-page-client';
 
 export default async function IndexPage() {
- const session = await getCurrentSession();
- if (session.accessToken && !session.isMockSession) {
- redirect('/dashboard');
- }
- return <LandingPage />;
+  const session = await getCurrentSession();
+  if (session.accessToken && !session.isMockSession) {
+    redirect('/dashboard');
+  }
+  return (
+    <LandingPageClientMount>
+      <LandingPage />
+    </LandingPageClientMount>
+  );
 }
 
 const NAV_GROUPS = [
@@ -44,9 +49,12 @@ function LandingPage() {
  >
  Pricing
  </Link>
- <a href="https://help.hedwig.riftlabs.xyz" target="_blank" rel="noreferrer" className="hidden text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
- Help
- </a>
+  <a href="https://help.hedwig.riftlabs.xyz" target="_blank" rel="noreferrer" className="hidden text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
+    Help
+  </a>
+  <span id="email-capture-trigger" className="hidden cursor-pointer text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
+    Get product updates
+  </span>
  <Link
  href="/sign-in"
  className="inline-flex h-8 items-center rounded-full border border-[var(--color-border-input)] px-3.5 text-[13px] font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-secondary)]"
@@ -67,21 +75,21 @@ function LandingPage() {
  className="animate-fade-up mb-8 inline-flex items-center gap-2 rounded-full border border-[var(--color-accent-soft)] bg-[var(--color-surface)] px-3.5 py-1.5 shadow-sm"
  style={{ animationDelay: '0ms' }}
  >
- <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
- The financial OS for independent businesses
- </span>
+              <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                Payments, invoicing, bookkeeping, and team management — all in one place
+              </span>
  </div>
  <h1
  className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[var(--color-foreground)] md:text-[68px] lg:text-[80px]"
  style={{ animationDelay: '80ms' }}
  >
-  Manage your entire business<br />from one account.
+               Payments, invoicing, bookkeeping,<br />and team management — all in one place.
  </h1>
  <p
  className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[var(--color-text-muted)]"
  style={{ animationDelay: '160ms' }}
  >
- Receive payments in seconds, track time and expenses, run payroll, manage clients and projects, and withdraw to your bank — without juggling different tools.
+  Send invoices, receive payments in USDC, track time and expenses, import bank statements, run payroll, manage clients and projects — all from one account, without juggling different tools.
  </p>
  <div
  className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"

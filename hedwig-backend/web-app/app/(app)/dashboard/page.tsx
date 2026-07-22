@@ -26,6 +26,8 @@ export default async function DashboardPage() {
       data={data}
       billing={billing}
       isDemo={session.isMockSession}
+      firstName={shell.currentUser.firstName}
+      lastName={shell.currentUser.lastName}
     />
   );
 }
