@@ -108,7 +108,7 @@ function ExitSurveyDialog({ open, onClose, onFinish }: { open: boolean; onClose:
 
   const options = [
     { value: 'pricing', label: 'Pricing' },
-    { value: 'not_sure', label: 'Wasn&rsquo;t sure how it works' },
+    { value: 'not_sure', label: "Wasn't sure how it works" },
     { value: 'not_ready', label: 'Not ready yet' },
     { value: 'browsing', label: 'Just browsing' },
     { value: 'other', label: 'Other' },
@@ -288,7 +288,6 @@ export function LandingPageClientMount({
 }) {
   const { showExit, dismiss: dismissExit, setShowExit } = useExitIntent();
   const [exitStage, setExitStage] = useState<'survey' | 'email' | null>(null);
-  const [navEmailOpen, setNavEmailOpen] = useState(false);
   const posthog = usePostHog();
 
   useEffect(() => {
@@ -296,14 +295,6 @@ export function LandingPageClientMount({
       setExitStage('survey');
     }
   }, [showExit]);
-
-  useEffect(() => {
-    const el = document.getElementById('email-capture-trigger');
-    if (!el) return;
-    const handler = () => setNavEmailOpen(true);
-    el.addEventListener('click', handler);
-    return () => el.removeEventListener('click', handler);
-  }, []);
 
   // Scroll-depth trigger: past features section
   useEffect(() => {
@@ -367,20 +358,54 @@ export function LandingPageClientMount({
         />
       )}
 
-      {/* Email capture from nav link */}
-      {navEmailOpen && (
-        <EmailCaptureDialog
-          open
-          title="Get product updates"
-          submitLabel="Subscribe"
-          onClose={() => setNavEmailOpen(false)}
-        />
-      )}
-
       {/* In-demo sign-up prompts rendered via useDemoTracking */}
       {childrenForDemo}
     </>
   );
 }
 
-export { EmailCaptureDialog, SignUpPromptDialog };
+/* ── Inline email field (for landing page bottom section) ── */
+
+function EmailCaptureField() {
+  const posthog = usePostHog();
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      setError('Enter a valid email');
+      return;
+    }
+    posthog?.capture?.('email_captured', { email: trimmed, source: 'landing_page_bottom' });
+    setSubmitted(true);
+  };
+
+  if (submitted) {
+    return <p className="mt-4 text-[13px] text-[var(--color-text-tertiary)]">You&rsquo;re on the list. We&rsquo;ll keep you posted.</p>;
+  }
+
+  return (
+    <div className="mx-auto mt-6 flex max-w-[340px] gap-2">
+      <input
+        type="email"
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => { setEmail(e.target.value); setError(''); }}
+        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+        className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
+      />
+      <button
+        type="button"
+        onClick={handleSubmit}
+        className="shrink-0 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"
+      >
+        Subscribe
+      </button>
+      {error && <p className="text-[12px] text-[var(--color-danger)]">{error}</p>}
+    </div>
+  );
+}
+
+export { EmailCaptureDialog, SignUpPromptDialog, EmailCaptureField };

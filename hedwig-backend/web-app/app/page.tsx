@@ -7,7 +7,7 @@ import { getCurrentSession } from '@/lib/auth/session';
 import { FeaturesShowcase } from './features-showcase';
 import { AnimateIn } from './animate-in';
 import { ForceLightTheme } from './force-light-theme';
-import { LandingPageClientMount } from './landing-page-client';
+import { LandingPageClientMount, EmailCaptureField } from './landing-page-client';
 
 export default async function IndexPage() {
   const session = await getCurrentSession();
@@ -52,9 +52,7 @@ function LandingPage() {
   <a href="https://help.hedwig.riftlabs.xyz" target="_blank" rel="noreferrer" className="hidden text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
     Help
   </a>
-  <span id="email-capture-trigger" className="hidden cursor-pointer text-[13px] text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-foreground)] sm:block">
-    Get product updates
-  </span>
+
  <Link
  href="/sign-in"
  className="inline-flex h-8 items-center rounded-full border border-[var(--color-border-input)] px-3.5 text-[13px] font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-secondary)]"
@@ -75,22 +73,22 @@ function LandingPage() {
  className="animate-fade-up mb-8 inline-flex items-center gap-2 rounded-full border border-[var(--color-accent-soft)] bg-[var(--color-surface)] px-3.5 py-1.5 shadow-sm"
  style={{ animationDelay: '0ms' }}
  >
-              <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
-                Payments, invoicing, bookkeeping, and team management — all in one place
-              </span>
+               <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                 The business stack for modern founders
+               </span>
  </div>
- <h1
- className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[var(--color-foreground)] md:text-[68px] lg:text-[80px]"
- style={{ animationDelay: '80ms' }}
- >
-               Payments, invoicing, bookkeeping,<br />and team management — all in one place.
- </h1>
- <p
- className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[var(--color-text-muted)]"
- style={{ animationDelay: '160ms' }}
- >
-  Send invoices, receive payments in USDC, track time and expenses, import bank statements, run payroll, manage clients and projects — all from one account, without juggling different tools.
- </p>
+  <h1
+  className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[var(--color-foreground)] md:text-[68px] lg:text-[80px]"
+  style={{ animationDelay: '80ms' }}
+  >
+               The business stack<br />for modern founders.
+  </h1>
+  <p
+  className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[var(--color-text-muted)]"
+  style={{ animationDelay: '160ms' }}
+  >
+   Send invoices, receive payments in USDC, track time and expenses, import bank statements, run payroll, manage clients and projects — all from one account, without juggling different tools.
+  </p>
  <div
  className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
  style={{ animationDelay: '240ms' }}
@@ -403,33 +401,42 @@ function LandingPage() {
  </div>
  </section>
 
- {/* ── CTA ───────────────────────────────────────────────── */}
- <section className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-8 py-24">
- <div className="mx-auto max-w-[1400px]">
- <AnimateIn>
- <div className="relative overflow-hidden rounded-[32px] bg-[var(--color-foreground)] px-10 py-20 text-center shadow-[0_24px_80px_rgba(24,29,39,0.18)]">
- <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.35),transparent_55%)]" />
- <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(37,99,235,0.20),transparent_55%)]" />
- <div className="relative">
- <p className="mb-4 text-[11px] font-bold text-[var(--color-text-tertiary)]">Get started</p>
- <h2 className="text-[32px] font-bold tracking-[-0.04em] text-white md:text-[48px]">
- Your account should work<br className="hidden md:block" /> as hard as you do.
- </h2>
- <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-[var(--color-text-placeholder)]">
- Receive payments, track time and expenses, run payroll, manage your team, and withdraw when you need to. Free to start.
- </p>
- <a
- href="/api/auth/exit-demo"
- className="mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-surface)] px-8 text-[14px] font-semibold text-[var(--color-foreground)] transition-all duration-200 hover:bg-[var(--color-accent-soft)] hover:shadow-lg"
- >
- Get started
- <ArrowRight className="h-4 w-4" weight="bold" />
- </a>
- </div>
- </div>
- </AnimateIn>
- </div>
- </section>
+  {/* ── CTA ───────────────────────────────────────────────── */}
+  <section className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-8 py-24">
+  <div className="mx-auto max-w-[1400px]">
+  <AnimateIn>
+  <div className="relative overflow-hidden rounded-[32px] bg-[var(--color-foreground)] px-10 py-20 text-center shadow-[0_24px_80px_rgba(24,29,39,0.18)]">
+  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.35),transparent_55%)]" />
+  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(37,99,235,0.20),transparent_55%)]" />
+  <div className="relative">
+  <p className="mb-4 text-[11px] font-bold text-[var(--color-text-tertiary)]">Get started</p>
+  <h2 className="text-[32px] font-bold tracking-[-0.04em] text-white md:text-[48px]">
+  Your account should work<br className="hidden md:block" /> as hard as you do.
+  </h2>
+  <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-[var(--color-text-placeholder)]">
+  Receive payments, track time and expenses, run payroll, manage your team, and withdraw when you need to. Free to start.
+  </p>
+  <a
+  href="/api/auth/exit-demo"
+  className="mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-surface)] px-8 text-[14px] font-semibold text-[var(--color-foreground)] transition-all duration-200 hover:bg-[var(--color-accent-soft)] hover:shadow-lg"
+  >
+  Get started
+  <ArrowRight className="h-4 w-4" weight="bold" />
+  </a>
+  </div>
+  </div>
+  </AnimateIn>
+  </div>
+  </section>
+
+  {/* ── Email capture ────────────────────────────────────── */}
+  <section className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface-secondary)] px-8 py-20">
+  <div className="mx-auto max-w-[500px] text-center">
+  <h2 className="text-[22px] font-bold tracking-[-0.03em] text-[var(--color-foreground)]">Get product updates</h2>
+  <p className="mt-2 text-[14px] text-[var(--color-text-tertiary)]">New features, payout destinations, and product improvements — once in a while.</p>
+  <EmailCaptureField />
+  </div>
+  </section>
 
  {/* ── Footer ────────────────────────────────────────────── */}
  <footer className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-8 py-10">
