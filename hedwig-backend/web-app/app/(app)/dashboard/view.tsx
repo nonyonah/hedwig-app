@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
+import { hedwigApi } from '@/lib/api/client';
 import {
   Bell,
   CalendarDots,
@@ -97,29 +98,57 @@ export function DashboardClient({
 }) {
   const { currency, formatAmount } = useCurrency();
   const posthog = usePostHog();
-  const { activeWorkspace } = useWorkspaceContext();
+  const { activeWorkspace, accessToken } = useWorkspaceContext();
   useAssistantPageContext('Dashboard', {
     inflow: data?.totals?.inflowUsd,
     outstanding: data?.totals?.outstandingUsd,
     projectCount: data?.projects?.length,
     invoiceCount: data?.invoices?.length,
   });
- const [hour, setHour] = useState(() => new Date().getHours());
- const [showCoreIntro, setShowCoreIntro] = useState(false);
- const [coreIntroStep, setCoreIntroStep] = useState(0);
- const canUseAssistantSummary = canUseFeature('assistant_summary_advanced', billing);
- const coreIntroStorageKey = useMemo(
- () => `${CORE_INTRO_STORAGE_KEY}:${userKey || 'anonymous'}`,
- [userKey]
- );
+  const [hour, setHour] = useState(() => new Date().getHours());
+  const [showCoreIntro, setShowCoreIntro] = useState(false);
+  const [coreIntroStep, setCoreIntroStep] = useState(0);
+  const canUseAssistantSummary = canUseFeature('assistant_summary_advanced', billing);
+  const coreIntroStorageKey = useMemo(
+  () => `${CORE_INTRO_STORAGE_KEY}:${userKey || 'anonymous'}`,
+  [userKey]
+  );
 
- useEffect(() => {
- const interval = window.setInterval(() => {
- setHour(new Date().getHours());
- }, 60_000);
+  // Fetch client count separately (DashboardData doesn't include clients)
+  const [clientCount, setClientCount] = useState(0);
+  useEffect(() => {
+    if (!accessToken) return;
+    hedwigApi.clients({ accessToken, disableMockFallback: true })
+      .then((clients) => setClientCount(clients.length))
+      .catch(() => {});
+  }, [accessToken]);
 
- return () => window.clearInterval(interval);
- }, []);
+  // Re-fetch on visibility change (user returns after creating a client)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible' || !accessToken) return;
+      hedwigApi.clients({ accessToken, disableMockFallback: true })
+        .then((clients) => setClientCount(clients.length))
+        .catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [accessToken]);
+
+  // Also listen for client-created event
+  useEffect(() => {
+    const handler = () => setClientCount((c) => c + 1);
+    window.addEventListener('hedwig:client-created', handler);
+    return () => window.removeEventListener('hedwig:client-created', handler);
+  }, []);
+
+  useEffect(() => {
+  const interval = window.setInterval(() => {
+  setHour(new Date().getHours());
+  }, 60_000);
+
+  return () => window.clearInterval(interval);
+  }, []);
 
  const dashboardState = useMemo(() => {
  const overdueInvoices = data.invoices.filter((invoice) => invoice.status === 'overdue');
@@ -325,7 +354,7 @@ export function DashboardClient({
         <OnboardingActions
           userKey={userKey}
           hasInvoice={data.invoices.length > 0}
-          hasClient={data.projects.length > 0}
+          hasClient={clientCount > 0}
           hasPayment={hasReceivedPayment}
           hasMember={false}
           hasPayroll={false}

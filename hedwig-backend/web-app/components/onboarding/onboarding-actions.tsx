@@ -108,11 +108,11 @@ function saveCompleted(userKey: string, ids: Set<string>) {
 
 export function OnboardingActions({
   userKey,
-  hasInvoice,
-  hasClient,
-  hasPayment,
-  hasMember,
-  hasPayroll,
+  hasInvoice: initialHasInvoice,
+  hasClient: initialHasClient,
+  hasPayment: initialHasPayment,
+  hasMember: initialHasMember,
+  hasPayroll: initialHasPayroll,
 }: {
   userKey: string;
   hasInvoice: boolean;
@@ -126,19 +126,48 @@ export function OnboardingActions({
   const { activeWorkspace } = useWorkspaceContext();
   const isOrg = activeWorkspace?.type === 'organization';
 
+  // Track flags locally so they update reactively even when parent props don't refresh
+  const [hasInvoice, _setHasInvoice] = useState(initialHasInvoice);
+  const [hasClient, setHasClient] = useState(initialHasClient);
+  const [hasPayment, _setHasPayment] = useState(initialHasPayment);
+  const [hasMember, _setHasMember] = useState(initialHasMember);
+  const [hasPayroll, _setHasPayroll] = useState(initialHasPayroll);
+
+  // Listen for entity-created events to update local state
+  useEffect(() => {
+    const onClientCreated = () => setHasClient(true);
+    window.addEventListener('hedwig:client-created', onClientCreated);
+    return () => window.removeEventListener('hedwig:client-created', onClientCreated);
+  }, []);
+
+  // Re-check flags when the page becomes visible again (user returns from invoice creation etc.)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // The page data was refreshed by the server — trust the initial props again
+        _setHasInvoice(initialHasInvoice);
+        setHasClient(initialHasClient);
+        _setHasPayment(initialHasPayment);
+        _setHasMember(initialHasMember);
+        _setHasPayroll(initialHasPayroll);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [initialHasInvoice, initialHasClient, initialHasPayment, initialHasMember, initialHasPayroll]);
+
   const storageKey = `${STORAGE_KEY_PREFIX}:${userKey}`;
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
     const base = loadCompleted(userKey);
-    // Server state overrides localStorage — if the server says it's not done, remove it
-    if (hasInvoice) base.add('first-invoice');
+    if (initialHasInvoice) base.add('first-invoice');
     else base.delete('first-invoice');
     if (hasClient) base.add('first-client');
     else base.delete('first-client');
-    if (hasPayment) base.add('has-received-payment');
+    if (initialHasPayment) base.add('has-received-payment');
     else base.delete('has-received-payment');
-    if (hasMember) base.add('invite-team');
+    if (initialHasMember) base.add('invite-team');
     else base.delete('invite-team');
-    if (hasPayroll) base.add('setup-payroll');
+    if (initialHasPayroll) base.add('setup-payroll');
     else base.delete('setup-payroll');
     saveCompleted(userKey, base);
     return base;
