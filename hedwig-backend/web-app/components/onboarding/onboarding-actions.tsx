@@ -20,6 +20,7 @@ type OnboardingAction = {
   trackingName: string;
   scope: 'personal' | 'organization' | 'shared';
   deps?: string[];
+  useCreateMenu?: 'client' | 'project';
 };
 
 const ACTIONS: OnboardingAction[] = [
@@ -27,7 +28,7 @@ const ACTIONS: OnboardingAction[] = [
     id: 'first-invoice',
     title: 'Send your first invoice',
     description: 'Get paid in USDC, no bank delays.',
-    href: '/payments',
+    href: '/payments?create=invoice',
     actionLabel: 'Create invoice',
     icon: CurrencyDollar,
     trackingName: 'onboarding_first_invoice',
@@ -37,12 +38,12 @@ const ACTIONS: OnboardingAction[] = [
     id: 'first-client',
     title: 'Add your first client',
     description: 'Keep track of who you\'re working with.',
-    href: '/clients',
     actionLabel: 'Add client',
     icon: IdentificationCard,
     trackingName: 'onboarding_first_client',
     scope: 'personal',
     deps: ['first-invoice'],
+    useCreateMenu: 'client' as const,
   },
   {
     id: 'invite-team',
@@ -80,12 +81,12 @@ const ACTIONS: OnboardingAction[] = [
     id: 'track-project',
     title: 'Track a project',
     description: 'Log time and bill clients based on hours worked.',
-    href: '/projects',
     actionLabel: 'Track project',
     icon: FolderSimple,
     trackingName: 'onboarding_track_project',
     scope: 'shared',
     deps: ['first-invoice', 'first-client'],
+    useCreateMenu: 'project' as const,
   },
 ];
 
@@ -209,8 +210,11 @@ export function OnboardingActions({
                 className="create-btn"
                 onClick={() => {
                   handleAction(suggestion);
-                  markComplete(suggestion.id);
-                  if (suggestion.href) router.push(suggestion.href);
+                  if (suggestion.useCreateMenu) {
+                    window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow: suggestion.useCreateMenu } }));
+                  } else if (suggestion.href) {
+                    router.push(suggestion.href);
+                  }
                 }}
               >
                 {suggestion.actionLabel}
@@ -247,8 +251,11 @@ export function OnboardingActions({
                   className="mt-1 self-start create-btn"
                   onClick={() => {
                     handleAction(action);
-                    markComplete(action.id);
-                    if (action.href) router.push(action.href);
+                    if (action.useCreateMenu) {
+                      window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow: action.useCreateMenu } }));
+                    } else if (action.href) {
+                      router.push(action.href);
+                    }
                   }}
                 >
                   {action.actionLabel}

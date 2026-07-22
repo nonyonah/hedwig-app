@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 import {
-  ArrowRight,
   Bell,
   CalendarDots,
   ChartBar,
