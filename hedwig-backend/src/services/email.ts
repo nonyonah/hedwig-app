@@ -2245,12 +2245,11 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Nonso from Hedwig <nonso@hedwig.riftlabs.xyz>',
+                from: 'Nonso from Hedwig <nonso.onah@riftlabs.xyz>',
                 to: [data.to],
                 subject: 'Welcome to Hedwig 👋',
                 html,
             });
-            logger.info('Welcome email sent', { to: data.to, accountType: data.accountType });
             return true;
         } catch (error) {
             logger.error('Welcome email failed', {
@@ -2263,10 +2262,9 @@ export const EmailService = {
 
     async sendPayrollSkippedEmail(data: {
         to: string;
-        firstName: string;
+        adminName: string;
         deficit: string;
         nextRunAt: string;
-        userId: string;
     }): Promise<void> {
         if (!process.env.RESEND_API_KEY) return;
         const resend = new Resend(process.env.RESEND_API_KEY);
@@ -2282,7 +2280,7 @@ export const EmailService = {
                 <div class="header">${LOGO_HTML}</div>
                 <div class="content">
                     <p class="eyebrow">Payroll skipped</p>
-                    <h1 class="heading">Scheduled payroll could not run</h1>
+                    <h1 class="heading">Hey ${escapeHtml(data.adminName)}, scheduled payroll could not run</h1>
                     <p class="description">Your scheduled payroll couldn't be processed — there aren't enough funds in your treasury. You need <strong>$${escapeHtml(data.deficit)}</strong> more.</p>
                     <p class="description" style="font-size:13px;color:#717680;">The next attempt will be on <strong>${escapeHtml(new Date(data.nextRunAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</strong> at 09:00 UTC. Add funds before then to avoid another skip.</p>
                     <div class="btn-container"><a href="${payrollUrl}" class="btn">View payroll</a></div>
