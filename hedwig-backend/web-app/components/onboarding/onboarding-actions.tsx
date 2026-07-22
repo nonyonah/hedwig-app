@@ -129,11 +129,18 @@ export function OnboardingActions({
   const storageKey = `${STORAGE_KEY_PREFIX}:${userKey}`;
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
     const base = loadCompleted(userKey);
+    // Server state overrides localStorage — if the server says it's not done, remove it
     if (hasInvoice) base.add('first-invoice');
+    else base.delete('first-invoice');
     if (hasClient) base.add('first-client');
+    else base.delete('first-client');
     if (hasPayment) base.add('has-received-payment');
+    else base.delete('has-received-payment');
     if (hasMember) base.add('invite-team');
+    else base.delete('invite-team');
     if (hasPayroll) base.add('setup-payroll');
+    else base.delete('setup-payroll');
+    saveCompleted(userKey, base);
     return base;
   });
 
@@ -181,7 +188,7 @@ export function OnboardingActions({
   if (available.length === 0) return null;
 
   return (
-    <article className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs">
+    <article className="rounded-xl border border-[var(--color-border)] bg-white p-5 shadow-xs">
       {isFirstSuggestion && suggestion ? (
         <div>
           <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{heading}</p>

@@ -4,33 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 import { X } from '@/components/ui/lucide-icons';
 
-/* ── Exit-intent hook ─────────────────────────────────────────── */
-
-function useExitIntent() {
-  const [showExit, setShowExit] = useState(false);
-  const dismissed = useRef(false);
-
-  useEffect(() => {
-    if (dismissed.current) return;
-    const handler = (e: MouseEvent) => {
-      if (dismissed.current) return;
-      if (e.clientY <= 5) {
-        dismissed.current = true;
-        setShowExit(true);
-      }
-    };
-    document.addEventListener('mouseleave', handler);
-    return () => document.removeEventListener('mouseleave', handler);
-  }, []);
-
-  const dismiss = useCallback(() => {
-    setShowExit(false);
-  }, []);
-
-  return { showExit, dismiss, setShowExit };
-}
-
-/* ── Email capture dialog ─────────────────────────────────────── */
+/* ── Shared dialog components (exported for features-showcase) ── */
 
 function EmailCaptureDialog({
   open,
@@ -56,6 +30,7 @@ function EmailCaptureDialog({
       setError('Enter a valid email');
       return;
     }
+    await saveEmail(trimmed);
     posthog?.capture?.('email_captured', { email: trimmed, source: 'landing_page' });
     setSubmitted(true);
   };
@@ -96,76 +71,6 @@ function EmailCaptureDialog({
     </div>
   );
 }
-
-/* ── Exit survey dialog ───────────────────────────────────────── */
-
-function ExitSurveyDialog({ open, onClose, onFinish }: { open: boolean; onClose: () => void; onFinish: () => void }) {
-  const posthog = usePostHog();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-
-  if (!open) return null;
-
-  const options = [
-    { value: 'pricing', label: 'Pricing' },
-    { value: 'not_sure', label: "Wasn't sure how it works" },
-    { value: 'not_ready', label: 'Not ready yet' },
-    { value: 'browsing', label: 'Just browsing' },
-    { value: 'other', label: 'Other' },
-  ];
-
-  const handleSubmit = () => {
-    if (!selected) return;
-    posthog?.capture?.('exit_survey', { reason: selected });
-    setSubmitted(true);
-    setTimeout(() => onFinish(), 1200);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl bg-[var(--color-surface)] p-6 shadow-2xl ring-1 ring-[var(--color-border)]">
-        <button type="button" onClick={onClose} className="float-right text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]">
-          <X className="h-4 w-4" weight="bold" />
-        </button>
-        {submitted ? (
-          <div className="pt-4">
-            <p className="text-[13px] text-[var(--color-text-tertiary)]">Thanks for the feedback.</p>
-          </div>
-        ) : (
-          <div className="pt-4">
-            <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">What stopped you from signing up today?</h3>
-            <div className="mt-4 space-y-2">
-              {options.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setSelected(opt.value)}
-                  className={`w-full rounded-xl px-4 py-2.5 text-left text-[13px] transition ${
-                    selected === opt.value
-                      ? 'border border-[var(--color-primary)] bg-[var(--color-accent-soft)] font-semibold text-[var(--color-primary)]'
-                      : 'border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-input)]'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              disabled={!selected}
-              onClick={handleSubmit}
-              className="mt-4 w-full rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-50"
-            >
-              Submit
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── Demo sign-up prompt dialog ───────────────────────────────── */
 
 function SignUpPromptDialog({
   open,
@@ -216,6 +121,18 @@ function SignUpPromptDialog({
       </div>
     </div>
   );
+}
+
+async function saveEmail(email: string) {
+  try {
+    await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    // Silent — PostHog fallback still fires
+  }
 }
 
 /* ── Demo event tracking ──────────────────────────────────────── */
@@ -277,7 +194,7 @@ export function useDemoTracking() {
   };
 }
 
-/* ── Main client mount — adds exit-intent, email capture, survey ── */
+/* ── Main client mount (no exit-intent popups) ── */
 
 export function LandingPageClientMount({
   children,
@@ -286,15 +203,7 @@ export function LandingPageClientMount({
   children: React.ReactNode;
   childrenForDemo?: React.ReactNode;
 }) {
-  const { showExit, dismiss: dismissExit, setShowExit } = useExitIntent();
-  const [exitStage, setExitStage] = useState<'survey' | 'email' | null>(null);
   const posthog = usePostHog();
-
-  useEffect(() => {
-    if (showExit) {
-      setExitStage('survey');
-    }
-  }, [showExit]);
 
   // Scroll-depth trigger: past features section
   useEffect(() => {
@@ -312,53 +221,9 @@ export function LandingPageClientMount({
     return () => observer.disconnect();
   }, [posthog]);
 
-  const closeSurvey = useCallback(() => {
-    setExitStage(null);
-    setShowExit(false);
-  }, [setShowExit]);
-
-  const finishSurvey = useCallback(() => {
-    setExitStage('email');
-  }, []);
-
-  const closeEmail = useCallback(() => {
-    setExitStage(null);
-    setShowExit(false);
-  }, [setShowExit]);
-
-  const captureEmailOnly = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      setExitStage('email');
-    },
-    [],
-  );
-
   return (
     <>
       {children}
-
-      {/* Exit survey (shown first on exit-intent) */}
-      <ExitSurveyDialog
-        open={exitStage === 'survey'}
-        onFinish={finishSurvey}
-        onClose={() => {
-          closeSurvey();
-          posthog?.capture?.('exit_survey_dismissed');
-        }}
-      />
-
-      {/* Email capture (shown after survey submit or if dismissed) */}
-      {exitStage === 'email' && (
-        <EmailCaptureDialog
-          open
-          title="Get product updates"
-          submitLabel="Subscribe"
-          onClose={closeEmail}
-        />
-      )}
-
-      {/* In-demo sign-up prompts rendered via useDemoTracking */}
       {childrenForDemo}
     </>
   );
@@ -372,12 +237,13 @@ function EmailCaptureField() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !trimmed.includes('@')) {
       setError('Enter a valid email');
       return;
     }
+    await saveEmail(trimmed);
     posthog?.capture?.('email_captured', { email: trimmed, source: 'landing_page_bottom' });
     setSubmitted(true);
   };
@@ -387,23 +253,25 @@ function EmailCaptureField() {
   }
 
   return (
-    <div className="mx-auto mt-6 flex max-w-[340px] gap-2">
-      <input
-        type="email"
-        placeholder="you@example.com"
-        value={email}
-        onChange={(e) => { setEmail(e.target.value); setError(''); }}
-        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-        className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
-      />
-      <button
-        type="button"
-        onClick={handleSubmit}
-        className="shrink-0 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"
-      >
-        Subscribe
-      </button>
-      {error && <p className="text-[12px] text-[var(--color-danger)]">{error}</p>}
+    <div>
+      <div className="mx-auto mt-6 flex max-w-[340px] gap-2">
+        <input
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); setError(''); }}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
+        />
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="shrink-0 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"
+        >
+          Subscribe
+        </button>
+      </div>
+      {error && <p className="mt-1 text-[12px] text-[var(--color-danger)]">{error}</p>}
     </div>
   );
 }

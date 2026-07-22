@@ -31,7 +31,7 @@ export function ProfileCompletionNudge({
   if (nameComplete || dismissed) return null;
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-xs">
+    <div className="rounded-xl border border-[var(--color-border)] bg-white p-4 shadow-xs">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">

@@ -73,22 +73,22 @@ function LandingPage() {
  className="animate-fade-up mb-8 inline-flex items-center gap-2 rounded-full border border-[var(--color-accent-soft)] bg-[var(--color-surface)] px-3.5 py-1.5 shadow-sm"
  style={{ animationDelay: '0ms' }}
  >
-               <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
-                 The business stack for modern founders
-               </span>
- </div>
-  <h1
-  className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[var(--color-foreground)] md:text-[68px] lg:text-[80px]"
-  style={{ animationDelay: '80ms' }}
-  >
-               The business stack<br />for modern founders.
-  </h1>
-  <p
-  className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[var(--color-text-muted)]"
-  style={{ animationDelay: '160ms' }}
-  >
-   Send invoices, receive payments in USDC, track time and expenses, import bank statements, run payroll, manage clients and projects — all from one account, without juggling different tools.
-  </p>
+                <span className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                  All-in-one business finance
+                </span>
+              </div>
+   <h1
+   className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[var(--color-foreground)] md:text-[68px] lg:text-[80px]"
+   style={{ animationDelay: '80ms' }}
+   >
+                Everything your business<br />finances need, in one place.
+   </h1>
+   <p
+   className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[var(--color-text-muted)]"
+   style={{ animationDelay: '160ms' }}
+   >
+    Invoicing, automatic reconciliation, billable hours, financial insights — export clean books whenever your accountant needs them.
+   </p>
  <div
  className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
  style={{ animationDelay: '240ms' }}
