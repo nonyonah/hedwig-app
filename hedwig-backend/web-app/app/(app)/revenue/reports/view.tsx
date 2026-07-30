@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChartBar, FileText, DownloadSimple, CurrencyCircleDollar, CalendarBlank, Sparkle, ArrowsLeftRight, ArrowUp, ArrowDown, GoogleSheetsLogo } from '@/components/ui/lucide-icons';
+import { ChartBar, FileText, DownloadSimple, CurrencyCircleDollar, CalendarBlank, Sparkle, ArrowsLeftRight, ArrowUp, ArrowDown, CheckCircle, GoogleSheetsLogo } from '@/components/ui/lucide-icons';
 import { Loader } from '@/components/ui/loader';
 import { AttachedStatGrid, type AttachedStatCardItem } from '@/components/ui/attached-stat-cards';
 import { Alert, Button, Dropdown, Label, Table, Tabs } from '@heroui/react';
@@ -31,6 +31,19 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
   const [narrative, setNarrative] = useState<string | null>(null);
   const [journalPage, setJournalPage] = useState(1);
   const [exportingToSheets, setExportingToSheets] = useState(false);
+  const [sheetsConnected, setSheetsConnected] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/integrations/composio/status')
+      .then((r) => r.json())
+      .then((payload) => {
+        if (payload.success) {
+          const gs = (payload.data.connections ?? []).find((c: any) => c.provider === 'google_sheets');
+          setSheetsConnected(gs?.status === 'active');
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const loadLedger = useCallback(() => {
     if (!accessToken) return;
@@ -136,20 +149,20 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
         </Alert>
       )}
 
-      <Tabs variant="primary" selectedKey={activeReport} onSelectionChange={(key) => setActiveReport(key as ReportType)}>
+      <Tabs variant="primary" className="w-fit" selectedKey={activeReport} onSelectionChange={(key) => setActiveReport(key as ReportType)}>
         <Tabs.ListContainer>
           <Tabs.List aria-label="Report type">
-            <Tabs.Tab id="pnl">
+            <Tabs.Tab id="pnl" className="px-3 py-2 text-[13px]">
               <ChartBar className="h-4 w-4" weight="bold" />
               P&L
               <Tabs.Indicator />
             </Tabs.Tab>
-            <Tabs.Tab id="cashflow">
+            <Tabs.Tab id="cashflow" className="px-3 py-2 text-[13px]">
               <CalendarBlank className="h-4 w-4" weight="bold" />
               Cash Flow
               <Tabs.Indicator />
             </Tabs.Tab>
-            <Tabs.Tab id="journal">
+            <Tabs.Tab id="journal" className="px-3 py-2 text-[13px]">
               <ArrowsLeftRight className="h-4 w-4" weight="bold" />
               Journal
               <Tabs.Indicator />
@@ -207,6 +220,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
                       <Button variant="outline" className="flex items-center gap-2">
                         <DownloadSimple className="h-4 w-4" weight="bold" />
                         Export
+                        {sheetsConnected && <span className="ml-1 h-2 w-2 rounded-full bg-[var(--color-success)]" />}
                       </Button>
                     </span>
                   </Dropdown.Trigger>
@@ -219,9 +233,13 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
                         <DownloadSimple className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
                         <Label>Export to Device</Label>
                       </Dropdown.Item>
-                      <Dropdown.Item id="sheets" textValue="Export to Google Sheets">
-                        {exportingToSheets ? <Loader size={14} /> : <GoogleSheetsLogo size={14} className="text-[var(--color-text-placeholder)]" />}
-                        <Label>Export to Google Sheets</Label>
+                      <Dropdown.Item id="sheets" textValue={sheetsConnected ? 'Export to Google Sheets' : 'Connect Google Sheets'}>
+                        {exportingToSheets ? <Loader size={14} /> : (
+                          sheetsConnected
+                            ? <CheckCircle size={14} className="text-[var(--color-success)]" weight="fill" />
+                            : <GoogleSheetsLogo size={14} className="text-[var(--color-text-placeholder)]" />
+                        )}
+                        <Label>{sheetsConnected ? 'Export to Google Sheets' : 'Connect Google Sheets'}</Label>
                       </Dropdown.Item>
                     </Dropdown.Menu>
                   </Dropdown.Popover>
