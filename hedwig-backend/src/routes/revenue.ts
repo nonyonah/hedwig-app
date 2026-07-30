@@ -12,7 +12,7 @@ import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
 import { parseStatement, ParseResult } from '../services/statement-parser';
 import { processStatementJob } from '../services/statement-job-processor';
 import { detectBankName } from '../services/statement-job-processor';
-import { initiateConnection, refreshConnectionStatus, isComposioConfigured } from '../services/composio';
+import { initiateConnection, isComposioConfigured } from '../services/composio';
 
 
 const logger = createLogger('Revenue');
