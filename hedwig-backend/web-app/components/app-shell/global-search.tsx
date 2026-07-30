@@ -259,7 +259,7 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
 
           {/* Dialog */}
-            <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border-light)]">
+            <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl">
             {/* Search input */}
             <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] px-4 py-3.5">
               <MagnifyingGlass className="h-4 w-4 shrink-0 text-[var(--color-text-muted)]" />

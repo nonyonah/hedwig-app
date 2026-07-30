@@ -18,7 +18,7 @@ export function ProLockCard({
   compact?: boolean;
 }) {
   return (
-    <div className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+    <div className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
       <div className="mb-3 flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
           {compact ? (

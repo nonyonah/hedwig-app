@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Envelope } from '@/components/ui/lucide-icons';
-import { Button } from '@/components/ui/button';
+import { Alert, Button } from '@heroui/react';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 
@@ -39,18 +38,19 @@ export function PendingInvitationBanner() {
   if (loading || invites.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-xl border border-[var(--color-accent-soft)] bg-[var(--color-accent-soft)] p-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary-dark)]">
-          <Envelope className="h-4 w-4" weight="bold" />
-        </div>
-        <div className="flex-1">
-          <p className="text-[14px] font-semibold text-[var(--color-foreground)]">
+    <div className="mb-6">
+      <Alert status="accent">
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Title>
             You have {invites.length} pending workspace invitation{invites.length > 1 ? 's' : ''}
-          </p>
-          <div className="mt-2 space-y-2">
+          </Alert.Title>
+          <div className="mt-3 space-y-2">
             {invites.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-full bg-[var(--color-surface)] p-3">
+              <div
+                key={inv.id}
+                className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5"
+              >
                 <div>
                   <p className="text-[13px] font-medium text-[var(--color-foreground)]">
                     {inv.workspaceName}
@@ -60,17 +60,17 @@ export function PendingInvitationBanner() {
                   </p>
                 </div>
                 <Button
-                  variant="default"
                   size="sm"
-                  onClick={() => router.push(`/join?token=${inv.token}`)}
+                  variant="primary"
+                  onPress={() => router.push(`/join?token=${inv.token}`)}
                 >
                   Accept
                 </Button>
               </div>
             ))}
           </div>
-        </div>
-      </div>
+        </Alert.Content>
+      </Alert>
     </div>
   );
 }

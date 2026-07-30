@@ -7,6 +7,7 @@ import { ArrowLeft, Buildings, ClockCountdown, Envelope, MapPin, NotePencil, Pap
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Table } from '@heroui/react';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import {
   Dialog,
@@ -91,10 +92,6 @@ function SectionCard({ title, count, action, children }: {
       {children}
     </div>
   );
-}
-
-function ColHead({ children }: { children: React.ReactNode }) {
-  return <th className="px-5 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">{children}</th>;
 }
 
 function EmptyRow({ text }: { text: string }) {
@@ -275,14 +272,10 @@ export function ClientDetailClient({
           </div>
           <div className="flex items-center gap-2">
             {client.email && (
-              <button
-                type="button"
-                onClick={openMessage}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-3 py-1.5 text-[13px] font-semibold text-white transition duration-150 hover:bg-[var(--color-primary-dark)]"
-              >
+              <Button size="sm" variant="default" onClick={openMessage}>
                 <PaperPlaneRight className="h-3.5 w-3.5" weight="bold" />
                 Message
-              </button>
+              </Button>
             )}
             {smsHref && (
               <Button size="sm" variant="secondary" asChild>
@@ -292,22 +285,14 @@ export function ClientDetailClient({
                 </a>
               </Button>
             )}
-            <button
-              type="button"
-              onClick={() => setDeleteOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-danger)] shadow-xs transition duration-150 hover:bg-[var(--color-danger-soft)]"
-            >
+            <Button size="sm" variant="secondary" onClick={() => setDeleteOpen(true)} className="text-[var(--color-danger)]">
               <Trash className="h-3.5 w-3.5" weight="bold" />
               Delete
-            </button>
-            <button
-              type="button"
-              onClick={openEdit}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-text-secondary)] shadow-xs transition duration-150 hover:bg-[var(--color-background)]"
-            >
+            </Button>
+            <Button size="sm" variant="secondary" onClick={openEdit}>
               <NotePencil className="h-3.5 w-3.5" weight="bold" />
               Edit
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -342,44 +327,46 @@ export function ClientDetailClient({
             {projects.length === 0 ? (
               <EmptyRow text="No projects linked to this client." />
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-surface-tertiary)]">
-                    <ColHead>Project</ColHead>
-                    <ColHead>Status</ColHead>
-                    <ColHead>Progress</ColHead>
-                    <ColHead>Budget</ColHead>
-                    <ColHead>Deadline</ColHead>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-surface-secondary)]">
-                  {projects.map((p) => {
-                    const ps = PROJ_STATUS[p.status] ?? PROJ_STATUS.active;
-                    return (
-                      <tr key={p.id} className="transition-colors hover:bg-[var(--color-background)]">
-                        <td className="px-5 py-2.5">
-                          <Link href={`/projects/${p.id}`} className="text-[13px] font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)]">
-                            {p.name}
-                          </Link>
-                        </td>
-                        <td className="px-5 py-2.5">
-                          <Pill bg={ps.bg} text={ps.text} label={ps.label} />
-                        </td>
-                        <td className="px-5 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
-                              <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${p.progress}%` }} />
-                            </div>
-                            <span className="text-[12px] tabular-nums text-[var(--color-text-tertiary)]">{p.progress}%</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[var(--color-text-tertiary)]">{formatAmount(p.budgetUsd, { compact: true })}</td>
-                        <td className="px-5 py-2.5 text-[12px] text-[var(--color-text-muted)]">{formatShortDate(p.nextDeadlineAt)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <Table>
+                <Table.ScrollContainer>
+                  <Table.Content aria-label="Projects">
+                    <Table.Header>
+                      <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Progress</Table.Column>
+                      <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Budget</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Deadline</Table.Column>
+                    </Table.Header>
+                    <Table.Body>
+                      {projects.map((p) => {
+                        const ps = PROJ_STATUS[p.status] ?? PROJ_STATUS.active;
+                        return (
+                          <Table.Row key={p.id}>
+                            <Table.Cell>
+                              <Link href={`/projects/${p.id}`} className="text-[13px] font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)]">
+                                {p.name}
+                              </Link>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Pill bg={ps.bg} text={ps.text} label={ps.label} />
+                            </Table.Cell>
+                            <Table.Cell>
+                              <div className="flex items-center gap-2">
+                                <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                                  <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${p.progress}%` }} />
+                                </div>
+                                <span className="text-[12px] tabular-nums text-[var(--color-text-tertiary)]">{p.progress}%</span>
+                              </div>
+                            </Table.Cell>
+                            <Table.Cell className="text-right text-[13px] tabular-nums text-[var(--color-text-tertiary)]">{formatAmount(p.budgetUsd, { compact: true })}</Table.Cell>
+                            <Table.Cell className="text-[12px] text-[var(--color-text-muted)]">{formatShortDate(p.nextDeadlineAt)}</Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    </Table.Body>
+                  </Table.Content>
+                </Table.ScrollContainer>
+              </Table>
             )}
           </SectionCard>
 
@@ -388,38 +375,40 @@ export function ClientDetailClient({
             {invoices.length === 0 ? (
               <EmptyRow text="No invoices for this client yet." />
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-surface-tertiary)]">
-                    <ColHead>Invoice</ColHead>
-                    <ColHead>Status</ColHead>
-                    <ColHead>Amount</ColHead>
-                    <ColHead>Due</ColHead>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-surface-secondary)]">
-                  {invoices.map((inv) => {
-                    const is = INV_STATUS[inv.status] ?? INV_STATUS.draft;
-                    return (
-                      <tr key={inv.id} className="transition-colors hover:bg-[var(--color-background)]">
-                        <td className="px-5 py-2.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openPaymentDetail('invoice', inv.id)}
-                            className="text-[13px] font-medium text-[var(--color-foreground)] hover:text-[var(--color-primary)]"
-                          >
-                            {inv.number}
-                          </Button>
-                        </td>
-                        <td className="px-5 py-2.5"><Pill bg={is.bg} text={is.text} label={is.label} /></td>
-                        <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">{formatAmount(inv.amountUsd, { compact: true })}</td>
-                        <td className="px-5 py-2.5 text-[12px] text-[var(--color-text-muted)]">{formatShortDate(inv.dueAt)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <Table>
+                <Table.ScrollContainer>
+                  <Table.Content aria-label="Invoices">
+                    <Table.Header>
+                      <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Invoice</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+                      <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Amount</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Due</Table.Column>
+                    </Table.Header>
+                    <Table.Body>
+                      {invoices.map((inv) => {
+                        const is = INV_STATUS[inv.status] ?? INV_STATUS.draft;
+                        return (
+                          <Table.Row key={inv.id}>
+                            <Table.Cell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openPaymentDetail('invoice', inv.id)}
+                                className="text-[13px] font-medium text-[var(--color-foreground)] hover:text-[var(--color-primary)]"
+                              >
+                                {inv.number}
+                              </Button>
+                            </Table.Cell>
+                            <Table.Cell><Pill bg={is.bg} text={is.text} label={is.label} /></Table.Cell>
+                            <Table.Cell className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">{formatAmount(inv.amountUsd, { compact: true })}</Table.Cell>
+                            <Table.Cell className="text-[12px] text-[var(--color-text-muted)]">{formatShortDate(inv.dueAt)}</Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    </Table.Body>
+                  </Table.Content>
+                </Table.ScrollContainer>
+              </Table>
             )}
           </SectionCard>
         </div>
@@ -505,7 +494,7 @@ export function ClientDetailClient({
                 <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">
                   {label}{required && <span className="ml-0.5 text-[var(--color-danger)]">*</span>}
                 </label>
-                <Input placeholder={placeholder} value={form[field]} onChange={(e) => updateField(field, e.target.value)} disabled={isSaving} />
+                <Input fullWidth placeholder={placeholder} value={form[field]} onChange={(e) => updateField(field, e.target.value)} disabled={isSaving} />
               </div>
             ))}
           </DialogBody>
@@ -541,6 +530,7 @@ export function ClientDetailClient({
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">What should Hedwig draft?</label>
               <div className="flex gap-2">
                 <Input
+                  className="flex-1"
                   value={messagePurpose}
                   onChange={(e) => setMessagePurpose(e.target.value)}
                   placeholder="Follow up about the invoice, ask for project feedback..."
@@ -554,7 +544,7 @@ export function ClientDetailClient({
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Subject</label>
-              <Input
+              <Input fullWidth
                 value={messageSubject}
                 onChange={(e) => setMessageSubject(e.target.value)}
                 placeholder="Subject"
@@ -564,7 +554,7 @@ export function ClientDetailClient({
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Message</label>
-              <Textarea
+              <Textarea fullWidth
                 value={messageBody}
                 onChange={(e) => setMessageBody(e.target.value)}
                 placeholder={`Hi ${client.name.split(' ')[0] || client.name},`}

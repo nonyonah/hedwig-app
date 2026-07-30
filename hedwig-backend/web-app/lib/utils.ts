@@ -31,11 +31,14 @@ export function formatCompactCurrency(value: number, currency = 'USD') {
   }).format(value);
 }
 
-export function formatShortDate(date: string) {
+export function formatShortDate(date: string | null | undefined) {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric'
-  }).format(new Date(date));
+  }).format(d);
 }
 
 export function initials(name: string) {

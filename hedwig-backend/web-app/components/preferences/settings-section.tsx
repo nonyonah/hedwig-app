@@ -1,5 +1,7 @@
 'use client';
 
+import { Card } from '@heroui/react';
+
 export function SettingsSection({
   title,
   description,
@@ -10,12 +12,14 @@ export function SettingsSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
-      <div className="border-b border-[var(--color-surface-tertiary)] px-5 py-4">
-        <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">{title}</h2>
-        {description ? <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">{description}</p> : null}
-      </div>
-      <div className="divide-y divide-[var(--color-surface-tertiary)]">{children}</div>
-    </section>
+    <Card className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs">
+      <Card.Header className="border-b border-[var(--color-border)] px-5 py-4">
+        <Card.Title className="text-[16px] font-semibold text-[var(--color-foreground)]">{title}</Card.Title>
+        {description ? (
+          <Card.Description className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">{description}</Card.Description>
+        ) : null}
+      </Card.Header>
+      <div className="divide-y divide-[var(--color-border)]">{children}</div>
+    </Card>
   );
 }

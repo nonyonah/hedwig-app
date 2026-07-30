@@ -31,12 +31,32 @@ export function AppSidebar({
   const [hoverOpen, setHoverOpen] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(() => {
+    const autoOpen = new Set<string>();
+    for (const group of navigationGroups) {
+      for (const item of group.items) {
+        if (item.subItems?.some(s => pathname === s.href)) {
+          autoOpen.add(item.href);
+        }
+      }
+    }
+    return autoOpen;
+  });
 
   const toggleGroup = useCallback((index: number) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
       if (next.has(index)) next.delete(index);
       else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const toggleItem = useCallback((href: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
       return next;
     });
   }, []);
@@ -77,26 +97,80 @@ export function AppSidebar({
           </button>
           <ul className={cn('flex flex-col gap-0.5', isCollapsed && 'hidden')}>
             {group.items.filter(i => !lockedRouteSet.has(i.href) && i.roles.includes(role) && (!i.workspaceTypes || i.workspaceTypes.includes(wsType))).map(item => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const anyChildActive = hasSubItems && item.subItems!.some(s => pathname === s.href);
+              const active = !hasSubItems && (pathname === item.href || pathname.startsWith(`${item.href}/`));
+              const isExpanded = expandedItems.has(item.href);
               const Icon = item.icon;
               return (
                 <li key={item.href}>
-                  <Link href={item.href} prefetch={false} onClick={onNavigate} aria-current={active ? 'page' : undefined}
-                    className={cn(
-                      'group relative flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all duration-100 ease-linear',
-                      active
-                        ? 'bg-[var(--color-sidebar-active-bg)] text-[var(--color-sidebar-active-text)] font-semibold'
-                        : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]'
-                    )}>
-                    {active && (
-                      <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[var(--color-sidebar-active-text)]" />
-                    )}
-                    <Icon className={cn('mr-2.5 h-4 w-4 shrink-0', active ? 'text-[var(--color-sidebar-active-text)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]')}
-                      weight={active ? 'bold' : 'regular'} />
-                    <span className={cn('whitespace-nowrap', active ? 'text-[var(--color-sidebar-active-text)]' : 'group-hover:text-[var(--color-foreground)]')}>
-                      {item.title}
-                    </span>
-                  </Link>
+                  {hasSubItems ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => toggleItem(item.href)}
+                        className={cn(
+                          'group relative flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all duration-100 ease-linear',
+                          anyChildActive || active
+                            ? 'bg-[var(--color-sidebar-active-bg)] text-[var(--color-sidebar-active-text)] font-semibold'
+                            : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]'
+                        )}
+                      >
+                        {(anyChildActive || active) && (
+                          <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[var(--color-sidebar-active-text)]" />
+                        )}
+                        <Icon className={cn('mr-2.5 h-4 w-4 shrink-0', (anyChildActive || active) ? 'text-[var(--color-sidebar-active-text)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]')}
+                          weight={(anyChildActive || active) ? 'bold' : 'regular'} />
+                        <span className={cn('flex-1 whitespace-nowrap text-left', (anyChildActive || active) ? 'text-[var(--color-sidebar-active-text)]' : 'group-hover:text-[var(--color-foreground)]')}>
+                          {item.title}
+                        </span>
+                        <CaretDown
+                          className={cn('h-3 w-3 text-[var(--color-text-muted)] transition-transform duration-200', !isExpanded && '-rotate-90')}
+                          weight="bold"
+                        />
+                      </button>
+                      {isExpanded && (
+                        <ul className="ml-6 mt-0.5 flex flex-col gap-0.5">
+                          {item.subItems!.map(sub => {
+                            const subActive = pathname === sub.href;
+                            return (
+                              <li key={sub.href}>
+                                <Link href={sub.href} prefetch={false} onClick={onNavigate}
+                                  className={cn(
+                                    'flex w-full select-none items-center rounded-md px-2.5 py-1 text-[12px] font-medium transition-all duration-100 ease-linear',
+                                    subActive
+                                      ? 'bg-[var(--color-sidebar-active-bg)] text-[var(--color-sidebar-active-text)] font-semibold'
+                                      : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]'
+                                  )}
+                                >
+                                  <span className={cn('whitespace-nowrap', subActive ? 'text-[var(--color-sidebar-active-text)]' : '')}>
+                                    {sub.title}
+                                  </span>
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </>
+                  ) : (
+                    <Link href={item.href} prefetch={false} onClick={onNavigate} aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'group relative flex w-full select-none items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all duration-100 ease-linear',
+                        active
+                          ? 'bg-[var(--color-sidebar-active-bg)] text-[var(--color-sidebar-active-text)] font-semibold'
+                          : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]'
+                      )}>
+                      {active && (
+                        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[var(--color-sidebar-active-text)]" />
+                      )}
+                      <Icon className={cn('mr-2.5 h-4 w-4 shrink-0', active ? 'text-[var(--color-sidebar-active-text)]' : 'text-[var(--color-text-placeholder)] group-hover:text-[var(--color-text-tertiary)]')}
+                        weight={active ? 'bold' : 'regular'} />
+                      <span className={cn('whitespace-nowrap', active ? 'text-[var(--color-sidebar-active-text)]' : 'group-hover:text-[var(--color-foreground)]')}>
+                        {item.title}
+                      </span>
+                    </Link>
+                  )}
                 </li>
               );
             })}

@@ -49,7 +49,7 @@ export function TutorialCard() {
  transition: 'opacity 220ms ease, transform 220ms ease',
  }}
  >
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_16px_48px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_16px_48px_rgba(0,0,0,0.18)]">
  {/* Brand accent bar */}
  <div className="h-[3px] w-full bg-[var(--color-primary)]" />
  

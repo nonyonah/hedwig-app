@@ -13,6 +13,7 @@ import {
  Receipt,
  X,
 } from '@/components/ui/lucide-icons';
+import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/providers/toast-provider';
@@ -455,7 +456,7 @@ export function CalendarClient({
  </div>
  </div>
 
- <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  {/* Toolbar */}
  <div className="flex items-center justify-between gap-4 border-b border-[var(--color-surface-tertiary)] px-6 py-3.5">
  <div className="flex items-center gap-1 overflow-x-auto">
@@ -1045,22 +1046,21 @@ function ReminderPanel({
  <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">
  Title
  </p>
- <Input
- className="mt-1.5 bg-[var(--color-surface)]"
- value={draftTitle}
- onChange={(e) => setDraftTitle(e.target.value)}
- />
+  <Input fullWidth
+  className="mt-1.5 bg-[var(--color-surface)]"
+  value={draftTitle}
+  onChange={(e) => setDraftTitle(e.target.value)}
+  />
  </div>
  <div>
  <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">
  Due date
  </p>
- <Input
- className="mt-1.5 bg-[var(--color-surface)]"
- type="date"
- value={draftDueDate}
- onChange={(e) => setDraftDueDate(e.target.value)}
- />
+   <DateInput fullWidth
+   className="mt-1.5 bg-[var(--color-surface)]"
+   value={draftDueDate}
+    onChange={(v) => setDraftDueDate(v)}
+   />
  </div>
  </>
  ) : (

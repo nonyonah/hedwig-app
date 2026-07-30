@@ -155,7 +155,7 @@ function LandingPage() {
  <p className="text-[10px] font-bold text-[var(--color-text-muted)]">Overview</p>
  <h2 className="mt-0.5 text-[17px] font-semibold text-[var(--color-foreground)]">Account</h2>
  </div>
- <div className="mb-4 grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
+ <div className="mb-4 grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[var(--color-border)]">
  {[
  { label: 'Total balance', value: '$84,260', sub: 'Across all payment methods' },
  { label: 'Collected (30d)', value: '$38,400', sub: 'From payment links and invoices' },
@@ -170,7 +170,7 @@ function LandingPage() {
  ))}
  </div>
  <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)]">
  <div className="border-b border-[var(--color-surface-secondary)] px-4 py-3">
  <p className="text-[12px] font-semibold text-[var(--color-foreground)]">Recent transactions</p>
  </div>
@@ -198,7 +198,7 @@ function LandingPage() {
  </div>
  </div>
  <div className="flex flex-col gap-3">
- <div className="flex-1 overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4 ring-1 ring-[var(--color-border)]">
+ <div className="flex-1 overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4">
  <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">Available</p>
  <p className="mt-2 text-[22px] font-bold leading-none tracking-[-0.03em] text-[var(--color-foreground)]">$38,460</p>
  <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">Ready to withdraw or settle to your bank</p>
@@ -210,7 +210,7 @@ function LandingPage() {
  ))}
  </div>
  </div>
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4 ring-1 ring-[var(--color-border)]">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4">
  <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">Auto-settlement</p>
  <div className="mt-2 flex items-center gap-2">
  <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />

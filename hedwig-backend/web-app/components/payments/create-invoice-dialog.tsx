@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { X, FileText, CheckCircle, SpinnerGap, Wallet } from '@/components/ui/lucide-icons';
+import { X, FileText, CheckCircle, Wallet } from '@/components/ui/lucide-icons';
+import { Loader } from '@/components/ui/loader';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
+import { DateInput } from '@/components/ui/date-input';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { Invoice } from '@/lib/models/entities';
 
@@ -79,7 +81,7 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
 
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
+        <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
             <div className="flex items-center gap-3">
@@ -130,10 +132,9 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
                 <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">
                   Due date <span className="text-[var(--color-text-tertiary)]">*</span>
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={form.dueDate}
-                  onChange={(e) => set('dueDate', e.target.value)}
+                  onChange={(v) => set('dueDate', v)}
                   className={`w-full rounded-full border px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:ring-2 focus:ring-[var(--color-accent)]/30 ${
                     errors.dueDate ? 'border-[var(--color-danger)] focus:border-[var(--color-danger)]' : 'border-[var(--color-border-input)] focus:border-[var(--color-accent)]'
                   }`}
@@ -202,7 +203,7 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
               >
                 {isSubmitting ? (
                   <>
-                    <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" />
+                    <Loader size={16} />
                     Creating…
                   </>
                 ) : (

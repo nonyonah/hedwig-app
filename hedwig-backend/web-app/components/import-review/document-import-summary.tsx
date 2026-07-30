@@ -23,7 +23,7 @@ export function DocumentImportSummary({
  <div className="rounded-[28px] border border-[var(--color-border)] bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_45%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-5 shadow-sm">
  <div className="flex items-start justify-between gap-4">
  <div className="flex items-start gap-3">
- <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <Receipt className="h-5 w-5 text-[var(--color-accent)]" />
  </span>
  <div>
@@ -34,7 +34,7 @@ export function DocumentImportSummary({
  </p>
  </div>
  </div>
- <span className="inline-flex items-center rounded-full bg-[var(--color-surface)] px-3 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)] ring-1 ring-[var(--color-border)]">
+ <span className="inline-flex items-center rounded-full bg-[var(--color-surface)] px-3 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]">
  User approval required
  </span>
  </div>

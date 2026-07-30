@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Alert } from '@heroui/react';
 import { X, Plus, Wallet, Copy, CheckCircle } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
@@ -140,7 +141,7 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
  className="mt-1 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]"
  />
  </div>
- {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+  {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{error}</Alert.Title></Alert.Content></Alert>}
  <div className="flex items-center justify-end gap-3">
  <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
  <Button variant="default" size="sm" className="create-btn" disabled={!displayName || !walletAddress || saving} onClick={handleCreate}>

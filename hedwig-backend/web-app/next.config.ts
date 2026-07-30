@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import path from 'path';
 import { withSentryConfig } from '@sentry/nextjs';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.riftlabs.xyz';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://hedwig-app.onrender.com';
 const uploadSentrySourceMaps = process.env.SENTRY_UPLOAD_SOURCE_MAPS === 'true';
 
 // ─── Content-Security-Policy ────────────────────────────────────────────────
@@ -162,13 +162,7 @@ const nextConfig: NextConfig = {
       'posthog-js',
       '@hugeicons/react',
       '@hugeicons/core-free-icons',
-      '@radix-ui/react-avatar',
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-scroll-area',
-      '@radix-ui/react-separator',
-      '@radix-ui/react-slot',
-      '@radix-ui/react-tabs',
-      '@radix-ui/react-toast',
+      '@heroui/react',
     ],
   },
   images: {

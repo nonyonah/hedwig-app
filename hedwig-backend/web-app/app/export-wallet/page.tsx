@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useExportWallet, useLoginWithOAuth, usePrivy, useWallets } from '@privy-io/react-auth';
-import { ArrowLeft, Key, Lock, SpinnerGap, Warning } from '@/components/ui/lucide-icons';
+import { Alert } from '@heroui/react';
+import { ArrowLeft, Key, Lock } from '@/components/ui/lucide-icons';
+import { Loader } from '@/components/ui/loader';
 import { Button } from '@/components/ui/button';
 
 function getWalletLabel(address?: string | null) {
@@ -106,12 +108,9 @@ export default function ExportWalletPage() {
  </div>
  </div>
 
- {error && (
- <div className="flex items-start gap-2 rounded-xl border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2.5 text-[13px] text-[var(--color-danger)]">
- <Warning className="mt-0.5 h-4 w-4 shrink-0" weight="bold" />
- <span>{error}</span>
- </div>
- )}
+  {error && (
+    <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{error}</Alert.Title></Alert.Content></Alert>
+  )}
 
  {!authenticated ? (
  <div className="space-y-2">
@@ -124,7 +123,7 @@ export default function ExportWalletPage() {
  </div>
  ) : (
  <Button className="w-full" onClick={openExport} disabled={!ready || isExporting}>
- {isExporting || !ready ? <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" /> : <Key className="h-4 w-4" weight="bold" />}
+  {isExporting || !ready ? <Loader size={16} /> : <Key className="h-4 w-4" weight="bold" />}
  {!ready ? 'Loading…' : 'Open export screen'}
  </Button>
  )}

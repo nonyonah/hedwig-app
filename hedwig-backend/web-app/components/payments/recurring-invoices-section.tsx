@@ -149,7 +149,7 @@ export function RecurringInvoicesSection({ initialItems, clients, accessToken, a
 
  if (asTabContent) return emptyContent;
  return (
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  {emptyContent}
  </div>
  );
@@ -242,7 +242,7 @@ export function RecurringInvoicesSection({ initialItems, clients, accessToken, a
  if (asTabContent) return innerContent;
 
  return (
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  {innerContent}
  </div>
  );

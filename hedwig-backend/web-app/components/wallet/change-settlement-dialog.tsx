@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check } from '@/components/ui/lucide-icons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog';
@@ -53,23 +53,24 @@ export function ChangeSettlementDialog({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Chain>(currentChain);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
   const handleSave = () => {
     setError(null);
-    startTransition(async () => {
-      try {
-        await updateSettlementChain(selected, accessToken);
+    setIsPending(true);
+    updateSettlementChain(selected, accessToken)
+      .then(async () => {
         if (onUpdated) {
           await onUpdated();
         }
         setOpen(false);
         router.refresh();
-      } catch (e) {
+      })
+      .catch((e) => {
         setError(e instanceof Error ? e.message : 'Something went wrong');
-      }
-    });
+      })
+      .finally(() => setIsPending(false));
   };
 
   return (

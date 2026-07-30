@@ -58,7 +58,7 @@ export function PublicInvoiceRightPanel({
  return (
  <div className="space-y-4">
  {/* Amount due card */}
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-5 py-5">
  <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Amount due</p>
  <p className="mt-1.5 text-[34px] font-bold tracking-[-0.04em] leading-none text-[var(--color-foreground)]">

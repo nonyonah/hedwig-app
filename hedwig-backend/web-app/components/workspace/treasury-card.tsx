@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Plus } from '@/components/ui/lucide-icons';
+import { Plus, CaretDown } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label } from '@heroui/react';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 
@@ -154,22 +155,31 @@ export function TreasuryCard() {
 
           {/* Add member */}
           <div className="mb-3">
-            <div className="relative">
-              <select
-                onChange={(e) => { if (e.target.value) addPayoutItem(e.target.value); e.target.value = ''; }}
-                className="w-full appearance-none rounded-full border border-[var(--color-border)] px-3 py-2 pr-8 text-[13px]"
+            <Dropdown>
+              <HButton
+                variant="secondary"
+                className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+                aria-label="Add member"
               >
-                <option value="">Add member...</option>
-                {members.filter(m => !payoutItems.some(i => i.userId === m.userId)).map(m => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}
-                  </option>
-                ))}
-              </select>
-              <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4.5L6 7.5L9 4.5" />
-              </svg>
-            </div>
+                <span>Add member...</span>
+                <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+              </HButton>
+              <Dropdown.Popover className="min-w-[260px] max-h-[300px] overflow-y-auto">
+                <Dropdown.Menu
+                  selectionMode="single"
+                  onSelectionChange={(keys) => {
+                    const key = [...keys][0];
+                    if (key) addPayoutItem(key as string);
+                  }}
+                >
+                  {members.filter(m => !payoutItems.some(i => i.userId === m.userId)).map(m => (
+                    <Dropdown.Item key={m.userId} id={m.userId} textValue={m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}>
+                      <Label>{m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}</Label>
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
           </div>
 
           {/* Payout items */}

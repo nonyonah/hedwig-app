@@ -12,6 +12,7 @@ import {
  Receipt,
  X,
 } from '@/components/ui/lucide-icons';
+import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -138,7 +139,7 @@ export function DayDetailDialog({
  className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
  onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
  >
- <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
+ <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl">
  {/* Header */}
  <div className="flex items-start justify-between gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
  <div className="flex items-center gap-3">
@@ -202,11 +203,11 @@ export function DayDetailDialog({
  <>
  <div>
  <p className="mb-1.5 text-[11px] font-semibold text-[var(--color-text-muted)]">Title</p>
- <Input value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} className="bg-[var(--color-surface)]" />
+  <Input fullWidth value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} className="bg-[var(--color-surface)]" />
  </div>
  <div>
  <p className="mb-1.5 text-[11px] font-semibold text-[var(--color-text-muted)]">Due date</p>
- <Input type="date" value={draftDueDate} onChange={(e) => setDraftDueDate(e.target.value)} className="bg-[var(--color-surface)]" />
+   <DateInput fullWidth value={draftDueDate} onChange={(v) => setDraftDueDate(v)} className="bg-[var(--color-surface)]" />
  </div>
  </>
  ) : (

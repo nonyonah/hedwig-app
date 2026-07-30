@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { DownloadSimple, SpinnerGap } from '@/components/ui/lucide-icons';
+import { DownloadSimple, CaretDown } from '@/components/ui/lucide-icons';
+import { Loader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label } from '@heroui/react';
 import { useToast } from '@/components/providers/toast-provider';
+import { DateInput } from '@/components/ui/date-input';
 import type { Client } from '@/lib/models/entities';
 
 type ExportType = 'invoices' | 'transactions' | 'summary';
@@ -136,24 +139,19 @@ export function ExportDialog({
  <div className="grid grid-cols-2 gap-3">
  <div>
  <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">From</p>
- <input
- type="date"
- value={dateFrom}
- max={dateTo}
- onChange={(e) => setDateFrom(e.target.value)}
- className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- />
+              <DateInput
+            value={dateFrom}
+            onChange={(v) => setDateFrom(v)}
+            className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
+          />
  </div>
  <div>
  <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">To</p>
- <input
- type="date"
- value={dateTo}
- min={dateFrom}
- max={new Date().toISOString().slice(0, 10)}
- onChange={(e) => setDateTo(e.target.value)}
- className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- />
+              <DateInput
+            value={dateTo}
+            onChange={(v) => setDateTo(v)}
+            className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
+          />
  </div>
  </div>
  </div>
@@ -166,42 +164,68 @@ export function ExportDialog({
  </label>
  <div className="grid grid-cols-2 gap-3">
  {clients.length > 0 && (
- <div>
- <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">Client</p>
-  <div className="relative">
-    <select
-    value={clientId}
-    onChange={(e) => setClientId(e.target.value)}
-    className="w-full appearance-none rounded-xl border border-[var(--color-border)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
-    >
-    <option value="">All clients</option>
-    {clients.map((c) => (
-    <option key={c.id} value={c.id}>{c.name}</option>
-    ))}
-    </select>
-    <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 4.5L6 7.5L9 4.5" />
-    </svg>
+  <div>
+  <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">Client</p>
+   <Dropdown>
+     <HButton
+       variant="secondary"
+       className="flex h-9 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+       aria-label="Filter by client"
+     >
+       <span>{clientId ? (clients.find((c) => c.id === clientId)?.name || 'All clients') : 'All clients'}</span>
+       <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+     </HButton>
+     <Dropdown.Popover className="min-w-[220px]">
+       <Dropdown.Menu
+         selectedKeys={clientId ? new Set([clientId]) : new Set()}
+         selectionMode="single"
+         onSelectionChange={(keys) => {
+           const key = [...keys][0];
+           setClientId(key ? (key as string) : '');
+         }}
+       >
+         <Dropdown.Item key="" id="" textValue="All clients">
+           <Label>All clients</Label>
+         </Dropdown.Item>
+         {clients.map((c) => (
+           <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
+             <Label>{c.name}</Label>
+           </Dropdown.Item>
+         ))}
+       </Dropdown.Menu>
+     </Dropdown.Popover>
+   </Dropdown>
   </div>
- </div>
  )}
- <div>
- <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">Status</p>
-  <div className="relative">
-    <select
-    value={status}
-    onChange={(e) => setStatus(e.target.value)}
-    className="w-full appearance-none rounded-xl border border-[var(--color-border)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
-    >
-    {STATUS_OPTIONS.map((o) => (
-    <option key={o.value} value={o.value}>{o.label}</option>
-    ))}
-    </select>
-    <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 4.5L6 7.5L9 4.5" />
-    </svg>
+  <div>
+  <p className="mb-1 text-[11px] text-[var(--color-text-tertiary)]">Status</p>
+   <Dropdown>
+     <HButton
+       variant="secondary"
+       className="flex h-9 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+       aria-label="Filter by status"
+     >
+       <span>{STATUS_OPTIONS.find((o) => o.value === status)?.label || 'Any status'}</span>
+       <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+     </HButton>
+     <Dropdown.Popover className="min-w-[200px]">
+       <Dropdown.Menu
+         selectedKeys={new Set([status || 'any'])}
+         selectionMode="single"
+         onSelectionChange={(keys) => {
+           const key = [...keys][0];
+           setStatus(key === 'any' ? '' : (key as string));
+         }}
+       >
+         {STATUS_OPTIONS.map((o) => (
+           <Dropdown.Item key={o.value || 'any'} id={o.value || 'any'} textValue={o.label}>
+             <Label>{o.label}</Label>
+           </Dropdown.Item>
+         ))}
+       </Dropdown.Menu>
+     </Dropdown.Popover>
+   </Dropdown>
   </div>
- </div>
  </div>
  </div>
  )}
@@ -223,7 +247,7 @@ export function ExportDialog({
  </Button>
  <Button onClick={handleDownload} disabled={loading}>
  {loading
- ? <><SpinnerGap className="h-4 w-4 animate-spin" weight="bold" /> Generating…</>
+  ? <><Loader size={16} className="mr-1" /> Generating…</>
  : <><DownloadSimple className="h-4 w-4" weight="bold" /> Download CSV</>
  }
  </Button>

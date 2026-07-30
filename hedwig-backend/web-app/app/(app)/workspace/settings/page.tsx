@@ -11,9 +11,12 @@ import {
   Link as LinkIcon, Lock, MagicWand, MapPin, NotePencil, PaperPlaneRight,
   Printer, Receipt, ShareNetwork, Shield,
   ShieldCheck, Sparkle, Target, UploadSimple, User, UserPlus, UsersThree, Wallet,
+  CaretDown,
 } from '@/components/ui/lucide-icons';
+import { AlertDialog, Button as HButton, Card, Dropdown, Label } from '@heroui/react';
 import { ExternalRecipientsPanel } from '@/components/workspace/external-recipients-panel';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { IconEmojiPicker, type PickerResult } from '@/components/ui/icon-emoji-picker';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
@@ -248,21 +251,19 @@ export default function WorkspaceSettingsPage() {
         <div className="px-0.5">
           <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">Workspace</h2>
         </div>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <Card className="rounded-xl border border-[var(--color-border)] p-5">
           <div className="flex items-center gap-3">
             <div className="relative" ref={iconPickerRef}>
               <button
                 type="button"
                 onClick={() => setShowIconPicker(!showIconPicker)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-sm font-bold text-[var(--color-text-secondary)] transition hover:ring-2 hover:ring-[var(--color-accent)] hover:ring-offset-2 hover:ring-offset-[var(--color-surface)]"
+                className="transition hover:ring-2 hover:ring-[var(--color-accent)] hover:ring-offset-2 hover:ring-offset-[var(--color-surface)] rounded-full"
               >
-                {resolvedIcon.type === 'emoji' ? (
-                  <span className="text-[20px]">{resolvedIcon.value}</span>
-                ) : resolvedIcon.type === 'icon' ? (
-                  <WorkspaceIconIcon name={resolvedIcon.value} color={resolvedIcon.color} />
-                ) : (
-                  activeWorkspace.name.charAt(0).toUpperCase()
-                )}
+                <Avatar
+                  label={activeWorkspace.name}
+                  src={activeWorkspace.icon || undefined}
+                  size="lg"
+                />
               </button>
               {showIconPicker && (
                 <div className="absolute left-0 top-12 z-50">
@@ -332,22 +333,33 @@ export default function WorkspaceSettingsPage() {
             <div className="mt-4 border-t border-[var(--color-border-light)] pt-4">
               <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Transfer ownership</label>
               <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                <select
-                  value={transferTarget ?? ''}
-                  onChange={(e) => setTransferTarget(e.target.value || null)}
-                  className="w-full appearance-none rounded-full border border-[var(--color-border-light)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
-                >
-                  <option value="">Select a member...</option>
-                  {members.filter((m) => m.role !== 'owner').map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.firstName || m.lastName ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() : m.email} ({m.role})
-                    </option>
-                  ))}
-                </select>
-                <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 4.5L6 7.5L9 4.5" />
-                </svg>
+                <div className="flex-1">
+                <Dropdown>
+                  <HButton
+                    variant="secondary"
+                    className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+                    aria-label="Select member"
+                  >
+                    <span>{(() => { const m = members.find((mem) => mem.userId === transferTarget); return m ? (`${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email) : 'Select a member...'; })()}</span>
+                    <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                  </HButton>
+                  <Dropdown.Popover className="min-w-[300px]">
+                    <Dropdown.Menu
+                      selectedKeys={transferTarget ? new Set([transferTarget]) : new Set()}
+                      selectionMode="single"
+                      onSelectionChange={(keys) => {
+                        const key = [...keys][0];
+                        setTransferTarget((key as string) || null);
+                      }}
+                    >
+                      {members.filter((m) => m.role !== 'owner').map((m) => (
+                        <Dropdown.Item key={m.userId} id={m.userId} textValue={`${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email}>
+                          <Label>{m.firstName || m.lastName ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() : m.email} ({m.role})</Label>
+                        </Dropdown.Item>
+                      ))}
+                    </Dropdown.Menu>
+                  </Dropdown.Popover>
+                </Dropdown>
               </div>
                 <Button
                   variant="ghost"
@@ -361,7 +373,7 @@ export default function WorkspaceSettingsPage() {
               <p className="mt-1.5 text-[11px] text-[var(--color-text-placeholder)]">You will become an admin after transferring ownership.</p>
             </div>
           )}
-        </div>
+        </Card>
       </section>
 
       {/* Team */}
@@ -385,7 +397,7 @@ export default function WorkspaceSettingsPage() {
             <p className="text-[13px] text-[var(--color-text-tertiary)]">Loading members...</p>
           </div>
         ) : (
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <Card className="rounded-xl border border-[var(--color-border)] p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[14px] font-medium text-[var(--color-foreground)]">
@@ -403,7 +415,7 @@ export default function WorkspaceSettingsPage() {
                 <ArrowRight className="h-3.5 w-3.5" weight="bold" />
               </Link>
             </div>
-          </div>
+          </Card>
         )}
       </section>
 
@@ -413,15 +425,13 @@ export default function WorkspaceSettingsPage() {
           <div className="px-0.5">
             <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">Pending invitations</h2>
           </div>
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
+          <Card className="rounded-xl border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
             {invitations.filter((inv) => inv.status === 'pending').map((inv, i) => (
               <div
                 key={inv.id}
                 className="flex items-center gap-3 px-5 py-3"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-warning-soft)] text-[12px] font-bold text-[var(--color-warning)]">
-                  {inv.email.charAt(0).toUpperCase()}
-                </span>
+                <Avatar label={inv.email} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-medium text-[var(--color-foreground)]">{inv.email}</p>
                   <p className="text-[12px] text-[var(--color-text-tertiary)]">
@@ -441,7 +451,7 @@ export default function WorkspaceSettingsPage() {
                 )}
               </div>
             ))}
-          </div>
+          </Card>
         </section>
       )}
 
@@ -450,9 +460,9 @@ export default function WorkspaceSettingsPage() {
         <div className="px-0.5">
           <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">External recipients</h2>
         </div>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <Card className="rounded-xl border border-[var(--color-border)] p-5">
           <ExternalRecipientsPanel workspaceId={activeWorkspace?.id || ''} accessToken={accessToken} />
-        </div>
+        </Card>
       </section>
 
       {/* Danger zone — delete workspace (org only) */}
@@ -461,75 +471,76 @@ export default function WorkspaceSettingsPage() {
           <div className="px-0.5">
             <h2 className="text-[13px] font-semibold text-red-600">Danger zone</h2>
           </div>
-          <div className="rounded-xl border border-red-300 bg-red-50/50 p-5">
+          <Card className="rounded-xl border border-red-300 bg-red-50/50 p-5">
             <p className="mb-1 text-[14px] font-medium text-red-800">Delete this workspace</p>
             <p className="mb-4 text-[13px] text-red-700">
               This permanently deletes the workspace and all associated data. Members will lose access. This cannot be undone.
             </p>
-            {!showDeleteConfirm ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                Delete workspace
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                >
-                  {deleting ? 'Deleting...' : 'Confirm delete'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              Delete workspace
+            </Button>
+          </Card>
+
+          <AlertDialog.Backdrop isOpen={showDeleteConfirm} onOpenChange={(open) => { if (!deleting) setShowDeleteConfirm(open); }}>
+            <AlertDialog.Container>
+              <AlertDialog.Dialog className="sm:max-w-[400px]">
+                <AlertDialog.CloseTrigger />
+                <AlertDialog.Header>
+                  <AlertDialog.Icon status="danger" />
+                  <AlertDialog.Heading>Delete this workspace?</AlertDialog.Heading>
+                </AlertDialog.Header>
+                <AlertDialog.Body>
+                  <p className="text-[13px] text-[var(--color-text-secondary)]">
+                    This permanently deletes <strong>{activeWorkspace.name}</strong> and all associated data. Members will lose access. This cannot be undone.
+                  </p>
+                </AlertDialog.Body>
+                <AlertDialog.Footer>
+                  <HButton variant="tertiary" slot="close" isDisabled={deleting}>
+                    Cancel
+                  </HButton>
+                  <HButton variant="danger" slot="close" onPress={handleDelete} isDisabled={deleting}>
+                    {deleting ? 'Deleting...' : 'Delete workspace'}
+                  </HButton>
+                </AlertDialog.Footer>
+              </AlertDialog.Dialog>
+            </AlertDialog.Container>
+          </AlertDialog.Backdrop>
         </section>
       )}
       </div>
 
-      {/* Transfer ownership confirmation modal */}
-      {showTransferConfirm && transferTarget && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh]">
-          <div className="fixed inset-0 bg-[var(--color-foreground)]/30" onClick={() => setShowTransferConfirm(false)} />
-          <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-6 shadow-2xl shadow-[var(--color-foreground)]/10">
-            <h2 className="mb-2 text-[15px] font-semibold text-[var(--color-foreground)]">Transfer ownership?</h2>
-            <p className="mb-1 text-[13px] text-[var(--color-text-secondary)]">
-              You will lose owner privileges and become an <strong>admin</strong>. This transfer is permanent and cannot be undone by you.
-            </p>
-            <p className="mb-4 text-[13px] text-[var(--color-text-tertiary)]">
-              The new owner will have full control over the workspace, including the ability to remove members and delete the workspace.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setShowTransferConfirm(false); setTransferTarget(null); }}
-              >
+      {/* Transfer ownership confirmation */}
+      <AlertDialog.Backdrop isOpen={showTransferConfirm && !!transferTarget} onOpenChange={(open) => { if (!transferring && !open) { setShowTransferConfirm(false); setTransferTarget(null); } }}>
+        <AlertDialog.Container>
+          <AlertDialog.Dialog className="sm:max-w-[400px]">
+            <AlertDialog.CloseTrigger />
+            <AlertDialog.Header>
+              <AlertDialog.Icon status="warning" />
+              <AlertDialog.Heading>Transfer ownership?</AlertDialog.Heading>
+            </AlertDialog.Header>
+            <AlertDialog.Body>
+              <p className="text-[13px] text-[var(--color-text-secondary)]">
+                You will lose owner privileges and become an <strong>admin</strong>. This transfer is permanent and cannot be undone by you.
+              </p>
+              <p className="mt-3 text-[13px] text-[var(--color-text-tertiary)]">
+                The new owner will have full control over the workspace, including the ability to remove members and delete the workspace.
+              </p>
+            </AlertDialog.Body>
+            <AlertDialog.Footer>
+              <HButton variant="tertiary" slot="close" isDisabled={transferring}>
                 Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleTransferOwnership}
-                disabled={transferring}
-              >
+              </HButton>
+              <HButton variant="danger" slot="close" onPress={handleTransferOwnership} isDisabled={transferring}>
                 {transferring ? 'Transferring...' : 'Yes, transfer ownership'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+              </HButton>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
     </div>
   );
 }

@@ -205,14 +205,14 @@ export function TreasuryDashboard() {
  </div>
  <div className="mb-4 grid grid-cols-4 gap-3">
  {[...Array(4)].map((_, i) => (
- <div key={i} className="h-24 animate-pulse rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]" />
+ <div key={i} className="h-24 animate-pulse rounded-2xl bg-[var(--color-surface)]" />
  ))}
  </div>
  <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
- <div className="h-48 animate-pulse rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]" />
+ <div className="h-48 animate-pulse rounded-2xl bg-[var(--color-surface)]" />
  <div className="flex flex-col gap-3">
- <div className="h-32 animate-pulse rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]" />
- <div className="h-24 animate-pulse rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]" />
+ <div className="h-32 animate-pulse rounded-2xl bg-[var(--color-surface)]" />
+ <div className="h-24 animate-pulse rounded-2xl bg-[var(--color-surface)]" />
  </div>
  </div>
  </div>
@@ -280,7 +280,7 @@ export function TreasuryDashboard() {
  </div>
 
  {/* Stat cards */}
- <div className="mb-4 grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
+ <div className="mb-4 grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[var(--color-border)]">
  <div className="bg-[var(--color-surface)] px-4 py-3.5">
  <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">Total balance</p>
  <p className="mt-1.5 text-[20px] font-bold leading-none tracking-[-0.03em] text-[var(--color-foreground)]">
@@ -314,7 +314,7 @@ export function TreasuryDashboard() {
  {/* Main two-column layout */}
  <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
  {/* Left: Recent transactions */}
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)]">
  <div className="border-b border-[var(--color-surface-secondary)] px-4 py-3">
  <p className="text-[12px] font-semibold text-[var(--color-foreground)]">Recent transactions</p>
  </div>
@@ -354,7 +354,7 @@ export function TreasuryDashboard() {
 
  {/* Right: Available + Auto-settlement */}
  <div className="flex flex-col gap-3">
- <div className="flex-1 overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4 ring-1 ring-[var(--color-border)]">
+ <div className="flex-1 overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4">
  <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">Available</p>
  <p className="mt-2 text-[22px] font-bold leading-none tracking-[-0.03em] text-[var(--color-foreground)]">
  ${availableNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -366,7 +366,7 @@ export function TreasuryDashboard() {
  </div>
  </div>
  </div>
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4 ring-1 ring-[var(--color-border)]">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4">
  <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">Auto-settlement</p>
  <div className="mt-2 flex items-center gap-2">
  <span className="h-2 w-2 rounded-full bg-[var(--color-text-muted)]" />
@@ -380,7 +380,7 @@ export function TreasuryDashboard() {
  {/* Receive payment details */}
  {hasBase && (
  <div className="mt-4 grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4 ring-1 ring-[var(--color-border)]">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4">
  <p className="text-[10px] font-bold text-[var(--color-text-muted)]">
  USDC on Base
  </p>
@@ -406,7 +406,7 @@ export function TreasuryDashboard() {
  {usdAccounts.map((acct) => (
  <div
  key={acct.id}
- className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4 ring-1 ring-[var(--color-border)]"
+ className="overflow-hidden rounded-2xl bg-[var(--color-surface)] p-4"
  >
  <div className="grid grid-cols-2 gap-3 text-[12px]">
  <div>

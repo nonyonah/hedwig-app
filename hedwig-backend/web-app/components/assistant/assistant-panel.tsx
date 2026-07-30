@@ -375,7 +375,7 @@ export function AssistantPanel({ className }: { className?: string }) {
 
   return (
     <>
-      <article className={cn('flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)] lg:max-h-[620px]', className)}>
+      <article className={cn('flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs lg:max-h-[620px]', className)}>
         {/* Header */}
         <div className="flex items-center gap-2.5 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
           <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-[var(--color-accent-soft)]">

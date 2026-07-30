@@ -20,7 +20,7 @@ export function PublicResultCard({
 
  return (
  <div className="mx-auto max-w-md">
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  {/* Colored band */}
  <div className={`h-1.5 w-full ${isSuccess ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'}`} />
 

@@ -15,7 +15,7 @@ export function SuggestionReasonPanel({ suggestion }: { suggestion: SuggestedEnt
  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
  >
  <div className="flex items-center gap-2">
- <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+ <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-surface)]">
  <Info className="h-4 w-4 text-[var(--color-text-tertiary)]" />
  </span>
  <div>

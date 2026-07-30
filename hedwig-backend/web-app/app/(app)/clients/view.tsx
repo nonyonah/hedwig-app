@@ -1,18 +1,21 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Envelope, Plus, Trash } from '@/components/ui/lucide-icons';
+import { Plus } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { Button } from '@/components/ui/button';
+import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { formatShortDate } from '@/lib/utils';
+import { Table } from '@heroui/react';
 
 const CLIENT_STATUS = {
   active:   { dot: 'bg-[var(--color-success)]', label: 'Active',   bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
@@ -48,6 +51,7 @@ export function ClientsClient({
   initialClients: Client[];
   accessToken: string | null;
 }) {
+  const router = useRouter();
   const { formatAmount } = useCurrency();
   const { toast } = useToast();
   const { activeWorkspace } = useWorkspaceContext();
@@ -199,95 +203,90 @@ export function ClientsClient({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-        {/* Column headers */}
-        <div className="grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
-          <ColHead>Client</ColHead>
-          <ColHead>Segment</ColHead>
-          <ColHead>Status</ColHead>
-          <ColHead right>Outstanding</ColHead>
-          <ColHead right>Earnings</ColHead>
-          <ColHead right>Last activity</ColHead>
-          <span />
-        </div>
-
-        {/* Rows */}
-        {filtered.length === 0 ? (
-          <EmptyState text={filter === 'all' ? 'No clients yet.' : 'No clients match this filter.'} />
-        ) : (
-          <div className="divide-y divide-[var(--color-border)]">
-            {filtered.map((client) => {
-              const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
-              const segMeta = SEGMENT_META[client.segment];
-              return (
-                <div
-                  key={client.id}
-                  className="group grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)]"
-                >
-                  <Link href={`/clients/${client.id}`} className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-secondary)] text-[11px] font-bold text-[var(--color-text-tertiary)]">
-                      {client.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
-                        {client.name}
-                      </p>
-                      {client.company && (
-                        <p className="truncate text-[11px] text-[var(--color-text-muted)]">{client.company}</p>
-                      )}
-                    </div>
-                  </Link>
-                  <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${segMeta.bg} ${segMeta.text}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${segMeta.dot}`} />
-                    {segMeta.label}
-                  </span>
-                  <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.bg} ${s.text}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
-                    {s.label}
-                  </span>
-                  <p className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">
-                    {formatAmount(client.outstandingUsd, { compact: true })}
+      <Table>
+        <Table.ScrollContainer>
+          <Table.Content aria-label="Clients" className="min-w-[900px]">
+            <Table.Header>
+              <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</Table.Column>
+              <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Segment</Table.Column>
+              <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+              <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Outstanding</Table.Column>
+              <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Earnings</Table.Column>
+              <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Last activity</Table.Column>
+              <Table.Column />
+            </Table.Header>
+            <Table.Body
+              renderEmptyState={() => (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 py-16 text-center">
+                  <p className="text-[13px] text-[var(--color-text-muted)]">
+                    {filter === 'all' ? 'No clients yet.' : 'No clients match this filter.'}
                   </p>
-                  <p className="text-right text-[13px] tabular-nums text-[var(--color-text-tertiary)]">
-                    {formatAmount(client.totalBilledUsd, { compact: true })}
-                  </p>
-                  <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(client.lastActivityAt)}</p>
-                  <div className="flex justify-end">
-                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setClientToDelete(client)}
-                        className="h-7 w-7 rounded-md text-[var(--color-border-input)] hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
-                        aria-label={`Delete ${client.name}`}
-                        title="Delete client"
-                      >
-                        <Trash className="h-3.5 w-3.5" weight="bold" />
-                      </Button>
-                      {client.email && (
-                        <Link
-                          href={`/clients/${client.id}`}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-border-input)] transition-all hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)]"
-                          aria-label={`Message ${client.name}`}
-                          title="Message client"
-                        >
-                          <Envelope className="h-3.5 w-3.5" weight="bold" />
-                        </Link>
-                      )}
-                      <Link
-                        href={`/clients/${client.id}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-border-input)] transition-all hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text-tertiary)]"
-                      >
-                        <ArrowRight className="h-3.5 w-3.5" weight="bold" />
-                      </Link>
-                    </div>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              )}
+            >
+              {filtered.map((client) => {
+                const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
+                const segMeta = SEGMENT_META[client.segment];
+                return (
+                  <Table.Row key={client.id} className="group hover:bg-[var(--color-background)]">
+                    <Table.Cell>
+                      <Link href={`/clients/${client.id}`} className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-secondary)] text-[11px] font-bold text-[var(--color-text-tertiary)]">
+                          {client.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
+                            {client.name}
+                          </p>
+                          {client.company && (
+                            <p className="truncate text-[11px] text-[var(--color-text-muted)]">{client.company}</p>
+                          )}
+                        </div>
+                      </Link>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${segMeta.bg} ${segMeta.text}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${segMeta.dot}`} />
+                        {segMeta.label}
+                      </span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.bg} ${s.text}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+                        {s.label}
+                      </span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className="flex w-full justify-end text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">
+                        {formatAmount(client.outstandingUsd, { compact: true })}
+                      </span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className="flex w-full justify-end text-[13px] tabular-nums text-[var(--color-text-tertiary)]">
+                        {formatAmount(client.totalBilledUsd, { compact: true })}
+                      </span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className="flex w-full justify-end text-[12px] text-[var(--color-text-muted)]">{formatShortDate(client.lastActivityAt)}</span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <div className="flex items-center justify-end">
+                        <RowActionsMenu
+                          items={[
+                            ...(client.email ? [{ label: 'Message', onClick: () => router.push(`/clients/${client.id}`) }] : []),
+                            { label: 'Open', onClick: () => router.push(`/clients/${client.id}`) },
+                            { label: 'Delete', onClick: () => setClientToDelete(client), destructive: true },
+                          ]}
+                        />
+                      </div>
+                    </Table.Cell>
+                  </Table.Row>
+                );
+              })}
+            </Table.Body>
+          </Table.Content>
+        </Table.ScrollContainer>
+      </Table>
 
       <DeleteDialog
         open={!!clientToDelete}
@@ -302,18 +301,4 @@ export function ClientsClient({
   );
 }
 
-function ColHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <span className={`text-[11px] font-medium text-[var(--color-text-tertiary)] ${right ? 'text-right' : ''}`}>
-      {children}
-    </span>
-  );
-}
 
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <p className="text-[13px] text-[var(--color-text-muted)]">{text}</p>
-    </div>
-  );
-}

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowSquareOut, CopySimple, FileText, PaperPlaneTilt } from '@/components/ui/lucide-icons';
+import { Table } from '@heroui/react';
 import type { Contract } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
@@ -228,42 +229,53 @@ export function ContractsClient({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-        {/* Column headers */}
-        <div className="grid grid-cols-[1fr_110px_160px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
-          <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Title</span>
-          <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</span>
-          <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</span>
-          <span />
-        </div>
-
-        {/* Rows */}
-        {filtered.length === 0 ? (
-          <EmptyState text="No contracts match this filter." />
-        ) : (
-          <div className="divide-y divide-[var(--color-border)]">
-            {filtered.map((contract) => {
-              const s = CONTRACT_STATUS[contract.status] ?? CONTRACT_STATUS.draft;
-              const isHighlighted = contract.id === highlightedContractId;
-              return (
-                <div key={contract.id} className={`grid grid-cols-[1fr_110px_160px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)] ${isHighlighted ? 'bg-[var(--color-accent-soft)]' : ''}`}>
-                  <div className="min-w-0">
-                    <Link href={`${backendConfig.publicPagesUrl}/contract/${contract.id}`} target="_blank" className="group flex items-center gap-1.5">
-                      <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-text-tertiary)] transition-colors">{contract.title}</p>
-                      <ArrowSquareOut className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" weight="bold" />
-                    </Link>
-                  </div>
-                  <StatusPill dot={s.dot} label={s.label} bg={s.bg} text={s.text} />
-                  <p className="truncate text-[13px] text-[var(--color-text-tertiary)]">{contract.clientName || contract.clientId || 'Unassigned'}</p>
-                  <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-                    <RowActionsMenu items={contractActions(contract)} />
-                  </div>
+      <Table>
+        <Table.ScrollContainer>
+          <Table.Content aria-label="Contracts" className="min-w-[500px]">
+            <Table.Header>
+              <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Title</Table.Column>
+              <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+              <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</Table.Column>
+              <Table.Column />
+            </Table.Header>
+            <Table.Body
+              renderEmptyState={() => (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 py-16 text-center">
+                  <p className="text-[13px] text-[var(--color-text-muted)]">No contracts match this filter.</p>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              )}
+            >
+              {filtered.map((contract) => {
+                const s = CONTRACT_STATUS[contract.status] ?? CONTRACT_STATUS.draft;
+                const isHighlighted = contract.id === highlightedContractId;
+                return (
+                  <Table.Row key={contract.id} className={`hover:bg-[var(--color-background)] ${isHighlighted ? 'bg-[var(--color-accent-soft)]' : ''}`}>
+                    <Table.Cell>
+                      <div className="min-w-0">
+                        <Link href={`${backendConfig.publicPagesUrl}/contract/${contract.id}`} target="_blank" className="group flex items-center gap-1.5">
+                          <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-text-tertiary)] transition-colors">{contract.title}</p>
+                          <ArrowSquareOut className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" weight="bold" />
+                        </Link>
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <StatusPill dot={s.dot} label={s.label} bg={s.bg} text={s.text} />
+                    </Table.Cell>
+                    <Table.Cell>
+                      <p className="truncate text-[13px] text-[var(--color-text-tertiary)]">{contract.clientName || contract.clientId || 'Unassigned'}</p>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <RowActionsMenu items={contractActions(contract)} />
+                      </div>
+                    </Table.Cell>
+                  </Table.Row>
+                );
+              })}
+            </Table.Body>
+          </Table.Content>
+        </Table.ScrollContainer>
+      </Table>
 
       <DeleteDialog
         open={!!contractToDelete}
@@ -274,14 +286,6 @@ export function ContractsClient({
         onConfirm={handleDelete}
         onOpenChange={(open) => { if (!open && !isDeleting && !isActionLoading) setContractToDelete(null); }}
       />
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <p className="text-[13px] text-[var(--color-text-muted)]">{text}</p>
     </div>
   );
 }

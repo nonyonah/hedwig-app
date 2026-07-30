@@ -1,12 +1,82 @@
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  'software', 'contractors', 'marketing', 'travel',
+  'meals', 'office', 'operations', 'taxes', 'subscriptions',
+  'shopping', 'entertainment', 'groceries', 'utilities',
+  'health', 'education', 'transportation', 'rent', 'personal_care',
+  'other',
+];
+
 export type ExpenseCategory =
   | 'software'
-  | 'equipment'
+  | 'contractors'
   | 'marketing'
   | 'travel'
+  | 'meals'
+  | 'office'
   | 'operations'
-  | 'contractor'
+  | 'taxes'
   | 'subscriptions'
+  | 'shopping'
+  | 'entertainment'
+  | 'groceries'
+  | 'utilities'
+  | 'health'
+  | 'education'
+  | 'transportation'
+  | 'rent'
+  | 'personal_care'
   | 'other';
+
+export type ImportedTransactionStatus = 'pending' | 'matched' | 'expensed' | 'skipped' | 'reconciled';
+export type StatementImportStatus = 'pending' | 'reviewing' | 'confirmed' | 'partially_confirmed' | 'cancelled';
+
+export interface ImportedTransaction {
+  id: string;
+  userId: string;
+  workspaceId: string | null;
+  statementId: string;
+  transactionDate: string;
+  description: string;
+  originalDescription: string;
+  amount: number;
+  currency: string;
+  type: 'debit' | 'credit';
+  category: string | null;
+  bankName: string | null;
+  accountNumber: string | null;
+  runningBalance: number | null;
+  reference: string | null;
+  matchedClientId: string | null;
+  matchedInvoiceId: string | null;
+  matchedExpenseId: string | null;
+  matchConfidence: number | null;
+  matchMethod: string | null;
+  status: ImportedTransactionStatus;
+  convertedAmountUsd: number | null;
+  fxRate: number | null;
+  fxSource: string | null;
+  createdAt: string;
+}
+
+export interface StatementImport {
+  id: string;
+  userId: string;
+  workspaceId: string | null;
+  originalFilename: string;
+  fileFormat: string;
+  bankName: string | null;
+  accountNumber: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  currency: string;
+  transactionCount: number;
+  totalDebits: number | null;
+  totalCredits: number | null;
+  status: StatementImportStatus;
+  importSummary: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export type ExpenseSourceType = 'manual' | 'email_import' | 'transaction_import' | 'attachment_import';
 

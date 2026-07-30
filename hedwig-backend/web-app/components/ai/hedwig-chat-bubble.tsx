@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   X,
   ArrowUp,
-  SpinnerGap,
   FileText,
   LinkSimple,
   ArrowsClockwise,
@@ -13,6 +12,7 @@ import {
   XCircle,
 } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
+import { Loader } from '@/components/ui/loader';
 import { CreateRecurringInvoiceDialog } from '@/components/payments/create-recurring-invoice-dialog';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
@@ -379,11 +379,11 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
 
       {/* ── Chat panel ── */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 flex h-[580px] w-[400px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]">
+        <div className="fixed bottom-6 right-6 z-50 flex h-[580px] w-[400px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl">
 
           {/* Header */}
           <div className="flex shrink-0 items-center gap-3 border-b border-[var(--color-surface-tertiary)] px-4 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)]">
               <HedwigLogoImg size={28} />
             </div>
             <div className="flex-1 min-w-0">
@@ -405,7 +405,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
             {/* Empty state */}
             {messages.length === 0 && !isParsing && (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)]">
                   <HedwigLogoImg size={40} />
                 </div>
                 <div>
@@ -434,7 +434,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
 
                 {/* AI avatar */}
                 {msg.role === 'assistant' && (
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)]">
                     <HedwigLogoImg size={24} />
                   </div>
                 )}
@@ -463,7 +463,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                   {/* Creating */}
                   {msg.actionState === 'creating' && (
                     <div className="flex items-center gap-2 rounded-xl bg-[var(--color-background)] px-3 py-2 text-[12px] text-[var(--color-text-tertiary)]">
-                      <SpinnerGap className="h-3.5 w-3.5 animate-spin text-[var(--color-text-tertiary)]" weight="bold" />
+                      <Loader size={14} />
                       Creating…
                     </div>
                   )}
@@ -490,7 +490,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
             {/* Typing indicator */}
             {isParsing && (
               <div className="flex gap-2">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[var(--color-surface)]">
                   <HedwigLogoImg size={28} />
                 </div>
                 <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-[var(--color-background)] px-3.5 py-3">

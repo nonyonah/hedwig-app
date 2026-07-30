@@ -10,6 +10,7 @@ import {
  WarningCircle,
  X,
 } from '@/components/ui/lucide-icons';
+import { Alert } from '@heroui/react';
 import { hedwigApi } from '@/lib/api/client';
 import { openPaymentDetail } from '@/lib/payments/open-detail';
 import type { ExternalDocument } from '@/lib/types/email-intelligence';
@@ -72,7 +73,7 @@ function UploadZone({
  : 'border-[var(--color-border-input)] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] hover:border-[var(--color-text-placeholder)]'
  }`}
  >
- <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <UploadSimple className="h-6 w-6 text-[var(--color-accent)]" />
  </span>
  <h3 className="mt-4 text-[20px] font-semibold tracking-[-0.03em] text-[var(--color-foreground)]">
@@ -515,27 +516,26 @@ export function ImportDocumentReviewFlow({
  extractedInvoice={session.extracted_invoice_data}
  />
 
- {session.warnings.length ? (
- <div className="rounded-[28px] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-5">
- <div className="flex items-start gap-3">
- <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--color-surface)]">
- <WarningCircle className="h-5 w-5 text-[var(--color-warning)]" />
- </span>
- <div>
- <p className="text-[13px] font-semibold text-[var(--color-warning)]">Warnings and conflict states</p>
- <ul className="mt-2 space-y-2 text-[13px] leading-6 text-[var(--color-warning)]">
- {session.warnings.map((warning) => (
- <li key={warning}>{warning}</li>
- ))}
- </ul>
- </div>
- </div>
- </div>
- ) : null}
+  {session.warnings.length ? (
+  <Alert status="warning">
+    <Alert.Indicator />
+    <Alert.Content>
+      <WarningCircle className="h-5 w-5 text-[var(--color-warning)]" />
+      <Alert.Title>Warnings and conflict states</Alert.Title>
+      <Alert.Description>
+        <ul className="space-y-2">
+          {session.warnings.map((warning) => (
+          <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      </Alert.Description>
+    </Alert.Content>
+  </Alert>
+  ) : null}
 
  <div className="rounded-[28px] border border-[var(--color-border-input)] bg-[var(--color-background)] p-5">
  <div className="flex items-start gap-3">
- <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+ <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--color-surface)]">
  <Sparkle className="h-5 w-5 text-[var(--color-accent)]" />
  </span>
  <div>
@@ -578,38 +578,35 @@ export function ImportDocumentReviewFlow({
 
  {step === 'result' && result ? <ResultState result={result} onClose={closeAndEmit} invoiceId={createdInvoiceId} /> : null}
 
- {step === 'error' ? (
- <div className="rounded-[32px] border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] p-8">
- <div className="flex items-start gap-4">
- <span className="flex h-14 w-14 items-center justify-center rounded-[24px] bg-[var(--color-surface)]">
- <WarningCircle className="h-7 w-7 text-[var(--color-danger)]" />
- </span>
- <div>
- <h3 className="text-[22px] font-semibold tracking-[-0.03em] text-[var(--color-foreground)]">Import review failed</h3>
- <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--color-danger)]">
- {errorMessage || 'Something went wrong while preparing live suggestions.'}
- </p>
- <div className="mt-5 flex gap-2">
- <Button
- variant="outline"
- onClick={() => {
- setStep('upload');
- setSession(null);
- setResult(null);
- setCompletedDocument(null);
- setFileMeta(null);
- setFileToProcess(null);
- setErrorMessage(null);
- }}
- >
- Try another file
- </Button>
- {onClose ? <Button onClick={onClose}>Close</Button> : null}
- </div>
- </div>
- </div>
- </div>
- ) : null}
+  {step === 'error' ? (
+  <Alert status="danger">
+    <Alert.Indicator />
+    <Alert.Content>
+      <WarningCircle className="h-7 w-7 text-[var(--color-danger)]" />
+      <Alert.Title>Import review failed</Alert.Title>
+      <Alert.Description>
+        {errorMessage || 'Something went wrong while preparing live suggestions.'}
+      </Alert.Description>
+      <div className="mt-4 flex gap-2">
+        <Button
+        variant="outline"
+        onClick={() => {
+        setStep('upload');
+        setSession(null);
+        setResult(null);
+        setCompletedDocument(null);
+        setFileMeta(null);
+        setFileToProcess(null);
+        setErrorMessage(null);
+        }}
+        >
+        Try another file
+        </Button>
+        {onClose ? <Button onClick={onClose}>Close</Button> : null}
+      </div>
+    </Alert.Content>
+  </Alert>
+  ) : null}
  </div>
 
  {session ? (

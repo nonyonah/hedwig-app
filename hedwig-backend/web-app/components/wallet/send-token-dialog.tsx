@@ -2,7 +2,9 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, PaperPlaneRight, SpinnerGap, Warning, X } from '@/components/ui/lucide-icons';
+import { ArrowRight, Check, PaperPlaneRight, Warning, X } from '@/components/ui/lucide-icons';
+import { Alert } from '@heroui/react';
+import { Loader } from '@/components/ui/loader';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
@@ -212,7 +214,7 @@ export function SendTokenDialog({
  <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={step === 'signing' ? undefined : onClose} />
 
  {/* Panel */}
- <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
+ <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col bg-[var(--color-surface)] shadow-2xl rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
 
  {/* Header */}
  <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
@@ -440,13 +442,16 @@ export function SendTokenDialog({
  </div>
  </div>
 
- <div className="rounded-2xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3.5">
- <p className="text-[12px] leading-[1.6] text-[var(--color-text-tertiary)]">
- {isUnified
- ? 'Your Privy wallet will ask you to sign a burn intent. USDC will be minted on the destination chain. Crypto transfers cannot be reversed.'
- : 'Your Privy wallet will ask you to confirm this transaction. Double-check the recipient address — crypto transfers cannot be reversed.'}
- </p>
- </div>
+  <Alert status="warning">
+    <Alert.Indicator />
+    <Alert.Content>
+      <Alert.Description>
+        {isUnified
+        ? 'Your Privy wallet will ask you to sign a burn intent. USDC will be minted on the destination chain. Crypto transfers cannot be reversed.'
+        : 'Your Privy wallet will ask you to confirm this transaction. Double-check the recipient address — crypto transfers cannot be reversed.'}
+      </Alert.Description>
+    </Alert.Content>
+  </Alert>
 
  <div className="flex gap-3">
  <button
@@ -472,7 +477,7 @@ export function SendTokenDialog({
  {step === 'signing' && (
  <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
- <SpinnerGap className="h-8 w-8 animate-spin text-[var(--color-text-tertiary)]" weight="bold" />
+  <Loader size={32} />
  </div>
  <div>
  <p className="text-[16px] font-bold text-[var(--color-foreground)]">Waiting for your signature</p>

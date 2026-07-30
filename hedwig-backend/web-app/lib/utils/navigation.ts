@@ -12,6 +12,8 @@ import {
   User,
   UsersThree,
   Wallet,
+  ArrowsLeftRight,
+  FileText,
 } from '@/components/ui/lucide-icons';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member';
@@ -26,6 +28,8 @@ export interface NavItem {
   roles: WorkspaceRole[];
   /** Only show when active workspace matches one of these types. Omit to show always. */
   workspaceTypes?: WorkspaceType[];
+  /** Sub-items shown as indented children when the parent is expanded. */
+  subItems?: { title: string; href: string }[];
 }
 
 export const navigationGroups = [
@@ -49,7 +53,15 @@ export const navigationGroups = [
   {
     label: 'Money',
     items: [
-      { title: 'Revenue', href: '/revenue', icon: ChartBar, count: null, muted: false, roles: ['owner', 'admin'] },
+      {
+        title: 'Revenue', href: '/revenue', icon: ChartBar, count: null, muted: false, roles: ['owner', 'admin'],
+        subItems: [
+          { title: 'Overview', href: '/revenue' },
+          { title: 'Transactions', href: '/revenue/transactions' },
+          { title: 'Reports', href: '/revenue/reports' },
+          { title: 'Settings', href: '/revenue/settings' },
+        ]
+      },
       { title: 'Payroll', href: '/workspace/payroll', icon: CurrencyDollar, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },

@@ -184,7 +184,7 @@ function PaymentsPanel() {
         <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Invoices, payment links, and withdrawals</h3>
       </div>
       <div className="flex-1 overflow-hidden px-6 pt-4">
-        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)]">
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 border-b border-[var(--color-surface-secondary)] px-4 py-2.5">
             <p className="text-[10px] font-bold text-[var(--color-text-muted)]">Item</p>
             <p className="text-[10px] font-bold text-[var(--color-text-muted)]">Type</p>
@@ -222,12 +222,12 @@ function BookkeepingPanel() {
         <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Auto-categorized income & expenses</h3>
       </div>
       <div className="flex-1 overflow-auto px-6 py-4 space-y-3">
-        <div className="overflow-hidden rounded-xl bg-[var(--color-accent-soft)] p-4 text-center ring-1 ring-[var(--color-border)]">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-accent-soft)] p-4 text-center">
           <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Last import</p>
           <p className="mt-1 text-[13px] font-semibold text-[var(--color-foreground)]">statement-2026-06.csv</p>
           <p className="text-[11px] text-[var(--color-text-muted)]">34 transactions · Auto-categorized</p>
         </div>
-        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)]">
           <div className="border-b border-[var(--color-surface-secondary)] px-4 py-2.5">
             <p className="text-[11px] font-semibold text-[var(--color-foreground)]">Recent transactions</p>
           </div>
@@ -263,7 +263,7 @@ function ClientsPanel() {
         <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Work, time, and communication</h3>
       </div>
       <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)]">
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {[
               { client: 'Acme Corp', project: 'Brand redesign', time: '12h logged', status: 'Active', statusStyle: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },
@@ -295,7 +295,7 @@ function PayrollPanel() {
         <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Run payroll, assign work, manage access</h3>
       </div>
       <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="mb-3 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
+        <div className="mb-3 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--color-border)]">
           {[
             { l: 'Team members', v: '4' },
             { l: 'Next payroll', v: 'Fri, Jul 25' },
@@ -306,7 +306,7 @@ function PayrollPanel() {
             </div>
           ))}
         </div>
-        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)]">
           <div className="border-b border-[var(--color-surface-secondary)] px-4 py-2.5">
             <p className="text-[11px] font-semibold text-[var(--color-foreground)]">Team</p>
           </div>
@@ -344,7 +344,7 @@ function IntegrationsPanel() {
         <h3 className="mt-1 text-[18px] font-semibold text-[var(--color-foreground)]">Your tools, connected</h3>
       </div>
       <div className="flex-1 overflow-auto px-6 py-4 space-y-3">
-        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">
+        <div className="overflow-hidden rounded-xl bg-[var(--color-surface)]">
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {[
               { name: 'Google Workspace', status: 'Connected', statusClass: 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]' },

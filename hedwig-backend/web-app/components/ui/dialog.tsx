@@ -1,17 +1,10 @@
 'use client';
 
-import * as React from 'react';
-import {
-  ModalBackdrop,
-  ModalBody,
-  ModalContainer,
-  ModalDialog,
-  ModalFooter,
-  ModalHeader,
-} from '@heroui/react';
-import { cn } from '@/lib/utils';
+import { cloneElement, isValidElement } from 'react';
+import type { ReactNode } from 'react';
+import { Modal } from '@heroui/react';
 
-const sizeMap: Record<string, 'xs' | 'sm' | 'md' | 'lg' | 'cover' | 'full'> = {
+const sizeMap: Record<string, 'sm' | 'md' | 'lg' | 'cover' | 'full'> = {
   sm: 'sm',
   md: 'md',
   lg: 'cover',
@@ -20,180 +13,70 @@ const sizeMap: Record<string, 'xs' | 'sm' | 'md' | 'lg' | 'cover' | 'full'> = {
   full: 'full',
 };
 
-/* ── Contexts ────────────────────────────────────────────────────────────── */
-const DialogContext = React.createContext<{
-  open: boolean;
-  setOpen: (v: boolean) => void;
-}>({ open: false, setOpen: () => {} });
-
-const ContainerClassContext = React.createContext<{
-  containerClass: string;
-  setContainerClass: (c: string) => void;
-}>({ containerClass: '', setContainerClass: () => {} });
-
-function useDialogContext() {
-  return React.useContext(DialogContext);
-}
-
-function useContainerClassContext() {
-  return React.useContext(ContainerClassContext);
-}
-
-/* ── Dialog Root ─────────────────────────────────────────────────────────── */
-export function Dialog({
-  children,
-  open,
-  onOpenChange,
-  defaultOpen,
-  size,
-  className,
-}: {
-  children: React.ReactNode;
+type DialogProps = {
+  children: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  defaultOpen?: boolean;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
   className?: string;
-}) {
-  const [internalOpen, setInternalOpen] = React.useState(defaultOpen ?? false);
-  const isControlled = open !== undefined;
-  const value = isControlled ? open : internalOpen;
+};
 
-  const setOpen = React.useCallback(
-    (v: boolean) => {
-      if (!isControlled) setInternalOpen(v);
-      onOpenChange?.(v);
-    },
-    [isControlled, onOpenChange]
-  );
-
-  const [contentClass, setContentClass] = React.useState('');
-
+export function Dialog({ children, open, onOpenChange, size, className }: DialogProps) {
   return (
-    <DialogContext.Provider value={{ open: value, setOpen }}>
-      <ContainerClassContext.Provider value={{ containerClass: contentClass, setContainerClass: setContentClass }}>
-        <ModalBackdrop
-          isOpen={value}
-          onOpenChange={setOpen}
-          variant="blur"
-        >
-          <ModalContainer size={sizeMap[size ?? 'md']} scroll="inside" className={cn(className, contentClass)}>
-            <ModalDialog>
-              {children}
-            </ModalDialog>
-          </ModalContainer>
-        </ModalBackdrop>
-      </ContainerClassContext.Provider>
-    </DialogContext.Provider>
+    <Modal.Backdrop isOpen={open} onOpenChange={onOpenChange} variant="blur">
+      <Modal.Container size={sizeMap[size ?? 'md']} scroll="inside" className={className}>
+        <Modal.Dialog>
+          {children}
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }
 
-/* ── DialogTrigger ───────────────────────────────────────────────────────── */
-export function DialogTrigger({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) {
-  const { setOpen } = useDialogContext();
-  const child = React.Children.only(children) as React.ReactElement<any>;
-
-  if (asChild && React.isValidElement(child)) {
-    const childProps = child.props as Record<string, any>;
-    return React.cloneElement(
-      child,
-      {
-        onClick: (e: React.MouseEvent) => {
-          childProps.onClick?.(e);
-          setOpen(true);
-        },
-      } as any
-    );
+export function DialogTrigger({ children, asChild }: { children: ReactNode; asChild?: boolean }) {
+  if (asChild && isValidElement(children)) {
+    const childProps = children.props as Record<string, unknown>;
+    return cloneElement(children, {
+      onClick: (e: any) => {
+        (childProps.onClick as any)?.(e);
+      },
+    } as any);
   }
-
-  return (
-    <button type="button" onClick={() => setOpen(true)}>
-      {children}
-    </button>
-  );
-}
-
-/* ── DialogClose ─────────────────────────────────────────────────────────── */
-export function DialogClose({ children, asChild }: { children?: React.ReactNode; asChild?: boolean }) {
-  const { setOpen } = useDialogContext();
-  if (children) {
-    if (asChild) {
-      const child = React.Children.only(children) as React.ReactElement<any>;
-      const childProps = child.props as Record<string, any>;
-      return React.cloneElement(
-        child,
-        {
-          onClick: (e: React.MouseEvent) => {
-            childProps.onClick?.(e);
-            setOpen(false);
-          },
-        } as any
-      );
-    }
-    return (
-      <button type="button" onClick={() => setOpen(false)}>
-        {children}
-      </button>
-    );
-  }
-  return null;
-}
-
-/* ── DialogContent ───────────────────────────────────────────────────────── */
-const WIDTH_CLASS_RE = /^(!?(max-w-|w-))/;
-
-export function DialogContent({
-  className,
-  children,
-}: React.HTMLAttributes<HTMLDivElement>) {
-  const { setContainerClass } = useContainerClassContext();
-
-  React.useEffect(() => {
-    if (className) {
-      const widthParts = className.split(' ').filter((p) => WIDTH_CLASS_RE.test(p));
-      if (widthParts.length) {
-        setContainerClass(widthParts.join(' '));
-      }
-    }
-    return () => setContainerClass('');
-  }, [className, setContainerClass]);
-
   return <>{children}</>;
 }
 
-/* ── DialogHeader ────────────────────────────────────────────────────────── */
-export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <ModalHeader className={cn('flex flex-col gap-1 px-6 pb-0 pt-6', className)} {...props} />
-  );
+export function DialogClose({ children, asChild }: { children?: ReactNode; asChild?: boolean }) {
+  if (!children) return null;
+  if (asChild && isValidElement(children)) {
+    const childProps = children.props as Record<string, unknown>;
+    return cloneElement(children, {
+      ...childProps,
+      'slot': 'close' as any,
+    } as any);
+  }
+  return <button type="button">{children}</button>;
 }
 
-/* ── DialogTitle ─────────────────────────────────────────────────────────── */
-export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return (
-    <h2 className={cn('text-[16px] font-semibold text-[var(--color-text-primary)]', className)} {...props} />
-  );
+export function DialogContent({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }
 
-/* ── DialogDescription ───────────────────────────────────────────────────── */
-export function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return (
-    <p className={cn('text-[14px] leading-5 text-[var(--color-text-tertiary)]', className)} {...props} />
-  );
+export function DialogHeader(props: React.HTMLAttributes<HTMLDivElement>) {
+  return <Modal.Header {...props} />;
 }
 
-/* ── DialogBody ──────────────────────────────────────────────────────────── */
-export function DialogBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <ModalBody className={cn('px-6 py-5', className)} {...props} />
-  );
+export function DialogTitle(props: React.HTMLAttributes<HTMLHeadingElement>) {
+  return <Modal.Heading {...props} />;
 }
 
-/* ── DialogFooter ────────────────────────────────────────────────────────── */
-export function DialogFooter({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement> & { onClose?: () => void }) {
-  return (
-    <ModalFooter className={cn('flex items-center justify-end gap-3 border-t border-[var(--color-surface-tertiary)] px-6 py-4', className)} {...props}>
-      {children}
-    </ModalFooter>
-  );
+export function DialogDescription(props: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <p className="text-sm text-muted" {...props} />;
+}
+
+export function DialogBody(props: React.HTMLAttributes<HTMLDivElement>) {
+  return <Modal.Body {...props} />;
+}
+
+export function DialogFooter(props: React.HTMLAttributes<HTMLDivElement>) {
+  return <Modal.Footer {...props} />;
 }

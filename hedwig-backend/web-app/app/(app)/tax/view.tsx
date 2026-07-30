@@ -3,15 +3,18 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
- ArrowRight,
- CheckCircle,
- DownloadSimple,
- FileText,
- FolderSimple,
- Receipt,
- Warning,
+  ArrowRight,
+  CheckCircle,
+  DownloadSimple,
+  FileText,
+  FolderSimple,
+  Receipt,
+  Warning,
+  CaretDown,
 } from '@/components/ui/lucide-icons';
+import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label, Table } from '@heroui/react';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
@@ -44,14 +47,25 @@ const DEDUCTIBLE_FILTERS: Array<{ value: TaxDeductibleFilter; label: string }> =
 ];
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
- software: 'Software',
- equipment: 'Equipment',
- marketing: 'Marketing',
- travel: 'Travel',
- operations: 'Operations',
- contractor: 'Contractor',
- subscriptions: 'Subscriptions',
- other: 'Other'
+  software: 'Software',
+  contractors: 'Contractors',
+  marketing: 'Marketing',
+  travel: 'Travel',
+  meals: 'Meals',
+  office: 'Office',
+  operations: 'Operations',
+  taxes: 'Taxes',
+  subscriptions: 'Subscriptions',
+  shopping: 'Shopping',
+  entertainment: 'Entertainment',
+  groceries: 'Groceries',
+  utilities: 'Utilities',
+  health: 'Health',
+  education: 'Education',
+  transportation: 'Transportation',
+  rent: 'Rent',
+  personal_care: 'Personal Care',
+  other: 'Other'
 };
 
 const ALERT_STYLES = {
@@ -580,7 +594,7 @@ export function TaxWorkspaceClient({
  />
 
  <div className="grid gap-4 lg:grid-cols-2">
- <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
  <div className="flex items-center justify-between">
  <div>
  <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Tax period</p>
@@ -613,27 +627,25 @@ export function TaxWorkspaceClient({
  <div className="mt-4 grid gap-3 sm:grid-cols-2">
  <div>
  <p className="mb-1 text-[12px] font-semibold text-[var(--color-text-secondary)]">From</p>
- <input
- type="date"
- value={customRange.from}
- onChange={(event) => setCustomRange((current) => ({ ...current, from: event.target.value }))}
- className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- />
- </div>
- <div>
- <p className="mb-1 text-[12px] font-semibold text-[var(--color-text-secondary)]">To</p>
- <input
- type="date"
- value={customRange.to}
- onChange={(event) => setCustomRange((current) => ({ ...current, to: event.target.value }))}
- className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- />
+              <DateInput
+                value={customRange.from}
+                onChange={(v) => setCustomRange((current) => ({ ...current, from: v }))}
+                className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
+              />
+              </div>
+              <div>
+                <p className="mb-1 text-[12px] font-semibold text-[var(--color-text-secondary)]">To</p>
+                <DateInput
+                value={customRange.to}
+                onChange={(v) => setCustomRange((current) => ({ ...current, to: v }))}
+                className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
+              />
  </div>
  </div>
  ) : null}
  </section>
 
- <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
  <div className="flex items-center justify-between">
  <div>
  <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Region</p>
@@ -644,18 +656,33 @@ export function TaxWorkspaceClient({
  </span>
  </div>
 
- <div className="mt-4 grid gap-3 sm:grid-cols-[220px_1fr]">
- <select
- value={regionCode}
- onChange={(event) => setRegionCode(event.target.value)}
- className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- >
- {initialData.regions.map((region) => (
- <option key={region.code} value={region.code}>
- {region.label}
- </option>
- ))}
- </select>
+  <div className="mt-4 grid gap-3 sm:grid-cols-[220px_1fr]">
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+      aria-label="Select region"
+    >
+      <span>{initialData.regions.find((r) => r.code === regionCode)?.label || 'Select region'}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[220px]">
+      <Dropdown.Menu
+        selectedKeys={new Set([regionCode])}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          if (key) setRegionCode(key as string);
+        }}
+      >
+        {initialData.regions.map((region) => (
+          <Dropdown.Item key={region.code} id={region.code} textValue={region.label}>
+            <Label>{region.label}</Label>
+          </Dropdown.Item>
+  ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
 
  <div className="rounded-xl bg-[var(--color-surface-secondary)] px-4 py-3">
  <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
@@ -687,7 +714,7 @@ export function TaxWorkspaceClient({
  ) : (
  <>
  <div className="grid gap-4 xl:grid-cols-2">
- <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
  <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Income summary</h2>
  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">See what was collected, what is still outstanding, and where taxable income is coming from.</p>
@@ -761,7 +788,7 @@ export function TaxWorkspaceClient({
  </div>
  </section>
 
- <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
  <div className="flex items-center justify-between gap-3">
  <div>
@@ -838,7 +865,7 @@ export function TaxWorkspaceClient({
  </section>
  </div>
 
- <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
  <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Deduction review</h2>
  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Clean up uncategorized expenses before export by attaching the right category, client, project, and deduction status.</p>
@@ -849,95 +876,144 @@ export function TaxWorkspaceClient({
  <EmptySection title="All caught up" description="There are no uncategorized expenses in this tax period right now." />
  </div>
  ) : (
- <div className="overflow-x-auto">
- <table className="min-w-full">
- <thead>
- <tr className="border-b border-[var(--color-border)]">
- <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Expense</th>
- <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Category</th>
- <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Deductible</th>
- <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</th>
- <th className="px-4 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</th>
- </tr>
- </thead>
- <tbody className="divide-y divide-[var(--color-border)]">
- {uncategorizedExpenses.map((expense) => (
- <tr key={expense.id}>
- <td className="px-4 py-3 align-top">
- <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{expense.title}</p>
- <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
- {formatShortDate(expense.date)} • {formatAmount(expense.convertedAmountUsd)}
- </p>
- {expense.receiptStatus === 'missing' ? (
- <span className="mt-2 inline-flex rounded-full bg-[var(--color-danger-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-danger)]">
- Receipt missing
- </span>
- ) : null}
- </td>
- <td className="px-4 py-3 align-top">
- <select
- value={expense.category}
- onChange={(event) => handleExpenseUpdate(expense.id, { category: event.target.value as ExpenseCategory })}
- className="w-full min-w-[140px] rounded-xl border border-[var(--color-border)] px-3 py-2 text-[12px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- >
- {(Object.keys(CATEGORY_LABELS) as ExpenseCategory[]).map((category) => (
- <option key={category} value={category}>
- {CATEGORY_LABELS[category]}
- </option>
- ))}
- </select>
- </td>
- <td className="px-4 py-3 align-top">
- <button
- type="button"
- onClick={() => handleExpenseUpdate(expense.id, { isDeductible: !expense.isDeductible })}
- className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
- expense.isDeductible
- ? 'bg-[var(--color-success-soft)] text-[var(--color-success)]'
- : 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]'
- }`}
- >
- {expense.isDeductible ? 'Deductible' : 'Non-deductible'}
- </button>
- </td>
- <td className="px-4 py-3 align-top">
- <select
- value={expense.clientId || ''}
- onChange={(event) => handleExpenseUpdate(expense.id, { clientId: event.target.value || null })}
- className="w-full min-w-[160px] rounded-xl border border-[var(--color-border)] px-3 py-2 text-[12px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- >
- <option value="">No client</option>
- {initialData.clients.map((client) => (
- <option key={client.id} value={client.id}>
- {client.company || client.name}
- </option>
- ))}
- </select>
- </td>
- <td className="px-4 py-3 align-top">
- <select
- value={expense.projectId || ''}
- onChange={(event) => handleExpenseUpdate(expense.id, { projectId: event.target.value || null })}
- className="w-full min-w-[180px] rounded-xl border border-[var(--color-border)] px-3 py-2 text-[12px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent-soft)]"
- >
- <option value="">No project</option>
- {initialData.projects.map((project) => (
- <option key={project.id} value={project.id}>
- {project.name}
- </option>
- ))}
- </select>
- </td>
- </tr>
- ))}
- </tbody>
- </table>
- </div>
+          <Table>
+            <Table.ScrollContainer>
+              <Table.Content aria-label="Deduction review">
+                <Table.Header>
+                  <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Expense</Table.Column>
+                  <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Category</Table.Column>
+                  <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Deductible</Table.Column>
+                  <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</Table.Column>
+                  <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</Table.Column>
+                </Table.Header>
+                <Table.Body>
+                  {uncategorizedExpenses.map((expense) => (
+                    <Table.Row key={expense.id}>
+                      <Table.Cell>
+                        <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{expense.title}</p>
+                        <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                          {formatShortDate(expense.date)} • {formatAmount(expense.convertedAmountUsd)}
+                        </p>
+                        {expense.receiptStatus === 'missing' ? (
+                          <span className="mt-2 inline-flex rounded-full bg-[var(--color-danger-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-danger)]">
+                            Receipt missing
+                          </span>
+                        ) : null}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Dropdown>
+                          <HButton
+                            variant="secondary"
+                            className="flex h-8 w-full min-w-[140px] items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[12px] font-medium text-[var(--color-foreground)]"
+                            aria-label="Select category"
+                          >
+                            <span>{CATEGORY_LABELS[expense.category as ExpenseCategory] || expense.category}</span>
+                            <CaretDown className="h-3 w-3 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                          </HButton>
+                          <Dropdown.Popover className="min-w-[180px]">
+                            <Dropdown.Menu
+                              selectedKeys={new Set([expense.category])}
+                              selectionMode="single"
+                              onSelectionChange={(keys) => {
+                                const key = [...keys][0];
+                                if (key) handleExpenseUpdate(expense.id, { category: key as ExpenseCategory });
+                              }}
+                            >
+                              {(Object.keys(CATEGORY_LABELS) as ExpenseCategory[]).map((category) => (
+                                <Dropdown.Item key={category} id={category} textValue={CATEGORY_LABELS[category]}>
+                                  <Label>{CATEGORY_LABELS[category]}</Label>
+                                </Dropdown.Item>
+                              ))}
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <button
+                        type="button"
+                        onClick={() => handleExpenseUpdate(expense.id, { isDeductible: !expense.isDeductible })}
+                        className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
+                          expense.isDeductible
+                          ? 'bg-[var(--color-success-soft)] text-[var(--color-success)]'
+                          : 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]'
+                        }`}
+                        >
+                        {expense.isDeductible ? 'Deductible' : 'Non-deductible'}
+                        </button>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Dropdown>
+                          <HButton
+                            variant="secondary"
+                            className="flex h-8 w-full min-w-[160px] items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[12px] font-medium text-[var(--color-foreground)]"
+                            aria-label="Select client"
+                          >
+                            <span>{expense.clientId ? (initialData.clients.find((c) => c.id === expense.clientId)?.company || initialData.clients.find((c) => c.id === expense.clientId)?.name || 'No client') : 'No client'}</span>
+                            <CaretDown className="h-3 w-3 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                          </HButton>
+                          <Dropdown.Popover className="min-w-[200px]">
+                            <Dropdown.Menu
+                              selectedKeys={expense.clientId ? new Set([expense.clientId]) : new Set([''])}
+                              selectionMode="single"
+                              onSelectionChange={(keys) => {
+                                const key = [...keys][0];
+                                handleExpenseUpdate(expense.id, { clientId: (key as string) || null });
+                              }}
+                            >
+                              <Dropdown.Item key="" id="" textValue="No client">
+                                <Label>No client</Label>
+                              </Dropdown.Item>
+                              {initialData.clients.map((client) => (
+                                <Dropdown.Item key={client.id} id={client.id} textValue={client.company || client.name}>
+                                  <Label>{client.company || client.name}</Label>
+                                </Dropdown.Item>
+                              ))}
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Dropdown>
+                          <HButton
+                            variant="secondary"
+                            className="flex h-8 w-full min-w-[180px] items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[12px] font-medium text-[var(--color-foreground)]"
+                            aria-label="Select project"
+                          >
+                            <span>{expense.projectId ? (initialData.projects.find((p) => p.id === expense.projectId)?.name || 'No project') : 'No project'}</span>
+                            <CaretDown className="h-3 w-3 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                          </HButton>
+                          <Dropdown.Popover className="min-w-[200px]">
+                            <Dropdown.Menu
+                              selectedKeys={expense.projectId ? new Set([expense.projectId]) : new Set([''])}
+                              selectionMode="single"
+                              onSelectionChange={(keys) => {
+                                const key = [...keys][0];
+                                handleExpenseUpdate(expense.id, { projectId: (key as string) || null });
+                              }}
+                            >
+                              <Dropdown.Item key="" id="" textValue="No project">
+                                <Label>No project</Label>
+                              </Dropdown.Item>
+                              {initialData.projects.map((project) => (
+                                <Dropdown.Item key={project.id} id={project.id} textValue={project.name}>
+                                  <Label>{project.name}</Label>
+                                </Dropdown.Item>
+                              ))}
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Content>
+            </Table.ScrollContainer>
+          </Table>
  )}
  </section>
 
  <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
- <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
  <div className="flex items-center justify-between gap-3">
  <div>
  <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Tax estimate</h2>
@@ -967,7 +1043,7 @@ export function TaxWorkspaceClient({
  </div>
  </section>
 
- <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
  <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Tax alerts</h2>
  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Hedwig highlights issues that could slow down filing or make the summary less reliable.</p>
 
@@ -998,7 +1074,7 @@ export function TaxWorkspaceClient({
  </section>
  </div>
 
- <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
  <div className="flex items-start justify-between gap-3">
  <div>
  <h2 className="text-[15px] font-semibold text-[var(--color-foreground)]">Export</h2>

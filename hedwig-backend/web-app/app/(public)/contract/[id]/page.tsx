@@ -65,7 +65,7 @@ export default async function PublicContractPage({
  ) : null}
 
  {/* Contract document */}
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
 
  {/* Header */}
  <div className="border-b border-[var(--color-border)] px-6 py-5">

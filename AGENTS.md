@@ -97,6 +97,12 @@ All Stellar code paths are disabled until funding arrives. Service files (`cctpS
 ### Re-activation
 To re-enable Stellar: git revert `hedwig-backend/src/routes/bridge.ts` and the frontend components listed above. The `cctpStellar.ts`, `stellarAccount.ts`, and `stellarAnchor.ts` service files were left untouched.
 
+## Session Summary (Jul 27, 2026) — PDF/image bank statement import
+
+- **`hedwig-backend/src/routes/revenue.ts`** (statement parse endpoint, ~1287-1316): Added AI-powered branch for PDF/image files — when a PDF/PNG/JPG/WebP is uploaded to `/import-statement/parse`, the endpoint now uses Gemini to extract all transactions from the document (instead of `file.buffer.toString('utf-8')` which only works for text). Maps AI response to `ParseResult` format and passes through existing persist/confirm flow.
+- **`hedwig-backend/src/services/statement-parser.ts`**: Exported `ParseResult` interface so it can be re-used in the revenue route.
+- **`web-app/app/(app)/revenue/import-dialog.tsx`**: Added `'choose-type'` step for PDF/image files — after file selection, user picks "Receipt or Invoice" (routes to document/AI analysis) or "Bank Statement" (routes to statement parse & transaction table). Changed doc file size limit from 10MB to 20MB to match statements.
+
 ## Content boundaries
 
 {/* Define what should and shouldn't be documented */}

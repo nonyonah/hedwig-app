@@ -12,6 +12,18 @@ import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { getRedis, closeRedis, isRedisFailClosed } from './lib/redis';
 
+// ── Global error handlers (prevent process crash on unhandled rejections) ──
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled Rejection:', reason instanceof Error ? reason.message : String(reason));
+  if (reason instanceof Error && reason.stack) {
+    console.error(reason.stack);
+  }
+});
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err.message);
+  console.error(err.stack);
+});
+
 // Load environment variables (loaded via import 'dotenv/config')
 
 // Import routes

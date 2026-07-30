@@ -61,6 +61,14 @@ export const WorkspaceService = {
       .single();
 
     if (error) {
+      // Race condition — another request created this workspace first; fetch and return it
+      const { data: retried } = await supabase
+        .from('workspaces')
+        .select('id, name, type')
+        .eq('owner_id', userId)
+        .eq('type', 'personal')
+        .maybeSingle();
+      if (retried) return retried;
       logger.error('Failed to create personal workspace', { userId, error: error.message });
       return null;
     }

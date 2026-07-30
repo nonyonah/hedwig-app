@@ -10,6 +10,7 @@ export type ComposioProvider =
   | 'google_calendar'
   | 'google_drive'
   | 'google_docs'
+  | 'google_sheets'
   | 'quickbooks'
   | 'xero'
   | 'linear';
@@ -19,17 +20,19 @@ export const COMPOSIO_PROVIDERS: ComposioProvider[] = [
   'google_calendar',
   'google_drive',
   'google_docs',
+  'google_sheets',
   'quickbooks',
   'xero',
   'linear',
 ];
 
-// Composio toolkit slug per provider — the v3 API and SDK both use these.
+// Composio toolkit slug per provider
 const PROVIDER_TO_TOOLKIT: Record<ComposioProvider, string> = {
   gmail: 'gmail',
   google_calendar: 'googlecalendar',
   google_drive: 'googledrive',
   google_docs: 'googledocs',
+  google_sheets: 'googlesheets',
   quickbooks: 'quickbooks',
   xero: 'xero',
   linear: 'linear',
@@ -40,6 +43,7 @@ const PROVIDER_LABEL: Record<ComposioProvider, string> = {
   google_calendar: 'Google Calendar',
   google_drive: 'Google Drive',
   google_docs: 'Google Docs',
+  google_sheets: 'Google Sheets',
   quickbooks: 'QuickBooks',
   xero: 'Xero',
   linear: 'Linear',
@@ -50,6 +54,7 @@ const PROVIDER_DESCRIPTION: Record<ComposioProvider, string> = {
   google_calendar: 'Sync milestones, reminders, and project deadlines.',
   google_drive: 'Reference and attach files from your Drive in invoices and contracts.',
   google_docs: 'Create and edit contract drafts and project briefs.',
+  google_sheets: 'Export revenue data and P&L reports directly to Google Sheets.',
   quickbooks: 'Sync invoices, revenue, and expenses with QuickBooks.',
   xero: 'Push bookkeeping entries and sync expenses with Xero.',
   linear: 'Create and sync projects between Hedwig and Linear.',

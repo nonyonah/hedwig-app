@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTheme } from 'next-themes';
 import {
   FileText,
@@ -10,7 +10,6 @@ import {
   Moon,
   Plus,
   SidebarSimple,
-  Sparkle,
   Sun,
   User,
 } from '@/components/ui/lucide-icons';
@@ -20,6 +19,7 @@ import { TopbarTitle } from '@/components/app-shell/topbar-title';
 import { GlobalSearch } from '@/components/app-shell/global-search';
 import { cn } from '@/lib/utils';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
+import { Dropdown, Label } from '@heroui/react';
 
 type AppTopbarProps = {
   sidebarOpen: boolean;
@@ -36,7 +36,6 @@ type AppTopbarProps = {
 
 export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
   const [createOpen, setCreateOpen] = useState(false);
-  const createRef = useRef<HTMLDivElement | null>(null);
   const { activeWorkspace } = useWorkspaceContext();
   const showCreate = !activeWorkspace || activeWorkspace.role !== 'member';
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -54,15 +53,6 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
     }
     setTheme('system');
   };
-
-  useEffect(() => {
-    if (!createOpen) return;
-    const close = (e: MouseEvent) => {
-      if (!createRef.current?.contains(e.target as Node)) setCreateOpen(false);
-    };
-    window.addEventListener('mousedown', close);
-    return () => window.removeEventListener('mousedown', close);
-  }, [createOpen]);
 
   const openCreateFlow = (flow: 'invoice' | 'payment-link' | 'client' | 'project') => {
     window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow } }));
@@ -96,52 +86,52 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
       <div className="flex items-center gap-1.5">
         {/* Create */}
         {showCreate && (
-        <div className="relative" ref={createRef}>
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={createOpen}
-            aria-label="Create"
-            onClick={() => setCreateOpen((p) => !p)}
-            className={cn(
-              'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition',
-              createOpen
-                ? 'border-[var(--color-create-dark)] bg-[var(--color-create-dark)] text-white shadow-[var(--color-accent)]/20'
-                : 'border-[var(--color-create)] bg-[var(--color-create)] text-white shadow-[var(--color-accent)]/20 hover:border-[var(--color-create-dark)] hover:bg-[var(--color-create-dark)]'
-            )}
-          >
-            <Plus className="h-4 w-4" weight="bold" />
-            <span className="hidden sm:inline">Create</span>
-            <CaretDown className={cn('hidden h-3.5 w-3.5 transition sm:block', createOpen && 'rotate-180')} weight="bold" />
-          </button>
-
-          {createOpen && (
-            <div className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] py-1 shadow-lg shadow-black/5">
-              {[
-                { flow: 'invoice' as const, label: 'Invoice', Icon: FileText },
-                { flow: 'payment-link' as const, label: 'Payment link', Icon: LinkSimple },
-                { flow: 'client' as const, label: 'Client', Icon: User },
-                { flow: 'project' as const, label: 'Project', Icon: FolderSimple },
-              ].map(({ flow, label, Icon }) => (
-                <button
-                  key={flow}
-                  type="button"
-                  onClick={() => openCreateFlow(flow)}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
-                >
-                  <Icon className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+          <Dropdown isOpen={createOpen} onOpenChange={setCreateOpen}>
+            <Dropdown.Trigger>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Create"
+                className={cn(
+                  'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition',
+                  createOpen
+                    ? 'border-[var(--color-create-dark)] bg-[var(--color-create-dark)] text-white shadow-[var(--color-accent)]/20'
+                    : 'border-[var(--color-create)] bg-[var(--color-create)] text-white shadow-[var(--color-accent)]/20 hover:border-[var(--color-create-dark)] hover:bg-[var(--color-create-dark)]'
+                )}
+              >
+                <Plus className="h-4 w-4" weight="bold" />
+                <span className="hidden sm:inline">Create</span>
+                <CaretDown className={cn('hidden h-3.5 w-3.5 transition sm:block', createOpen && 'rotate-180')} weight="bold" />
+              </span>
+            </Dropdown.Trigger>
+            <Dropdown.Popover>
+              <Dropdown.Menu onAction={(key) => openCreateFlow(key as 'invoice' | 'payment-link' | 'client' | 'project')}>
+                <Dropdown.Item id="invoice" textValue="Invoice">
+                  <FileText className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Invoice</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="payment-link" textValue="Payment link">
+                  <LinkSimple className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Payment link</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="client" textValue="Client">
+                  <User className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Client</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="project" textValue="Project">
+                  <FolderSimple className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Project</Label>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
         )}
 
         <GlobalSearch accessToken={accessToken} />
         <NotificationBell unreadCount={unreadCount} accessToken={accessToken ?? null} />
         <button
           type="button"
+          suppressHydrationWarning
           onClick={cycleTheme}
           title={
             usingSystem

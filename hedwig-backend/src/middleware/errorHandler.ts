@@ -35,7 +35,7 @@ export const errorHandler = (
     }
 
     logger.error('Request error', {
-        errorMessage: err.message,
+        errorMessage: err?.message,
         statusCode,
         path: req.path,
         method: req.method,
@@ -50,7 +50,7 @@ export const errorHandler = (
         success: false,
         error: {
             message,
-            ...(process.env.NODE_ENV === 'development' && {
+            ...(process.env.NODE_ENV === 'development' && err instanceof Error && {
                 stack: err.stack,
             }),
         },

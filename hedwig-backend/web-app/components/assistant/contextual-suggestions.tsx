@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Warning } from '@/components/ui/lucide-icons';
+import { Alert, Button, CloseButton } from '@heroui/react';
 import { cn } from '@/lib/utils';
 import type { AssistantSuggestion, SuggestionType } from '@/lib/types/assistant';
 import { ApprovalModal } from './approval-modal';
@@ -27,10 +27,18 @@ interface ContextualSuggestionsProps {
   className?: string;
 }
 
+const typeToStatus: Record<SuggestionType, 'accent' | 'danger' | 'success' | 'warning'> = {
+  invoice_reminder: 'danger',
+  import_match: 'accent',
+  expense_categorization: 'success',
+  calendar_event: 'warning',
+  project_action: 'accent',
+  tax_review: 'accent',
+};
+
 function buildQueryString(query: SuggestionQuery) {
   const params = new URLSearchParams();
   params.set('surface', 'inline');
-
   if (query.invoiceId) params.set('invoiceId', query.invoiceId);
   if (query.projectId) params.set('projectId', query.projectId);
   if (query.clientId) params.set('clientId', query.clientId);
@@ -41,15 +49,14 @@ function buildQueryString(query: SuggestionQuery) {
   if (query.importsPage) params.set('importsPage', 'true');
   if (query.insightsPage) params.set('insightsPage', 'true');
   if (query.limit) params.set('limit', String(query.limit));
-
   return params.toString();
 }
 
 function InlineSkeleton() {
   return (
-    <div className="space-y-2">
-      {Array.from({ length: 2 }).map((_, index) => (
-        <div key={index} className="h-20 animate-pulse rounded-2xl bg-[var(--color-background)]" />
+    <div className="space-y-3">
+      {Array.from({ length: 2 }).map((_, i) => (
+        <div key={i} className="h-[72px] animate-pulse rounded-xl bg-[var(--color-background)]" />
       ))}
     </div>
   );
@@ -69,7 +76,6 @@ export function ContextualSuggestions({
 
   useEffect(() => {
     let active = true;
-
     const run = async () => {
       setLoading(true);
       try {
@@ -84,11 +90,8 @@ export function ContextualSuggestions({
         if (active) setLoading(false);
       }
     };
-
     void run();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [queryString]);
 
   const handleDismiss = async (id: string) => {
@@ -97,7 +100,6 @@ export function ContextualSuggestions({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'dismissed' }),
     }).catch(() => {});
-
     setSuggestions((current) => current.filter((suggestion) => suggestion.id !== id));
   };
 
@@ -107,7 +109,13 @@ export function ContextualSuggestions({
 
   if (loading) {
     return (
-      <section className={cn('rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-xs', className)}>
+      <section className={cn('space-y-3', className)}>
+        {title && (
+          <div className="px-0.5">
+            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{title}</p>
+            {description && <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{description}</p>}
+          </div>
+        )}
         <InlineSkeleton />
       </section>
     );
@@ -117,58 +125,50 @@ export function ContextualSuggestions({
 
   return (
     <>
-      <section className={cn('rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-xs', className)}>
-        <div className="mb-3">
-          <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{title}</p>
-          <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">{description}</p>
-        </div>
+      <section className={cn('space-y-3', className)}>
+        {title && (
+          <div className="px-0.5">
+            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{title}</p>
+            {description && <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">{description}</p>}
+          </div>
+        )}
 
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {suggestions.map((suggestion) => {
             const meta = SUGGESTION_META[suggestion.type] ?? SUGGESTION_META.invoice_reminder;
-            const Icon = meta.icon;
+            const status = typeToStatus[suggestion.type] || 'accent';
             const badges = getEntityBadges(suggestion);
             const actions = Array.isArray(suggestion.actions) ? suggestion.actions : [];
             const primaryActionLabel = actions[0]?.label || 'Review';
 
             return (
-              <div key={suggestion.id} className="rounded-2xl bg-[var(--color-background)] p-3">
-                <div className="flex items-start gap-3">
-                  <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', meta.bg)}>
-                    <Icon className={cn('h-4 w-4', meta.color)} weight="fill" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={cn('text-[10px] font-bold', meta.color)}>{meta.label}</span>
-                      {badges.slice(0, 2).map((badge) => (
-                        <span key={badge} className="rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)] ring-1 ring-[var(--color-border-light)]">
-                          {badge}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="mt-1 text-[13px] font-semibold text-[var(--color-foreground)]">{suggestion.title}</p>
-                    <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">{suggestion.description}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setReviewTarget(suggestion)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[var(--color-primary-dark)]"
+              <Alert key={suggestion.id} status={status}>
+                <Alert.Indicator />
+                <Alert.Content>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide">{meta.label}</span>
+                    {badges.slice(0, 2).map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)]"
                       >
-                        <CheckCircle className="h-3 w-3" weight="bold" />
-                        {primaryActionLabel}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDismiss(suggestion.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
-                      >
-                        <Warning className="h-3 w-3" />
-                        Dismiss
-                      </button>
-                    </div>
+                        {badge}
+                      </span>
+                    ))}
                   </div>
-                </div>
-              </div>
+                  <Alert.Title>{suggestion.title}</Alert.Title>
+                  <Alert.Description>{suggestion.description}</Alert.Description>
+                  <Button
+                    className="mt-2"
+                    size="sm"
+                    variant={status === 'danger' ? 'danger' : 'primary'}
+                    onPress={() => setReviewTarget(suggestion)}
+                  >
+                    {primaryActionLabel}
+                  </Button>
+                </Alert.Content>
+                <CloseButton onPress={() => void handleDismiss(suggestion.id)} />
+              </Alert>
             );
           })}
         </div>

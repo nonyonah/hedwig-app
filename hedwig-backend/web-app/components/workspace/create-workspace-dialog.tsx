@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, FolderSimple } from '@/components/ui/lucide-icons';
+import { X, FolderSimple, CaretDown } from '@/components/ui/lucide-icons';
+import { Button, Dropdown, Label } from '@heroui/react';
 import { IconEmojiPicker, type PickerResult } from '@/components/ui/icon-emoji-picker';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 
@@ -109,19 +110,33 @@ export function CreateWorkspaceDialog() {
           </div>
           <div className="mb-4">
             <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Workspace type</label>
-            <div className="relative">
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as 'organization' | 'personal')}
-                className="w-full appearance-none rounded-full border border-[var(--color-border-light)] px-3 py-2 pr-8 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20 bg-[var(--color-surface)]"
+            <Dropdown>
+              <Button
+                variant="secondary"
+                className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-[14px] font-medium text-[var(--color-foreground)]"
+                aria-label="Select workspace type"
               >
-                <option value="organization">Organization — for teams and businesses</option>
-                <option value="personal">Personal — for solo freelancers</option>
-              </select>
-              <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4.5L6 7.5L9 4.5" />
-              </svg>
-            </div>
+                <span>{type === 'organization' ? 'Organization — for teams and businesses' : 'Personal — for solo freelancers'}</span>
+                <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+              </Button>
+              <Dropdown.Popover className="min-w-[300px]">
+                <Dropdown.Menu
+                  selectedKeys={new Set([type])}
+                  selectionMode="single"
+                  onSelectionChange={(keys) => {
+                    const key = [...keys][0];
+                    if (key) setType(key as 'organization' | 'personal');
+                  }}
+                >
+                  <Dropdown.Item key="organization" id="organization" textValue="Organization">
+                    <Label>Organization — for teams and businesses</Label>
+                  </Dropdown.Item>
+                  <Dropdown.Item key="personal" id="personal" textValue="Personal">
+                    <Label>Personal — for solo freelancers</Label>
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
           </div>
           {error && <p className="mb-3 text-[12px] text-[var(--color-danger)]">{error}</p>}
           <div className="flex justify-end gap-2">

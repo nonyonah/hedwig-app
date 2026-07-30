@@ -4,12 +4,14 @@ import type { ExpenseCategory } from '@/lib/types/revenue';
 
 const DEDUCTIBLE_CATEGORIES = new Set<ExpenseCategory>([
   'software',
-  'equipment',
+  'office',
   'travel',
   'operations',
-  'contractor',
+  'contractors',
   'subscriptions',
-  'marketing'
+  'marketing',
+  'taxes',
+  // Personal categories are not tax-deductible
 ]);
 
 function normalizeInvoiceStatus(status: Invoice['status']): TaxRecordStatus {

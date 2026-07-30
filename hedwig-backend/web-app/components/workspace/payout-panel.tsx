@@ -5,8 +5,10 @@ import {
   Plus,
   UsersThree,
   X,
+  CaretDown,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label } from '@heroui/react';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 import { PayoutReviewDialog, type PayoutLineItem } from './payout-review-dialog';
@@ -182,7 +184,7 @@ export function PayoutPanel({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+      <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
         <div className="flex items-center justify-between px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
@@ -215,24 +217,31 @@ export function PayoutPanel({
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">
                 Add member
               </label>
-              <div className="relative">
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) { addItem(e.target.value); e.target.value = ''; }
-                  }}
-                  className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+              <Dropdown>
+                <HButton
+                  variant="secondary"
+                  className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 text-[13px] font-medium text-[var(--color-foreground)]"
+                  aria-label="Select member"
                 >
-                  <option value="">Select a member…</option>
-                  {availableMembers.map(m => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}
-                    </option>
-                  ))}
-                </select>
-                <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 4.5L6 7.5L9 4.5" />
-                </svg>
-              </div>
+                  <span>Select a member…</span>
+                  <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                </HButton>
+                <Dropdown.Popover className="min-w-[280px] max-h-[300px] overflow-y-auto">
+                  <Dropdown.Menu
+                    selectionMode="single"
+                    onSelectionChange={(keys) => {
+                      const key = [...keys][0];
+                      if (key) addItem(key as string);
+                    }}
+                  >
+                    {availableMembers.map(m => (
+                      <Dropdown.Item key={m.userId} id={m.userId} textValue={m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}>
+                        <Label>{m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : m.email}</Label>
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
               {availableMembers.length === 0 && members.length > 0 && (
                 <p className="mt-1.5 text-[11px] text-[var(--color-text-muted)]">
                   All members with wallets have been added.
@@ -264,30 +273,39 @@ export function PayoutPanel({
                     </span>
 
                     {/* Chain selector */}
-                    <div className="relative w-[100px] shrink-0">
-                      {item.chain && CHAIN_ICONS[item.chain] && (
-                        <Image
-                          src={CHAIN_ICONS[item.chain]}
-                          alt={CHAIN_LABELS[item.chain] || item.chain}
-                          width={14} height={14}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full"
-                        />
-                      )}
-                      <select
-                        value={item.chain}
-                        onChange={e => updateItem(i, 'chain', e.target.value as SendChain)}
-                        className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] py-1.5 pr-8 text-[11px] text-[var(--color-foreground)] outline-none"
-                        style={{ paddingLeft: item.chain ? '28px' : '8px' }}
-                      >
-                        {SUPPORTED_CHAINS.map(c => (
-                          <option key={c} value={c} disabled={!getAddressForChain(m!, c)}>
-                            {CHAIN_LABELS[c]}
-                          </option>
-                        ))}
-                      </select>
-                      <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 4.5L6 7.5L9 4.5" />
-                      </svg>
+                    <div className="w-[120px] shrink-0">
+                      <Dropdown>
+                        <HButton
+                          variant="secondary"
+                          className="flex h-8 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[11px] font-medium text-[var(--color-foreground)]"
+                          aria-label="Select chain"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {item.chain && CHAIN_ICONS[item.chain] && (
+                              <Image src={CHAIN_ICONS[item.chain]} alt="" width={14} height={14} className="rounded-full" />
+                            )}
+                            {CHAIN_LABELS[item.chain] || 'Chain'}
+                          </span>
+                          <CaretDown className="h-3 w-3 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                        </HButton>
+                        <Dropdown.Popover className="min-w-[160px]">
+                          <Dropdown.Menu
+                            selectedKeys={new Set([item.chain])}
+                            selectionMode="single"
+                            disabledKeys={SUPPORTED_CHAINS.filter(c => !getAddressForChain(m!, c))}
+                            onSelectionChange={(keys) => {
+                              const key = [...keys][0];
+                              if (key) updateItem(i, 'chain', key as SendChain);
+                            }}
+                          >
+                            {SUPPORTED_CHAINS.map(c => (
+                              <Dropdown.Item key={c} id={c} textValue={CHAIN_LABELS[c]}>
+                                <Label>{CHAIN_LABELS[c]}</Label>
+                              </Dropdown.Item>
+                            ))}
+                          </Dropdown.Menu>
+                        </Dropdown.Popover>
+                      </Dropdown>
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -357,7 +375,7 @@ export function PayoutPanel({
       </div>
 
       {payouts.length > 0 && (
-        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+        <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
             <div>
               <h3 className="text-[15px] font-bold text-[var(--color-foreground)]">Payout history</h3>

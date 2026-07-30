@@ -41,7 +41,7 @@ export default async function OnboardingBankAccountPage() {
  </p>
  </div>
 
- <div className="rounded-2xl bg-[var(--color-surface)] p-6 shadow-xs ring-1 ring-[var(--color-border)]">
+ <div className="rounded-2xl bg-[var(--color-surface)] p-6 shadow-xs">
  <OnboardingBankAccountClient
  accessToken={session.accessToken}
  initial={existing}

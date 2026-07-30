@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from '@heroui/react';
 import { PublicEvmCheckout } from '@/components/public/public-evm-checkout';
 import { PublicSolanaCheckout } from '@/components/public/public-solana-checkout';
 import type { PublicPaymentToken, PublicSettlementChain } from '@/lib/payments/public-constants';
@@ -152,20 +153,26 @@ export function PublicCheckoutPanel({
  setTokenDropdownOpen(false);
  };
 
- if (!activeChain || availableChains.length === 0) {
- return (
- <div className="rounded-2xl border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] p-5 shadow-xs">
- <p className="text-[13px] font-semibold text-[var(--color-text-tertiary)]">
- {isMiniPay ? 'MiniPay checkout unavailable for this payment' : 'Merchant wallet unavailable'}
- </p>
- <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
- {isMiniPay
- ? 'MiniPay supports Celo checkout only. Open this payment in another wallet browser if Celo is not available.'
- : 'This payment page does not have a supported merchant wallet configured yet. Please try again later.'}
- </p>
- </div>
- );
- }
+  if (!activeChain || availableChains.length === 0) {
+  return (
+  <Alert status="danger">
+  <Alert.Indicator />
+  <Alert.Content>
+  {isMiniPay ? (
+  <>
+  <Alert.Title>MiniPay checkout unavailable for this payment</Alert.Title>
+  <Alert.Description>MiniPay supports Celo checkout only. Open this payment in another wallet browser if Celo is not available.</Alert.Description>
+  </>
+  ) : (
+  <>
+  <Alert.Title>Merchant wallet unavailable</Alert.Title>
+  <Alert.Description>This payment page does not have a supported merchant wallet configured yet. Please try again later.</Alert.Description>
+  </>
+  )}
+  </Alert.Content>
+  </Alert>
+  );
+  }
 
  const visibleTokenOptions = TOKEN_OPTIONS;
  const showTokenDropdown = visibleTokenOptions.length > 1;

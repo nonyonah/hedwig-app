@@ -37,7 +37,7 @@ function EmailCaptureDialog({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl bg-[var(--color-surface)] p-6 shadow-2xl ring-1 ring-[var(--color-border)]">
+      <div className="w-full max-w-sm rounded-2xl bg-[var(--color-surface)] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">{title}</h3>
           <button type="button" onClick={onClose} className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]">
@@ -90,7 +90,7 @@ function SignUpPromptDialog({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl bg-[var(--color-surface)] p-6 shadow-2xl ring-1 ring-[var(--color-border)]">
+      <div className="w-full max-w-sm rounded-2xl bg-[var(--color-surface)] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">
             Create your account to manage payments, invoicing, and books in one place

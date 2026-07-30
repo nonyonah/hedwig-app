@@ -111,12 +111,23 @@ const RANGES: InsightsRange[] = ['7d', '30d', '90d', '1y'];
 
 const EXPENSE_CATEGORY_BAR: Record<string, string> = {
   software: 'bg-[var(--color-accent)]',
-  equipment: 'bg-[var(--color-accent)]',
+  contractors: 'bg-[var(--color-accent)]',
   marketing: 'bg-[var(--color-warning)]',
   travel: 'bg-[var(--color-success)]',
+  meals: 'bg-[var(--color-success)]',
+  office: 'bg-[var(--color-accent)]',
   operations: 'bg-[var(--color-text-tertiary)]',
-  contractor: 'bg-[var(--color-accent)]',
+  taxes: 'bg-[var(--color-warning)]',
   subscriptions: 'bg-[var(--color-primary-dark)]',
+  shopping: 'bg-[var(--color-accent)]',
+  entertainment: 'bg-[var(--color-warning)]',
+  groceries: 'bg-[var(--color-success)]',
+  utilities: 'bg-[var(--color-text-tertiary)]',
+  health: 'bg-[var(--color-success)]',
+  education: 'bg-[var(--color-accent)]',
+  transportation: 'bg-[var(--color-warning)]',
+  rent: 'bg-[var(--color-text-tertiary)]',
+  personal_care: 'bg-[var(--color-accent)]',
   other: 'bg-[var(--color-text-muted)]',
 };
 
@@ -409,7 +420,7 @@ export function InsightsClient({
 
       {/* ── Error state ── */}
       {error && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl bg-[var(--color-surface)] px-6 py-10 text-center ring-1 ring-[var(--color-border)] shadow-xs">
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-[var(--color-surface)] px-6 py-10 text-center shadow-xs">
           <p className="text-[15px] font-semibold text-[var(--color-text-primary)]">Could not load insights</p>
           <p className="text-[13px] text-[var(--color-text-tertiary)]">{error}</p>
           <Button variant="secondary" onClick={() => fetchData(range)}>Try again</Button>
@@ -474,7 +485,7 @@ export function InsightsClient({
           />
 
           {/* ── Revenue trend chart ── */}
-          <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+          <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
             <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
               <div>
                 <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Revenue trend</h2>
@@ -552,7 +563,7 @@ export function InsightsClient({
                 {insightRisks.map((risk) => {
                   const sev = SEVERITY_STYLES[risk.severity];
                   const card = (
-                    <article className={`flex flex-col gap-3 rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)] ${risk.actionRoute ? 'transition duration-100 ease-linear hover:bg-[var(--color-background)]' : ''}`}>
+                    <article className={`flex flex-col gap-3 rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ${risk.actionRoute ? 'transition duration-100 ease-linear hover:bg-[var(--color-background)]' : ''}`}>
                       <div className="flex items-start gap-3">
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${sev.bg}`}>
                           <Warning className={`h-4 w-4 ${sev.icon}`} weight="fill" />
@@ -584,7 +595,7 @@ export function InsightsClient({
           {/* ── Monthly progress + Insights feed ── */}
           <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
 
-            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
               <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
                 <div>
                   <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">Monthly progress</h2>
@@ -604,7 +615,7 @@ export function InsightsClient({
                   </div>
                 </div>
 
-                <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]">
+                <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--color-border)]">
                   <div className="flex flex-col items-center bg-[var(--color-surface)] px-4 py-3">
                     <p className="text-[11px] text-[var(--color-text-muted)]">{hasExceededTarget ? 'Exceeded by' : 'Remaining'}</p>
                     <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[var(--color-success)]' : 'text-[var(--color-text-primary)]'}`}>
@@ -645,7 +656,7 @@ export function InsightsClient({
             </article>
 
             {canViewAdvancedInsights ? (
-              <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+              <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
                 <div className="flex items-center gap-2.5 border-b border-[var(--color-surface-secondary)] px-5 py-4">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
                     <Sparkle className="h-4 w-4 text-[var(--color-accent)]" weight="fill" />
@@ -716,7 +727,7 @@ export function InsightsClient({
           {/* ── Expense analysis + Client performance ── */}
           <div className="grid gap-4 lg:grid-cols-2">
 
-            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
               <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
                 <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expense breakdown</h2>
                 <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Top categories by spend this period.</p>
@@ -757,7 +768,7 @@ export function InsightsClient({
               )}
             </article>
 
-            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
               <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
                 <div>
                   <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Client performance</h2>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePostHog } from 'posthog-js/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Alert } from '@heroui/react';
 import { ArrowRight, CheckCircle, UsersThree, CurrencyDollar, FileText, FolderSimple, IdentificationCard } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
@@ -216,11 +217,12 @@ export function OnboardingActions({
 
   if (available.length === 0) return null;
 
-  return (
-    <article className="rounded-xl border border-[var(--color-border)] bg-white p-5 shadow-xs">
-      {isFirstSuggestion && suggestion ? (
-        <div>
-          <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{heading}</p>
+  if (isFirstSuggestion && suggestion) {
+    return (
+      <Alert status="accent">
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Title>{heading}</Alert.Title>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
@@ -269,10 +271,17 @@ export function OnboardingActions({
             hasMember={hasMember}
             hasPayroll={hasPayroll}
           />
-        </div>
-      ) : showSecondary && secondaryActions.length > 0 ? (
-        <div>
-          <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Nice work. Here&rsquo;s what&rsquo;s next:</p>
+        </Alert.Content>
+      </Alert>
+    );
+  }
+
+  if (showSecondary && secondaryActions.length > 0) {
+    return (
+      <Alert status="accent">
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Title>Nice work. Here&rsquo;s what&rsquo;s next:</Alert.Title>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {secondaryActions.slice(0, 2).map((action) => (
               <div key={action.id} className="flex flex-col gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-4">
@@ -311,10 +320,12 @@ export function OnboardingActions({
             hasMember={hasMember}
             hasPayroll={hasPayroll}
           />
-        </div>
-      ) : null}
-    </article>
-  );
+        </Alert.Content>
+      </Alert>
+    );
+  }
+
+  return null;
 }
 
 function OnboardingProgressBar({

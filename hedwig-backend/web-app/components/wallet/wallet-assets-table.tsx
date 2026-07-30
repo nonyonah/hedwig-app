@@ -2,23 +2,24 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { CaretRight, Wallet } from '@/components/ui/lucide-icons';
+import { Wallet } from '@/components/ui/lucide-icons';
+import { Table } from '@heroui/react';
 import { TokenDetailPanel } from '@/components/wallet/token-detail-panel';
 import type { WalletAsset } from '@/lib/models/entities';
 import { useCurrency } from '@/components/providers/currency-provider';
-
-const chainMeta: Record<string, { icon: string; label: string }> = {
-  Base: { icon: '/icons/networks/base.png', label: 'Base' },
-  Solana: { icon: '/icons/networks/solana.png', label: 'Solana' },
-  Arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
-  Polygon: { icon: '/icons/networks/polygon.png', label: 'Polygon' },
-  Optimism: { icon: '/icons/networks/optimism.png', label: 'Optimism' },
-};
 
 const tokenIconBySymbol: Record<string, string> = {
   USDC: '/icons/tokens/usdc.png',
   ETH: '/icons/tokens/eth.png',
   SOL: '/icons/tokens/sol.png',
+};
+
+const chainIconByName: Record<string, string> = {
+  Base: '/icons/networks/base.png',
+  Solana: '/icons/networks/solana.png',
+  Arbitrum: '/icons/networks/arbitrum.png',
+  Polygon: '/icons/networks/polygon.png',
+  Optimism: '/icons/networks/optimism.png',
 };
 
 export function WalletAssetsTable({
@@ -32,14 +33,6 @@ export function WalletAssetsTable({
   const { formatAmount } = useCurrency();
 
   const allAssets = Object.values(assetsByChain).flat();
-  const chainRows = Object.entries(assetsByChain)
-    .map(([chain, assets]) => ({
-      chain,
-      assets,
-      totalUsd: assets.reduce((sum, asset) => sum + asset.valueUsd, 0),
-      totalBalance: assets.reduce((sum, asset) => sum + asset.balance, 0),
-    }))
-    .sort((a, b) => b.totalUsd - a.totalUsd);
 
   return (
     <>
@@ -57,88 +50,78 @@ export function WalletAssetsTable({
           </div>
         </div>
 
-        {chainRows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 px-5 py-14 text-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-secondary)]">
-              <Wallet className="h-5 w-5 text-[var(--color-text-muted)]" weight="duotone" />
-            </div>
-            <p className="text-[13px] text-[var(--color-text-muted)]">No wallet balances yet.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--color-surface-tertiary)]">
-            {chainRows.map(({ chain, assets, totalUsd }) => {
-              const meta = chainMeta[chain] ?? { icon: '', label: chain };
-              return (
-                <div key={chain}>
-                  <div className="flex items-center justify-between bg-[var(--color-background)] px-5 py-3">
-                    <div className="flex items-center gap-2.5">
-                      {meta.icon ? (
-                        <Image src={meta.icon} alt={meta.label} width={22} height={22} className="rounded-full" />
-                      ) : (
-                        <div className="h-[22px] w-[22px] rounded-full bg-[var(--color-surface-tertiary)]" />
-                      )}
-                      <div>
-                        <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{meta.label}</p>
-                        <p className="text-[11px] text-[var(--color-text-muted)]">
-                          {assets.length} asset{assets.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
+        <Table variant="secondary" className="[&_.table__row]:cursor-pointer">
+          <Table.ScrollContainer>
+            <Table.Content
+              aria-label="Wallet assets"
+              onRowAction={(key) => {
+                const asset = allAssets.find((a) => a.id === key);
+                if (asset) setSelected(asset);
+              }}
+            >
+              <Table.Header>
+                <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Asset</Table.Column>
+                <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Balance</Table.Column>
+                <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Value</Table.Column>
+                <Table.Column />
+              </Table.Header>
+              <Table.Body
+                renderEmptyState={() => (
+                  <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-secondary)]">
+                      <Wallet className="h-5 w-5 text-[var(--color-text-muted)]" weight="duotone" />
                     </div>
-                    <p className="text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">
-                      {formatAmount(totalUsd, { compact: true })}
-                    </p>
+                    <p className="text-[13px] text-[var(--color-text-muted)]">No wallet balances yet.</p>
                   </div>
-
-                  <div className="divide-y divide-[var(--color-surface-secondary)]">
-                    {assets.map((asset) => {
-                      const tokenIcon = tokenIconBySymbol[asset.symbol.toUpperCase()];
-                      return (
-                        <button
-                          key={asset.id}
-                          type="button"
-                          onClick={() => setSelected(asset)}
-                          className="group grid w-full grid-cols-[minmax(0,1fr)_110px_110px_24px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-background)] max-sm:grid-cols-[minmax(0,1fr)_90px_20px]"
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
+                )}
+              >
+                {allAssets.map((asset) => {
+                  const tokenIcon = tokenIconBySymbol[asset.symbol.toUpperCase()];
+                  return (
+                    <Table.Row key={asset.id}>
+                      <Table.Cell>
+                        <div className="flex items-center gap-3">
+                          <div className="relative shrink-0">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
                               {tokenIcon ? (
                                 <Image src={tokenIcon} alt={asset.symbol} width={22} height={22} className="rounded-full" />
                               ) : (
                                 <span className="text-[12px] font-bold text-[var(--color-text-tertiary)]">{asset.symbol.slice(0, 2)}</span>
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{asset.name}</p>
-                              <p className="text-[11px] text-[var(--color-text-muted)]">{asset.symbol}</p>
-                            </div>
+                            {chainIconByName[asset.chain] && (
+                              <div className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-surface)]">
+                                <Image src={chainIconByName[asset.chain]} alt={asset.chain} width={14} height={14} className="rounded-full" />
+                              </div>
+                            )}
                           </div>
-
-                          <div className="text-right max-sm:hidden">
-                            <p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">
-                              {asset.balance > 0
-                                ? asset.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })
-                                : '0'}
-                            </p>
-                            <p className="text-[10px] text-[var(--color-text-muted)]">balance</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{asset.name}</p>
+                            <p className="text-[11px] text-[var(--color-text-muted)]">{asset.chain}</p>
                           </div>
-
-                          <div className="text-right">
-                            <p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">{formatAmount(asset.valueUsd)}</p>
-                            <p className={`text-[10px] ${asset.changePct24h >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}>
-                              {asset.changePct24h >= 0 ? '+' : ''}{asset.changePct24h.toFixed(2)}%
-                            </p>
-                          </div>
-
-                          <CaretRight className="h-4 w-4 shrink-0 justify-self-end text-[var(--color-border-input)] transition group-hover:text-[var(--color-text-muted)]" weight="bold" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell className="text-right">
+                        <p className="text-[13px] font-medium tabular-nums text-[var(--color-foreground)]">
+                          {asset.balance > 0
+                            ? asset.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })
+                            : '0'}
+                        </p>
+                      </Table.Cell>
+                      <Table.Cell className="text-right">
+                        <p className="text-[13px] font-medium tabular-nums text-[var(--color-foreground)]">{formatAmount(asset.valueUsd)}</p>
+                        <p className={`text-[11px] ${asset.changePct24h >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}>
+                          {asset.changePct24h >= 0 ? '+' : ''}{asset.changePct24h.toFixed(2)}%
+                        </p>
+                      </Table.Cell>
+                      <Table.Cell />
+                    </Table.Row>
+                  );
+                })}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
       </div>
 
       {selected && (

@@ -3,18 +3,19 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
- ArrowLeft,
- CaretDown,
- CheckCircle,
- FileText,
- FolderSimple,
- LinkSimple,
- Plus,
- SpinnerGap,
- Trash,
- User,
+  ArrowLeft,
+  CaretDown,
+  CheckCircle,
+  FileText,
+  FolderSimple,
+  LinkSimple,
+   Plus,
+   Trash,
+  User,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label, Switch } from '@heroui/react';
+import { Loader } from '@/components/ui/loader';
 import {
  Dialog,
  DialogBody,
@@ -25,6 +26,7 @@ import {
  DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { backendConfig } from '@/lib/auth/config';
 import { hedwigApi } from '@/lib/api/client';
 import type { Client, Project } from '@/lib/models/entities';
@@ -700,7 +702,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  </Field>
  {!invoiceForm.clientId ? (
  <Field label="Name" required>
- <Input
+ <Input fullWidth
  placeholder="e.g. Acme Corp"
  value={invoiceForm.clientName}
  onChange={(e) => setInvoiceForm((f) => ({ ...f, clientName: e.target.value }))}
@@ -708,12 +710,12 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  </Field>
  ) : (
  <Field label="Email">
- <Input value={selectedInvoiceClient?.email || ''} disabled />
+ <Input fullWidth value={selectedInvoiceClient?.email || ''} disabled />
  </Field>
  )}
  {!invoiceForm.clientId && (
  <Field label="Email">
- <Input
+ <Input fullWidth
  type="email"
  placeholder="client@example.com"
  value={invoiceForm.clientEmail}
@@ -727,7 +729,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  <Section label="Invoice details">
  <div className="grid gap-3 sm:grid-cols-3">
  <Field label="Amount" required>
- <Input
+ <Input fullWidth
  type="number"
  min="0"
  step="0.01"
@@ -746,13 +748,12 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  ]}
  />
  </Field>
- <Field label="Due date" required>
- <Input
- type="date"
- value={invoiceForm.dueDate}
- onChange={(e) => setInvoiceForm((f) => ({ ...f, dueDate: e.target.value }))}
- />
- </Field>
+              <Field label="Due date" required>
+                <DateInput fullWidth
+                  value={invoiceForm.dueDate}
+                  onChange={(v) => setInvoiceForm((f) => ({ ...f, dueDate: v }))}
+                />
+              </Field>
  </div>
  </Section>
 
@@ -800,13 +801,12 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  ]}
  />
  </Field>
- <Field label="Start date" required>
- <Input
- type="date"
- value={invoiceForm.startDate}
- onChange={(e) => setInvoiceForm((f) => ({ ...f, startDate: e.target.value }))}
- />
- </Field>
+              <Field label="Start date" required>
+                <DateInput fullWidth
+                  value={invoiceForm.startDate}
+                  onChange={(v) => setInvoiceForm((f) => ({ ...f, startDate: v }))}
+                />
+              </Field>
  </div>
  )}
  <Toggle
@@ -823,7 +823,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-tertiary)]">
  {index + 1}
  </span>
- <Input
+ <Input fullWidth
  placeholder="Description"
  value={item.description}
  onChange={(e) =>
@@ -836,7 +836,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  }
  />
  <div className="w-28 shrink-0">
- <Input
+ <Input fullWidth
  type="number"
  min="0"
  step="0.01"
@@ -897,14 +897,14 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  <Section label="Details">
  <div className="grid gap-3 sm:grid-cols-2">
  <Field label="Title" required>
- <Input
+ <Input fullWidth
  placeholder="e.g. Website design deposit"
  value={paymentForm.title}
  onChange={(e) => setPaymentForm((f) => ({ ...f, title: e.target.value }))}
  />
  </Field>
  <Field label="Amount" required>
- <Input
+ <Input fullWidth
  type="number"
  min="0"
  step="0.01"
@@ -923,13 +923,12 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  ]}
  />
  </Field>
- <Field label="Expiry date">
- <Input
- type="date"
- value={paymentForm.expiryDate}
- onChange={(e) => setPaymentForm((f) => ({ ...f, expiryDate: e.target.value }))}
- />
- </Field>
+              <Field label="Expiry date">
+                <DateInput fullWidth
+                  value={paymentForm.expiryDate}
+                  onChange={(v) => setPaymentForm((f) => ({ ...f, expiryDate: v }))}
+                />
+              </Field>
  </div>
  </Section>
 
@@ -955,7 +954,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  </Field>
  {!paymentForm.clientId ? (
  <Field label="Client name">
- <Input
+ <Input fullWidth
  placeholder="e.g. Acme Corp"
  value={paymentForm.clientName}
  onChange={(e) => setPaymentForm((f) => ({ ...f, clientName: e.target.value }))}
@@ -963,12 +962,12 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  </Field>
  ) : (
  <Field label="Client email">
- <Input value={selectedPaymentClient?.email || ''} disabled />
+ <Input fullWidth value={selectedPaymentClient?.email || ''} disabled />
  </Field>
  )}
  {!paymentForm.clientId && (
  <Field label="Client email">
- <Input
+ <Input fullWidth
  type="email"
  placeholder="client@example.com"
  value={paymentForm.clientEmail}
@@ -1017,14 +1016,14 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  {flow === 'client' && (
  <div className="grid gap-3 sm:grid-cols-2">
  <Field label="Name" required>
- <Input
+ <Input fullWidth
  placeholder="e.g. Aisha Bello"
  value={clientForm.name}
  onChange={(e) => setClientForm((f) => ({ ...f, name: e.target.value }))}
  />
  </Field>
  <Field label="Email">
- <Input
+ <Input fullWidth
  type="email"
  placeholder="client@example.com"
  value={clientForm.email}
@@ -1032,7 +1031,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  />
  </Field>
  <Field label="Company">
- <Input
+ <Input fullWidth
  placeholder="Optional"
  value={clientForm.company}
  onChange={(e) => setClientForm((f) => ({ ...f, company: e.target.value }))}
@@ -1056,21 +1055,20 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  <Section label="Project details">
  <div className="grid gap-3 sm:grid-cols-2">
  <Field label="Title" required>
- <Input
+ <Input fullWidth
  placeholder="e.g. Brand identity redesign"
  value={projectForm.title}
  onChange={(e) => setProjectForm((f) => ({ ...f, title: e.target.value }))}
  />
  </Field>
- <Field label="Deadline" required>
- <Input
- type="date"
- value={projectForm.deadline}
- onChange={(e) => setProjectForm((f) => ({ ...f, deadline: e.target.value }))}
- />
- </Field>
+              <Field label="Deadline" required>
+                <DateInput fullWidth
+                  value={projectForm.deadline}
+                  onChange={(v) => setProjectForm((f) => ({ ...f, deadline: v }))}
+                />
+              </Field>
  <Field label="Budget">
- <Input
+ <Input fullWidth
  type="number"
  min="0"
  step="0.01"
@@ -1119,7 +1117,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  </Field>
  {!projectForm.clientId ? (
  <Field label="Name" required>
- <Input
+ <Input fullWidth
  placeholder="Client name"
  value={projectForm.clientName}
  onChange={(e) => setProjectForm((f) => ({ ...f, clientName: e.target.value }))}
@@ -1127,12 +1125,12 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  </Field>
  ) : (
  <Field label="Email">
- <Input value={clientById.get(projectForm.clientId)?.email || ''} disabled />
+ <Input fullWidth value={clientById.get(projectForm.clientId)?.email || ''} disabled />
  </Field>
  )}
  {!projectForm.clientId && (
  <Field label="Email">
- <Input
+ <Input fullWidth
  type="email"
  placeholder="client@example.com"
  value={projectForm.clientEmail}
@@ -1170,7 +1168,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  </button>
  </div>
  <div className="grid gap-2 sm:grid-cols-[1fr_110px_140px]">
- <Input
+ <Input fullWidth
  placeholder="e.g. Initial wireframes"
  value={milestone.title}
  onChange={(e) =>
@@ -1182,7 +1180,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  }))
  }
  />
- <Input
+ <Input fullWidth
  type="number"
  min="0"
  step="0.01"
@@ -1197,18 +1195,17 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  }))
  }
  />
- <Input
- type="date"
- value={milestone.dueDate}
- onChange={(e) =>
- setProjectForm((f) => ({
- ...f,
- milestones: f.milestones.map((m) =>
- m.id === milestone.id ? { ...m, dueDate: e.target.value } : m
- ),
- }))
- }
- />
+              <DateInput fullWidth
+                  value={milestone.dueDate}
+                  onChange={(v) =>
+                    setProjectForm((f) => ({
+                      ...f,
+                      milestones: f.milestones.map((m) =>
+                        m.id === milestone.id ? { ...m, dueDate: v } : m
+                      ),
+                    }))
+                  }
+                />
  </div>
  </div>
  ))}
@@ -1268,8 +1265,8 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  >
  {isSubmitting ? (
  <>
- <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" />
- Creating…
+  <Loader size={16} />
+  Creating…
  </>
  ) : (
  <>
@@ -1322,33 +1319,47 @@ function Field({
 }
 
 function FormSelect({
- value,
- onChange,
- options,
- disabled,
+  value,
+  onChange,
+  options,
+  disabled,
 }: {
- value: string;
- onChange: (value: string) => void;
- options: Array<{ value: string; label: string }>;
- disabled?: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
 }) {
- return (
- <div className="relative flex h-10 w-full items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent)]/15">
- <select
- value={value}
- onChange={(e) => onChange(e.target.value)}
- disabled={disabled}
- className="w-full appearance-none bg-transparent pr-5 text-[13px] text-[var(--color-text-primary)] outline-none disabled:text-[var(--color-text-muted)]"
- >
- {options.map((opt) => (
- <option key={`${opt.value}-${opt.label}`} value={opt.value}>
- {opt.label}
- </option>
- ))}
- </select>
-  <CaretDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="bold" />
- </div>
- );
+  const selectedLabel = options.find((o) => o.value === value)?.label;
+
+  return (
+    <Dropdown>
+      <HButton
+        variant="secondary"
+        isDisabled={disabled}
+        className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 text-[13px] font-medium text-[var(--color-text-primary)]"
+        aria-label="Select option"
+      >
+        <span>{selectedLabel || 'Select...'}</span>
+        <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+      </HButton>
+      <Dropdown.Popover className="min-w-[200px]">
+        <Dropdown.Menu
+          selectedKeys={value ? new Set([value]) : new Set()}
+          selectionMode="single"
+          onSelectionChange={(keys) => {
+            const key = [...keys][0];
+            if (key) onChange(String(key));
+          }}
+        >
+          {options.map((opt) => (
+            <Dropdown.Item key={opt.value} id={opt.value} textValue={opt.label}>
+              <Label>{opt.label}</Label>
+            </Dropdown.Item>
+          ))}
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
+  );
 }
 
 function Textarea({
@@ -1383,27 +1394,19 @@ function Toggle({
  description?: string;
 }) {
  return (
- <button
- type="button"
- onClick={() => onChange(!checked)}
- className="flex w-full items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-left transition hover:bg-[var(--color-surface-tertiary)]"
+ <Switch
+ isSelected={checked}
+ onChange={onChange}
+ className="flex w-full items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 transition hover:bg-[var(--color-surface-tertiary)]"
  >
- <div>
+ <Switch.Content>
  <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{label}</p>
  {description && <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">{description}</p>}
- </div>
- <div
- className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
- checked ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
- }`}
- >
- <div
- className={`absolute top-0.5 h-4 w-4 rounded-full bg-[var(--color-surface)] shadow-sm transition-transform ${
- checked ? 'translate-x-4' : 'translate-x-0.5'
- }`}
- />
- </div>
- </button>
+ </Switch.Content>
+ <Switch.Control>
+ <Switch.Thumb />
+ </Switch.Control>
+ </Switch>
  );
 }
 

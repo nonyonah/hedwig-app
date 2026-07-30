@@ -7,6 +7,8 @@ import { hedwigApi, type CreateRecurringInvoiceInput, type RecurringFrequency } 
 import type { Client } from '@/lib/models/entities';
 import { useToast } from '@/components/providers/toast-provider';
 import { Button } from '@/components/ui/button';
+import { DateInput } from '@/components/ui/date-input';
+import { Button as HButton, Dropdown, Label } from '@heroui/react';
 
 const FREQUENCIES: { value: RecurringFrequency; label: string; description: string }[] = [
  { value: 'weekly', label: 'Weekly', description: 'Every 7 days' },
@@ -176,7 +178,7 @@ export function CreateRecurringInvoiceDialog({ open, clients, accessToken, prefi
  return (
  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
  <div className="absolute inset-0 bg-black/40" onClick={() => onOpenChange(false)} />
- <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]">
+ <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
  {/* Header */}
  <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-6 py-4">
  <div>
@@ -198,23 +200,34 @@ export function CreateRecurringInvoiceDialog({ open, clients, accessToken, prefi
  {/* Client */}
  <div className="space-y-1.5">
  <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">Client</label>
-  {clients.length > 0 ? (
-  <div className="relative">
-    <select
-    value={form.clientId}
-    onChange={(e) => handleClientChange(e.target.value)}
-    className="w-full appearance-none rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 pr-8 text-[14px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-    >
-    <option value="">Select client…</option>
-    {clients.map((c) => (
-    <option key={c.id} value={c.id}>{c.name}</option>
-    ))}
-    </select>
-    <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 4.5L6 7.5L9 4.5" />
-    </svg>
-  </div>
-  ) : null}
+   {clients.length > 0 ? (
+   <Dropdown>
+     <HButton
+       variant="secondary"
+       className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[14px] font-medium text-[var(--color-foreground)]"
+       aria-label="Select client"
+     >
+       <span>{form.clientId ? (clients.find((c) => c.id === form.clientId)?.name || 'Select client…') : 'Select client…'}</span>
+       <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+     </HButton>
+     <Dropdown.Popover className="min-w-[280px]">
+       <Dropdown.Menu
+         selectedKeys={form.clientId ? new Set([form.clientId]) : new Set()}
+         selectionMode="single"
+         onSelectionChange={(keys) => {
+           const key = [...keys][0];
+           if (key) handleClientChange(key as string);
+         }}
+       >
+         {clients.map((c) => (
+           <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
+             <Label>{c.name}</Label>
+           </Dropdown.Item>
+         ))}
+       </Dropdown.Menu>
+     </Dropdown.Popover>
+   </Dropdown>
+   ) : null}
  {!form.clientId && (
  <div className="grid grid-cols-2 gap-2 mt-2">
  <input
@@ -293,23 +306,19 @@ export function CreateRecurringInvoiceDialog({ open, clients, accessToken, prefi
  <div className="grid grid-cols-2 gap-3">
  <div className="space-y-1.5">
  <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">First invoice date</label>
- <input
- type="date"
- required
- value={form.startDate}
- onChange={(e) => set('startDate', e.target.value)}
- className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
- />
+              <DateInput
+                  value={form.startDate}
+                  onChange={(v) => set('startDate', v)}
+                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
+                />
  </div>
  <div className="space-y-1.5">
  <label className="text-[11px] font-semibold text-[var(--color-text-muted)]">End date (optional)</label>
- <input
- type="date"
- value={form.endDate}
- min={form.startDate}
- onChange={(e) => set('endDate', e.target.value)}
- className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
- />
+              <DateInput
+                  value={form.endDate}
+                  onChange={(v) => set('endDate', v)}
+                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-[14px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+                />
  </div>
  </div>
 

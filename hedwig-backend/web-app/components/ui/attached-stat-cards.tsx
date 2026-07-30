@@ -90,7 +90,7 @@ export function AttachedStatGrid({
   className?: string;
 }) {
   return (
-    <div className={cn('grid gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]', className)}>
+    <div className={cn('grid gap-px overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-border)]', className)}>
       {items.map((item) => (
         <AttachedStatCard key={item.id} item={item} />
       ))}

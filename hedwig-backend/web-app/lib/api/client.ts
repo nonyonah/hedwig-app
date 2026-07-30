@@ -1310,7 +1310,9 @@ export const hedwigApi = {
         ]);
 
         return {
-          invoices: invoiceDocuments.map(mapBackendInvoice),
+          invoices: invoiceDocuments
+            .filter((doc) => !doc?.content?.bookkeeping_only)
+            .map(mapBackendInvoice),
           paymentLinks: paymentLinkDocuments.map(mapBackendPaymentLink),
           invoiceDrafts,
           paymentLinkDrafts
@@ -2465,6 +2467,21 @@ export const hedwigApi = {
     return payload.data;
   },
 
+  async getStatementJob(jobId: string, options?: ApiOptions): Promise<Record<string, unknown>> {
+    if (!options?.accessToken) throw new Error('Missing access token');
+    const res = await fetch(`${backendConfig.apiBaseUrl}/api/revenue/import-statement/jobs/${jobId}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${options.accessToken}` },
+    });
+    if (!res.ok) {
+      const raw = await res.text().catch(() => '');
+      throw new Error(`Job poll failed: ${raw.slice(0, 200)}`);
+    }
+    const payload = await res.json();
+    if (!payload?.success) throw new Error(payload?.error?.message || 'Job poll failed');
+    return payload.data;
+  },
+
   async importStatementConfirm(payload: {
     statementId: string;
     transactions: Array<{
@@ -2484,6 +2501,108 @@ export const hedwigApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    });
+  },
+
+  // ── P&L Ledger ────────────────────────────────────────────────────────────
+
+  async ledger(params: { range?: string; type?: string; page?: number; pageSize?: number }, options?: ApiOptions): Promise<{
+    entries: Record<string, unknown>[];
+    summary: { totalRevenue: number; totalCredits: number; totalExpenses: number; netIncome: number; entryCount: number };
+    pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  }> {
+    const qs = new URLSearchParams();
+    if (params.range) qs.set('range', params.range);
+    if (params.type) qs.set('type', params.type);
+    if (params.page) qs.set('page', String(params.page));
+    if (params.pageSize) qs.set('pageSize', String(params.pageSize));
+    return request(`/api/revenue/ledger${qs.toString() ? `?${qs.toString()}` : ''}`, options);
+  },
+
+  /** Download XLSX export — returns blob, caller handles the download */
+  async ledgerExportBlob(range: string = '30d', options?: ApiOptions): Promise<Blob> {
+    const qs = range ? `?range=${range}` : '';
+    const path = `/api/revenue/ledger/export${qs}`;
+    if (!options?.accessToken) throw new Error('Missing access token');
+    const response = await fetch(`${backendConfig.apiBaseUrl}${path}`, {
+      cache: 'no-store',
+      headers: { ...authHeaders(options.accessToken, options.workspaceId) },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    return response.blob();
+  },
+
+  async ledgerNarrative(range: string = '30d', options?: ApiOptions): Promise<{
+    narrative: string;
+    summary: { totalRevenue: number; totalExpenses: number; netIncome: number; revenueCount: number; expenseCount: number };
+  }> {
+    return request(`/api/revenue/ledger/narrative?range=${range}`, options);
+  },
+
+  // ── Statement Import History ───────────────────────────────────────────────
+
+  async statementImports(options?: ApiOptions): Promise<Record<string, unknown>[]> {
+    return request<Record<string, unknown>[]>('/api/revenue/statement-imports', options);
+  },
+
+  async statementImportDetail(id: string, options?: ApiOptions): Promise<{ statement: Record<string, unknown>; transactions: Record<string, unknown>[] }> {
+    return request<{ statement: Record<string, unknown>; transactions: Record<string, unknown>[] }>(`/api/revenue/statement-imports/${id}`, options);
+  },
+
+  async matchImportedTransaction(id: string, payload: {
+    matchedInvoiceId?: string | null;
+    matchedExpenseId?: string | null;
+    matchedClientId?: string | null;
+    matchMethod?: string;
+    status?: string;
+  }, options?: ApiOptions): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>(`/api/revenue/imported-transactions/${id}/match`, options, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async bulkConfirmImportedTransactions(options?: ApiOptions): Promise<{ confirmedCount: number; skippedCount: number }> {
+    return request<{ confirmedCount: number; skippedCount: number }>('/api/revenue/import-statement/bulk-confirm', options, {
+      method: 'POST',
+    });
+  },
+
+  async backfillStatementBanks(options?: ApiOptions): Promise<{ updated: number }> {
+    return request<{ updated: number }>('/api/revenue/statement-imports/backfill-banks', options, {
+      method: 'POST',
+    });
+  },
+
+  async exportToGoogleSheets(range?: string, options?: ApiOptions): Promise<{ needsConnection?: boolean; redirectUrl?: string; spreadsheetUrl?: string }> {
+    const params = range ? `?range=${range}` : '';
+    return request<{ needsConnection?: boolean; redirectUrl?: string; spreadsheetUrl?: string }>(`/api/revenue/ledger/export-to-sheets${params}`, options, {
+      method: 'POST',
+    });
+  },
+
+  // ── Categorization Rules ───────────────────────────────────────────────────
+
+  async categorizationRules(options?: ApiOptions): Promise<Record<string, unknown>[]> {
+    return request<Record<string, unknown>[]>('/api/revenue/categorization-rules', options);
+  },
+
+  async createCategorizationRule(payload: {
+    conditions: Record<string, unknown>;
+    category: string;
+    priority?: number;
+  }, options?: ApiOptions): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>('/api/revenue/categorization-rules', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteCategorizationRule(id: string, options?: ApiOptions): Promise<void> {
+    return request<void>(`/api/revenue/categorization-rules/${id}`, options, {
+      method: 'DELETE',
     });
   },
 

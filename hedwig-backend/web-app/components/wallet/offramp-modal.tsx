@@ -2,8 +2,10 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import { X, ArrowRight, CheckCircle, Warning, IdentificationCard, SpinnerGap } from '@/components/ui/lucide-icons';
+import { X, ArrowRight, CheckCircle, Warning, IdentificationCard, CaretDown } from '@/components/ui/lucide-icons';
+import { Loader } from '@/components/ui/loader';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Alert, Dropdown, Label } from '@heroui/react';
 import { useToast } from '@/components/providers/toast-provider';
 import { backendConfig } from '@/lib/auth/config';
 import { hedwigApi } from '@/lib/api/client';
@@ -407,7 +409,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
 
  return (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleClose}>
- <div className="relative w-full max-w-[440px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
+ <div className="relative w-full max-w-[440px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl" onClick={e => e.stopPropagation()}>
  <button onClick={handleClose} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
  <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
  <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">
@@ -442,69 +444,97 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
  </div>
  </div>
 
- {kycStatus === 'pending' && (
- <div className="rounded-2xl border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] p-4 text-center">
- <p className="text-[13px] font-medium text-[var(--color-warning)]">Verification in progress</p>
- <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">Complete the verification in the opened tab, then check your status below.</p>
- </div>
- )}
+  {kycStatus === 'pending' && (
+  <Alert status="warning">
+    <Alert.Indicator />
+    <Alert.Content>
+      <Alert.Title>Verification in progress</Alert.Title>
+      <Alert.Description>Complete the verification in the opened tab, then check your status below.</Alert.Description>
+    </Alert.Content>
+  </Alert>
+  )}
 
- {(kycStatus === 'rejected' || kycStatus === 'retry_required') && (
- <div className="rounded-2xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-4 text-center">
- <Warning className="mx-auto h-8 w-8 text-red-500 mb-2" weight="bold" />
- <p className="text-[13px] font-medium text-red-700 dark:text-red-400">Verification failed</p>
- <p className="mt-1 text-[12px] text-red-600/70 dark:text-red-400/70">Please try again with clear photos of your documents.</p>
- </div>
- )}
+  {(kycStatus === 'rejected' || kycStatus === 'retry_required') && (
+  <Alert status="danger">
+    <Alert.Indicator />
+    <Alert.Content>
+      <Warning className="mb-1 h-5 w-5" weight="bold" />
+      <Alert.Title>Verification failed</Alert.Title>
+      <Alert.Description>Please try again with clear photos of your documents.</Alert.Description>
+    </Alert.Content>
+  </Alert>
+  )}
 
- {kycStatus === 'approved' && (
- <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 text-center">
- <CheckCircle className="mx-auto h-8 w-8 text-emerald-500 mb-2" weight="bold" />
- <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">Verification approved</p>
- <p className="mt-1 text-[12px] text-emerald-600/70 dark:text-emerald-400/70">You can now withdraw to your bank.</p>
- </div>
- )}
+  {kycStatus === 'approved' && (
+  <Alert status="success">
+    <Alert.Indicator />
+    <Alert.Content>
+      <CheckCircle className="mb-1 h-5 w-5" weight="bold" />
+      <Alert.Title>Verification approved</Alert.Title>
+      <Alert.Description>You can now withdraw to your bank.</Alert.Description>
+    </Alert.Content>
+  </Alert>
+  )}
 
- {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
- </>
- )}
+  {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{error}</Alert.Title></Alert.Content></Alert>}
+  </>
+  )}
 
- {step === 'form' && (
+  {step === 'form' && (
  <>
- <div>
- <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Network</span>
- <div className="relative mt-2">
- <select
- value={chain}
- onChange={e => handleChainSwitch(e.target.value)}
- className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] py-2 pl-9 pr-8 text-[13px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)]"
- >
- {shownChains.map((c) => (
- <option key={c} value={c}>{CHAIN_CONFIG[c].name}</option>
- ))}
- </select>
- <Image
- src={CHAIN_CONFIG[chain].icon}
- alt={CHAIN_CONFIG[chain].name}
- width={16}
- height={16}
- className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 rounded-full"
- />
-  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none">
-  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+  <div>
+  <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Network</span>
+  <div className="mt-2">
+  <Dropdown>
+    <HButton variant="secondary" className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[13px] font-medium text-[var(--color-foreground)]" aria-label="Select network">
+      <span className="flex items-center gap-2">
+        <Image src={CHAIN_CONFIG[chain].icon} alt="" width={16} height={16} className="rounded-full" />
+        {CHAIN_CONFIG[chain].name}
+      </span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[200px]">
+      <Dropdown.Menu selectedKeys={new Set([chain])} selectionMode="single" onSelectionChange={(keys) => { const k = [...keys][0]; if (k) handleChainSwitch(k as string); }}>
+        {shownChains.map((c) => (
+          <Dropdown.Item key={c} id={c} textValue={CHAIN_CONFIG[c].name}>
+            <Label>{CHAIN_CONFIG[c].name}</Label>
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
   </div>
   </div>
 
   <div>
   <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Currency</span>
-  <div className="relative mt-2">
-  <select value={currency} onChange={e => { setCurrency(e.target.value); setInstitution(''); setAccountResolved(false); }} className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)]">
-  {Object.entries(SUPPORTED_CURRENCIES).map(([k, v]) => (<option key={k} value={k}>{v.flag} {v.label}</option>))}
-  </select>
-  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M3 4.5L6 7.5L9 4.5" />
-  </svg>
+  <div className="mt-2">
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+      aria-label="Select currency"
+    >
+      <span>{currency ? `${SUPPORTED_CURRENCIES[currency].flag} ${SUPPORTED_CURRENCIES[currency].label}` : 'Select currency'}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[220px]">
+      <Dropdown.Menu
+        selectedKeys={new Set([currency])}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          if (key) { setCurrency(key as string); setInstitution(''); setAccountResolved(false); }
+        }}
+      >
+        {Object.entries(SUPPORTED_CURRENCIES).map(([k, v]) => (
+          <Dropdown.Item key={k} id={k} textValue={v.label}>
+            <Label>{v.flag} {v.label}</Label>
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
   </div>
   </div>
 
@@ -527,22 +557,36 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
  <p className="text-[11px] font-semibold text-[var(--color-text-muted)] mb-3">Bank details</p>
   {currency !== 'BRL' ? (
-  <div className="relative mb-2">
-  <select
-  value={institution}
-  onChange={e => { setInstitution(e.target.value); setAccountResolved(false); }}
-  className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)]"
-  >
-  <option value="">Select institution</option>
-  {institutions.map((i: any) => (
-  <option key={i.code || i.id || i} value={i.code || i.id || i}>
-  {i.name || i.label || i}
-  </option>
-  ))}
-  </select>
-  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M3 4.5L6 7.5L9 4.5" />
-  </svg>
+  <div className="mb-2">
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+      aria-label="Select institution"
+    >
+      <span>{institution ? (institutions.find((i: any) => (i.code || i.id || i) === institution)?.name || institution) : 'Select institution'}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[280px] max-h-[300px] overflow-y-auto">
+      <Dropdown.Menu
+        selectedKeys={institution ? new Set([institution]) : new Set()}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          if (key) { setInstitution(key as string); setAccountResolved(false); }
+        }}
+      >
+        {institutions.map((i: any) => {
+          const id = i.code || i.id || i;
+          return (
+            <Dropdown.Item key={id} id={id} textValue={i.name || i.label || i}>
+              <Label>{i.name || i.label || i}</Label>
+            </Dropdown.Item>
+          );
+        })}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
   </div>
   ) : (
  <p className="mb-2 text-[12px] text-[var(--color-text-muted)]">PIX key (CPF, email, phone, or random key)</p>
@@ -584,22 +628,23 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
  />
  </div>
 
- {solanaBalance > 0 && (
- <div className="rounded-2xl border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] p-3">
- <p className="text-[12px] font-medium text-[var(--color-warning)]">
- Solana offramp is temporarily unavailable. Circle Gateway (beta) aggregates USDC from all supported chains — use Base, Arbitrum, Polygon, or Optimism instead.
- </p>
- </div>
- )}
+  {solanaBalance > 0 && (
+  <Alert status="warning">
+    <Alert.Indicator />
+    <Alert.Content>
+      <Alert.Description>Solana offramp is temporarily unavailable. Circle Gateway (beta) aggregates USDC from all supported chains — use Base, Arbitrum, Polygon, or Optimism instead.</Alert.Description>
+    </Alert.Content>
+  </Alert>
+  )}
 
- {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
- </>
- )}
+  {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{error}</Alert.Title></Alert.Content></Alert>}
+  </>
+  )}
 
- {step === 'signing' && (
+  {step === 'signing' && (
  <div className="flex flex-col items-center text-center pt-6 pb-2">
  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
- <SpinnerGap className="h-8 w-8 animate-spin text-[var(--color-text-tertiary)]" weight="bold" />
+  <Loader size={32} />
  </div>
  <h3 className="text-[16px] font-semibold text-[var(--color-foreground)]">
  {isSolana ? 'Confirm bridge in your wallet' : 'Confirm in your wallet'}
@@ -609,11 +654,14 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
  ? 'A signing prompt has appeared in your Solana wallet. Please confirm the bridge transaction to continue.'
  : `A signing prompt has appeared in your Privy wallet. Please confirm the transaction on ${config.name}.`}
  </p>
- {signingError && (
- <div className="mt-4 w-full rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
- <p className="text-[12px] font-medium text-red-700 dark:text-red-400">{signingError}</p>
- </div>
- )}
+  {signingError && (
+  <Alert status="danger" className="mt-4 w-full">
+    <Alert.Indicator />
+    <Alert.Content>
+      <Alert.Title>{signingError}</Alert.Title>
+    </Alert.Content>
+  </Alert>
+  )}
  </div>
  )}
 

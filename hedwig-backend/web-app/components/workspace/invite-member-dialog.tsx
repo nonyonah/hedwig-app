@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X } from '@/components/ui/lucide-icons';
+import { X, CaretDown } from '@/components/ui/lucide-icons';
+import { Button, Dropdown, Label } from '@heroui/react';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 
@@ -80,27 +81,33 @@ export function InviteMemberDialog() {
           </div>
           <div className="mb-4">
             <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">Role</label>
-            <div className="relative">
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
-                className="w-full appearance-none rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 pr-8 text-[14px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+            <Dropdown>
+              <Button
+                variant="secondary"
+                className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-[14px] font-medium text-[var(--color-foreground)]"
+                aria-label="Select role"
               >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
-              <svg
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 6l4 4 4-4" />
-              </svg>
-            </div>
+                <span>{role === 'member' ? 'Member' : 'Admin'}</span>
+                <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+              </Button>
+              <Dropdown.Popover className="min-w-[200px]">
+                <Dropdown.Menu
+                  selectedKeys={new Set([role])}
+                  selectionMode="single"
+                  onSelectionChange={(keys) => {
+                    const key = [...keys][0];
+                    if (key) setRole(key as 'admin' | 'member');
+                  }}
+                >
+                  <Dropdown.Item key="member" id="member" textValue="Member">
+                    <Label>Member</Label>
+                  </Dropdown.Item>
+                  <Dropdown.Item key="admin" id="admin" textValue="Admin">
+                    <Label>Admin</Label>
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
             <p className="mt-1.5 text-[12px] text-[var(--color-text-tertiary)]">
               {role === 'admin'
                 ? 'Can manage members, projects, and settings.'

@@ -3,27 +3,32 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
- ArrowDownRight,
- ArrowRight,
- ArrowUpRight,
- CalendarBlank,
- ChartBar,
- CheckCircle,
- Coins,
- CurrencyDollar,
- DownloadSimple,
- FileText,
- FolderSimple,
- Minus,
- NotePencil,
- Plus,
- Receipt,
- Trash,
- UsersThree,
- Warning,
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  CalendarBlank,
+  CaretDown,
+  ChartBar,
+  CheckCircle,
+  Coins,
+  CurrencyDollar,
+  DownloadSimple,
+  FileText,
+  FolderSimple,
+  Minus,
+  NotePencil,
+  Plus,
+  Receipt,
+  Trash,
+  UsersThree,
+  Warning,
+  GoogleSheetsLogo,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label, Table } from '@heroui/react';
+import { Loader } from '@/components/ui/loader';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import {
  Dialog,
@@ -34,7 +39,6 @@ import {
  DialogBody,
  DialogFooter,
 } from '@/components/ui/dialog';
-import { ExportDialog } from '@/components/export/export-dialog';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
@@ -70,25 +74,47 @@ const RANGE_LABELS: Record<RevenueRange, string> = {
 const RANGES: RevenueRange[] = ['7d', '30d', '90d', '1y'];
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
- software: 'Software',
- equipment: 'Equipment',
- marketing: 'Marketing',
- travel: 'Travel',
- operations: 'Operations',
- contractor: 'Contractor',
- subscriptions: 'Subscriptions',
- other: 'Other',
+  software: 'Software',
+  contractors: 'Contractors',
+  marketing: 'Marketing',
+  travel: 'Travel',
+  meals: 'Meals',
+  office: 'Office',
+  operations: 'Operations',
+  taxes: 'Taxes',
+  subscriptions: 'Subscriptions',
+  shopping: 'Shopping',
+  entertainment: 'Entertainment',
+  groceries: 'Groceries',
+  utilities: 'Utilities',
+  health: 'Health',
+  education: 'Education',
+  transportation: 'Transportation',
+  rent: 'Rent',
+  personal_care: 'Personal Care',
+  other: 'Other',
 };
 
 const CATEGORY_COLORS: Record<ExpenseCategory, { bg: string; text: string }> = {
- software: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
- equipment: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
- marketing: { bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
- travel: { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
- operations: { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-secondary)]' },
- contractor: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
- subscriptions: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary-dark)]' },
- other: { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  software: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  contractors: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  marketing: { bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  travel: { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  meals: { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  office: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  operations: { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-secondary)]' },
+  taxes: { bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  subscriptions: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary-dark)]' },
+  shopping: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  entertainment: { bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  groceries: { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  utilities: { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-secondary)]' },
+  health: { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+  education: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  transportation: { bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
+  rent: { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-secondary)]' },
+  personal_care: { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
+  other: { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
 };
 
 const ACTIVITY_COLORS: Record<ActivityEvent['type'], { dot: string; bg: string }> = {
@@ -248,87 +274,144 @@ function ExpenseDialog({
  </DialogHeader>
 
  <DialogBody className="space-y-4">
- {/* Amount + Currency */}
- <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
- <div>
- <label className={labelCls}>Amount</label>
- <div className="flex items-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-soft)]">
- <span className="flex h-full items-center border-r border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-muted)]">
- {selectedCurrency.symbol}
- </span>
- <Input
- type="number"
- min="0"
- step="0.01"
- value={form.amount}
- onChange={(e) => set('amount', e.target.value)}
- placeholder="0.00"
- className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none border-0 shadow-none focus-visible:ring-0"
- />
- </div>
- </div>
- <div>
- <label className={labelCls}>Currency</label>
- <select value={form.currency} onChange={(e) => set('currency', e.target.value)} className={inputCls}>
- {currencyChoices.map((option) => (
- <option key={option.code} value={option.code}>
- {option.code} - {option.label}
- </option>
- ))}
- </select>
- </div>
- </div>
+  {/* Amount + Currency */}
+  <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
+  <div>
+  <label className={labelCls}>Amount</label>
+  <div className="flex items-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs transition focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-soft)]">
+  <span className="flex h-full items-center border-r border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-muted)]">
+  {selectedCurrency.symbol}
+  </span>
+  <Input
+  type="number"
+  min="0"
+  step="0.01"
+  value={form.amount}
+  onChange={(e) => set('amount', e.target.value)}
+  placeholder="0.00"
+  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none border-0 shadow-none focus-visible:ring-0"
+  />
+  </div>
+  </div>
+  <div>
+  <label className={labelCls}>Currency</label>
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-primary)]"
+      aria-label="Select currency"
+    >
+      <span>{currencyChoices.find((o) => o.code === form.currency)?.code || form.currency} - {currencyChoices.find((o) => o.code === form.currency)?.label || form.currency}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[200px]">
+      <Dropdown.Menu
+        selectedKeys={new Set([form.currency])}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          if (key) set('currency', key as string);
+        }}
+      >
+        {currencyChoices.map((option) => (
+          <Dropdown.Item key={option.code} id={option.code} textValue={`${option.code} - ${option.label}`}>
+            <Label>{option.code} - {option.label}</Label>
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
+  </div>
+  </div>
 
- {/* Category + Date */}
- <div className="grid grid-cols-2 gap-3">
- <div>
- <label className={labelCls}>Category</label>
- <select
- value={form.category}
- onChange={(e) => set('category', e.target.value as ExpenseCategory)}
- className={inputCls}
- >
- {(Object.keys(CATEGORY_LABELS) as ExpenseCategory[]).map((cat) => (
- <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
- ))}
- </select>
- </div>
+  {/* Category + Date */}
+  <div className="grid grid-cols-2 gap-3">
+  <div>
+  <label className={labelCls}>Category</label>
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-primary)]"
+      aria-label="Select category"
+    >
+      <span>{CATEGORY_LABELS[form.category as ExpenseCategory] || 'Select category'}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[200px]">
+      <Dropdown.Menu
+        selectedKeys={new Set([form.category])}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          if (key) set('category', key as ExpenseCategory);
+        }}
+      >
+        {(Object.keys(CATEGORY_LABELS) as ExpenseCategory[]).map((cat) => (
+          <Dropdown.Item key={cat} id={cat} textValue={CATEGORY_LABELS[cat]}>
+            <Label>{CATEGORY_LABELS[cat]}</Label>
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
+  </div>
  <div>
  <label className={labelCls}>Date</label>
- <Input
- type="date"
- value={form.date}
- max={new Date().toISOString().slice(0, 10)}
- onChange={(e) => set('date', e.target.value)}
- className={inputCls}
- />
- </div>
- </div>
+  <DateInput
+  value={form.date}
+  onChange={(v) => set('date', v)}
+  className={inputCls}
+  />
+  </div>
+  </div>
 
- {/* Note */}
- <div>
- <label className={labelCls}>Note <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
- <Input
- type="text"
- value={form.note}
- onChange={(e) => set('note', e.target.value)}
- placeholder="What was this expense for?"
- className={inputCls}
- />
- </div>
+  {/* Note */}
+  <div>
+  <label className={labelCls}>Note <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
+  <Input
+  type="text"
+  value={form.note}
+  onChange={(e) => set('note', e.target.value)}
+  placeholder="What was this expense for?"
+  className={inputCls}
+  />
+  </div>
 
- {/* Client */}
- {clients.length > 0 && (
- <div>
- <label className={labelCls}>Link to client <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
- <select value={form.clientId} onChange={(e) => set('clientId', e.target.value)} className={inputCls}>
- <option value="">No client</option>
- {clients.map((c) => (
- <option key={c.id} value={c.id}>{c.name}</option>
- ))}
- </select>
- </div>
- )}
+  {/* Client */}
+  {clients.length > 0 && (
+  <div>
+  <label className={labelCls}>Link to client <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-primary)]"
+      aria-label="Select client"
+    >
+      <span>{form.clientId ? (clients.find((c) => c.id === form.clientId)?.name || 'No client') : 'No client'}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[240px]">
+      <Dropdown.Menu
+        selectedKeys={form.clientId ? new Set([form.clientId]) : new Set([''])}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          set('clientId', (key as string) || '');
+        }}
+      >
+        <Dropdown.Item key="" id="" textValue="No client">
+          <Label>No client</Label>
+        </Dropdown.Item>
+        {clients.map((c) => (
+          <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
+            <Label>{c.name}</Label>
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
+  </div>
+  )}
  </DialogBody>
 
  <DialogFooter>
@@ -414,71 +497,111 @@ function CreditDialog({
  />
  </div>
  </div>
- <div>
- <label className={labelCls}>Currency</label>
- <select value={form.currency} onChange={(e) => set('currency', e.target.value)} className={inputCls}>
- {currencyChoices.map((option) => (
- <option key={option.code} value={option.code}>
- {option.code} - {option.label}
- </option>
- ))}
- </select>
- </div>
- </div>
+  <div>
+  <label className={labelCls}>Currency</label>
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-primary)]"
+      aria-label="Select currency"
+    >
+      <span>{currencyChoices.find((o) => o.code === form.currency)?.code || form.currency} - {currencyChoices.find((o) => o.code === form.currency)?.label || form.currency}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[200px]">
+      <Dropdown.Menu
+        selectedKeys={new Set([form.currency])}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          if (key) set('currency', key as string);
+        }}
+      >
+        {currencyChoices.map((option) => (
+          <Dropdown.Item key={option.code} id={option.code} textValue={`${option.code} - ${option.label}`}>
+            <Label>{option.code} - {option.label}</Label>
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
+  </div>
+  </div>
 
- <div className="grid grid-cols-2 gap-3">
- <div>
- <label className={labelCls}>Title</label>
- <Input
- type="text"
- value={form.title}
- onChange={(e) => set('title', e.target.value)}
- placeholder="Client transfer"
- className={inputCls}
- />
- </div>
+  <div className="grid grid-cols-2 gap-3">
+  <div>
+  <label className={labelCls}>Title</label>
+  <Input
+  type="text"
+  value={form.title}
+  onChange={(e) => set('title', e.target.value)}
+  placeholder="Client transfer"
+  className={inputCls}
+  />
+  </div>
  <div>
  <label className={labelCls}>Date</label>
- <Input
- type="date"
- value={form.date}
- max={new Date().toISOString().slice(0, 10)}
- onChange={(e) => set('date', e.target.value)}
- className={inputCls}
- />
- </div>
- </div>
+  <DateInput
+  value={form.date}
+  onChange={(v) => set('date', v)}
+  className={inputCls}
+  />
+  </div>
+  </div>
 
- <div>
- <label className={labelCls}>Note <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
- <Input
- type="text"
- value={form.note}
- onChange={(e) => set('note', e.target.value)}
- placeholder="Where did this credit come from?"
- className={inputCls}
- />
- </div>
+  <div>
+  <label className={labelCls}>Note <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
+  <Input
+  type="text"
+  value={form.note}
+  onChange={(e) => set('note', e.target.value)}
+  placeholder="Where did this credit come from?"
+  className={inputCls}
+  />
+  </div>
 
- {clients.length > 0 && (
- <div>
- <label className={labelCls}>Link to client <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
- <select value={form.clientId} onChange={(e) => set('clientId', e.target.value)} className={inputCls}>
- <option value="">No client</option>
- {clients.map((c) => (
- <option key={c.id} value={c.id}>{c.name}</option>
- ))}
- </select>
- </div>
- )}
- </DialogBody>
+  {clients.length > 0 && (
+  <div>
+  <label className={labelCls}>Link to client <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
+  <Dropdown>
+    <HButton
+      variant="secondary"
+      className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-primary)]"
+      aria-label="Select client"
+    >
+      <span>{form.clientId ? (clients.find((c) => c.id === form.clientId)?.name || 'No client') : 'No client'}</span>
+      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+    </HButton>
+    <Dropdown.Popover className="min-w-[240px]">
+      <Dropdown.Menu
+        selectedKeys={form.clientId ? new Set([form.clientId]) : new Set([''])}
+        selectionMode="single"
+        onSelectionChange={(keys) => {
+          const key = [...keys][0];
+          set('clientId', (key as string) || '');
+        }}
+      >
+        <Dropdown.Item key="" id="" textValue="No client">
+          <Label>No client</Label>
+        </Dropdown.Item>
+        {clients.map((c) => (
+          <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
+            <Label>{c.name}</Label>
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown.Popover>
+  </Dropdown>
+  </div>
+  )}
+  </DialogBody>
 
- <DialogFooter>
- <Button variant="secondary" onClick={onClose} disabled={isSaving}>
- Cancel
- </Button>
- <Button className="create-btn" onClick={handleSave} disabled={isSaving || !form.amount}>
- {isSaving ? 'Saving…' : 'Record credit'}
+  <DialogFooter>
+  <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+  Cancel
+  </Button>
+  <Button className="create-btn" onClick={handleSave} disabled={isSaving || !form.amount}>
+  {isSaving ? 'Saving…' : 'Record credit'}
  </Button>
  </DialogFooter>
  </DialogContent>
@@ -528,8 +651,13 @@ export function RevenueClient({
  const [projectsByRevenue, setProjectsByRevenue] = useState<ProjectRevenueBreakdown[]>(projectBreakdown);
  const [sourceBreakdown, setSourceBreakdown] = useState<PaymentSourceBreakdown[]>(paymentSources);
  const [activityItems, setActivityItems] = useState<ActivityEvent[]>(activityFeed);
- const [showExportDialog, setShowExportDialog] = useState(false);
- const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportingToSheets, setExportingToSheets] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showImportMenu, setShowImportMenu] = useState(false);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+  const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
  const [showCreditDialog, setShowCreditDialog] = useState(false);
  const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
@@ -539,10 +667,35 @@ export function RevenueClient({
  const [isDeletingExpense, setIsDeletingExpense] = useState(false);
  const [metrics, setMetrics] = useState<RevenueMetrics>(initialMetrics);
  const [isRefreshingRange, setIsRefreshingRange] = useState(false);
+const [showAllExpenses, setShowAllExpenses] = useState(false);
  const mounted = useRef(true);
  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
- const apiOpts = { accessToken };
+ // Click outside to close import menu
+ useEffect(() => {
+   if (!showImportMenu) return;
+   const handleClick = (e: MouseEvent) => {
+     if (importMenuRef.current && !importMenuRef.current.contains(e.target as Node)) {
+       setShowImportMenu(false);
+     }
+   };
+   document.addEventListener('mousedown', handleClick);
+   return () => document.removeEventListener('mousedown', handleClick);
+  }, [showImportMenu]);
+
+  // Click outside to close export menu
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showExportMenu]);
+
+  const apiOpts = { accessToken };
 
  const refreshRangeData = useCallback(async (nextRange: RevenueRange) => {
  if (!accessToken) {
@@ -615,52 +768,56 @@ export function RevenueClient({
  date: form.date ? new Date(form.date).toISOString() : undefined,
  };
 
- if (editingExpense) {
- const updated = await hedwigApi.updateExpense(editingExpense.id, payload, apiOpts);
- if (!mounted.current) return;
- const raw = (updated as any)?.data ?? updated;
- const normalized = normalizeExpenseRecord({
- ...editingExpense,
- ...raw,
- amount: raw?.amount ?? amt,
- currency: raw?.currency ?? form.currency,
- convertedAmountUsd: raw?.convertedAmountUsd ?? raw?.converted_amount_usd ?? fallbackConvertedAmountUsd,
- category: raw?.category ?? form.category,
- date: raw?.date ?? new Date(form.date).toISOString(),
- note: raw?.note ?? form.note,
- clientId: raw?.clientId ?? raw?.client_id ?? form.clientId ?? null,
- projectId: raw?.projectId ?? raw?.project_id ?? form.projectId ?? null,
- });
- setExpenses((prev) =>
- prev.map((e) =>
- e.id === editingExpense.id
- ? normalized
- : e,
- ),
- );
- toast({ type: 'success', title: 'Expense updated', message: `${formatNative(normalized.amount, normalized.currency)} saved.` });
- } else {
- const created = await hedwigApi.createExpense(payload, apiOpts);
- if (!mounted.current) return;
- const raw = (created as any)?.data ?? created;
- const newExpense = normalizeExpenseRecord({
- ...raw,
- id: raw?.id ?? `exp_${Date.now()}`,
- amount: amt,
- currency: raw?.currency ?? form.currency,
- convertedAmountUsd: raw?.convertedAmountUsd ?? raw?.converted_amount_usd ?? fallbackConvertedAmountUsd,
- category: raw?.category ?? form.category,
- date: raw?.date ?? new Date(form.date).toISOString(),
- note: raw?.note ?? form.note,
- clientId: raw?.client_id ?? form.clientId ?? null,
- projectId: raw?.project_id ?? form.projectId ?? null,
- sourceType: raw?.source_type ?? 'manual',
- createdAt: raw?.created_at ?? new Date().toISOString(),
- updatedAt: raw?.updated_at ?? new Date().toISOString(),
- });
- setExpenses((prev) => [newExpense, ...prev]);
- toast({ type: 'success', title: 'Expense added', message: `${formatNative(newExpense.amount, newExpense.currency)} recorded.` });
- }
+  if (editingExpense) {
+  const updated = await hedwigApi.updateExpense(editingExpense.id, payload, apiOpts);
+  if (!mounted.current) return;
+  const raw = (updated as any)?.data ?? updated;
+  const normalized = normalizeExpenseRecord({
+  ...editingExpense,
+  ...raw,
+  amount: raw?.amount ?? amt,
+  currency: raw?.currency ?? form.currency,
+  convertedAmountUsd: raw?.convertedAmountUsd ?? raw?.converted_amount_usd ?? fallbackConvertedAmountUsd,
+  category: raw?.category ?? form.category,
+  date: raw?.date ?? new Date(form.date).toISOString(),
+  note: raw?.note ?? form.note,
+  clientId: raw?.clientId ?? raw?.client_id ?? form.clientId ?? null,
+  projectId: raw?.projectId ?? raw?.project_id ?? form.projectId ?? null,
+  });
+  setExpenses((prev) =>
+  prev.map((e) =>
+  e.id === editingExpense.id
+  ? normalized
+  : e,
+  ),
+  );
+  toast({ type: 'success', title: 'Expense updated', message: `${formatNative(normalized.amount, normalized.currency)} saved.` });
+  } else {
+  const created = await hedwigApi.createExpense(payload, apiOpts);
+  if (!mounted.current) return;
+  const raw = (created as any)?.data ?? created;
+  const newExpense = normalizeExpenseRecord({
+  ...raw,
+  id: raw?.id ?? `exp_${Date.now()}`,
+  amount: amt,
+  currency: raw?.currency ?? form.currency,
+  convertedAmountUsd: raw?.convertedAmountUsd ?? raw?.converted_amount_usd ?? fallbackConvertedAmountUsd,
+  category: raw?.category ?? form.category,
+  date: raw?.date ?? new Date(form.date).toISOString(),
+  note: raw?.note ?? form.note,
+  clientId: raw?.client_id ?? form.clientId ?? null,
+  projectId: raw?.project_id ?? form.projectId ?? null,
+  sourceType: raw?.source_type ?? 'manual',
+  createdAt: raw?.created_at ?? new Date().toISOString(),
+  updatedAt: raw?.updated_at ?? new Date().toISOString(),
+  });
+  setExpenses((prev) => [newExpense, ...prev]);
+  toast({ type: 'success', title: 'Expense added', message: `${formatNative(newExpense.amount, newExpense.currency)} recorded.` });
+  }
+
+  hedwigApi.revenueMetrics(range, apiOpts).then((next) => {
+  if (mounted.current && next) setMetrics(next);
+  }).catch(() => {});
  } catch (error: any) {
  if (!mounted.current) return;
  toast({ type: 'error', title: 'Failed to save expense', message: error?.message || 'Please try again.' });
@@ -671,7 +828,7 @@ export function RevenueClient({
  setEditingExpense(null);
  }
  }
- }, [editingExpense, toast, accessToken, convertToUsd, formatNative]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [editingExpense, toast, accessToken, range, convertToUsd, formatNative]); // eslint-disable-line react-hooks/exhaustive-deps
 
  const handleSaveCredit = useCallback(async (form: CreditFormState) => {
  setIsSavingCredit(true);
@@ -705,10 +862,13 @@ export function RevenueClient({
  if (!deletingExpenseId) return;
  setIsDeletingExpense(true);
  try {
- await hedwigApi.deleteExpense(deletingExpenseId, apiOpts);
- if (!mounted.current) return;
- setExpenses((prev) => prev.filter((e) => e.id !== deletingExpenseId));
- toast({ type: 'success', title: 'Expense deleted', message: 'The expense has been removed.' });
+  await hedwigApi.deleteExpense(deletingExpenseId, apiOpts);
+  if (!mounted.current) return;
+  setExpenses((prev) => prev.filter((e) => e.id !== deletingExpenseId));
+  toast({ type: 'success', title: 'Expense deleted', message: 'The expense has been removed.' });
+  hedwigApi.revenueMetrics(range, apiOpts).then((next) => {
+  if (mounted.current && next) setMetrics(next);
+  }).catch(() => {});
  } catch (error: any) {
  if (!mounted.current) return;
  toast({ type: 'error', title: 'Failed to delete expense', message: error?.message || 'Please try again.' });
@@ -718,11 +878,49 @@ export function RevenueClient({
  setIsDeletingExpense(false);
  }
  }
- }, [deletingExpenseId, toast, accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deletingExpenseId, toast, accessToken, range]); // eslint-disable-line react-hooks/exhaustive-deps
 
- const openAddExpense = () => { setEditingExpense(null); setShowExpenseDialog(true); };
- const openAddCredit = () => setShowCreditDialog(true);
- const openEditExpense = (exp: ExpenseRecord) => { setEditingExpense(exp); setShowExpenseDialog(true); };
+  const openAddExpense = () => { setEditingExpense(null); setShowExpenseDialog(true); setShowImportMenu(false); };
+  const openAddCredit = () => setShowCreditDialog(true);
+  const openEditExpense = (exp: ExpenseRecord) => { setEditingExpense(exp); setShowExpenseDialog(true); };
+
+  const handleExportXlsx = async () => {
+    setShowExportMenu(false);
+    if (!accessToken) return;
+    try {
+      const blob = await hedwigApi.ledgerExportBlob(range, { accessToken });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hedwig-pnl-${range}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ type: 'error', title: 'Export failed', message: 'Could not download XLSX report.' });
+    }
+  };
+
+  const handleExportSheets = async () => {
+    setShowExportMenu(false);
+    if (!accessToken) return;
+    setExportingToSheets(true);
+    try {
+      const result = await hedwigApi.exportToGoogleSheets(range, { accessToken });
+      if (result.needsConnection && result.redirectUrl) {
+        window.open(result.redirectUrl, '_blank');
+        toast({ type: 'info', title: 'Connect Google Sheets', message: 'Complete the OAuth flow in the new tab, then try exporting again.' });
+      } else if (result.spreadsheetUrl) {
+        window.open(result.spreadsheetUrl, '_blank');
+        toast({ type: 'success', title: 'Exported to Sheets', message: 'P&L data has been pushed to Google Sheets.' });
+      }
+    } catch {
+      toast({ type: 'error', title: 'Export failed', message: 'Could not export to Google Sheets. Check your connection.' });
+    } finally {
+      setExportingToSheets(false);
+    }
+  };
 
  /* derived */
  const unpaidInvoices = invoices.filter((inv) => inv.status === 'sent' || inv.status === 'viewed');
@@ -745,51 +943,112 @@ export function RevenueClient({
  <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Revenue</h1>
  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Operational financial dashboard — what is happening with your money right now.</p>
  </div>
- <div className="flex shrink-0 items-center gap-2 mt-0.5">
- <div className="relative">
- <Button className="create-btn" onClick={() => setShowImportDialog(true)}>
- <Plus className="h-4 w-4" weight="bold" />
- Import
- </Button>
- </div>
- <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
- <DownloadSimple className="h-4 w-4" weight="bold" />
- Export
- </Button>
- </div>
- </div>
- <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} clients={clients} />
- <ImportDialog
- open={showImportDialog}
- onClose={() => setShowImportDialog(false)}
- onImported={() => { refreshRevenueData(); }}
- accessToken={accessToken}
- />
+  <div className="flex shrink-0 items-center gap-2 mt-0.5">
+   <div className="relative" ref={importMenuRef}>
+    <button
+     type="button"
+     aria-haspopup="menu"
+     aria-expanded={showImportMenu}
+     onClick={() => setShowImportMenu((p) => !p)}
+     className={'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition ' + (showImportMenu
+      ? 'border-[var(--color-create-dark)] bg-[var(--color-create-dark)] text-white shadow-[var(--color-accent)]/20'
+      : 'border-[var(--color-create)] bg-[var(--color-create)] text-white shadow-[var(--color-accent)]/20 hover:border-[var(--color-create-dark)] hover:bg-[var(--color-create-dark)]')}
+    >
+     <Plus className="h-4 w-4" weight="bold" />
+     <span>Import</span>
+     <CaretDown className={'h-3.5 w-3.5 transition ' + (showImportMenu ? 'rotate-180' : '')} weight="bold" />
+    </button>
 
- <ContextualSuggestions
- title="Expense review"
- description="Grouped expense suggestions stay beside your revenue data so cleanup happens in context."
- query={{ expensePage: true, limit: 1 }}
- />
+    {showImportMenu && (
+     <div className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] py-1 shadow-lg shadow-black/5">
+      <button
+       type="button"
+       onClick={() => { setShowImportMenu(false); setShowImportDialog(true); }}
+       className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+      >
+       <DownloadSimple className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
+       Import
+      </button>
+      <button
+       type="button"
+        onClick={openAddExpense}
+        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+       >
+        <NotePencil className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
+        Add manually
+       </button>
+      </div>
+     )}
+    </div>
+    <div className="relative" ref={exportMenuRef}>
+     <button
+      type="button"
+      aria-haspopup="menu"
+      aria-expanded={showExportMenu}
+      onClick={() => setShowExportMenu((p) => !p)}
+      className={'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition ' + (showExportMenu
+       ? 'border-[var(--color-border)] bg-[var(--color-surface-tertiary)] text-[var(--color-foreground)]'
+       : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-foreground)]')}
+     >
+      <DownloadSimple className="h-4 w-4" weight="bold" />
+      <span>Export</span>
+      <CaretDown className={'h-3.5 w-3.5 transition ' + (showExportMenu ? 'rotate-180' : '')} weight="bold" />
+     </button>
 
- {/* ── Range filter ── */}
+     {showExportMenu && (
+      <div className="absolute right-0 top-9 z-50 w-52 overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] py-1 shadow-lg shadow-black/5">
+       <button
+        type="button"
+        onClick={handleExportXlsx}
+        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+       >
+        <DownloadSimple className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
+        Download XLSX
+       </button>
+       <button
+        type="button"
+        onClick={handleExportSheets}
+        disabled={exportingToSheets}
+        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] disabled:opacity-50"
+       >
+        {exportingToSheets ? <Loader size={14} /> : <GoogleSheetsLogo size={14} className="text-[var(--color-text-placeholder)]" />}
+        Export to Google Sheets
+       </button>
+      </div>
+     )}
+    </div>
+   </div>
+  </div>
+  <ImportDialog
+  open={showImportDialog}
+  onClose={() => setShowImportDialog(false)}
+  onImported={() => { refreshRevenueData(); }}
+  accessToken={accessToken}
+  />
+
+  <ContextualSuggestions
+  title="Expense review"
+  description="Grouped expense suggestions stay beside your revenue data so cleanup happens in context."
+  query={{ expensePage: true, limit: 1 }}
+  />
+
+  {/* ── Range filter ── */}
  <div className="flex items-center gap-1.5">
- {RANGES.map((r) => (
- <Button
- key={r}
- type="button"
- variant="outline"
- onClick={() => refreshRangeData(r)}
- disabled={isRefreshingRange && range === r}
- className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-100 ease-linear ${
- range === r
- ? 'bg-[var(--color-text-primary)] text-[var(--color-background)]'
- : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]'
- }`}
- >
- {RANGE_LABELS[r]}
- </Button>
- ))}
+  {RANGES.map((r) => (
+  <button
+  key={r}
+  type="button"
+  onClick={() => refreshRangeData(r)}
+  disabled={isRefreshingRange && range === r}
+  className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-100 ease-linear ${
+    range === r
+    ? 'bg-[var(--color-text-primary)] text-[var(--color-background)]'
+    : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-text-secondary)]'
+  }`}
+  >
+  {RANGE_LABELS[r]}
+  </button>
+  ))}
  </div>
 
  <AttachedStatGrid
@@ -881,7 +1140,7 @@ export function RevenueClient({
  <div className="grid gap-4 lg:grid-cols-2">
 
  {/* Invoice Status */}
- <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
  <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Invoice status</h2>
  <Link href="/payments" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]">
@@ -989,93 +1248,89 @@ export function RevenueClient({
  </div>
  </article>
 
- {/* Revenue Breakdown */}
- <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
- <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
- <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Revenue breakdown</h2>
- </div>
+  {/* Revenue Breakdown + Expense Categories */}
+  <div className="flex flex-col gap-4">
 
- {/* By Client */}
- <div className="border-b border-[var(--color-surface-secondary)] px-5 py-3">
- <div className="flex items-center gap-2 mb-3">
- <UsersThree className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="regular" />
- <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">By client</p>
- </div>
- <div className="space-y-3">
- {clientsByRevenue.map((c) => (
- <div key={c.clientId}>
- <div className="mb-1 flex items-center justify-between">
- <div className="min-w-0 flex-1">
- <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{c.company || c.clientName}</p>
- </div>
- <div className="ml-3 flex items-center gap-2 shrink-0">
- <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
- {formatAmount(c.totalRevenue, { compact: true })}
- </span>
- <span className="w-9 text-right text-[11px] text-[var(--color-text-muted)]">{c.shareOfTotal.toFixed(0)}%</span>
- </div>
- </div>
- <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
- <div
- className="h-full rounded-full bg-[var(--color-accent)] transition-all"
- style={{ width: `${c.shareOfTotal}%` }}
- />
- </div>
- </div>
- ))}
- </div>
- </div>
+  <article className="flex flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
+  <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
+  <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Revenue breakdown</h2>
+  </div>
 
- {/* By Project */}
- <div className="px-5 py-3">
- <div className="flex items-center gap-2 mb-3">
- <FolderSimple className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="regular" />
- <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">By project</p>
- </div>
- <div className="space-y-2">
- {projectsByRevenue.map((p, i) => (
- <div key={p.projectId} className="flex items-center gap-3">
- <span className="w-4 shrink-0 text-[11px] font-semibold text-[var(--color-text-muted)]">{i + 1}</span>
- <div className="min-w-0 flex-1">
- <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{p.projectName}</p>
- <p className="text-[11px] text-[var(--color-text-muted)]">{p.clientName}</p>
- </div>
- <span className="shrink-0 text-[13px] font-semibold text-[var(--color-text-primary)]">
- {formatAmount(p.totalRevenue, { compact: true })}
- </span>
- </div>
- ))}
- </div>
- </div>
- </article>
- </div>
+  {/* By Client */}
+  <div className="border-b border-[var(--color-surface-secondary)] px-5 py-3">
+  <div className="flex items-center gap-2 mb-3">
+  <UsersThree className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="regular" />
+  <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">By client</p>
+  </div>
+  <div className="space-y-3">
+  {clientsByRevenue.map((c) => (
+  <div key={c.clientId}>
+  <div className="mb-1 flex items-center justify-between">
+  <div className="min-w-0 flex-1">
+  <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{c.company || c.clientName}</p>
+  </div>
+  <div className="ml-3 flex items-center gap-2 shrink-0">
+  <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+  {formatAmount(c.totalRevenue, { compact: true })}
+  </span>
+  <span className="w-9 text-right text-[11px] text-[var(--color-text-muted)]">{c.shareOfTotal.toFixed(0)}%</span>
+  </div>
+  </div>
+  <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+  <div
+  className="h-full rounded-full bg-[var(--color-accent)] transition-all"
+  style={{ width: `${c.shareOfTotal}%` }}
+  />
+  </div>
+  </div>
+  ))}
+  </div>
+  </div>
 
- {/* ── Expense Tracking ── */}
- <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
- <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
- <div>
- <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expenses</h2>
- <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
- {expenses.length > 0
- ? `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} · ${formatAmount(totalExpensesDisplay, { compact: true })} total`
- : 'No expenses recorded yet'}
- </p>
- </div>
- <div className="flex items-center gap-2">
- <Button className="create-btn" onClick={() => setShowImportDialog(true)}>
- <Plus className="h-4 w-4" weight="bold" />
- Import
- </Button>
- <Button
- type="button"
- variant="ghost"
- onClick={openAddExpense}
- className="text-[12px] font-semibold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition"
- >
- Add manually
- </Button>
- </div>
- </div>
+  {/* By Project */}
+  <div className="px-5 py-3">
+  <div className="flex items-center gap-2 mb-3">
+  <FolderSimple className="h-3.5 w-3.5 text-[var(--color-text-muted)]" weight="regular" />
+  <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">By project</p>
+  </div>
+  <div className="space-y-2">
+  {projectsByRevenue.map((p, i) => (
+  <div key={p.projectId} className="flex items-center gap-3">
+  <span className="w-4 shrink-0 text-[11px] font-semibold text-[var(--color-text-muted)]">{i + 1}</span>
+  <div className="min-w-0 flex-1">
+  <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{p.projectName}</p>
+  <p className="text-[11px] text-[var(--color-text-muted)]">{p.clientName}</p>
+  </div>
+  <span className="shrink-0 text-[13px] font-semibold text-[var(--color-text-primary)]">
+  {formatAmount(p.totalRevenue, { compact: true })}
+  </span>
+  </div>
+  ))}
+  </div>
+  </div>
+   </article>
+
+  {metrics.expenseCategories.length > 0 && (
+    <ExpensePieChart
+      categories={metrics.expenseCategories}
+      formatAmount={formatAmount}
+    />
+  )}
+  </div>
+  </div>
+
+  {/* ── Expense Tracking ── */}
+ <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
+  <div className="flex items-center justify-between border-b border-[var(--color-surface-secondary)] px-5 py-4">
+  <div>
+  <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expenses</h2>
+  <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
+  {expenses.length > 0
+  ? `${showAllExpenses ? expenses.length : Math.min(expenses.length, 5)} of ${expenses.length} expense${expenses.length !== 1 ? 's' : ''} · ${formatAmount(totalExpensesDisplay, { compact: true })} total`
+  : 'No expenses recorded yet'}
+  </p>
+  </div>
+  </div>
 
  {expenses.length === 0 ? (
  <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
@@ -1093,107 +1348,78 @@ export function RevenueClient({
  </div>
  ) : (
  <>
- {/* Table header */}
- <div className="grid grid-cols-[1fr_120px_100px_110px_44px] border-b border-[var(--color-surface-secondary)] bg-[var(--color-background)] px-5 py-2">
- <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Description</p>
- <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">Category</p>
- <p className="text-right text-[11px] font-semibold text-[var(--color-text-muted)]">Amount</p>
- <p className="text-right text-[11px] font-semibold text-[var(--color-text-muted)]">Date</p>
- <p />
- </div>
+  <Table>
+  <Table.ScrollContainer>
+  <Table.Content aria-label="Expenses">
+  <Table.Header>
+   <Table.Column isRowHeader className="text-[11px] font-semibold text-[var(--color-text-muted)]">Description</Table.Column>
+  <Table.Column className="text-[11px] font-semibold text-[var(--color-text-muted)]">Category</Table.Column>
+  <Table.Column className="text-right text-[11px] font-semibold text-[var(--color-text-muted)]">Amount</Table.Column>
+  <Table.Column className="text-right text-[11px] font-semibold text-[var(--color-text-muted)]">Date</Table.Column>
+  <Table.Column />
+  </Table.Header>
+  <Table.Body>
+  {(showAllExpenses ? expenses : expenses.slice(0, 5)).map((exp) => {
+  const linkedClient = clientForId(exp.clientId);
+  const actions = [
+  {
+  label: 'Edit',
+  icon: NotePencil,
+  onClick: () => openEditExpense(exp),
+  },
+  {
+  label: 'Delete',
+  icon: Trash,
+  variant: 'danger' as const,
+  onClick: () => setDeletingExpenseId(exp.id),
+  },
+  ];
+  return (
+  <Table.Row key={exp.id} className="hover:bg-[var(--color-background)]">
+  <Table.Cell>
+  <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">
+  {exp.note || CATEGORY_LABELS[exp.category]}
+  </p>
+  {linkedClient && (
+  <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{linkedClient.name}</p>
+  )}
+  </Table.Cell>
+  <Table.Cell><CategoryPill category={exp.category} /></Table.Cell>
+  <Table.Cell className="text-right">
+  <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+  {formatAmount(exp.convertedAmountUsd, { compact: true })}
+  </p>
+  </Table.Cell>
+  <Table.Cell className="text-right text-[12px] text-[var(--color-text-tertiary)]">
+  {formatShortDate(exp.date)}
+  </Table.Cell>
+  <Table.Cell><RowActionsMenu items={actions} /></Table.Cell>
+  </Table.Row>
+  );
+  })}
+  </Table.Body>
+  </Table.Content>
+  </Table.ScrollContainer>
+  </Table>
+  {expenses.length > 5 && (
+  <div className="border-t border-[var(--color-surface-secondary)] px-5 py-3">
+  <button
+  onClick={() => setShowAllExpenses(!showAllExpenses)}
+  className="text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)] transition"
+  >
+  {showAllExpenses ? 'Show less' : `View all ${expenses.length} expenses`}
+  </button>
+  </div>
+  )}
+  </>
+  )}
+  </article>
 
- {/* Table rows */}
- <div className="divide-y divide-[var(--color-surface-secondary)]">
- {expenses.map((exp) => {
- const linkedClient = clientForId(exp.clientId);
- const actions = [
- {
- label: 'Edit',
- icon: NotePencil,
- onClick: () => openEditExpense(exp),
- },
- {
- label: 'Delete',
- icon: Trash,
- variant: 'danger' as const,
- onClick: () => setDeletingExpenseId(exp.id),
- },
- ];
- return (
- <div key={exp.id} className="grid grid-cols-[1fr_120px_100px_110px_44px] items-center px-5 py-3.5 hover:bg-[var(--color-background)]">
- <div className="min-w-0 pr-4">
- <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">
- {exp.note || CATEGORY_LABELS[exp.category]}
- </p>
- {linkedClient && (
- <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{linkedClient.name}</p>
- )}
- </div>
- <div>
- <CategoryPill category={exp.category} />
- </div>
- <div className="text-right">
- <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">
- {formatAmount(exp.convertedAmountUsd, { compact: true })}
- </p>
- {exp.currency && exp.currency !== 'USD' ? (
- <p className="mt-0.5 text-[10px] font-medium text-[var(--color-text-muted)]">
- {formatNative(exp.amount, exp.currency, { compact: true })}
- </p>
- ) : null}
- </div>
- <p className="text-right text-[12px] text-[var(--color-text-tertiary)]">
- {formatShortDate(exp.date)}
- </p>
- <div className="flex justify-end">
- <RowActionsMenu items={actions} />
- </div>
- </div>
- );
- })}
- </div>
- </>
- )}
- </article>
-
- {/* ── Expense Categories ── */}
- {metrics.expenseCategories.length > 0 && (
- <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
- <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
- <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expense categories</h2>
- <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">How your costs break down.</p>
- </div>
- <div className="divide-y divide-[var(--color-surface-secondary)]">
- {metrics.expenseCategories.map((cat) => (
- <div key={cat.category} className="px-5 py-3.5">
- <div className="mb-1.5 flex items-center justify-between">
- <div className="flex items-center gap-2">
- <CategoryPill category={cat.category as ExpenseCategory} />
- </div>
- <div className="flex items-center gap-2">
- <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
- {formatAmount(cat.total, { compact: true })}
- </span>
- <span className="w-9 text-right text-[11px] text-[var(--color-text-muted)]">{cat.percentage.toFixed(0)}%</span>
- </div>
- </div>
- <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
- <div
- className="h-full rounded-full bg-[var(--color-accent)] transition-all"
- style={{ width: `${cat.percentage}%` }}
- />
- </div>
- </div>
- ))}
- </div>
- </article>
- )}
-
- {/* ── Activity Feed + Payment Sources ── */}
- <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+  {/* ── Activity Feed + Payment Sources ── */}
+  <div className="grid items-start gap-4 lg:grid-cols-2">
 
  {/* Recent Activity */}
- <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="shrink-0 border-b border-[var(--color-surface-secondary)] px-5 py-3.5">
  <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Recent activity</h2>
  <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Latest financial events from your account.</p>
@@ -1222,12 +1448,7 @@ export function RevenueClient({
  {formatAmount(evt.amount, { compact: true })}
  </p>
  )}
- {evt.nativeAmount !== undefined && evt.currency && evt.currency !== 'USD' && (
- <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
- {formatNative(evt.nativeAmount, evt.currency, { compact: true })}
- </p>
- )}
- <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{formatTimeAgo(evt.createdAt)}</p>
+          <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{formatTimeAgo(evt.createdAt)}</p>
  </div>
  </div>
  );
@@ -1236,10 +1457,10 @@ export function RevenueClient({
  )}
  </article>
 
- {/* Payment Sources */}
- <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
- <div className="shrink-0 border-b border-[var(--color-surface-secondary)] px-4 py-3.5">
- <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Payment sources</h2>
+  {/* Payment Sources */}
+  <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
+  <div className="shrink-0 border-b border-[var(--color-surface-secondary)] px-4 py-3.5">
+    <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Payment sources</h2>
  <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Where your revenue comes from.</p>
  </div>
  {sourceBreakdown.length === 0 ? (
@@ -1285,10 +1506,10 @@ export function RevenueClient({
  </p>
  </div>
  </div>
- </article>
- </div>
+  </article>
+  </div>
 
- {/* ── Dialogs ── */}
+  {/* ── Dialogs ── */}
  <ExpenseDialog
  open={showExpenseDialog}
  editing={editingExpense}
@@ -1319,6 +1540,120 @@ export function RevenueClient({
  onConfirm={handleDeleteExpense}
  onOpenChange={(o) => { if (!o && !isDeletingExpense) setDeletingExpenseId(null); }}
  />
- </div>
- );
+  </div>
+  );
+}
+
+
+
+function ExpensePieChart({ categories, formatAmount, compact }: {
+  categories: { category: string; total: number; percentage: number }[];
+  formatAmount: (n: number, opts?: any) => string;
+  compact?: boolean;
+}) {
+  const total = categories.reduce((s, c) => s + c.total, 0);
+  const size = compact ? 100 : 160;
+  const radius = compact ? 38 : 60;
+  const strokeWidth = compact ? 12 : 18;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  let offset = 0;
+  const slices = categories.map((cat, i) => {
+    const pct = cat.percentage / 100;
+    const length = pct * circumference;
+    const slice = { ...cat, color: `hsl(${(i * 137.5) % 360}, 65%, 55%)`, dash: length, offset };
+    offset -= length;
+    return slice;
+  });
+
+  if (compact) {
+    return (
+      <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
+        <div className="border-b border-[var(--color-surface-secondary)] px-4 py-3">
+          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Expense categories</h2>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="relative shrink-0">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+              <circle cx={cx} cy={cy} r={radius} fill="none" stroke="var(--color-surface-tertiary)" strokeWidth={strokeWidth} />
+              {slices.map((slice) => (
+                <circle key={slice.category} cx={cx} cy={cy} r={radius} fill="none"
+                  stroke={slice.color} strokeWidth={strokeWidth} strokeDasharray={`${slice.dash} ${circumference - slice.dash}`}
+                  strokeDashoffset={slice.offset} strokeLinecap="butt" />
+              ))}
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-[11px] font-bold tabular-nums text-[var(--color-foreground)]" style={{ fontFamily: 'var(--font-sans)' }}>{formatAmount(total, { compact: true })}</p>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            {categories.map((cat, i) => {
+              const hue = (i * 137.5) % 360;
+              return (
+                <div key={cat.category} className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `hsl(${hue}, 65%, 55%)` }} />
+                  <span className="truncate text-[11px] text-[var(--color-text-secondary)] flex-1">
+                    {CATEGORY_LABELS[cat.category as ExpenseCategory] || cat.category}
+                  </span>
+                  <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[var(--color-foreground)]">
+                    {cat.percentage.toFixed(0)}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
+      <div className="shrink-0 border-b border-[var(--color-surface-secondary)] px-4 py-3.5">
+        <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Expense categories</h2>
+        <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">How your costs break down.</p>
+      </div>
+      <div className="flex min-h-0 flex-1 items-center gap-5 overflow-y-auto px-4 py-4">
+        <div className="relative shrink-0">
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" style={{ fontFamily: 'var(--font-sans)' }}>
+            <circle cx={cx} cy={cy} r={radius} fill="none" stroke="var(--color-surface-tertiary)" strokeWidth={strokeWidth} />
+            {slices.map((slice) => (
+              <circle key={slice.category} cx={cx} cy={cy} r={radius} fill="none"
+                stroke={slice.color} strokeWidth={strokeWidth} strokeDasharray={`${slice.dash} ${circumference - slice.dash}`}
+                strokeDashoffset={slice.offset} strokeLinecap="butt" />
+            ))}
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-[16px] font-bold tabular-nums text-[var(--color-foreground)]" style={{ fontFamily: 'var(--font-sans)' }}>{formatAmount(total, { compact: true })}</p>
+              <p className="text-[10px] text-[var(--color-text-muted)]" style={{ fontFamily: 'var(--font-sans)' }}>Total</p>
+            </div>
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          {categories.map((cat, i) => {
+            const hue = (i * 137.5) % 360;
+            return (
+              <div key={cat.category} className="flex items-center gap-2.5">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `hsl(${hue}, 65%, 55%)` }} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[12px] font-medium text-[var(--color-foreground)]" style={{ fontFamily: 'var(--font-sans)' }}>
+                      {CATEGORY_LABELS[cat.category as ExpenseCategory] || cat.category}
+                    </span>
+                    <span className="shrink-0 text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]" style={{ fontFamily: 'var(--font-sans)' }}>
+                      {formatAmount(cat.total, { compact: true })}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[var(--color-text-muted)]" style={{ fontFamily: 'var(--font-sans)' }}>{cat.percentage.toFixed(1)}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </article>
+  );
 }

@@ -8,7 +8,6 @@ import {
   type KeyboardEvent,
 } from 'react';
 import {
-  CalendarBlank,
   ArrowUp,
   Paperclip,
   ListPlus,
@@ -16,12 +15,13 @@ import {
   Check,
   LinkSimple,
   FileText,
-  SpinnerGap,
 } from '@/components/ui/lucide-icons';
+import { Loader } from '@/components/ui/loader';
 import { backendConfig } from '@/lib/auth/config';
 import { useToast } from '@/components/providers/toast-provider';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import { CreateRecurringInvoiceDialog } from './create-recurring-invoice-dialog';
+import { DateInput } from '@/components/ui/date-input';
 import { usePostHog } from 'posthog-js/react';
 
 /* ── types ── */
@@ -48,21 +48,6 @@ interface Props {
   accessToken: string | null;
   clients?: Client[];
   onCreated: (result: { invoice?: Invoice; paymentLink?: PaymentLink; recurringInvoice?: RecurringInvoice }) => void;
-}
-
-/* ── helpers ── */
-function formatDateChip(d: Date | null): string {
-  if (!d) return 'Date';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const n = new Date(d);
-  n.setHours(0, 0, 0, 0);
-  const diff = Math.floor((n.getTime() - today.getTime()) / 86_400_000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff > 1 && diff <= 6)
-    return d.toLocaleDateString('en-US', { weekday: 'short' });
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 const EXAMPLES = [
@@ -92,7 +77,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
   /* input */
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const dateInputRef = useRef<HTMLInputElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -185,20 +170,6 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
     const v = e.target.value;
     setText(v);
     triggerParse(v);
-  };
-
-  /* ── date picker ── */
-  const openDatePicker = () => {
-    try {
-      (dateInputRef.current as any)?.showPicker?.();
-    } catch {
-      dateInputRef.current?.click();
-    }
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.value) return;
-    setSelectedDate(new Date(e.target.value + 'T12:00:00'));
   };
 
   const shakeDate = () => {
@@ -380,16 +351,16 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
   return (
     <div className="overflow-visible">
       {/* Hidden native inputs */}
-      <input
-        ref={dateInputRef}
-        type="date"
-        className="sr-only"
-        onChange={handleDateChange}
+      <DateInput
         value={
           selectedDate
             ? selectedDate.toISOString().slice(0, 10)
             : (parsed?.dueDate ? new Date(parsed.dueDate).toISOString().slice(0, 10) : '')
         }
+        onChange={(value) => {
+          if (value) setSelectedDate(new Date(value + 'T12:00:00'));
+        }}
+        className="max-w-[160px]"
       />
       <input
         ref={fileInputRef}
@@ -512,34 +483,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
       {/* Chips + action row */}
       <div className="flex items-center justify-between border-t border-[var(--color-surface-tertiary)] px-5 py-2.5">
         <div className="flex items-center gap-2">
-          {/* Date chip */}
-          <button
-            type="button"
-            onClick={openDatePicker}
-            className={[
-              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
-              shakingDate ? 'animate-shake' : '',
-              effectiveDate
-                ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
-                : 'border-[var(--color-border-input)] bg-[var(--color-background)] text-[var(--color-text-tertiary)] hover:border-[var(--color-accent)] hover:text-[var(--color-text-tertiary)]',
-            ].join(' ')}
-          >
-            <CalendarBlank className="h-3.5 w-3.5" weight="bold" />
-            {formatDateChip(effectiveDate)}
-            {effectiveDate && (
-              <span
-                role="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedDate(null);
-                  setParsed((p) => p ? { ...p, dueDate: null } : p);
-                }}
-                className="ml-0.5 rounded-full hover:text-[var(--color-text-tertiary)]"
-              >
-                <X className="h-3 w-3" weight="bold" />
-              </span>
-            )}
-          </button>
+
 
           {/* Add Item chip */}
           {!addingItem && (
@@ -587,7 +531,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
         {/* Right: spinner + send */}
         <div className="flex items-center gap-2.5">
           {isParsing && (
-            <SpinnerGap className="h-4 w-4 animate-spin text-[var(--color-text-muted)]" weight="bold" />
+            <Loader size={16} />
           )}
           <button
             type="button"
@@ -601,7 +545,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
             }`}
           >
             {isCreating ? (
-              <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" />
+              <Loader size={16} />
             ) : (
               <ArrowUp className="h-4 w-4" weight="bold" />
             )}

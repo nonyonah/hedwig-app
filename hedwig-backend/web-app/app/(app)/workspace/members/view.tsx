@@ -5,11 +5,13 @@ import { Plus, User } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
+import { Table } from '@heroui/react';
 import { cn, formatShortDate } from '@/lib/utils';
 
 interface Member {
@@ -164,77 +166,76 @@ export function MembersClient() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-        {/* Column headers */}
-        <div className="grid grid-cols-[1fr_100px_100px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
-          <ColHead>Member</ColHead>
-          <ColHead>Role</ColHead>
-          <ColHead right>Joined</ColHead>
-          <span />
-        </div>
+      <Table>
+        <Table.ScrollContainer>
+          <Table.Content aria-label="Workspace members" className="min-w-[500px]">
+            <Table.Header>
+              <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Member</Table.Column>
+              <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Role</Table.Column>
+              <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Joined</Table.Column>
+              <Table.Column />
+            </Table.Header>
+            <Table.Body>
+              {loading ? (
+                <Table.Row><Table.Cell colSpan={4}><EmptyState text="Loading members…" /></Table.Cell></Table.Row>
+              ) : filtered.length === 0 ? (
+                <Table.Row><Table.Cell colSpan={4}><EmptyState text={filter === 'all' ? 'No members yet.' : 'No members match this filter.'} /></Table.Cell></Table.Row>
+              ) : (
+                filtered.map((member) => {
+                  const roleCfg = ROLE_CONFIG[member.role];
+                  const actions: RowActionItem[] = [];
+                  if (member.role !== 'owner' && isOwner) {
+                    if (member.role === 'admin') {
+                      actions.push({ label: 'Change to member', onClick: () => handleUpdateRole(member.userId, 'member') });
+                    } else {
+                      actions.push({ label: 'Change to admin', onClick: () => handleUpdateRole(member.userId, 'admin') });
+                    }
+                  }
+                  if (member.role !== 'owner') {
+                    actions.push({ label: 'Remove', destructive: true, onClick: () => setMemberToRemove(member) });
+                  }
 
-        {/* Rows */}
-        {loading ? (
-          <EmptyState text="Loading members…" />
-        ) : filtered.length === 0 ? (
-          <EmptyState text={filter === 'all' ? 'No members yet.' : 'No members match this filter.'} />
-        ) : (
-          <div className="divide-y divide-[var(--color-border)]">
-            {filtered.map((member) => {
-              const roleCfg = ROLE_CONFIG[member.role];
-
-              const actions: RowActionItem[] = [];
-              if (member.role !== 'owner' && isOwner) {
-                if (member.role === 'admin') {
-                  actions.push({ label: 'Change to member', onClick: () => handleUpdateRole(member.userId, 'member') });
-                } else {
-                  actions.push({ label: 'Change to admin', onClick: () => handleUpdateRole(member.userId, 'admin') });
-                }
-              }
-              if (member.role !== 'owner') {
-                actions.push({ label: 'Remove', destructive: true, onClick: () => setMemberToRemove(member) });
-              }
-
-              return (
-                <div
-                  key={member.userId}
-                  className="group grid grid-cols-[1fr_100px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)]"
-                >
-                  {/* Member */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[12px] font-bold text-[var(--color-text-secondary)]">
-                      {(member.firstName?.[0] ?? member.email?.[0] ?? '?').toUpperCase()}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">
-                        {member.firstName || member.lastName
-                          ? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()
-                          : member.email || 'Unknown user'}
-                      </p>
-                      {member.email && (
-                        <p className="truncate text-[11px] text-[var(--color-text-muted)]">{member.email}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Role */}
-                  <span className={cn('inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold', roleCfg.bg, roleCfg.text)}>
-                    {roleCfg.label}
-                  </span>
-
-                  {/* Joined */}
-                  <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(member.joinedAt)}</p>
-
-                  {/* Actions */}
-                  <div className="flex justify-end">
-                    {actions.length > 0 && <RowActionsMenu items={actions} />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                  return (
+                    <Table.Row key={member.userId} className="hover:bg-[var(--color-background)]">
+                      <Table.Cell>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar
+                            label={`${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() || member.email || '?'}
+                            src={member.avatar || undefined}
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">
+                              {member.firstName || member.lastName
+                                ? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()
+                                : member.email || 'Unknown user'}
+                            </p>
+                            {member.email && (
+                              <p className="truncate text-[11px] text-[var(--color-text-muted)]">{member.email}</p>
+                            )}
+                          </div>
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <span className={cn('inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold', roleCfg.bg, roleCfg.text)}>
+                          {roleCfg.label}
+                        </span>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(member.joinedAt)}</p>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="flex justify-end">
+                          {actions.length > 0 && <RowActionsMenu items={actions} />}
+                        </div>
+                      </Table.Cell>
+                    </Table.Row>
+                  );
+                })
+              )}
+            </Table.Body>
+          </Table.Content>
+        </Table.ScrollContainer>
+      </Table>
 
       <DeleteDialog
         open={!!memberToRemove}
@@ -246,14 +247,6 @@ export function MembersClient() {
         onOpenChange={(open) => { if (!open && !removing) setMemberToRemove(null); }}
       />
     </div>
-  );
-}
-
-function ColHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <span className={`text-[11px] font-medium text-[var(--color-text-tertiary)] ${right ? 'text-right' : ''}`}>
-      {children}
-    </span>
   );
 }
 

@@ -1,45 +1,27 @@
-import * as React from 'react';
+'use client';
+
 import { Card as HeroUICard } from '@heroui/react';
-import { cn } from '@/lib/utils';
 
-/* --------------------------------------------------------------------------
-   Hedwig Card — powered by HeroUI
-   Keeps the same compound-component API (Card, CardHeader, CardTitle,
-   CardDescription, CardContent) so all existing consumers work unchanged.
-   -------------------------------------------------------------------------- */
-
-export function Card({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <HeroUICard
-      variant="default"
-      className={cn(
-        'rounded-xl bg-[var(--color-surface)] text-[var(--color-text-primary)] ring-1 ring-[var(--color-border)]',
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </HeroUICard>
-  );
+export function Card({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <HeroUICard {...props}>{children}</HeroUICard>;
 }
 
-export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  // HeroUI Card.Header already gives us a clean header block
-  return <HeroUICard.Header className={cn('flex flex-col gap-1 px-6 pb-0 pt-6', className)} {...props} />;
+export function CardHeader(props: React.HTMLAttributes<HTMLDivElement>) {
+  return <HeroUICard.Header {...props} />;
 }
 
-export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <HeroUICard.Title className={cn('text-[16px] font-semibold text-[var(--color-text-primary)]', className)} {...props} />;
+export function CardTitle(props: React.HTMLAttributes<HTMLHeadingElement>) {
+  return <HeroUICard.Title {...props} />;
 }
 
-export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <HeroUICard.Description className={cn('text-[14px] leading-5 text-[var(--color-text-tertiary)]', className)} {...props} />;
+export function CardDescription(props: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <HeroUICard.Description {...props} />;
 }
 
-export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <HeroUICard.Content className={cn('px-6 pb-6', className)} {...props} />;
+export function CardContent(props: React.HTMLAttributes<HTMLDivElement>) {
+  return <HeroUICard.Content {...props} />;
 }
 
-export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <HeroUICard.Footer className={cn('flex items-center gap-3 border-t border-[var(--color-surface-tertiary)] px-6 py-4', className)} {...props} />;
+export function CardFooter(props: React.HTMLAttributes<HTMLDivElement>) {
+  return <HeroUICard.Footer {...props} />;
 }

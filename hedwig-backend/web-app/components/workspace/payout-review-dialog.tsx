@@ -5,11 +5,11 @@ import {
   Check,
   PaperPlaneRight,
   ShieldCheck,
-  SpinnerGap,
   UsersThree,
   Warning,
   X,
 } from '@/components/ui/lucide-icons';
+import { Loader } from '@/components/ui/loader';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { Button } from '@/components/ui/button';
 import { usePrivy } from '@privy-io/react-auth';
@@ -203,7 +203,7 @@ export function PayoutReviewDialog({
   <ClientPortal>
    <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={step === 'signing' ? undefined : onClose} />
 
-   <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
+   <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-[var(--color-surface)] shadow-2xl rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
     <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
      <div>
       <p className="text-[15px] font-bold text-[var(--color-foreground)]">Team payout</p>
@@ -291,7 +291,7 @@ export function PayoutReviewDialog({
      {step === 'signing' && (
       <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
-        <SpinnerGap className="h-8 w-8 animate-spin text-[var(--color-text-tertiary)]" weight="bold" />
+        <Loader size={32} />
        </div>
        <div>
         <p className="text-[16px] font-bold text-[var(--color-foreground)]">Sending payouts…</p>

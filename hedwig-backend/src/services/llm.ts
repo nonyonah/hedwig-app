@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { generateText } from 'ai';
+import OpenAI from 'openai';
 import { createLogger } from '../utils/logger';
 import { AsyncLimiter } from '../utils/asyncLimiter';
 
@@ -65,18 +66,7 @@ function getModel(): string {
 }
 
 function getGatewayModel(): string {
-  return process.env.LLM_GATEWAY_MODEL || 'google/gemini-2.5-flash-lite';
-}
-
-function buildGeminiParts(prompt: string, files?: LLMFilePart[]): any[] {
-  const parts: any[] = [];
-  parts.push({ text: prompt });
-  if (files) {
-    for (const f of files) {
-      parts.push({ inlineData: { mimeType: f.mimeType, data: f.data } });
-    }
-  }
-  return parts;
+  return process.env.LLM_GATEWAY_MODEL || 'xiaomi/mimo-v2.5';
 }
 
 function buildGeminiConfig(options: GenerateTextOptions, extra?: Record<string, unknown>): any {
@@ -95,13 +85,13 @@ export class LLMService {
   );
 
   private readonly gemini = getGeminiClient();
-  private readonly gatewayConfigured = !!process.env.AI_GATEWAY_API_KEY;
+  private readonly gatewayConfigured = !!process.env.AI_GATEWAY_API_KEY || !!process.env.VERCEL_AUTH_TOKEN;
   private readonly openRouterConfigured = !!process.env.OPENROUTER_API_KEY;
   private readonly configured = !!this.gemini || this.gatewayConfigured || this.openRouterConfigured;
 
   constructor() {
     if (!this.configured) {
-      logger.warn('LLM not configured. Set GEMINI_API_KEY, AI_GATEWAY_API_KEY, or OPENROUTER_API_KEY.');
+      logger.warn('LLM not configured. Set AI_GATEWAY_API_KEY, VERCEL_AUTH_TOKEN, or OPENROUTER_API_KEY.');
     }
   }
 
@@ -125,63 +115,63 @@ export class LLMService {
     return this.openRouterConfigured;
   }
 
-  private async generateWithGemini(
-    prompt: string,
-    options: GenerateTextOptions,
-  ): Promise<string> {
-    if (!this.gemini) throw new Error('Gemini is not configured');
-
-    const result = await this.outboundLimiter.run(() =>
-      this.gemini!.models.generateContent({
-        model: getModel(),
-        contents: [{ role: 'user', parts: buildGeminiParts(prompt, options.files) }],
-        config: buildGeminiConfig(options),
-      }),
-    );
-
-    const text = result.text;
-    if (!text || !text.trim()) {
-      throw new Error('Gemini returned an empty response');
-    }
-    return text;
-  }
-
   private async generateWithGateway(
     prompt: string,
     options: GenerateTextOptions,
   ): Promise<string> {
+    const apiKey = process.env.AI_GATEWAY_API_KEY;
+    if (!apiKey) throw new Error('AI Gateway is not configured');
+
+    const client = new OpenAI({
+      apiKey,
+      baseURL: process.env.AI_GATEWAY_BASE_URL || 'https://ai-gateway.vercel.sh/v1',
+    });
+
+    const model = process.env.LLM_GATEWAY_MODEL || getGatewayModel();
     const hasFiles = options.files && options.files.length > 0;
-    const messages: { role: 'user'; content: any }[] = [];
 
-    if (hasFiles) {
-      messages.push({
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          ...options.files!.map((f) => ({
-            type: 'image' as const,
-            image: f.data,
-          })),
-        ],
-      });
-    } else {
-      messages.push({ role: 'user', content: prompt });
+    // Gateway only supports image/* files via OpenAI endpoint — PDFs fall through to OpenRouter
+    if (hasFiles && options.files!.some((f) => !f.mimeType.startsWith('image/'))) {
+      throw new Error('AI Gateway only supports image file parts — falling through');
     }
+    const system = options.systemPrompt;
 
-    const result = await this.outboundLimiter.run(() =>
-      generateText({
-        model: getGatewayModel(),
-        system: options.systemPrompt,
+    const result = await this.outboundLimiter.run(async () => {
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+
+      if (system) {
+        messages.push({ role: 'system', content: system });
+      }
+
+      if (hasFiles) {
+        messages.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            ...options.files!.map((f) => ({
+              type: 'image_url' as const,
+              image_url: { url: `data:${f.mimeType};base64,${f.data}` },
+            })),
+          ],
+        });
+      } else {
+        messages.push({ role: 'user', content: prompt });
+      }
+
+      const res = await client.chat.completions.create({
+        model,
         messages,
-        temperature: options.temperature,
-        maxOutputTokens: options.maxOutputTokens,
-      }),
-    );
+        temperature: options.temperature ?? 0.1,
+        max_tokens: options.maxOutputTokens ?? 4096,
+      });
 
-    if (!result.text || !result.text.trim()) {
-      throw new Error('Gateway returned an empty response');
+      return res.choices?.[0]?.message?.content || '';
+    });
+
+    if (!result || !result.trim()) {
+      throw new Error('AI Gateway returned an empty response');
     }
-    return result.text;
+    return result;
   }
 
   private async generateWithOpenRouter(
@@ -247,6 +237,7 @@ export class LLMService {
     return result;
   }
 
+
   async generateText(
     prompt: string,
     options: GenerateTextOptions = {},
@@ -255,36 +246,32 @@ export class LLMService {
 
     const provider = options.provider || 'auto';
 
-    if (provider === 'openrouter' || provider === 'auto') {
-      if (this.openRouterConfigured && (provider === 'openrouter' || (!this.gemini && !this.gatewayConfigured))) {
-        return this.generateWithOpenRouter(prompt, options);
-      }
-    }
-
-    if (provider === 'gemini' || provider === 'auto') {
-      if (this.gemini) {
-        try {
-          return await this.generateWithGemini(prompt, options);
-        } catch (error) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          logger.warn('Gemini failed, falling back to AI Gateway', { message: err.message });
-        }
-      }
-    }
+    const providers: { key: string; label: string; fn: () => Promise<string>; check: () => boolean }[] = [];
 
     if (provider === 'gateway' || provider === 'auto') {
-      if (this.gatewayConfigured) {
-        try {
-          return await this.generateWithGateway(prompt, options);
-        } catch (error) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          logger.warn('AI Gateway failed, falling back to OpenRouter', { message: err.message });
-        }
-      }
+      providers.push({
+        key: 'gateway', label: 'AI Gateway',
+        fn: () => this.generateWithGateway(prompt, options),
+        check: () => this.gatewayConfigured,
+      });
     }
 
-    if (this.openRouterConfigured) {
-      return this.generateWithOpenRouter(prompt, options);
+    if (provider === 'openrouter' || provider === 'auto') {
+      providers.push({
+        key: 'openrouter', label: 'OpenRouter',
+        fn: () => this.generateWithOpenRouter(prompt, options),
+        check: () => this.openRouterConfigured,
+      });
+    }
+
+    for (const p of providers) {
+      if (!p.check()) continue;
+      try {
+        return await p.fn();
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.warn(`${p.label} failed, trying next provider`, { message: err.message });
+      }
     }
 
     throw new Error('No configured LLM provider available');

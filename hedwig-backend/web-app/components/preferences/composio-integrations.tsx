@@ -134,7 +134,7 @@ export function ComposioIntegrations() {
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+    <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
       <div className="flex items-start justify-between gap-4 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">

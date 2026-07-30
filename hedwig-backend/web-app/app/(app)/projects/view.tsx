@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { ArrowRight, DownloadSimple, Plus, Trash } from '@/components/ui/lucide-icons';
+import { Button as HeroUIButton, Dropdown, Label, Table } from '@heroui/react';
+import { DownloadSimple, Plus } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { Client, Project } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
+import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { Button } from '@/components/ui/button';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
@@ -37,8 +40,9 @@ export function ProjectsClient({
  availableClients: Client[];
  accessToken: string | null;
 }) {
- const { formatAmount } = useCurrency();
- const { toast } = useToast();
+  const { formatAmount } = useCurrency();
+  const router = useRouter();
+  const { toast } = useToast();
 
  useAssistantPageContext('Projects', {
  totalProjects: initialProjects.length,
@@ -243,120 +247,103 @@ export function ProjectsClient({
  </div>
  </div>
 
- {/* Table */}
- <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
- {/* Column headers */}
- <div className="grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
- <ColHead>Project</ColHead>
- <ColHead>Status</ColHead>
- <ColHead>Contract</ColHead>
- <ColHead>Progress</ColHead>
- <ColHead right>Budget</ColHead>
- <ColHead right>Deadline</ColHead>
- <span />
- <span className="flex justify-end" />
- </div>
-
- {/* Rows */}
- {filtered.length === 0 ? (
- <EmptyState text={filter === 'all' ? 'No projects yet.' : 'No projects match this filter.'} />
- ) : (
- <div className="divide-y divide-[var(--color-border)]">
- {filtered.map((project) => {
- const s = PROJECT_STATUS[project.status] ?? PROJECT_STATUS.active;
- const cs = project.contract
- ? CONTRACT_STATUS[project.contract.status] ?? CONTRACT_STATUS.draft
- : null;
- return (
- <div
- key={project.id}
- className="group grid grid-cols-[1fr_100px_90px_140px_100px_90px_44px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)]"
- >
- <Link href={`/projects/${project.id}`} className="min-w-0">
- <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
- {project.name}
- </p>
- <p className="text-[11px] text-[var(--color-text-muted)]">{project.ownerName}</p>
- </Link>
- <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.bg} ${s.text}`}>
- <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
- {s.label}
- </span>
- {project.contract && cs ? (
- <Link href={`/contracts?contract=${project.contract.id}`}>
- <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${cs.bg} ${cs.text}`}>
- {project.contract.status}
- </span>
- </Link>
- ) : (
- <span className="text-[11px] text-[var(--color-border-input)]">—</span>
- )}
- <div className="flex items-center gap-2">
- <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
- <div
- className="h-full rounded-full bg-[var(--color-accent)] transition-all"
- style={{ width: `${project.progress}%` }}
- />
- </div>
- <span className="w-8 text-right text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
- {project.progress}%
- </span>
- </div>
- <p className="text-right text-[13px] tabular-nums text-[var(--color-text-tertiary)]">
- {isMember
- ? (project.memberPayout != null ? formatAmount(project.memberPayout, { compact: true }) : null)
- : formatAmount(project.budgetUsd, { compact: true })}
- </p>
- <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(project.nextDeadlineAt)}</p>
- <div className="flex justify-end gap-1">
- {project.id in linkedProjects ? (
- <button
- type="button"
- onClick={() => handleSyncLinearStatus(project)}
- disabled={linearSyncingProject === project.id}
- className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-success)] transition hover:bg-[var(--color-success-soft)] disabled:opacity-30"
- title="Re-sync project status with Linear"
- >
- {linearSyncingProject === project.id ? (
- <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
- ) : (
- <svg viewBox="0 0 100 100" className="h-3.5 w-3.5" fill="currentColor">
- <path d="M1.22541 61.5228c-.2225-.9485.90748-1.5459 1.59638-.857L39.3342 97.1782c.6889.6889.0915 1.8189-.857 1.5964C20.0515 94.4522 5.54779 79.9485 1.22541 61.5228ZM.00189135 46.8891c-.01764375.2833.08887215.5599.28957165.7606L52.3503 99.7085c.2007.2007.4773.3075.7606.2896 2.3692-.1476 4.6938-.46 6.9624-.9259.7645-.157 1.0301-1.0963.4782-1.6481L2.57595 39.4485c-.55186-.5519-1.49117-.2863-1.648174.4782-.465915 2.2686-.77832 4.5932-.92588465 6.9624ZM4.21093 29.7054c-.16649.3738-.08169.8106.20765 1.1l64.77602 64.776c.2894.2894.7262.3742 1.1.2077 1.7861-.7956 3.5171-1.6927 5.1855-2.684.5521-.328.6373-1.0867.1832-1.5407L8.43566 24.3367c-.45409-.4541-1.21271-.3689-1.54074.1832-.99132 1.6684-1.88843 3.3994-2.68399 5.1855ZM12.6587 18.074c-.3701-.3701-.393-.9637-.0443-1.3541C21.7795 6.45931 35.1114 0 49.9519 0 77.5927 0 100 22.4073 100 50.0481c0 14.8405-6.4593 28.1724-16.7199 37.3375-.3903.3487-.984.3258-1.3542-.0443L12.6587 18.074Z" />
- </svg>
- )}
- </button>
- ) : (
- <button
- type="button"
- onClick={() => handleCreateLinear(project)}
- disabled={linearSyncingProject === project.id}
- className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] transition hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)] disabled:opacity-30"
- title="Sync with Linear"
- >
- {linearSyncingProject === project.id ? (
- <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
- ) : (
- <svg viewBox="0 0 100 100" className="h-3.5 w-3.5" fill="currentColor">
- <path d="M1.22541 61.5228c-.2225-.9485.90748-1.5459 1.59638-.857L39.3342 97.1782c.6889.6889.0915 1.8189-.857 1.5964C20.0515 94.4522 5.54779 79.9485 1.22541 61.5228ZM.00189135 46.8891c-.01764375.2833.08887215.5599.28957165.7606L52.3503 99.7085c.2007.2007.4773.3075.7606.2896 2.3692-.1476 4.6938-.46 6.9624-.9259.7645-.157 1.0301-1.0963.4782-1.6481L2.57595 39.4485c-.55186-.5519-1.49117-.2863-1.648174.4782-.465915 2.2686-.77832 4.5932-.92588465 6.9624ZM4.21093 29.7054c-.16649.3738-.08169.8106.20765 1.1l64.77602 64.776c.2894.2894.7262.3742 1.1.2077 1.7861-.7956 3.5171-1.6927 5.1855-2.684.5521-.328.6373-1.0867.1832-1.5407L8.43566 24.3367c-.45409-.4541-1.21271-.3689-1.54074.1832-.99132 1.6684-1.88843 3.3994-2.68399 5.1855ZM12.6587 18.074c-.3701-.3701-.393-.9637-.0443-1.3541C21.7795 6.45931 35.1114 0 49.9519 0 77.5927 0 100 22.4073 100 50.0481c0 14.8405-6.4593 28.1724-16.7199 37.3375-.3903.3487-.984.3258-1.3542-.0443L12.6587 18.074Z" />
- </svg>
- )}
- </button>
- )}
- <Button
- variant="ghost"
- size="sm"
- onClick={() => setProjectToDelete(project)}
- className="h-7 w-7 rounded-md text-[var(--color-border-input)] opacity-0 hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)] group-hover:opacity-100"
- >
- <Trash className="h-3.5 w-3.5" weight="regular" />
- </Button>
- </div>
- </div>
- );
- })}
- </div>
- )}
- </div>
+  {/* Table */}
+  <Table>
+    <Table.ScrollContainer>
+      <Table.Content aria-label="Projects" className="min-w-[800px]">
+        <Table.Header>
+          <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</Table.Column>
+          <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+          <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Contract</Table.Column>
+          <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Progress</Table.Column>
+          <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Budget</Table.Column>
+          <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Deadline</Table.Column>
+          <Table.Column />
+        </Table.Header>
+        <Table.Body
+          renderEmptyState={() => (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 py-16 text-center">
+              <p className="text-[13px] text-[var(--color-text-muted)]">
+                {filter === 'all' ? 'No projects yet.' : 'No projects match this filter.'}
+              </p>
+            </div>
+          )}
+        >
+          {filtered.map((project) => {
+            const s = PROJECT_STATUS[project.status] ?? PROJECT_STATUS.active;
+            const cs = project.contract
+              ? CONTRACT_STATUS[project.contract.status] ?? CONTRACT_STATUS.draft
+              : null;
+            return (
+              <Table.Row key={project.id} className="group hover:bg-[var(--color-background)]">
+                <Table.Cell>
+                  <Link href={`/projects/${project.id}`} className="min-w-0 block">
+                    <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
+                      {project.name}
+                    </p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">{project.ownerName}</p>
+                  </Link>
+                </Table.Cell>
+                <Table.Cell>
+                  <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.bg} ${s.text}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+                    {s.label}
+                  </span>
+                </Table.Cell>
+                <Table.Cell>
+                  {project.contract && cs ? (
+                    <Link href={`/contracts?contract=${project.contract.id}`}>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${cs.bg} ${cs.text}`}>
+                        {project.contract.status}
+                      </span>
+                    </Link>
+                  ) : (
+                    <span className="text-[11px] text-[var(--color-border-input)]">—</span>
+                  )}
+                </Table.Cell>
+                <Table.Cell>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-tertiary)]">
+                      <div
+                        className="h-full rounded-full bg-[var(--color-accent)] transition-all"
+                        style={{ width: `${project.progress}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
+                      {project.progress}%
+                    </span>
+                  </div>
+                </Table.Cell>
+                <Table.Cell>
+                  <p className="text-right text-[13px] tabular-nums text-[var(--color-text-tertiary)]">
+                    {isMember
+                      ? (project.memberPayout != null ? formatAmount(project.memberPayout, { compact: true }) : null)
+                      : formatAmount(project.budgetUsd, { compact: true })}
+                  </p>
+                </Table.Cell>
+                <Table.Cell>
+                  <p className="text-right text-[12px] text-[var(--color-text-muted)]">{formatShortDate(project.nextDeadlineAt)}</p>
+                </Table.Cell>
+                <Table.Cell>
+                  <div className="flex items-center justify-end">
+                    <RowActionsMenu
+                      items={[
+                        ...(project.id in linkedProjects
+                          ? [{ label: 'Sync Linear', onClick: () => handleSyncLinearStatus(project) }]
+                          : [{ label: 'Sync with Linear', onClick: () => handleCreateLinear(project) }]
+                        ),
+                        { label: 'Delete', onClick: () => setProjectToDelete(project), destructive: true },
+                      ]}
+                    />
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            );
+          })}
+        </Table.Body>
+      </Table.Content>
+    </Table.ScrollContainer>
+  </Table>
 
  <DeleteDialog
  open={!!projectToDelete}
@@ -371,59 +358,28 @@ export function ProjectsClient({
  );
 }
 
-function ColHead({ children, right }: { children: React.ReactNode; right?: boolean }) {
- return (
- <span className={`text-[11px] font-medium text-[var(--color-text-tertiary)] ${right ? 'text-right' : ''}`}>
- {children}
- </span>
- );
-}
-
-function EmptyState({ text }: { text: string }) {
- return (
- <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
- <p className="text-[13px] text-[var(--color-text-muted)]">{text}</p>
- </div>
- );
-}
-
 function ExportMenu({ onCsv, onPdf }: { onCsv: () => void; onPdf: () => void }) {
- const [open, setOpen] = useState(false);
- return (
- <div className="relative">
- <button
- type="button"
- onClick={() => setOpen((v) => !v)}
- className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-4 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)] inline-flex items-center gap-1.5 hover:bg-[var(--color-background)] disabled:opacity-50"
- >
- <DownloadSimple className="h-3.5 w-3.5" weight="bold" />
- Export
- </button>
- {open && (
- <>
- <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
- <div className="absolute right-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
- <Button
- variant="ghost"
- size="sm"
- className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)]"
- onClick={() => { onCsv(); setOpen(false); }}
- >
- Download CSV
- </Button>
- <Button
- variant="ghost"
- size="sm"
- className="w-full justify-start rounded-none px-3.5 py-2.5 text-[13px] text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)]"
- onClick={() => { onPdf(); setOpen(false); }}
- >
- Download PDF
- </Button>
- </div>
- </>
- )}
- </div>
- );
+  return (
+  <Dropdown>
+  <HeroUIButton variant="secondary" className="rounded-full px-4 py-2 text-[13px] font-semibold inline-flex items-center gap-1.5">
+  <DownloadSimple className="h-3.5 w-3.5" weight="bold" />
+  Export
+  </HeroUIButton>
+  <Dropdown.Popover>
+  <Dropdown.Menu onAction={(key) => {
+  if (key === 'csv') onCsv();
+  if (key === 'pdf') onPdf();
+  }}>
+  <Dropdown.Item id="csv" textValue="Download CSV">
+  <Label>Download CSV</Label>
+  </Dropdown.Item>
+  <Dropdown.Item id="pdf" textValue="Download PDF">
+  <Label>Download PDF</Label>
+  </Dropdown.Item>
+  </Dropdown.Menu>
+  </Dropdown.Popover>
+  </Dropdown>
+  );
 }
 
 function csvCell(val: string | number | null | undefined): string {

@@ -73,7 +73,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
                 mobileOpen={mobileSidebarOpen}
                 onCloseMobile={() => setMobileSidebarOpen(false)}
               />
-              <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--panel-radius)] bg-[var(--color-surface)] shadow-lg">
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden min-h-0 rounded-[var(--panel-radius)] bg-[var(--color-surface)] shadow-lg">
                 <AppTopbar
                   sidebarOpen={sidebarOpen}
                   onToggleSidebar={toggleSidebar}

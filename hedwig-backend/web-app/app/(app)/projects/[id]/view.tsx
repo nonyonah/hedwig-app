@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useState, useCallback, useEffect } from 'react';
-import { ArrowLeft, CalendarBlank, CheckCircle, CurrencyDollar, FolderSimple, Info, NotePencil, Target } from '@/components/ui/lucide-icons';
+import { ArrowLeft, CalendarBlank, CheckCircle, CurrencyDollar, FolderSimple, Info, NotePencil, Target, CaretDown } from '@/components/ui/lucide-icons';
+import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label, Table } from '@heroui/react';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -24,6 +26,7 @@ import { ProjectStatusActions } from '@/components/workspace/project-status-acti
 import { useToast } from '@/components/providers/toast-provider';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { openPaymentDetail } from '@/lib/payments/open-detail';
 
@@ -79,10 +82,6 @@ function SectionCard({ title, count, action, children }: {
       {children}
     </div>
   );
-}
-
-function ColHead({ children }: { children: React.ReactNode }) {
-  return <th className="px-5 py-2.5 text-left text-[11px] font-medium text-[var(--color-text-tertiary)]">{children}</th>;
 }
 
 function EmptyRow({ text }: { text: string }) {
@@ -395,77 +394,51 @@ export function ProjectDetailClient({
             {milestoneList.length === 0 ? (
               <EmptyRow text="No milestones on this project yet." />
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-surface-tertiary)]">
-                    <ColHead>Milestone</ColHead>
-                    <ColHead>Status</ColHead>
-                    <ColHead>Due</ColHead>
-                    <ColHead>Amount</ColHead>
-                    <ColHead><span className="sr-only">Actions</span></ColHead>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-surface-secondary)]">
-                  {milestoneList.map((m) => {
-                    const ms = MILESTONE_STATUS[m.status] ?? { label: m.status, bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
-                    const canComplete = (m.status === 'pending' || m.status === 'done' || m.status === 'upcoming') && !m.invoiceId;
-                    const canApprove = m.status === 'done' && !m.invoiceId && canManage;
-                    const isCompleting = completingIds.has(m.id);
-                    return (
-                      <tr
-                        key={m.id}
-                        className={cn('transition-colors', m.id === highlightedMilestoneId ? 'bg-[var(--color-accent-soft)]' : 'hover:bg-[var(--color-background)]')}
-                      >
-                        <td className="px-5 py-2.5">
-                          <p className="text-[13px] font-medium text-[var(--color-foreground)]">{m.name}</p>
-                          {m.id === highlightedMilestoneId && (
-                            <span className="text-[11px] font-medium text-[var(--color-accent)]">From calendar</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-2.5"><Pill bg={ms.bg} text={ms.text} label={ms.label} /></td>
-                        <td className="px-5 py-2.5 text-[12px] text-[var(--color-text-muted)]">{formatShortDate(m.dueAt)}</td>
-                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[var(--color-text-tertiary)]">{isMember ? '—' : (m.amountUsd ? formatAmount(m.amountUsd, { compact: true }) : '—')}</td>
-                        <td className="px-5 py-2.5 text-right">
-                          {canComplete && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => completeMilestone(m.id)}
-                              disabled={isCompleting}
-                              className="rounded-full px-3 py-1 text-[11px] font-semibold"
-                            >
-                              <CheckCircle className={cn('h-3.5 w-3.5', isCompleting ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-success)]')} weight="fill" />
-                              {isCompleting ? 'Sending…' : 'Mark complete'}
-                            </Button>
-                          )}
-                          {canApprove && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => completeMilestone(m.id)}
-                              disabled={isCompleting}
-                              className="rounded-full bg-[var(--color-success-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--color-success)]"
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 text-[var(--color-success)]" weight="fill" />
-                              {isCompleting ? 'Invoicing…' : 'Approve & invoice'}
-                            </Button>
-                          )}
-                          {m.status === 'done' && m.invoiceId && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openPaymentDetail('invoice', m.invoiceId!)}
-                              className="text-[11px] font-medium text-[var(--color-accent)] hover:underline"
-                            >
-                              View invoice
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <Table>
+                <Table.ScrollContainer>
+                  <Table.Content aria-label="Milestones">
+                    <Table.Header>
+                      <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Milestone</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Due</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Amount</Table.Column>
+                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]"><span className="sr-only">Actions</span></Table.Column>
+                    </Table.Header>
+                    <Table.Body>
+                      {milestoneList.map((m) => {
+                        const ms = MILESTONE_STATUS[m.status] ?? { label: m.status, bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
+                        const canComplete = (m.status === 'pending' || m.status === 'done' || m.status === 'upcoming') && !m.invoiceId;
+                        const canApprove = m.status === 'done' && !m.invoiceId && canManage;
+                        const isCompleting = completingIds.has(m.id);
+                        return (
+                          <Table.Row key={m.id} className={cn('transition-colors', m.id === highlightedMilestoneId ? 'bg-[var(--color-accent-soft)]' : 'hover:bg-[var(--color-background)]')}>
+                            <Table.Cell className="text-[13px] font-medium text-[var(--color-foreground)]">
+                              {m.name}
+                              {m.id === highlightedMilestoneId && (
+                                <span className="ml-2 text-[11px] font-medium text-[var(--color-accent)]">From calendar</span>
+                              )}
+                            </Table.Cell>
+                            <Table.Cell><Pill bg={ms.bg} text={ms.text} label={ms.label} /></Table.Cell>
+                            <Table.Cell className="text-[12px] text-[var(--color-text-muted)]">{formatShortDate(m.dueAt)}</Table.Cell>
+                            <Table.Cell className="text-[13px] tabular-nums text-[var(--color-text-tertiary)]">{isMember ? '—' : (m.amountUsd ? formatAmount(m.amountUsd, { compact: true }) : '—')}</Table.Cell>
+                            <Table.Cell className="text-right">
+                              <div className="flex items-center justify-end">
+                                <RowActionsMenu
+                                  items={[
+                                    ...(canComplete ? [{ label: 'Mark complete', onClick: () => completeMilestone(m.id) }] : []),
+                                    ...(canApprove ? [{ label: 'Approve & invoice', onClick: () => completeMilestone(m.id) }] : []),
+                                    ...(m.status === 'done' && m.invoiceId ? [{ label: 'View invoice', onClick: () => openPaymentDetail('invoice', m.invoiceId!) }] : []),
+                                  ]}
+                                />
+                              </div>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    </Table.Body>
+                  </Table.Content>
+                </Table.ScrollContainer>
+              </Table>
             )}
           </SectionCard>
         </div>
@@ -555,33 +528,34 @@ export function ProjectDetailClient({
           <DialogBody className="space-y-3.5">
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Title <span className="text-[var(--color-danger)]">*</span></label>
-              <Input value={form.title} onChange={(e) => updateField('title', e.target.value)} placeholder="Project title" disabled={isSaving} />
+              <Input fullWidth value={form.title} onChange={(e) => updateField('title', e.target.value)} placeholder="Project title" disabled={isSaving} />
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Budget (USD)</label>
-              <Input type="number" value={form.budget} onChange={(e) => updateField('budget', e.target.value)} placeholder="0" disabled={isSaving} />
+              <Input fullWidth type="number" value={form.budget} onChange={(e) => updateField('budget', e.target.value)} placeholder="0" disabled={isSaving} />
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Deadline</label>
-              <Input type="date" value={form.deadline} onChange={(e) => updateField('deadline', e.target.value)} disabled={isSaving} />
+               <DateInput fullWidth value={form.deadline} onChange={(v) => updateField('deadline', v)} disabled={isSaving} />
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Status</label>
-              <div className="flex h-9 w-full items-center rounded-lg border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 shadow-xs">
-                <select
-                  className="w-full bg-transparent text-[13px] text-[var(--color-text-primary)] outline-none"
-                  value={form.status}
-                  onChange={(e) => updateField('status', e.target.value)}
-                  disabled={isSaving}
-                >
-                  <option value="active">Active</option>
-                  <option value="paused">Paused</option>
-                  <option value="review">In review</option>
-                  <option value="approved">Approved</option>
-                  <option value="changes_requested">Changes requested</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
+              <Dropdown>
+                <HButton variant="secondary" isDisabled={isSaving} className="flex h-9 w-full items-center justify-between rounded-lg border border-[var(--color-border-input)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-text-primary)] shadow-xs" aria-label="Select status">
+                  <span>{{ active: 'Active', paused: 'Paused', review: 'In review', approved: 'Approved', changes_requested: 'Changes requested', completed: 'Completed' }[form.status] || 'Select'}</span>
+                  <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                </HButton>
+                <Dropdown.Popover className="min-w-[200px]">
+                  <Dropdown.Menu selectedKeys={new Set([form.status])} selectionMode="single" onSelectionChange={(keys) => { const k = [...keys][0]; if (k) updateField('status', k as string); }}>
+                    <Dropdown.Item key="active" id="active" textValue="Active"><Label>Active</Label></Dropdown.Item>
+                    <Dropdown.Item key="paused" id="paused" textValue="Paused"><Label>Paused</Label></Dropdown.Item>
+                    <Dropdown.Item key="review" id="review" textValue="In review"><Label>In review</Label></Dropdown.Item>
+                    <Dropdown.Item key="approved" id="approved" textValue="Approved"><Label>Approved</Label></Dropdown.Item>
+                    <Dropdown.Item key="changes_requested" id="changes_requested" textValue="Changes requested"><Label>Changes requested</Label></Dropdown.Item>
+                    <Dropdown.Item key="completed" id="completed" textValue="Completed"><Label>Completed</Label></Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
             </div>
           </DialogBody>
           <DialogFooter>

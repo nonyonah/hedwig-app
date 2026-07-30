@@ -19,14 +19,15 @@ import {
  Trash,
  UploadSimple,
  X,
- Info
+  Info,
+  CaretDown
 } from '@/components/ui/lucide-icons';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import type { BillingStatusSummary } from '@/lib/api/client';
-import { cn } from '@/lib/utils';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label } from '@heroui/react';
 import { ClientPortal } from '@/components/ui/client-portal';
 import {
  Dialog,
@@ -46,7 +47,7 @@ import type { RowActionItem } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
-import { formatShortDate } from '@/lib/utils';
+import { cn, formatShortDate } from '@/lib/utils';
 import { backendConfig } from '@/lib/auth/config';
 import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
@@ -584,44 +585,42 @@ export function PaymentsClient({
  )}
  </div>
 
- {/* Tab bar */}
- <div className="flex items-end gap-1 border-b border-[var(--color-border)] px-5">
- <TabBtn
- active={activeTab === 'invoices'}
- onClick={() => {
- setActiveTab('invoices');
- capturePaymentEvent('invoices_tab_opened', {
- total_count: allInvoiceItems.length,
- });
- }}
- >
- Invoices
- <CountBadge n={allInvoiceItems.length} />
- </TabBtn>
- <TabBtn
- active={activeTab === 'payment-links'}
- onClick={() => {
- setActiveTab('payment-links');
- capturePaymentEvent('payment_links_tab_opened', {
- active_count: stats.activeLinks,
- total_count: paymentLinkItems.length,
- });
- }}
- >
- Payment links
- <CountBadge n={paymentLinkItems.length} />
- </TabBtn>
- <TabBtn active={activeTab === 'recurring'} onClick={() => setActiveTab('recurring')}>
- <Repeat className="h-3.5 w-3.5" />
- Recurring
- <CountBadge n={canUseRecurringAutomation ? recurringInvoices.length : 0} />
- {!canUseRecurringAutomation ? (
- <span className="rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)]">
- Pro
- </span>
- ) : null}
- </TabBtn>
- </div>
+  {/* Tab bar */}
+  <div className="flex items-end gap-1 border-b border-[var(--color-border)] px-5">
+    <TabBtn
+      active={activeTab === 'invoices'}
+      onClick={() => {
+        setActiveTab('invoices');
+        capturePaymentEvent('invoices_tab_opened', { total_count: allInvoiceItems.length });
+      }}
+    >
+      Invoices
+      <CountBadge n={allInvoiceItems.length} />
+    </TabBtn>
+    <TabBtn
+      active={activeTab === 'payment-links'}
+      onClick={() => {
+        setActiveTab('payment-links');
+        capturePaymentEvent('payment_links_tab_opened', {
+          active_count: stats.activeLinks,
+          total_count: paymentLinkItems.length,
+        });
+      }}
+    >
+      Payment links
+      <CountBadge n={paymentLinkItems.length} />
+    </TabBtn>
+    <TabBtn active={activeTab === 'recurring'} onClick={() => setActiveTab('recurring')}>
+      <Repeat className="h-3.5 w-3.5" />
+      Recurring
+      <CountBadge n={canUseRecurringAutomation ? recurringInvoices.length : 0} />
+      {!canUseRecurringAutomation && (
+        <span className="rounded-full bg-[var(--color-surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-tertiary)]">
+          Pro
+        </span>
+      )}
+    </TabBtn>
+  </div>
 
  {/* Filter chips */}
  <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-5 py-2">
@@ -823,7 +822,7 @@ export function PaymentsClient({
  />
 
  {/* Panel */}
- <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-[440px] flex-col overflow-hidden bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
+ <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-[440px] flex-col overflow-hidden bg-[var(--color-surface)] shadow-2xl rounded-l-xl animate-in slide-in-from-right-full duration-300 ease-out">
  {selectedRecurring ? (
  <RecurringPanel
  item={selectedRecurring}
@@ -881,34 +880,52 @@ export function PaymentsClient({
  </DialogDescription>
  </DialogHeader>
  <DialogBody className="space-y-4">
-  <div>
-  <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Payment method</label>
-  <div className="relative">
-  <select
-  value={markPaidVia}
-  onChange={(e) => setMarkPaidVia(e.target.value as typeof markPaidVia)}
-  className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)]"
-  >
-  <option value="bank_transfer">Bank transfer</option>
-  <option value="crypto">Stablecoin</option>
-  <option value="cash">Cash</option>
-  <option value="other">Other</option>
-  </select>
-  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M3 4.5L6 7.5L9 4.5" />
-  </svg>
-  </div>
-  </div>
+   <div>
+   <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">Payment method</label>
+   <Dropdown>
+     <HButton
+       variant="secondary"
+       className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+       aria-label="Select payment method"
+     >
+       <span>{{ bank_transfer: 'Bank transfer', crypto: 'Stablecoin', cash: 'Cash', other: 'Other' }[markPaidVia] || 'Select'}</span>
+       <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+     </HButton>
+     <Dropdown.Popover className="min-w-[200px]">
+       <Dropdown.Menu
+         selectedKeys={new Set([markPaidVia])}
+         selectionMode="single"
+         onSelectionChange={(keys) => {
+           const key = [...keys][0];
+           if (key) setMarkPaidVia(key as typeof markPaidVia);
+         }}
+       >
+         <Dropdown.Item key="bank_transfer" id="bank_transfer" textValue="Bank transfer">
+           <Label>Bank transfer</Label>
+         </Dropdown.Item>
+         <Dropdown.Item key="crypto" id="crypto" textValue="Stablecoin">
+           <Label>Stablecoin</Label>
+         </Dropdown.Item>
+         <Dropdown.Item key="cash" id="cash" textValue="Cash">
+           <Label>Cash</Label>
+         </Dropdown.Item>
+         <Dropdown.Item key="other" id="other" textValue="Other">
+           <Label>Other</Label>
+         </Dropdown.Item>
+       </Dropdown.Menu>
+     </Dropdown.Popover>
+   </Dropdown>
+   </div>
 
  <div>
  <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-secondary)]">
  Reference (optional)
  </label>
- <Input
- placeholder="Bank reference, txn id, or note"
- value={markPaidReference}
- onChange={(e) => setMarkPaidReference(e.target.value.slice(0, 200))}
- />
+  <Input fullWidth
+  placeholder="Bank reference, txn id, or note"
+  value={markPaidReference}
+  onChange={(e) => setMarkPaidReference(e.target.value.slice(0, 200))}
+  />
  </div>
  </DialogBody>
  <DialogFooter>
@@ -926,7 +943,7 @@ export function PaymentsClient({
  {emailTarget && (
  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
  <div className="absolute inset-0 bg-black/40" onClick={() => setEmailTarget(null)} />
- <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]">
+ <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
  <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-4">
  <div className="flex items-center gap-2.5">
  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
@@ -1285,20 +1302,20 @@ function PanelCustomRow({ label, value }: { label: string; value: React.ReactNod
 
 /* ─── misc small components ─── */
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
- return (
- <button
- type="button"
- onClick={onClick}
- className={cn(
- '-mb-px mr-5 flex items-center gap-2 border-b-2 px-1 py-3 text-[13px] font-semibold transition-colors',
- active
- ? 'border-[var(--color-primary)] text-[var(--color-foreground)]'
- : 'border-transparent text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
- )}
- >
- {children}
- </button>
- );
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        '-mb-px mr-5 flex items-center gap-2 border-b-2 px-1 py-3 text-[13px] font-semibold transition-colors',
+        active
+          ? 'border-[var(--color-primary)] text-[var(--color-foreground)]'
+          : 'border-transparent text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
 function CountBadge({ n }: { n: number }) {

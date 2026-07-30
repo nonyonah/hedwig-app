@@ -174,7 +174,7 @@ export function BankAccountsView({
  ) : null}
 
  {effectiveUsdStatus === 'active' && hasAssignedAccount ? (
- <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+ <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="flex items-center justify-between border-b border-[var(--color-surface-tertiary)] px-5 py-4">
  <div>
  <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">USD account details</h2>

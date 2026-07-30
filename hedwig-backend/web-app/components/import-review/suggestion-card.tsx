@@ -10,6 +10,7 @@ import {
  User,
  WarningCircle,
 } from '@/components/ui/lucide-icons';
+import { Alert } from '@heroui/react';
 import type { ReviewDecisionType, SuggestedEntity } from '@/lib/types/import-review';
 import { ConfidenceIndicator } from './confidence-indicator';
 import { ExistingMatchList } from './existing-match-list';
@@ -78,17 +79,18 @@ export function SuggestionCard({
  </div>
  </div>
 
- {suggestion.duplicate_warning || suggestion.conflict_warning ? (
- <div className="mt-4 rounded-2xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3 text-[12px] text-[var(--color-warning)]">
- <div className="flex items-start gap-2">
- <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" />
- <div>
- {suggestion.duplicate_warning ? <p>{suggestion.duplicate_warning}</p> : null}
- {suggestion.conflict_warning ? <p>{suggestion.conflict_warning}</p> : null}
- </div>
- </div>
- </div>
- ) : null}
+  {suggestion.duplicate_warning || suggestion.conflict_warning ? (
+  <Alert status="warning" className="mt-4">
+    <Alert.Indicator />
+    <Alert.Content>
+      <WarningCircle className="h-4 w-4 shrink-0 text-[var(--color-warning)]" />
+      <Alert.Description>
+        {suggestion.duplicate_warning ? <p>{suggestion.duplicate_warning}</p> : null}
+        {suggestion.conflict_warning ? <p>{suggestion.conflict_warning}</p> : null}
+      </Alert.Description>
+    </Alert.Content>
+  </Alert>
+  ) : null}
 
  <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr,0.9fr]">
  <div className="space-y-4">

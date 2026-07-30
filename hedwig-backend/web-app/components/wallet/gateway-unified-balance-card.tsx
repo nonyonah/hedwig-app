@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { encodeFunctionData } from 'viem';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { ArrowsLeftRight, ArrowSquareOut, SpinnerGap } from '@/components/ui/lucide-icons';
+import { ArrowsLeftRight, ArrowSquareOut } from '@/components/ui/lucide-icons';
+import { Loader } from '@/components/ui/loader';
 import { useToast } from '@/components/providers/toast-provider';
 import {
   hedwigApi,
@@ -306,7 +307,7 @@ export function GatewayUnifiedBalanceCard({ accessToken }: { accessToken: string
           disabled={isRefreshingBalances || isLoading}
           className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-foreground)] transition hover:bg-[var(--color-surface-secondary)] disabled:opacity-60"
         >
-          {isRefreshingBalances ? <SpinnerGap className="h-3.5 w-3.5 animate-spin" weight="bold" /> : null}
+          {isRefreshingBalances ? <Loader size={14} /> : null}
           Refresh
         </button>
       </div>
@@ -314,7 +315,7 @@ export function GatewayUnifiedBalanceCard({ accessToken }: { accessToken: string
       <div className="space-y-5 px-5 py-5">
         {isLoading ? (
           <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-muted)]">
-            <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" />
+            <Loader size={16} />
             Loading Gateway data…
           </div>
         ) : (
@@ -404,7 +405,7 @@ export function GatewayUnifiedBalanceCard({ accessToken }: { accessToken: string
                 disabled={isTransferring || isLoading}
                 className="inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:opacity-60"
               >
-                {isTransferring ? <SpinnerGap className="h-4 w-4 animate-spin" weight="bold" /> : null}
+                {isTransferring ? <Loader size={16} /> : null}
                 Transfer
               </button>
 

@@ -203,6 +203,7 @@ const PROVIDER_TOOLS: Partial<Record<ComposioProvider, ToolSpec[]>> = {
       buildDescription: (args) => `Google Doc${args.content ? ' with starter content' : ''}`,
     },
   ],
+  google_sheets: [],
 };
 
 // ─── Tool execution adapters ─────────────────────────────────────────────────

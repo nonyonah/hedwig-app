@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, X } from '@/components/ui/lucide-icons';
+import { Plus, X, CaretDown } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { Button as HButton, Dropdown, Label } from '@heroui/react';
+import { DateInput } from '@/components/ui/date-input';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { hedwigApi } from '@/lib/api/client';
 import type { TimeEntry } from '@/components/time/types';
@@ -109,7 +111,7 @@ export function TimeEntryDialog({
     <ClientPortal>
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)] animate-in fade-in-0 zoom-in-95 duration-200">
+        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
             <div>
               <p className="text-[15px] font-bold text-[var(--color-foreground)]">
@@ -128,17 +130,36 @@ export function TimeEntryDialog({
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Project</label>
               <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <select value={projectId} onChange={e => setProjectId(e.target.value)}
-                    className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
-                    <option value="">No project</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}{p.client ? ` (${p.client.name})` : ''}</option>
-                    ))}
-                  </select>
-                  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 4.5L6 7.5L9 4.5" />
-                  </svg>
+                <div className="flex-1">
+                  <Dropdown>
+                    <HButton
+                      variant="secondary"
+                      className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 text-[13px] font-medium text-[var(--color-foreground)]"
+                      aria-label="Select project"
+                    >
+                      <span>{projectId ? (projects.find(p => p.id === projectId)?.name || 'No project') : 'No project'}</span>
+                      <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                    </HButton>
+                    <Dropdown.Popover className="min-w-[260px]">
+                      <Dropdown.Menu
+                        selectedKeys={new Set(projectId ? [projectId] : [''])}
+                        selectionMode="single"
+                        onSelectionChange={(keys) => {
+                          const key = [...keys][0];
+                          if (key) setProjectId(key as string);
+                        }}
+                      >
+                        <Dropdown.Item key="" id="" textValue="No project">
+                          <Label>No project</Label>
+                        </Dropdown.Item>
+                        {projects.map(p => (
+                          <Dropdown.Item key={p.id} id={p.id} textValue={`${p.name}${p.client ? ` (${p.client.name})` : ''}`}>
+                            <Label>{p.name}{p.client ? ` (${p.client.name})` : ''}</Label>
+                          </Dropdown.Item>
+                        ))}
+                      </Dropdown.Menu>
+                    </Dropdown.Popover>
+                  </Dropdown>
                 </div>
                 <button
                   type="button"
@@ -187,7 +208,7 @@ export function TimeEntryDialog({
 
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Date</label>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              <DateInput value={startDate} onChange={(v) => setStartDate(v)}
                 className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20" />
             </div>
 
@@ -239,18 +260,35 @@ export function TimeEntryDialog({
             {hasMembers && (
               <div>
                 <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Assigned to</label>
-                <div className="relative">
-                  <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
-                    className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] pl-4 pr-10 py-2.5 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20">
-                    <option value="">Myself</option>
-                    {workspaceMembers!.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}{m.email ? ` (${m.email})` : ''}</option>
-                    ))}
-                  </select>
-                  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 4.5L6 7.5L9 4.5" />
-                  </svg>
-                </div>
+                <Dropdown>
+                  <HButton
+                    variant="secondary"
+                    className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 text-[13px] font-medium text-[var(--color-foreground)]"
+                    aria-label="Select assignee"
+                  >
+                    <span>{assignedTo ? (workspaceMembers!.find(m => m.id === assignedTo)?.name || 'Myself') : 'Myself'}</span>
+                    <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                  </HButton>
+                  <Dropdown.Popover className="min-w-[260px]">
+                    <Dropdown.Menu
+                      selectedKeys={new Set(assignedTo ? [assignedTo] : [''])}
+                      selectionMode="single"
+                      onSelectionChange={(keys) => {
+                        const key = [...keys][0];
+                        setAssignedTo((key as string) || '');
+                      }}
+                    >
+                      <Dropdown.Item key="" id="" textValue="Myself">
+                        <Label>Myself</Label>
+                      </Dropdown.Item>
+                      {workspaceMembers!.map(m => (
+                        <Dropdown.Item key={m.id} id={m.id} textValue={`${m.name}${m.email ? ` (${m.email})` : ''}`}>
+                          <Label>{m.name}{m.email ? ` (${m.email})` : ''}</Label>
+                        </Dropdown.Item>
+                      ))}
+                    </Dropdown.Menu>
+                  </Dropdown.Popover>
+                </Dropdown>
               </div>
             )}
 

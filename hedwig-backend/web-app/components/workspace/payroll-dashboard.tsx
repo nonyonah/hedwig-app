@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { Alert, Button as HeroUIButton, Dropdown, Label } from '@heroui/react';
 import {
- ArrowDown, ArrowRight, ArrowsClockwise, CaretDown, CaretRight,
- Check, CheckCircle, Coins, DotsThreeOutline, IdentificationCard, Trash, UsersThree, Warning, X, ArrowSquareOut,
+  ArrowDown, ArrowRight, ArrowsClockwise, CaretDown, CaretRight,
+  Check, CheckCircle, Coins, DotsThreeOutline, IdentificationCard, Trash, UsersThree, Warning, X, ArrowSquareOut,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { AttachedStatGrid, type AttachedStatCardItem } from '@/components/ui/attached-stat-cards';
@@ -149,8 +150,7 @@ export function PayrollDashboard({ offrampAllowed = true }: { offrampAllowed?: b
  const [schedAmounts, setSchedAmounts] = useState<Record<string, string>>({});
  const [editingSchedule, setEditingSchedule] = useState<PayrollSchedule | null>(null);
  const [schedError, setSchedError] = useState<string | null>(null);
- const [schedSaving, setSchedSaving] = useState(false);
- const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [schedSaving, setSchedSaving] = useState(false);
 
  // ── Open schedule dialog in edit mode ──
  const openEditSchedule = (s: PayrollSchedule) => {
@@ -432,7 +432,7 @@ function AddFundsButton() {
 
  {open && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={resetForm}>
- <div className="relative w-full max-w-[440px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
+ <div className="relative w-full max-w-[440px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl" onClick={e => e.stopPropagation()}>
  <button onClick={resetForm} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]"><X className="h-4 w-4" weight="bold" /></button>
  <div className="border-b border-[var(--color-border)] px-6 py-5 pr-12 shrink-0">
  <h2 className="text-[16px] font-semibold text-[var(--color-text-primary)]">{step === 'payment' ? 'Payment details' : step === 'kyc' ? 'Identity Verification' : 'Fund via Bank Transfer'}</h2>
@@ -465,46 +465,75 @@ function AddFundsButton() {
  </div>
  </div>
 
- {kycStatus === 'pending' && (
- <div className="rounded-2xl border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] p-4 text-center">
- <p className="text-[13px] font-medium text-[var(--color-warning)]">Verification in progress</p>
- <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">Complete the verification in the opened tab, then check your status below.</p>
- </div>
- )}
+  {kycStatus === 'pending' && (
+  <Alert status="warning">
+  <Alert.Indicator />
+  <Alert.Content>
+  <Alert.Title>Verification in progress</Alert.Title>
+  <Alert.Description>Complete the verification in the opened tab, then check your status below.</Alert.Description>
+  </Alert.Content>
+  </Alert>
+  )}
 
- {(kycStatus === 'rejected' || kycStatus === 'retry_required') && (
- <div className="rounded-2xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-4 text-center">
- <Warning className="mx-auto h-8 w-8 text-red-500 mb-2" weight="bold" />
- <p className="text-[13px] font-medium text-red-700 dark:text-red-400">Verification failed</p>
- <p className="mt-1 text-[12px] text-red-600/70 dark:text-red-400/70">Please try again with clear photos of your documents.</p>
- </div>
- )}
+  {(kycStatus === 'rejected' || kycStatus === 'retry_required') && (
+  <Alert status="danger">
+  <Alert.Indicator />
+  <Alert.Content>
+  <Warning className="mb-1 h-5 w-5" weight="bold" />
+  <Alert.Title>Verification failed</Alert.Title>
+  <Alert.Description>Please try again with clear photos of your documents.</Alert.Description>
+  </Alert.Content>
+  </Alert>
+  )}
 
- {kycStatus === 'approved' && (
- <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 text-center">
- <CheckCircle className="mx-auto h-8 w-8 text-emerald-500 mb-2" weight="bold" />
- <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">Verification approved</p>
- <p className="mt-1 text-[12px] text-emerald-600/70 dark:text-emerald-400/70">You can now fund via bank transfer.</p>
- </div>
- )}
+  {kycStatus === 'approved' && (
+  <Alert status="success">
+  <Alert.Indicator />
+  <Alert.Content>
+  <CheckCircle className="mb-1 h-5 w-5" weight="bold" />
+  <Alert.Title>Verification approved</Alert.Title>
+  <Alert.Description>You can now fund via bank transfer.</Alert.Description>
+  </Alert.Content>
+  </Alert>
+  )}
 
- {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+ {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>}
  </>
  )}
 
  {step === 'form' && (
  <>
- <div>
-  <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Currency</span>
-  <div className="relative mt-2">
-  <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)]">
-  {Object.entries(CORRIDORS).map(([k, v]) => (<option key={k} value={k}>{v.flag} {v.label}</option>))}
-  </select>
-  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M3 4.5L6 7.5L9 4.5" />
-  </svg>
+  <div>
+   <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Currency</span>
+   <div className="mt-2">
+     <Dropdown>
+       <HeroUIButton
+         variant="secondary"
+         className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+         aria-label="Select currency"
+       >
+         <span>{currency ? `${CORRIDORS[currency].flag} ${CORRIDORS[currency].label}` : 'Select currency'}</span>
+         <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+       </HeroUIButton>
+       <Dropdown.Popover className="min-w-[240px]">
+         <Dropdown.Menu
+           selectedKeys={new Set([currency])}
+           selectionMode="single"
+           onSelectionChange={(keys) => {
+             const key = [...keys][0];
+             if (key) setCurrency(key as string);
+           }}
+         >
+           {Object.entries(CORRIDORS).map(([k, v]) => (
+             <Dropdown.Item key={k} id={k} textValue={v.label}>
+               <Label>{v.flag} {v.label}</Label>
+             </Dropdown.Item>
+           ))}
+         </Dropdown.Menu>
+       </Dropdown.Popover>
+     </Dropdown>
+   </div>
   </div>
- </div>
 
  <div>
  <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Amount ({currency})</span>
@@ -515,16 +544,38 @@ function AddFundsButton() {
  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
  <p className="text-[11px] font-semibold text-[var(--color-text-muted)] mb-3">Where to refund if payment fails</p>
   {currency !== 'BRL' ? (
-  <div className="relative mb-2">
-  <select value={institution} onChange={e => { setInstitution(e.target.value); setAccountResolved(false); }} className="w-full appearance-none rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 pr-8 text-[13px] text-[var(--color-foreground)]">
-  <option value="">Select institution</option>
-  {institutions.map((i: any) => (<option key={i.code || i.id} value={i.code || i.id}>{i.name || i.label}</option>))}
-  </select>
-  <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M3 4.5L6 7.5L9 4.5" />
-  </svg>
-  </div>
-  ) : (
+   <div className="mb-2">
+     <Dropdown>
+       <HeroUIButton
+         variant="secondary"
+         className="flex h-10 w-full items-center justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+         aria-label="Select institution"
+       >
+         <span>{institution ? (institutions.find((i: any) => (i.code || i.id) === institution)?.name || institution) : 'Select institution'}</span>
+         <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+       </HeroUIButton>
+       <Dropdown.Popover className="min-w-[280px] max-h-[300px] overflow-y-auto">
+         <Dropdown.Menu
+           selectedKeys={institution ? new Set([institution]) : new Set()}
+           selectionMode="single"
+           onSelectionChange={(keys) => {
+             const key = [...keys][0];
+             if (key) { setInstitution(key as string); setAccountResolved(false); }
+           }}
+         >
+           {institutions.map((i: any) => {
+             const id = i.code || i.id;
+             return (
+               <Dropdown.Item key={id} id={id} textValue={i.name || i.label}>
+                 <Label>{i.name || i.label}</Label>
+               </Dropdown.Item>
+             );
+           })}
+         </Dropdown.Menu>
+       </Dropdown.Popover>
+     </Dropdown>
+   </div>
+   ) : (
  <p className="mb-2 text-[12px] text-[var(--color-text-muted)]">PIX key (CPF, email, phone, or random key)</p>
  )}
  <input
@@ -552,7 +603,7 @@ function AddFundsButton() {
  )}
  </div>
  </div>
- {error && <div className="rounded-full border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+ {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>}
  </>
  )}
 
@@ -665,7 +716,7 @@ function AddFundsButton() {
  {/* ── Run Payroll modal ── */}
  {payrollOpen && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={closePayrollDialog}>
- <div className="relative w-full max-w-[480px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
+ <div className="relative w-full max-w-[480px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl" onClick={e => e.stopPropagation()}>
  <button onClick={closePayrollDialog} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]">
  <X className="h-4 w-4" weight="bold" />
  </button>
@@ -700,7 +751,7 @@ function AddFundsButton() {
  ))
  )}
  </div>
- {error && <div className="rounded-full border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p></div>}
+ {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>}
  </div>
  <div className="flex items-center justify-end gap-3 border-t border-[var(--color-border)] px-6 py-4 shrink-0">
  <Button variant="ghost" size="sm" onClick={closePayrollDialog}>Cancel</Button>
@@ -726,7 +777,7 @@ function AddFundsButton() {
  <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Breakdown</span></div>
  <div className="divide-y divide-[var(--color-surface-secondary)]">{preview.items.map(item => (<div key={item.userId} className="flex items-center justify-between px-4 py-2.5"><p className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.name}</p><p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">${item.amountUsd}</p></div>))}</div>
  </div>
- {runResult && (<div className="flex items-center gap-2 rounded-full bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2.5"><Check className="h-4 w-4 text-[var(--color-success)]" weight="bold" /><p className="text-[12px] font-medium text-[var(--color-foreground)]">{runResult.successCount} succeeded{runResult.failedCount > 0 ? `, ${runResult.failedCount} failed` : ''}</p></div>)}
+ {runResult && (<Alert status="success"><Alert.Indicator /><Alert.Content><Check className="mb-1 h-5 w-5 text-[var(--color-success)]" weight="bold" /><Alert.Title>{runResult.successCount} succeeded{runResult.failedCount > 0 ? `, ${runResult.failedCount} failed` : ''}</Alert.Title></Alert.Content></Alert>)}
  </div>
  <div className="flex items-center justify-end gap-3 border-t border-[var(--color-border)] px-6 py-4 shrink-0">
  {!runResult ? (<><Button variant="ghost" size="sm" onClick={() => { setPayrollView('form'); setPreview(null); }}>Back</Button>{timeLeft > 0 ? <Button variant="default" size="sm" onClick={handleRun} disabled={running}>{running ? <><ArrowsClockwise className="h-3.5 w-3.5 animate-spin" weight="bold" /> Running…</> : 'Confirm & Run'}</Button> : <Button variant="default" size="sm" disabled className="opacity-50">Preview expired</Button>}</>) : <Button variant="default" size="sm" onClick={closePayrollDialog}>Done</Button>}
@@ -740,7 +791,7 @@ function AddFundsButton() {
  {/* ── Schedule creation modal ── */}
  {scheduleOpen && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setScheduleOpen(false)}>
- <div className="relative w-full max-w-[480px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl ring-1 ring-[var(--color-border)]" onClick={e => e.stopPropagation()}>
+ <div className="relative w-full max-w-[480px] max-h-[90vh] flex flex-col rounded-2xl bg-[var(--color-surface)] shadow-2xl" onClick={e => e.stopPropagation()}>
  <button onClick={() => setScheduleOpen(false)} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-secondary)]">
  <X className="h-4 w-4" weight="bold" />
  </button>
@@ -791,7 +842,7 @@ function AddFundsButton() {
  })}
  </div>
  </div>
- {schedError && <div className="rounded-full border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-3 py-2.5"><p className="text-[12px] font-medium text-red-700 dark:text-red-400">{schedError}</p></div>}
+ {schedError && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Description>{schedError}</Alert.Description></Alert.Content></Alert>}
  </div>
  <div className="flex items-center justify-end gap-3 border-t border-[var(--color-border)] px-6 py-4 shrink-0">
  <Button variant="ghost" size="sm" onClick={() => { setScheduleOpen(false); setEditingSchedule(null); }}>Cancel</Button>
@@ -822,7 +873,7 @@ function AddFundsButton() {
 
  {/* ── History table ── */}
  {mainTab === 'history' && (
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
  <div>
  <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Payroll history</p>
@@ -876,17 +927,23 @@ function AddFundsButton() {
  <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold ${statusPill(run.status)}`}>
  {run.status === 'partial_failed' ? 'Partial' : run.status.replace('_', ' ')}
  </span>
- <span onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === run.id ? null : run.id); }} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-surface-secondary)]">
- <DotsThreeOutline className="h-4 w-4" weight="bold" />
- </span>
- {openMenuId === run.id && (
- <div className="absolute right-0 top-full mt-1 z-20 min-w-[100px] rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xl py-1" onClick={(e) => e.stopPropagation()}>
- <button className="w-full text-left px-4 py-2 text-[13px] hover:bg-[var(--color-surface-secondary)] text-red-600" onClick={async () => {
- setHistory(prev => prev.filter(x => x.id !== run.id));
- await api(`/api/workspaces/${activeWorkspace.id}/payroll/history/${run.id}`, 'DELETE');
- }}>Delete</button>
- </div>
- )}
+  <Dropdown>
+  <HeroUIButton isIconOnly variant="ghost" aria-label="Run actions" className="h-7 w-7 min-w-0">
+  <DotsThreeOutline className="h-4 w-4" weight="bold" />
+  </HeroUIButton>
+  <Dropdown.Popover>
+  <Dropdown.Menu onAction={async (key) => {
+  if (key === 'delete') {
+  setHistory(prev => prev.filter(x => x.id !== run.id));
+  await api(`/api/workspaces/${activeWorkspace.id}/payroll/history/${run.id}`, 'DELETE');
+  }
+  }}>
+  <Dropdown.Item id="delete" textValue="Delete" variant="danger">
+  <Label>Delete</Label>
+  </Dropdown.Item>
+  </Dropdown.Menu>
+  </Dropdown.Popover>
+  </Dropdown>
  {expandedRun === run.id ? <CaretDown className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" /> : <CaretRight className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" />}
  </div>
  </button>
@@ -937,7 +994,7 @@ function AddFundsButton() {
 
  {/* ── Scheduled list ── */}
  {mainTab === 'scheduled' && (
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
  <div>
  <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Scheduled payroll</p>
@@ -978,21 +1035,45 @@ function AddFundsButton() {
  <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold ${
  s.status === 'active' ? 'bg-emerald-100 text-emerald-700' : s.status === 'paused' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
  }`}>{s.status}</span>
- <button onClick={() => setOpenMenuId(openMenuId === s.id ? null : s.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-surface-secondary)]">
- <DotsThreeOutline className="h-4 w-4" weight="bold" />
- </button>
- {openMenuId === s.id && (
- <div className="absolute right-0 top-full mt-1 z-20 min-w-[120px] rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xl py-1" onClick={() => setOpenMenuId(null)}>
- <button className="w-full text-left px-4 py-2 text-[13px] hover:bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]" onClick={() => { openEditSchedule(s); }}>Edit</button>
- {s.status === 'active' && (
- <button className="w-full text-left px-4 py-2 text-[13px] hover:bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)]" onClick={async () => { setSchedules(prev => prev.map(x => x.id === s.id ? { ...x, status: 'paused' } : x)); await api(`/api/workspaces/${activeWorkspace.id}/payroll/schedule/${s.id}`, 'PATCH', { status: 'paused' }); }}>Pause</button>
- )}
- {s.status === 'paused' && (
- <button className="w-full text-left px-4 py-2 text-[13px] hover:bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)]" onClick={async () => { setSchedules(prev => prev.map(x => x.id === s.id ? { ...x, status: 'active' } : x)); await api(`/api/workspaces/${activeWorkspace.id}/payroll/schedule/${s.id}`, 'PATCH', { status: 'active' }); }}>Resume</button>
- )}
- <button className="w-full text-left px-4 py-2 text-[13px] hover:bg-[var(--color-surface-secondary)] text-red-600" onClick={async () => { setSchedules(prev => prev.filter(x => x.id !== s.id)); await api(`/api/workspaces/${activeWorkspace.id}/payroll/schedule/${s.id}`, 'DELETE'); }}>Cancel</button>
- </div>
- )}
+  <Dropdown>
+  <HeroUIButton isIconOnly variant="ghost" aria-label="Schedule actions" className="h-7 w-7 min-w-0">
+  <DotsThreeOutline className="h-4 w-4" weight="bold" />
+  </HeroUIButton>
+  <Dropdown.Popover>
+  <Dropdown.Menu onAction={async (key) => {
+  if (key === 'edit') openEditSchedule(s);
+  if (key === 'pause') {
+  setSchedules(prev => prev.map(x => x.id === s.id ? { ...x, status: 'paused' } : x));
+  await api(`/api/workspaces/${activeWorkspace.id}/payroll/schedule/${s.id}`, 'PATCH', { status: 'paused' });
+  }
+  if (key === 'resume') {
+  setSchedules(prev => prev.map(x => x.id === s.id ? { ...x, status: 'active' } : x));
+  await api(`/api/workspaces/${activeWorkspace.id}/payroll/schedule/${s.id}`, 'PATCH', { status: 'active' });
+  }
+  if (key === 'cancel') {
+  setSchedules(prev => prev.filter(x => x.id !== s.id));
+  await api(`/api/workspaces/${activeWorkspace.id}/payroll/schedule/${s.id}`, 'DELETE');
+  }
+  }}>
+  <Dropdown.Item id="edit" textValue="Edit">
+  <Label>Edit</Label>
+  </Dropdown.Item>
+  {s.status === 'active' && (
+  <Dropdown.Item id="pause" textValue="Pause">
+  <Label>Pause</Label>
+  </Dropdown.Item>
+  )}
+  {s.status === 'paused' && (
+  <Dropdown.Item id="resume" textValue="Resume">
+  <Label>Resume</Label>
+  </Dropdown.Item>
+  )}
+  <Dropdown.Item id="cancel" textValue="Cancel" variant="danger">
+  <Label>Cancel</Label>
+  </Dropdown.Item>
+  </Dropdown.Menu>
+  </Dropdown.Popover>
+  </Dropdown>
  </div>
  </div>
  );

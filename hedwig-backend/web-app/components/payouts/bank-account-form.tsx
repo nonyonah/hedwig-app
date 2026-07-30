@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Bank, ShieldCheck } from '@/components/ui/lucide-icons';
+import { Bank, CaretDown, ShieldCheck } from '@/components/ui/lucide-icons';
+import { Button as HButton, Dropdown, Label } from '@heroui/react';
 import { hedwigApi } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import type {
@@ -276,61 +277,81 @@ export function BankAccountForm({
       {/* Country selector */}
       <div>
         <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Country</label>
-        <div className="relative">
-          <select
-            className="h-10 w-full appearance-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 pr-8 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-            value={state.country}
-            onChange={(e) => {
-              const code = e.target.value as BankCountry;
-              setState((cur) => ({
-                ...EMPTY_STATE,
-                country: code,
-                accountHolderName: cur.accountHolderName,
-                showOnInvoice: cur.showOnInvoice,
-              }));
-            }}
+        <Dropdown>
+          <HButton
+            variant="secondary"
+            className="flex h-10 w-full items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+            aria-label="Select country"
           >
-            {COUNTRY_OPTIONS.map((opt) => (
-              <option key={opt.code} value={opt.code}>
-                {opt.flag}  {opt.label} ({opt.currency})
-              </option>
-            ))}
-          </select>
-          <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 4.5L6 7.5L9 4.5" />
-          </svg>
-        </div>
+            <span>{COUNTRY_OPTIONS.find((o) => o.code === state.country)?.flag} {COUNTRY_OPTIONS.find((o) => o.code === state.country)?.label} ({COUNTRY_OPTIONS.find((o) => o.code === state.country)?.currency})</span>
+            <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+          </HButton>
+          <Dropdown.Popover className="min-w-[220px]">
+            <Dropdown.Menu
+              selectedKeys={new Set([state.country])}
+              selectionMode="single"
+              onSelectionChange={(keys) => {
+                const key = [...keys][0];
+                if (key) {
+                  setState((cur) => ({
+                    ...EMPTY_STATE,
+                    country: key as BankCountry,
+                    accountHolderName: cur.accountHolderName,
+                    showOnInvoice: cur.showOnInvoice,
+                  }));
+                }
+              }}
+            >
+              {COUNTRY_OPTIONS.map((opt) => (
+                <Dropdown.Item key={opt.code} id={opt.code} textValue={opt.label}>
+                  <Label>{opt.flag} {opt.label} ({opt.currency})</Label>
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
       </div>
 
       {/* Bank picker / free-form bank name */}
       {state.country === 'NG' || state.country === 'GH' ? (
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Bank</label>
-          <div className="relative">
-            <select
-              className="h-10 w-full appearance-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 pr-8 text-[13px] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
-              value={state.bankCode}
-              onChange={(e) => {
-                const code = e.target.value;
-                const bank = banks.find((b) => b.code === code);
-                setState((cur) => ({ ...cur, bankCode: code, bankName: bank?.name || '' }));
-              }}
-              disabled={banksLoading}
+          <Dropdown>
+            <HButton
+              variant="secondary"
+              isDisabled={banksLoading}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+              aria-label="Select bank"
             >
-              <option value="">{banksLoading ? 'Loading banks…' : 'Select your bank'}</option>
-              {banks.map((b) => (
-                <option key={b.code} value={b.code}>{b.name}</option>
-              ))}
-            </select>
-            <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 4.5L6 7.5L9 4.5" />
-            </svg>
-          </div>
+              <span>{banksLoading ? 'Loading banks…' : (banks.find((b) => b.code === state.bankCode)?.name || 'Select your bank')}</span>
+              <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+            </HButton>
+            <Dropdown.Popover className="min-w-[280px] max-h-[300px] overflow-y-auto">
+              <Dropdown.Menu
+                selectedKeys={state.bankCode ? new Set([state.bankCode]) : new Set()}
+                selectionMode="single"
+                onSelectionChange={(keys) => {
+                  const key = [...keys][0];
+                  if (key) {
+                    const code = key as string;
+                    const bank = banks.find((b) => b.code === code);
+                    setState((cur) => ({ ...cur, bankCode: code, bankName: bank?.name || '' }));
+                  }
+                }}
+              >
+                {banks.map((b) => (
+                  <Dropdown.Item key={b.code} id={b.code} textValue={b.name}>
+                    <Label>{b.name}</Label>
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
         </div>
       ) : (
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Bank name</label>
-          <Input
+          <Input fullWidth
             placeholder="e.g. Chase Bank"
             value={state.bankName}
             onChange={(e) => update('bankName', e.target.value)}
@@ -343,7 +364,7 @@ export function BankAccountForm({
         <>
           <div>
             <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account number</label>
-            <Input
+            <Input fullWidth
               inputMode="numeric"
               placeholder="0123456789"
               maxLength={10}
@@ -361,7 +382,7 @@ export function BankAccountForm({
           </div>
           <div>
             <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account holder name</label>
-            <Input
+            <Input fullWidth
               placeholder="Resolved automatically once account number is entered"
               value={state.accountHolderName}
               onChange={(e) => update('accountHolderName', e.target.value)}
@@ -375,7 +396,7 @@ export function BankAccountForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Routing number</label>
-              <Input
+              <Input fullWidth
                 inputMode="numeric"
                 placeholder="9 digits"
                 maxLength={9}
@@ -385,7 +406,7 @@ export function BankAccountForm({
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account number</label>
-              <Input
+              <Input fullWidth
                 inputMode="numeric"
                 placeholder="4–17 digits"
                 maxLength={17}
@@ -397,7 +418,7 @@ export function BankAccountForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account holder name</label>
-              <Input
+              <Input fullWidth
                 placeholder="Jane Smith"
                 value={state.accountHolderName}
                 onChange={(e) => update('accountHolderName', e.target.value)}
@@ -405,20 +426,36 @@ export function BankAccountForm({
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account type</label>
-              <div className="relative">
-                <select
-                  className="h-10 w-full appearance-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 pr-8 text-[13px] text-[var(--color-foreground)]"
-                  value={state.accountType}
-                  onChange={(e) => update('accountType', (e.target.value || '') as FormState['accountType'])}
+              <Dropdown>
+                <HButton
+                  variant="secondary"
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+                  aria-label="Select account type"
                 >
-                  <option value="">Select</option>
-                  <option value="checking">Checking</option>
-                  <option value="savings">Savings</option>
-                </select>
-                <svg className="pointer-events-none absolute right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 4.5L6 7.5L9 4.5" />
-                </svg>
-              </div>
+                  <span>{state.accountType ? (state.accountType === 'checking' ? 'Checking' : 'Savings') : 'Select'}</span>
+                  <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                </HButton>
+                <Dropdown.Popover className="min-w-[200px]">
+                  <Dropdown.Menu
+                    selectedKeys={state.accountType ? new Set([state.accountType]) : new Set()}
+                    selectionMode="single"
+                    onSelectionChange={(keys) => {
+                      const key = [...keys][0];
+                      update('accountType', (key || '') as FormState['accountType']);
+                    }}
+                  >
+                    <Dropdown.Item key="" id="" textValue="Select">
+                      <Label>Select</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item key="checking" id="checking" textValue="Checking">
+                      <Label>Checking</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item key="savings" id="savings" textValue="Savings">
+                      <Label>Savings</Label>
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
             </div>
           </div>
         </>
@@ -429,7 +466,7 @@ export function BankAccountForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Sort code</label>
-              <Input
+              <Input fullWidth
                 inputMode="numeric"
                 placeholder="6 digits"
                 maxLength={6}
@@ -439,7 +476,7 @@ export function BankAccountForm({
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account number</label>
-              <Input
+              <Input fullWidth
                 inputMode="numeric"
                 placeholder="8 digits"
                 maxLength={8}
@@ -451,7 +488,7 @@ export function BankAccountForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Account holder name</label>
-              <Input
+              <Input fullWidth
                 placeholder="Jane Smith"
                 value={state.accountHolderName}
                 onChange={(e) => update('accountHolderName', e.target.value)}
@@ -459,7 +496,7 @@ export function BankAccountForm({
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">IBAN (optional)</label>
-              <Input
+              <Input fullWidth
                 placeholder="GB29 NWBK 6016 1331 9268 19"
                 value={state.iban}
                 onChange={(e) => update('iban', e.target.value.toUpperCase())}
@@ -468,7 +505,7 @@ export function BankAccountForm({
           </div>
           <div>
             <label className="mb-1.5 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">SWIFT/BIC (optional)</label>
-            <Input
+            <Input fullWidth
               placeholder="NWBKGB2L"
               value={state.swiftBic}
               onChange={(e) => update('swiftBic', e.target.value.toUpperCase())}

@@ -150,3 +150,17 @@ export const WarningCircle = makeIcon('AlertCircleIcon', 'Alert01Icon');
 export const X = makeIcon('Cancel01Icon');
 export const XCircle = makeIcon('CancelCircleIcon');
 export const XLogo = makeIcon('TwitterIcon');
+
+// Google Sheets brand icon
+export function GoogleSheetsLogo({ className, size = 16 }: { className?: string; size?: number }) {
+  return (
+    <img
+      src="/google-sheets-logo.png"
+      alt="Google Sheets"
+      width={size}
+      height={size}
+      className={className}
+      style={{ display: 'inline-block' }}
+    />
+  );
+}

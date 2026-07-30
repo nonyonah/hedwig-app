@@ -31,8 +31,7 @@ import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { MemberWelcomeBanner } from '@/components/workspace/member-welcome-banner';
 import { PendingInvitationBanner } from '@/components/workspace/pending-invitation-banner';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
-import { OnboardingActions } from '@/components/onboarding/onboarding-actions';
-import { ProfileCompletionNudge } from '@/components/onboarding/profile-completion-nudge';
+
 
 type DashboardData = {
  totals: {
@@ -81,20 +80,16 @@ function getTimeOfDayGreeting(hour: number) {
 
 export function DashboardClient({
   greetingName,
-  userKey,
   data,
   billing,
   isDemo = false,
-  firstName,
-  lastName,
+  userKey,
 }: {
   greetingName: string;
-  userKey: string;
   data: DashboardData;
   billing: BillingStatusSummary | null;
   isDemo?: boolean;
-  firstName?: string;
-  lastName?: string;
+  userKey?: string;
 }) {
   const { currency, formatAmount } = useCurrency();
   const posthog = usePostHog();
@@ -350,24 +345,6 @@ export function DashboardClient({
           onStart={startFirstInvoiceFromIntro}
         />
       ) : null}
-      {!isDemo ? (
-        <OnboardingActions
-          userKey={userKey}
-          hasInvoice={data.invoices.length > 0}
-          hasClient={clientCount > 0}
-          hasPayment={hasReceivedPayment}
-          hasMember={false}
-          hasPayroll={false}
-        />
-      ) : null}
-      {!isDemo ? (
-        <ProfileCompletionNudge
-          userKey={userKey}
-          firstName={firstName ?? ''}
-          lastName={lastName ?? ''}
-        />
-      ) : null}
-
       {/* Page header */}
       <div>
  <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">
@@ -378,7 +355,7 @@ export function DashboardClient({
 
  {/* Financial snapshot — gap-px stats bar */}
  <div
- className="grid gap-px overflow-hidden rounded-2xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)]"
+  className="grid gap-px overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-border)]"
  style={{ gridTemplateColumns: `repeat(${dashboardState.summaryCards.length}, minmax(0, 1fr))` }}
  >
  {dashboardState.summaryCards.map((card) => {
@@ -429,7 +406,7 @@ export function DashboardClient({
  className="grid-cols-2"
  />
 
- <article className="rounded-2xl bg-[var(--color-surface)] p-4 shadow-xs ring-1 ring-[var(--color-border)]">
+ <article className="rounded-2xl bg-[var(--color-surface)] p-4 shadow-xs">
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2">
  <CalendarDots className="h-4 w-4 text-[var(--color-text-muted)]" weight="regular" />
@@ -519,7 +496,7 @@ function CoreFeaturesIntro({
  size="sm"
  onClick={onDismiss}
  aria-label="Close intro"
- className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-[var(--color-surface)]/75 text-[var(--color-text-muted)] shadow-sm ring-1 ring-[var(--color-border)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)]"
+ className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-[var(--color-surface)]/75 text-[var(--color-text-muted)] shadow-sm hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)]"
  >
  <X className="h-3.5 w-3.5" weight="bold" />
  </Button>
@@ -528,7 +505,7 @@ function CoreFeaturesIntro({
  <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(37,99,235,0.16),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(22,163,74,0.12),transparent_28%)]" />
  <div className="absolute left-8 top-8 h-16 w-24 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/75 shadow-sm" />
  <div className="absolute bottom-8 right-8 h-16 w-28 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 shadow-sm" />
- <div className="relative w-[260px] rounded-[22px] bg-[var(--color-surface)] p-5 shadow-[0_18px_50px_rgba(24,29,39,0.15)] ring-1 ring-[var(--color-border)]">
+ <div className="relative w-[260px] rounded-[22px] bg-[var(--color-surface)] p-5 shadow-[0_18px_50px_rgba(24,29,39,0.15)]">
  <div className="mb-4 flex items-center justify-between">
  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${step.accent}`}>
  <Icon className="h-3.5 w-3.5" weight="bold" />
@@ -649,7 +626,7 @@ function OnboardingChecklist({
  ];
 
  return (
- <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs ring-1 ring-[var(--color-border)]">
+ <article className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
  <div>
  <p className="text-[12px] font-semibold text-[var(--color-primary)]">First payment checklist</p>
@@ -678,7 +655,7 @@ function OnboardingChecklist({
  </Button>
  </div>
  </div>
- <div className="mt-4 grid gap-px overflow-hidden rounded-xl bg-[var(--color-border)] ring-1 ring-[var(--color-border)] md:grid-cols-3">
+ <div className="mt-4 grid gap-px overflow-hidden rounded-xl bg-[var(--color-border)] md:grid-cols-3">
  {steps.map((step) => (
  <div key={step.label} className="flex items-center gap-3 bg-[var(--color-surface)] px-4 py-3">
  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${

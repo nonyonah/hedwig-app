@@ -155,7 +155,7 @@ export function AvatarEditDialog({
         <DialogBody className="space-y-4">
           {/* Preview */}
           <div className="flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] ring-2 ring-[var(--color-border)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
               {previewContent}
             </div>
           </div>

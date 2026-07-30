@@ -12,7 +12,7 @@ export interface ParsedTransaction {
   bankName: string | null;
 }
 
-interface ParseResult {
+export interface ParseResult {
   source: 'csv' | 'ofx' | 'qfx';
   bankName: string | null;
   accountNumber: string | null;

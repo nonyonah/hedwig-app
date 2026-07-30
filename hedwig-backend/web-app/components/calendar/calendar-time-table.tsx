@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Play, Square, PencilSimple, Trash, ClockCountdown } from '@/components/ui/lucide-icons';
+import { Table } from '@heroui/react';
+import { Play, Square, ClockCountdown } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
-import { hedwigApi } from '@/lib/api/client';
+import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { TimeEntry } from '@/components/time/types';
 
 function fmtDuration(seconds: number): string {
@@ -58,14 +59,6 @@ export function CalendarTimeTable({
     ? selectedDate.toDateString() === today.toDateString()
     : true;
 
-  const activeTimerMap = useMemo(() => {
-    const map = new Map<string, TimeEntry>();
-    for (const t of activeTimers) {
-      map.set(t.projectId ?? '__no_project__', t);
-    }
-    return map;
-  }, [activeTimers]);
-
   const dayTotalSeconds = useMemo(() => {
     return entries.reduce((sum, e) => sum + (e.durationSeconds || 0), 0);
   }, [entries]);
@@ -101,10 +94,6 @@ export function CalendarTimeTable({
     return Array.from(projectRows.values()).sort((a, b) => b.totalSeconds - a.totalSeconds);
   }, [entries, projectMap]);
 
-  const isRunning = (projectId: string | null) => activeTimerMap.has(projectId ?? '__no_project__');
-
-  const getActiveEntry = (projectId: string | null) => activeTimerMap.get(projectId ?? '__no_project__');
-
   const canStartAny = activeTimers.length === 0;
 
   const memberMap = useMemo(() => {
@@ -113,17 +102,74 @@ export function CalendarTimeTable({
     return map;
   }, [workspaceMembers]);
 
-  const getMemberName = (assignedTo: string | null) => {
-    if (!assignedTo) return null;
-    return memberMap.get(assignedTo)?.name ?? null;
-  };
+  const tableRows = useMemo(() => {
+    const activeTimerMap = new Map<string, TimeEntry>();
+    for (const t of activeTimers) {
+      activeTimerMap.set(t.projectId ?? '__no_project__', t);
+    }
+
+    interface TableRowData {
+      key: string;
+      projectName: string;
+      clientName: string;
+      descriptionBase: string;
+      totalSeconds: number;
+      billableAmount: number;
+      isRunning: boolean;
+      activeEntryId: string | undefined;
+      entry: TimeEntry;
+      memberNames: string[];
+    }
+
+    const result: TableRowData[] = [];
+
+    for (const row of rows) {
+      const running = activeTimerMap.has(row.projectId ?? '__no_project__');
+      const activeEntry = running ? activeTimerMap.get(row.projectId ?? '__no_project__') : undefined;
+      const members = [...new Set(row.entries.map(e => e.assignedTo).filter((v): v is string => !!v))];
+      const memberNames = members.map(id => memberMap.get(id)?.name).filter((v): v is string => !!v);
+
+      result.push({
+        key: row.projectId ?? '__no_project__',
+        projectName: row.projectName,
+        clientName: row.clientName,
+        descriptionBase: `${row.entries.length} entr${row.entries.length !== 1 ? 'ies' : 'y'}`,
+        totalSeconds: row.totalSeconds,
+        billableAmount: row.totalAmount,
+        isRunning: running,
+        activeEntryId: activeEntry?.id,
+        entry: row.entries[0],
+        memberNames,
+      });
+    }
+
+    for (const at of activeTimers) {
+      if (rows.some(r => r.projectId === at.projectId)) continue;
+      const name = at.assignedTo ? memberMap.get(at.assignedTo)?.name : null;
+
+      result.push({
+        key: at.id,
+        projectName: at.project?.name || 'No project',
+        clientName: at.project?.client?.name || '',
+        descriptionBase: at.description || 'Running',
+        totalSeconds: 0,
+        billableAmount: at.billableAmount ? Number(at.billableAmount) : 0,
+        isRunning: true,
+        activeEntryId: at.id,
+        entry: at,
+        memberNames: name ? [name] : [],
+      });
+    }
+
+    return result;
+  }, [rows, activeTimers, memberMap]);
 
   return (
-    <div className="rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+    <div className="rounded-2xl bg-[var(--color-surface)] shadow-xs">
       <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
         <div>
           <h3 className="text-[15px] font-bold text-[var(--color-foreground)]">Time</h3>
-          <p className="text-[12px] text-[var(--color-text-muted)]">
+          <p className="text-[12px] text-[var(--color-text-tertiary)]">
             {dateStr}{isToday ? ' · Today' : ''}
           </p>
         </div>
@@ -145,164 +191,94 @@ export function CalendarTimeTable({
           </div>
         </div>
       ) : (
-        <div className="divide-y divide-[var(--color-surface-secondary)]">
-          {rows.map((row) => {
-            const running = isRunning(row.projectId);
-            const activeEntry = getActiveEntry(row.projectId);
-            const rowElapsed = activeEntry ? (elapsed[activeEntry.id] ?? 0) : 0;
+        <Table>
+          <Table.ScrollContainer>
+            <Table.Content aria-label="Time entries">
+              <Table.Header>
+                <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</Table.Column>
+                <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Task</Table.Column>
+                <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Duration</Table.Column>
+                <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Billable</Table.Column>
+                <Table.Column />
+              </Table.Header>
+              <Table.Body>
+                {tableRows.map((row) => {
+                  const runningElapsed = row.isRunning && row.activeEntryId ? (elapsed[row.activeEntryId] ?? 0) : 0;
 
-            return (
-              <div key={row.projectId ?? '__no_project__'} className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]">
-                <div className="flex shrink-0">
-                  {running ? (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => onStop(activeEntry!.id)}
-                      className="h-8 w-8 rounded-full p-0"
-                      title="Stop timer"
-                    >
-                      <Square className="h-3.5 w-3.5" weight="bold" />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onStart(row.projectId ?? undefined)}
-                      disabled={!canStartAny}
-                      className="h-8 w-8 rounded-full p-0"
-                      title={canStartAny ? 'Start timer' : 'Already running elsewhere'}
-                    >
-                      <Play className="h-3.5 w-3.5" weight="bold" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
-                      {row.projectName}
-                    </span>
-                    {row.clientName && (
-                      <span className="text-[11px] text-[var(--color-text-muted)]">· {row.clientName}</span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 flex items-center gap-1 text-[12px] text-[var(--color-text-muted)]">
-                    {row.entries.length} entr{row.entries.length !== 1 ? 'ies' : 'y'}
-                    {running && (
-                      <span className="font-semibold text-[var(--color-primary)]">
-                        · {fmtDuration(rowElapsed)}
-                      </span>
-                    )}
-                    {(() => {
-                      const members = [...new Set(row.entries.map(e => e.assignedTo).filter(Boolean))];
-                      if (members.length === 0) return null;
-                      const names = members.map(id => getMemberName(id)).filter(Boolean);
-                      if (names.length === 0) return null;
-                      return <span>· {names.join(', ')}</span>;
-                    })()}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="text-right">
-                    <p className="text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">
-                      {fmtElapsed(row.totalSeconds + (running ? rowElapsed : 0))}
-                    </p>
-                    {row.totalAmount > 0 && (
-                      <p className="text-[11px] text-[var(--color-text-muted)]">
-                        ${row.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onEdit(row.entries[0]); }}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
-                      aria-label="Edit entry"
-                    >
-                      <PencilSimple className="h-3.5 w-3.5" weight="bold" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onDelete(row.entries[0].id); }}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
-                      aria-label="Delete entry"
-                    >
-                      <Trash className="h-3.5 w-3.5" weight="bold" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {activeTimers.length > 0 && (
-            <>
-              {activeTimers.map((at) => {
-                if (rows.some(r => r.projectId === at.projectId)) return null;
-                const elapsedSec = elapsed[at.id] ?? 0;
-                return (
-                  <div key={at.id} className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--color-background)]">
-                    <div className="flex shrink-0">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => onStop(at.id)}
-                        className="h-8 w-8 rounded-full p-0"
-                        title="Stop timer"
-                      >
-                        <Square className="h-3.5 w-3.5" weight="bold" />
-                      </Button>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
-                          {at.project?.name || 'No project'}
-                        </span>
-                        {at.project?.client && (
-                          <span className="text-[11px] text-[var(--color-text-muted)]">· {at.project.client.name}</span>
+                  return (
+                    <Table.Row key={row.key}>
+                      <Table.Cell>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-semibold text-[var(--color-foreground)]">
+                            {row.projectName}
+                          </span>
+                          {row.clientName && (
+                            <span className="text-[11px] text-[var(--color-text-muted)]">· {row.clientName}</span>
+                          )}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-[12px] text-[var(--color-text-muted)]">{row.descriptionBase}</span>
+                          {row.isRunning && (
+                            <span className="text-[12px] font-semibold text-[var(--color-primary)]">
+                              · {fmtDuration(runningElapsed)}
+                            </span>
+                          )}
+                          {row.memberNames.length > 0 && (
+                            <span className="text-[12px] text-[var(--color-text-muted)]">· {row.memberNames.join(', ')}</span>
+                          )}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">
+                        {fmtElapsed(row.totalSeconds + runningElapsed)}
+                      </Table.Cell>
+                      <Table.Cell className="text-right">
+                        {row.billableAmount > 0 && (
+                          <span className="text-[11px] text-[var(--color-text-muted)]">
+                            ${row.billableAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
                         )}
-                      </div>
-                      <p className="mt-0.5 flex items-center gap-1 text-[12px] text-[var(--color-text-muted)]">
-                        {at.description || 'Running'}
-                        <span className="font-semibold text-[var(--color-primary)]">
-                          · {fmtDuration(elapsedSec)}
-                        </span>
-                        {at.assignedTo && (() => {
-                          const name = getMemberName(at.assignedTo);
-                          return name ? <span>· {name}</span> : null;
-                        })()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          onClick={() => onEdit(at)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-surface-secondary)]"
-                          aria-label="Edit entry"
-                        >
-                          <PencilSimple className="h-3.5 w-3.5" weight="bold" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDelete(at.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
-                          aria-label="Delete entry"
-                        >
-                          <Trash className="h-3.5 w-3.5" weight="bold" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="flex items-center gap-1 justify-end">
+                          {row.isRunning ? (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => onStop(row.activeEntryId!)}
+                              className="h-8 w-8 rounded-full p-0"
+                              title="Stop timer"
+                            >
+                              <Square className="h-3.5 w-3.5" weight="bold" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => onStart(row.entry.projectId ?? undefined)}
+                              disabled={!canStartAny}
+                              className="h-8 w-8 rounded-full p-0"
+                              title={canStartAny ? 'Start timer' : 'Already running elsewhere'}
+                            >
+                              <Play className="h-3.5 w-3.5" weight="bold" />
+                            </Button>
+                          )}
+                          <RowActionsMenu
+                            items={[
+                              { label: 'Edit', onClick: () => onEdit(row.entry) },
+                              { label: 'Delete', onClick: () => onDelete(row.entry.id), destructive: true },
+                            ]}
+                          />
+                        </div>
+                      </Table.Cell>
+                    </Table.Row>
+                  );
+                })}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
       )}
 
       <div className="border-t border-[var(--color-border)] px-5 py-3">

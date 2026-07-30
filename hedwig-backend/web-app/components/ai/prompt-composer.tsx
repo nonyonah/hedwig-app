@@ -75,11 +75,11 @@ export function PromptComposer({ onDraft }: { onDraft: (draft: { invoiceDraft?: 
  </button>
  </div>
  <form className="space-y-4" onSubmit={submit}>
- <Textarea
- placeholder={mode === 'invoice' ? 'Invoice Northstar Labs $2,100 for the payout dashboard milestone due next Friday.' : 'Create a Base USDC payment link for $950 for the design QA sprint.'}
- {...form.register('prompt')}
- className="bg-[var(--color-background)]"
- />
+  <Textarea fullWidth
+  placeholder={mode === 'invoice' ? 'Invoice Northstar Labs $2,100 for the payout dashboard milestone due next Friday.' : 'Create a Base USDC payment link for $950 for the design QA sprint.'}
+  {...form.register('prompt')}
+  className="bg-[var(--color-background)]"
+  />
  {form.formState.errors.prompt ? <p className="text-sm text-[var(--color-text-tertiary)]">{form.formState.errors.prompt.message}</p> : null}
  <div className="flex flex-wrap gap-3">
  <Button disabled={loading} type="submit">

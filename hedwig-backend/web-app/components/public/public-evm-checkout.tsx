@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Alert } from '@heroui/react';
 import { ArrowSquareOut, CheckCircle } from '@/components/ui/lucide-icons';
 import { encodeFunctionData, parseUnits } from 'viem';
 import { backendConfig } from '@/lib/auth/config';
@@ -440,9 +441,13 @@ export function PublicEvmCheckout({
       ) : null}
 
       {error ? (
-        <div className="mt-4 rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-text-tertiary)]">
-          {error}
-        </div>
+        <Alert status="danger">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Title>Payment Error</Alert.Title>
+            <Alert.Description>{error}</Alert.Description>
+          </Alert.Content>
+        </Alert>
       ) : null}
 
       {/* Celo / MiniPay info card temporarily disabled. */}

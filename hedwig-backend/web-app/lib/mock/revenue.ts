@@ -42,7 +42,7 @@ export const expenses: ExpenseRecord[] = [
     amount: 2400,
     currency: 'USD',
     convertedAmountUsd: 2400,
-    category: 'contractor',
+    category: 'contractors',
     projectId: 'project_1',
     clientId: 'client_1',
     note: 'Frontend contractor for payout dashboard sprint',

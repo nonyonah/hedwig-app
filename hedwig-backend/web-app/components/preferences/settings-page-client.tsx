@@ -11,6 +11,7 @@ import {
   Trash,
   WarningCircle
 } from '@/components/ui/lucide-icons';
+import { Alert } from '@heroui/react';
 import { Avatar } from '@/components/ui/avatar';
 import { AvatarEditDialog, type AvatarValue } from '@/components/ui/avatar-edit-dialog';
 import { useToast } from '@/components/providers/toast-provider';
@@ -370,10 +371,10 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Manage your workspace preferences and security controls.</p>
         </div>
 
-        <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+        <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
           <div className="flex items-center gap-4 border-b border-[var(--color-surface-tertiary)] px-5 py-4">
             <button type="button" onClick={() => setAvatarDialogOpen(true)} className="group relative shrink-0">
-              <Avatar className="h-12 w-12 text-[14px]" label={fullName} src={avatarUrl} />
+              <Avatar label={fullName} src={avatarUrl} size="xl" />
               <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-accent)] text-[9px] text-white opacity-0 shadow-xs transition-opacity group-hover:opacity-100">
                 <PencilSimple className="h-2.5 w-2.5" weight="bold" />
               </span>
@@ -389,15 +390,15 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           <div className="grid gap-3 p-5 md:grid-cols-3">
             <label className="md:col-span-1">
               <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">First name</span>
-              <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="First name" />
+              <Input fullWidth value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="First name" />
             </label>
             <label className="md:col-span-1">
               <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Last name</span>
-              <Input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" />
+              <Input fullWidth value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" />
             </label>
             <label className="md:col-span-1">
               <span className="mb-1 block text-[12px] font-semibold text-[var(--color-text-tertiary)]">Email</span>
-              <Input value={email} disabled />
+              <Input fullWidth value={email} disabled />
             </label>
           </div>
           <div className="border-t border-[var(--color-surface-tertiary)] px-5 py-4">
@@ -579,7 +580,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           </SettingsRow>
         </SettingsSection>
 
-        <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs ring-1 ring-[var(--color-border)]">
+        <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
           <div className="border-b border-[var(--color-surface-tertiary)] px-5 py-4">
             <h2 className="text-[16px] font-semibold text-[var(--color-foreground)]">Account</h2>
             <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Session and account lifecycle actions.</p>
@@ -609,15 +610,16 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 </DialogDescription>
               </DialogHeader>
               <DialogBody className="space-y-4">
-                <div className="flex items-start gap-3 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
-                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
-                  <div>
-                    <p className="text-[13px] font-semibold text-[var(--color-warning)]">You will lose access to your funds</p>
-                    <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-warning)]">
+                <Alert status="warning">
+                  <Alert.Indicator />
+                  <Alert.Content>
+                    <WarningCircle className="h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
+                    <Alert.Title>You will lose access to your funds</Alert.Title>
+                    <Alert.Description>
                       If you have USDC or other tokens in your Hedwig wallet, export your private key now so you can access them later. Hedwig cannot recover this key for you.
-                    </p>
-                  </div>
-                </div>
+                    </Alert.Description>
+                  </Alert.Content>
+                </Alert>
               </DialogBody>
               <DialogFooter className="flex-col gap-2 sm:flex-row">
                 <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
@@ -639,15 +641,16 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 <DialogDescription>This action is permanent and cannot be undone.</DialogDescription>
               </DialogHeader>
               <DialogBody className="space-y-4">
-                <div className="flex items-start gap-3 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3">
-                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
-                  <div>
-                    <p className="text-[13px] font-semibold text-[var(--color-warning)]">Final confirmation</p>
-                    <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-warning)]">
+                <Alert status="warning">
+                  <Alert.Indicator />
+                  <Alert.Content>
+                    <WarningCircle className="h-4 w-4 shrink-0 text-[var(--color-warning)]" weight="fill" />
+                    <Alert.Title>Final confirmation</Alert.Title>
+                    <Alert.Description>
                       Deleting your account permanently removes your web workspace, invoices, payment links, projects, and contracts.
-                    </p>
-                  </div>
-                </div>
+                    </Alert.Description>
+                  </Alert.Content>
+                </Alert>
               </DialogBody>
               <DialogFooter>
                 <Button variant="secondary" onClick={() => setDeleteStep('backup')}>Back</Button>

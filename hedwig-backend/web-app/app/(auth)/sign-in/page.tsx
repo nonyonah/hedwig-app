@@ -4,9 +4,11 @@ import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/react-
 import { useRouter } from 'next/navigation';
 import { usePostHog } from 'posthog-js/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from '@heroui/react';
 import { Button } from '@/components/ui/button';
 import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import { Input } from '@/components/ui/input';
+import { Loader } from '@/components/ui/loader';
 import { CaretLeft } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 
@@ -287,14 +289,12 @@ export default function SignInPage() {
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
-                  className="h-10 rounded-xl"
+                  className="h-10 w-full rounded-xl"
                 />
               </div>
 
               {errorMessage && (
-                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
-                  {errorMessage}
-                </p>
+                <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{errorMessage}</Alert.Title></Alert.Content></Alert>
               )}
 
               <Button
@@ -354,9 +354,7 @@ export default function SignInPage() {
               </div>
 
               {errorMessage && (
-                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
-                  {errorMessage}
-                </p>
+                <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{errorMessage}</Alert.Title></Alert.Content></Alert>
               )}
 
               <Button
@@ -389,7 +387,7 @@ export default function SignInPage() {
         {/* ── Loading ── */}
         {stage === 'loading' && (
           <div className="flex flex-col items-center gap-6 py-12">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]" role="status" aria-label="Loading" />
+            <Loader size={20} />
           </div>
         )}
 
@@ -483,7 +481,7 @@ export default function SignInPage() {
                   <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-secondary)]">
                     Organization name
                   </label>
-                  <Input
+                  <Input fullWidth
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
                     placeholder="e.g. Acme Inc."
@@ -494,9 +492,7 @@ export default function SignInPage() {
               )}
 
               {errorMessage && (
-                <p className="rounded-full border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-3 py-2 text-[12px] text-[var(--color-danger)]">
-                  {errorMessage}
-                </p>
+                <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{errorMessage}</Alert.Title></Alert.Content></Alert>
               )}
 
               <Button

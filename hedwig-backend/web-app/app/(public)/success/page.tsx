@@ -13,7 +13,7 @@ export default async function PublicSuccessPage({
  return (
  <PublicDocumentFrame title={isError ? 'Payment update required' : 'Payment complete'}>
  <div className="mx-auto max-w-md">
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border)] shadow-xs">
+ <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
  {/* Colored band */}
  <div className={`h-1.5 w-full ${isError ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-success)]'}`} />
 
