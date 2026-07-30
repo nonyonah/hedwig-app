@@ -21,14 +21,28 @@ type Timeframe = typeof TIMEFRAMES[number];
 
 const TOKEN_ICON: Record<string, string> = {
  'Base:USDC': '/icons/tokens/usdc.png',
- 'Solana:USDC': '/icons/tokens/usdc.png'
+ 'Arbitrum:USDC': '/icons/tokens/usdc.png',
+ 'Polygon:USDC': '/icons/tokens/usdc.png',
+ 'Optimism:USDC': '/icons/tokens/usdc.png',
+ 'Solana:USDC': '/icons/tokens/usdc.png',
+ 'Base:ETH': '/icons/tokens/eth.png',
+ 'Arbitrum:ETH': '/icons/tokens/eth.png',
+ 'Optimism:ETH': '/icons/tokens/eth.png',
 };
 const CHAIN_ICON: Record<string, string> = {
  Base: '/icons/networks/base.png',
- Solana: '/icons/networks/solana.png'
+ Solana: '/icons/networks/solana.png',
+ Arbitrum: '/icons/networks/arbitrum.png',
+ Polygon: '/icons/networks/polygon.png',
+ Optimism: '/icons/networks/optimism.png',
 };
-const EXPLORER_BASE = (addr: string) => `https://basescan.org/token/${addr}`;
-const EXPLORER_SOL = (addr: string) => `https://solscan.io/token/${addr}`;
+const EXPLORER: Record<string, (addr: string) => string> = {
+ Base: (addr) => `https://basescan.org/token/${addr}`,
+ Solana: (addr) => `https://solscan.io/token/${addr}`,
+ Arbitrum: (addr) => `https://arbiscan.io/token/${addr}`,
+ Polygon: (addr) => `https://polygonscan.com/token/${addr}`,
+ Optimism: (addr) => `https://optimistic.etherscan.io/token/${addr}`,
+};
 
 type ChartPoint = { t: number; p: number };
 type MarketData = {
@@ -160,7 +174,7 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
 
  const contractAddr = market?.contractAddress ?? null;
  const explorerLink = contractAddr
- ? (asset.chain === 'Solana' ? EXPLORER_SOL(contractAddr) : EXPLORER_BASE(contractAddr))
+ ? (EXPLORER[asset.chain]?.(contractAddr) ?? EXPLORER.Base(contractAddr))
  : null;
  const shortAddr = contractAddr
  ? `${contractAddr.slice(0, 10)}…${contractAddr.slice(-6)}`
