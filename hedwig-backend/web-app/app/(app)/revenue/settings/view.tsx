@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Faders, Bank, Globe, Envelope, CaretDown } from '@/components/ui/lucide-icons';
+import { Plus, Trash, Faders, Bank, Globe, CaretDown } from '@/components/ui/lucide-icons';
 import { Button, Dropdown, Label } from '@heroui/react';
 import { Loader } from '@/components/ui/loader';
 import { hedwigApi } from '@/lib/api/client';
@@ -56,8 +56,6 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
       toast({ type: 'error', title: 'Failed to delete', message: 'Could not delete rule.' });
     }
   };
-
-  const emailForwardingAddress = `${accessToken?.slice(0, 8) || 'your-id'}@receipts.hedwig.app`;
 
   return (
     <div className="space-y-8">
@@ -229,22 +227,6 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
         </div>
       </div>
 
-      {/* Receipt Forwarding */}
-      <div className="space-y-2">
-        <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Receipt Forwarding</p>
-        <p className="text-[13px] text-[var(--color-text-tertiary)]">Forward receipts via email to automatically create expenses.</p>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface-secondary)]">
-              <Envelope className="h-4 w-4 text-[var(--color-text-muted)]" weight="bold" />
-            </span>
-            <div className="flex-1">
-              <p className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Forward receipts to</p>
-              <p className="mt-0.5 select-all text-[13px] font-mono font-semibold text-[var(--color-foreground)]">{emailForwardingAddress}</p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

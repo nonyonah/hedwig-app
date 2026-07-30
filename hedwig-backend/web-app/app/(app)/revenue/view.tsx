@@ -22,11 +22,9 @@ import {
   Trash,
   UsersThree,
   Warning,
-  GoogleSheetsLogo,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Button as HButton, Dropdown, Label, Table } from '@heroui/react';
-import { Loader } from '@/components/ui/loader';
 import { Input } from '@/components/ui/input';
 import { DateInput } from '@/components/ui/date-input';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
@@ -651,9 +649,6 @@ export function RevenueClient({
  const [projectsByRevenue, setProjectsByRevenue] = useState<ProjectRevenueBreakdown[]>(projectBreakdown);
  const [sourceBreakdown, setSourceBreakdown] = useState<PaymentSourceBreakdown[]>(paymentSources);
  const [activityItems, setActivityItems] = useState<ActivityEvent[]>(activityFeed);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [exportingToSheets, setExportingToSheets] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
@@ -682,18 +677,6 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
    document.addEventListener('mousedown', handleClick);
    return () => document.removeEventListener('mousedown', handleClick);
   }, [showImportMenu]);
-
-  // Click outside to close export menu
-  useEffect(() => {
-    if (!showExportMenu) return;
-    const handleClick = (e: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setShowExportMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showExportMenu]);
 
   const apiOpts = { accessToken };
 
@@ -884,45 +867,7 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
   const openAddCredit = () => setShowCreditDialog(true);
   const openEditExpense = (exp: ExpenseRecord) => { setEditingExpense(exp); setShowExpenseDialog(true); };
 
-  const handleExportXlsx = async () => {
-    setShowExportMenu(false);
-    if (!accessToken) return;
-    try {
-      const blob = await hedwigApi.ledgerExportBlob(range, { accessToken });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `hedwig-pnl-${range}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast({ type: 'error', title: 'Export failed', message: 'Could not download XLSX report.' });
-    }
-  };
-
-  const handleExportSheets = async () => {
-    setShowExportMenu(false);
-    if (!accessToken) return;
-    setExportingToSheets(true);
-    try {
-      const result = await hedwigApi.exportToGoogleSheets(range, { accessToken });
-      if (result.needsConnection && result.redirectUrl) {
-        window.open(result.redirectUrl, '_blank');
-        toast({ type: 'info', title: 'Connect Google Sheets', message: 'Complete the OAuth flow in the new tab, then try exporting again.' });
-      } else if (result.spreadsheetUrl) {
-        window.open(result.spreadsheetUrl, '_blank');
-        toast({ type: 'success', title: 'Exported to Sheets', message: 'P&L data has been pushed to Google Sheets.' });
-      }
-    } catch {
-      toast({ type: 'error', title: 'Export failed', message: 'Could not export to Google Sheets. Check your connection.' });
-    } finally {
-      setExportingToSheets(false);
-    }
-  };
-
- /* derived */
+  /* derived */
  const unpaidInvoices = invoices.filter((inv) => inv.status === 'sent' || inv.status === 'viewed');
  const overdueInvoices = invoices.filter((inv) => inv.status === 'overdue');
  const paidInvoices = invoices.filter((inv) => inv.status === 'paid').slice(0, 3);
@@ -980,43 +925,7 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
       </div>
      )}
     </div>
-    <div className="relative" ref={exportMenuRef}>
-     <button
-      type="button"
-      aria-haspopup="menu"
-      aria-expanded={showExportMenu}
-      onClick={() => setShowExportMenu((p) => !p)}
-      className={'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition ' + (showExportMenu
-       ? 'border-[var(--color-border)] bg-[var(--color-surface-tertiary)] text-[var(--color-foreground)]'
-       : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] hover:text-[var(--color-foreground)]')}
-     >
-      <DownloadSimple className="h-4 w-4" weight="bold" />
-      <span>Export</span>
-      <CaretDown className={'h-3.5 w-3.5 transition ' + (showExportMenu ? 'rotate-180' : '')} weight="bold" />
-     </button>
 
-     {showExportMenu && (
-      <div className="absolute right-0 top-9 z-50 w-52 overflow-hidden rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] py-1 shadow-lg shadow-black/5">
-       <button
-        type="button"
-        onClick={handleExportXlsx}
-        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
-       >
-        <DownloadSimple className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
-        Download XLSX
-       </button>
-       <button
-        type="button"
-        onClick={handleExportSheets}
-        disabled={exportingToSheets}
-        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] disabled:opacity-50"
-       >
-        {exportingToSheets ? <Loader size={14} /> : <GoogleSheetsLogo size={14} className="text-[var(--color-text-placeholder)]" />}
-        Export to Google Sheets
-       </button>
-      </div>
-     )}
-    </div>
    </div>
   </div>
   <ImportDialog

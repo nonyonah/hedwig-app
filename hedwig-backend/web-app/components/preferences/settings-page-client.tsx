@@ -11,7 +11,7 @@ import {
   Trash,
   WarningCircle
 } from '@/components/ui/lucide-icons';
-import { Alert } from '@heroui/react';
+import { Alert, AlertDialog, Switch } from '@heroui/react';
 import { Avatar } from '@/components/ui/avatar';
 import { AvatarEditDialog, type AvatarValue } from '@/components/ui/avatar-edit-dialog';
 import { useToast } from '@/components/providers/toast-provider';
@@ -87,6 +87,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteStep, setDeleteStep] = useState<'backup' | 'warn' | 'confirm'>('backup');
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [billingStatus, setBillingStatus] = useState<BillingStatusSummary | null>(null);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
@@ -129,6 +130,8 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
       toast({ type: 'success', title: `${label} connected` });
+      // Auto-refresh the connection status so it transitions from "pending" to "active"
+      fetch(`/api/integrations/composio/refresh/${connected}`, { method: 'POST' }).catch(() => null);
       router.replace('/settings');
     } else if (error) {
       toast({ type: 'error', title: 'Integration error', message: decodeURIComponent(error) });
@@ -463,22 +466,9 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
         <SettingsSection title="Assistant Notifications" description="Choose how Hedwig keeps you informed about your workspace.">
           <SettingsRow label="Client reminders" description="Send automatic payment reminders to clients on due dates.">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={clientRemindersEnabled}
-              disabled={isSavingReminders}
-              onClick={() => void handleToggleReminders(!clientRemindersEnabled)}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
-                clientRemindersEnabled ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
-              }`}
-            >
-              <span
-                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[var(--color-surface)] shadow-xs transition-transform ${
-                  clientRemindersEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+            <Switch isSelected={clientRemindersEnabled} isDisabled={isSavingReminders} onChange={() => void handleToggleReminders(!clientRemindersEnabled)}>
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+            </Switch>
           </SettingsRow>
 
           {([{
@@ -499,22 +489,9 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               description: 'In-app alert when a project deadline is within 3 days.'
             }] as Array<{ key: keyof typeof asstPrefs; label: string; description: string }>).map(({ key, label, description }) => (
               <SettingsRow key={key} label={label} description={description}>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={asstPrefs[key]}
-                  disabled={isSavingAsstPref === key}
-                  onClick={() => void handleAsstPrefToggle(key, !asstPrefs[key])}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
-                    asstPrefs[key] ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[var(--color-surface)] shadow-xs transition-transform ${
-                      asstPrefs[key] ? 'translate-x-4' : 'translate-x-0.5'
-                    }`}
-                  />
-                </button>
+                <Switch isSelected={asstPrefs[key]} isDisabled={isSavingAsstPref === key} onChange={() => void handleAsstPrefToggle(key, !asstPrefs[key])}>
+                  <Switch.Control><Switch.Thumb /></Switch.Control>
+                </Switch>
               </SettingsRow>
             ))}
         </SettingsSection>
@@ -586,7 +563,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">Session and account lifecycle actions.</p>
           </div>
           <div className="flex flex-wrap gap-3 px-5 py-4">
-            <Button size="sm" variant="secondary" onClick={() => router.push('/sign-out')}>
+            <Button size="sm" variant="secondary" onClick={() => setShowLogoutConfirm(true)}>
               <SignOut className="h-4 w-4" weight="bold" />
               Log out
             </Button>
@@ -596,6 +573,27 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             </Button>
           </div>
         </section>
+
+        <AlertDialog.Backdrop isOpen={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+          <AlertDialog.Container>
+            <AlertDialog.Dialog className="sm:max-w-[400px]">
+              <AlertDialog.CloseTrigger />
+              <AlertDialog.Header>
+                <AlertDialog.Icon status="warning" />
+                <AlertDialog.Heading>Log out?</AlertDialog.Heading>
+              </AlertDialog.Header>
+              <AlertDialog.Body>
+                <p className="text-[13px] text-[var(--color-text-secondary)] leading-relaxed">
+                  Are you sure you want to log out? You will need to sign in again to access your account.
+                </p>
+              </AlertDialog.Body>
+              <AlertDialog.Footer>
+                <Button variant="secondary" onClick={() => setShowLogoutConfirm(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => router.push('/sign-out')}>Log out</Button>
+              </AlertDialog.Footer>
+            </AlertDialog.Dialog>
+          </AlertDialog.Container>
+        </AlertDialog.Backdrop>
       </div>
 
       {/* Account deletion — 3-step dialog: backup → warn → confirm */}

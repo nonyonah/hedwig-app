@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Switch } from '@heroui/react';
 import { backendConfig } from '@/lib/auth/config';
 import { useToast } from '@/components/providers/toast-provider';
 import { SettingsRow } from './settings-row';
@@ -54,22 +55,9 @@ export function AutoSettlementSection({ accessToken }: { accessToken: string | n
         label="Auto-aggregation"
         description="When enabled, USDC received on any supported chain is automatically combined into your available Gateway balance."
       >
-        <button
-          type="button"
-          role="switch"
-          aria-checked={gatewayAutoDepositEnabled}
-          disabled={isSaving}
-          onClick={() => void handleToggle(!gatewayAutoDepositEnabled)}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
-            gatewayAutoDepositEnabled ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-input)]'
-          }`}
-        >
-          <span
-            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[var(--color-surface)] shadow-xs transition-transform ${
-              gatewayAutoDepositEnabled ? 'translate-x-4' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
+        <Switch isSelected={gatewayAutoDepositEnabled} isDisabled={isSaving} onChange={() => void handleToggle(!gatewayAutoDepositEnabled)}>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+        </Switch>
       </SettingsRow>
     </SettingsSection>
   );

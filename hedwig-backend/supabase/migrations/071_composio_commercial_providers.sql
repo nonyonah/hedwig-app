@@ -14,7 +14,8 @@ CHECK (provider IN (
   'google_docs',
   'quickbooks',
   'xero',
-  'linear'
+  'linear',
+  'google_sheets'
 ));
 
 -- Add sync_settings column for per-integration preferences

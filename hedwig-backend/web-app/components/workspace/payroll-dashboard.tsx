@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
-import { Alert, Button as HeroUIButton, Dropdown, Label } from '@heroui/react';
+import { Alert, Button as HeroUIButton, Dropdown, Label, Tabs } from '@heroui/react';
 import {
   ArrowDown, ArrowRight, ArrowsClockwise, CaretDown, CaretRight,
   Check, CheckCircle, Coins, DotsThreeOutline, IdentificationCard, Trash, UsersThree, Warning, X, ArrowSquareOut,
@@ -700,18 +700,21 @@ function AddFundsButton() {
  {/* Stat grid */}
  <AttachedStatGrid items={statItems} className="grid-cols-1 sm:grid-cols-3" />
 
- {/* Tab bar */}
- <div className="flex gap-1 rounded-xl bg-[var(--color-surface-tertiary)] p-1 w-fit">
- {([
- { key: 'history' as const, label: 'History' },
- { key: 'scheduled' as const, label: 'Scheduled' },
- ]).map(t => (
- <button key={t.key} onClick={() => setMainTab(t.key)}
- className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition ${
- mainTab === t.key ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]'
- }`}>{t.label}</button>
- ))}
- </div>
+  {/* Tab bar */}
+  <Tabs variant="primary" selectedKey={mainTab} onSelectionChange={(key) => setMainTab(key as MainTab)} className="w-fit">
+    <Tabs.ListContainer>
+      <Tabs.List aria-label="Payroll view">
+        <Tabs.Tab id="history">
+          History
+          <Tabs.Indicator />
+        </Tabs.Tab>
+        <Tabs.Tab id="scheduled">
+          Scheduled
+          <Tabs.Indicator />
+        </Tabs.Tab>
+      </Tabs.List>
+    </Tabs.ListContainer>
+  </Tabs>
 
  {/* ── Run Payroll modal ── */}
  {payrollOpen && (

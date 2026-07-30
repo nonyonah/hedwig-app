@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Button, Card } from '@heroui/react';
 import { Check, Sparkle } from '@/components/ui/lucide-icons';
-import { Button } from '@/components/ui/button';
 import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { isOnPaidPlan } from '@/lib/billing/feature-gates';
@@ -190,85 +190,89 @@ export function PricingPageClient({
         <div className="grid gap-4 lg:grid-cols-3">
 
           {/* Free */}
-          <article className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-            <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
-              <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Free</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">$0</span>
-                <span className="text-[13px] text-[var(--color-text-muted)]">/ month</span>
-              </div>
-              <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">Core tools to manage clients, invoices, and payments.</p>
-            </div>
-            <div className="space-y-3 mb-6">
-              {FREE_PLAN_FEATURES.map((item) => (
-                <div key={item} className="flex items-center gap-2.5">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
-                    <Check className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" weight="bold" />
-                  </span>
-                  <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
+          <Card className="rounded-2xl border border-[var(--color-border)] p-0">
+            <div className="px-6 pt-6">
+              <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
+                <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Free</p>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">$0</span>
+                  <span className="text-[13px] text-[var(--color-text-muted)]">/ month</span>
                 </div>
-              ))}
+                <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">Core tools to manage clients, invoices, and payments.</p>
+              </div>
+              <div className="space-y-3 mb-6">
+                {FREE_PLAN_FEATURES.map((item) => (
+                  <div key={item} className="flex items-center gap-2.5">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
+                      <Check className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" weight="bold" />
+                    </span>
+                    <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <Button asChild variant="secondary" className="w-full">
-              <Link href={accessToken ? '/dashboard' : '/sign-in'}>
+            <div className="px-6 pb-6">
+              <Button variant="secondary" className="w-full" onPress={() => router.push(accessToken ? '/dashboard' : '/sign-in')}>
                 {accessToken ? 'Continue with Free' : 'Get started for free'}
-              </Link>
-            </Button>
-          </article>
+              </Button>
+            </div>
+          </Card>
 
           {/* Starter */}
-          <article className={`relative rounded-2xl border bg-[var(--color-surface)] p-6 ${
+          <Card className={`relative rounded-2xl border p-0 ${
             plan === 'free' || plan === 'starter'
               ? 'border-[var(--color-accent-soft)] ring-1 ring-[var(--color-accent-soft)]'
               : 'border-[var(--color-border)]'
           }`}>
             {plan === 'free' && (
-              <div className="absolute right-5 top-5">
+              <div className="absolute right-5 top-5 z-10">
                 <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-tertiary)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
                   <Sparkle className="h-2.5 w-2.5" weight="fill" />
                   Recommended
                 </span>
               </div>
             )}
-            <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
-              <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Starter</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">{priceFor('starter').value}</span>
-                <span className="text-[13px] text-[var(--color-text-muted)]">{priceFor('starter').suffix}</span>
-                {priceFor('starter').compareAt && (
-                  <>
-                    <span className="mx-1 text-[13px] text-[var(--color-text-muted)]">—</span>
-                    <span className="text-[13px] text-[var(--color-text-muted)] line-through">{priceFor('starter').compareAt}</span>
-                  </>
-                )}
-              </div>
-              <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">{priceFor('starter').helper} · cancel anytime.</p>
-              {plan === 'free' && (
-                <p className="mt-1 text-[12px] font-medium text-[var(--color-success)]">7-day free trial included</p>
-              )}
-            </div>
-            <div className="space-y-3 mb-6">
-              {[...FREE_PLAN_FEATURES, ...STARTER_PLAN_FEATURES].map((item, i) => (
-                <div key={item} className="flex items-center gap-2.5">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
-                    <Check className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" weight="bold" />
-                  </span>
-                  <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
-                  {i >= FREE_PLAN_FEATURES.length && (
-                    <span className="ml-auto shrink-0 text-[10px] font-medium text-[var(--color-text-tertiary)]">Starter</span>
+            <div className="px-6 pt-6">
+              <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
+                <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Starter</p>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">{priceFor('starter').value}</span>
+                  <span className="text-[13px] text-[var(--color-text-muted)]">{priceFor('starter').suffix}</span>
+                  {priceFor('starter').compareAt && (
+                    <>
+                      <span className="mx-1 text-[13px] text-[var(--color-text-muted)]">—</span>
+                      <span className="text-[13px] text-[var(--color-text-muted)] line-through">{priceFor('starter').compareAt}</span>
+                    </>
                   )}
                 </div>
-              ))}
+                <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">{priceFor('starter').helper} · cancel anytime.</p>
+                {plan === 'free' && (
+                  <p className="mt-1 text-[12px] font-medium text-[var(--color-success)]">7-day free trial included</p>
+                )}
+              </div>
+              <div className="space-y-3 mb-6">
+                {[...FREE_PLAN_FEATURES, ...STARTER_PLAN_FEATURES].map((item, i) => (
+                  <div key={item} className="flex items-center gap-2.5">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
+                      <Check className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" weight="bold" />
+                    </span>
+                    <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
+                    {i >= FREE_PLAN_FEATURES.length && (
+                      <span className="ml-auto shrink-0 text-[10px] font-medium text-[var(--color-text-tertiary)]">Starter</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 px-6 pb-6">
               {plan === 'starter' ? (
-                <Button variant="outline" className="w-full" disabled>
+                <Button variant="outline" className="w-full" isDisabled>
                   {buttonFor('starter')}
                 </Button>
               ) : (
                 <Button
-                  onClick={() => startCheckout('starter')}
-                  disabled={isRedirecting[`starter-${interval}`]}
+                  onPress={() => startCheckout('starter')}
+                  isDisabled={isRedirecting[`starter-${interval}`]}
                   className="w-full"
                 >
                   {buttonFor('starter')}
@@ -278,59 +282,61 @@ export function PricingPageClient({
                 <p className="text-center text-[11px] text-[var(--color-text-tertiary)]">7 days free · then {priceFor('starter').value}{priceFor('starter').suffix} · cancel anytime</p>
               )}
             </div>
-          </article>
+          </Card>
 
           {/* Pro */}
-          <article className={`relative rounded-2xl border bg-[var(--color-surface)] p-6 ${
+          <Card className={`relative rounded-2xl border p-0 ${
             plan === 'pro'
               ? 'border-[var(--color-accent-soft)] ring-1 ring-[var(--color-accent-soft)]'
               : 'border-[var(--color-border)]'
           }`}>
-            <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
-              <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Pro</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">{priceFor('pro').value}</span>
-                <span className="text-[13px] text-[var(--color-text-muted)]">{priceFor('pro').suffix}</span>
-                {priceFor('pro').compareAt && (
-                  <>
-                    <span className="mx-1 text-[13px] text-[var(--color-text-muted)]">—</span>
-                    <span className="text-[13px] text-[var(--color-text-muted)] line-through">{priceFor('pro').compareAt}</span>
-                  </>
+            <div className="px-6 pt-6">
+              <div className="border-b border-[var(--color-surface-tertiary)] pb-5 mb-5">
+                <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Pro</p>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-[36px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">{priceFor('pro').value}</span>
+                  <span className="text-[13px] text-[var(--color-text-muted)]">{priceFor('pro').suffix}</span>
+                  {priceFor('pro').compareAt && (
+                    <>
+                      <span className="mx-1 text-[13px] text-[var(--color-text-muted)]">—</span>
+                      <span className="text-[13px] text-[var(--color-text-muted)] line-through">{priceFor('pro').compareAt}</span>
+                    </>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">{priceFor('pro').helper} · cancel anytime.</p>
+                {plan === 'free' && (
+                  <p className="mt-1 text-[12px] font-medium text-[var(--color-success)]">7-day free trial included</p>
                 )}
               </div>
-              <p className="mt-1.5 text-[13px] text-[var(--color-text-muted)]">{priceFor('pro').helper} · cancel anytime.</p>
-              {plan === 'free' && (
-                <p className="mt-1 text-[12px] font-medium text-[var(--color-success)]">7-day free trial included</p>
-              )}
+              <div className="space-y-3 mb-6">
+                {[...FREE_PLAN_FEATURES, ...STARTER_PLAN_FEATURES, ...PRO_PLAN_FEATURES].map((item, i) => {
+                  const freeCount = FREE_PLAN_FEATURES.length;
+                  const starterCount = STARTER_PLAN_FEATURES.length;
+                  const isFree = i < freeCount;
+                  const isStarter = i < freeCount + starterCount;
+                  return (
+                    <div key={item} className="flex items-center gap-2.5">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
+                        <Check className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" weight="bold" />
+                      </span>
+                      <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
+                      {!isFree && !isStarter && (
+                        <span className="ml-auto shrink-0 text-[10px] font-medium text-[var(--color-text-tertiary)]">Pro</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="space-y-3 mb-6">
-              {[...FREE_PLAN_FEATURES, ...STARTER_PLAN_FEATURES, ...PRO_PLAN_FEATURES].map((item, i) => {
-                const freeCount = FREE_PLAN_FEATURES.length;
-                const starterCount = STARTER_PLAN_FEATURES.length;
-                const isFree = i < freeCount;
-                const isStarter = i < freeCount + starterCount;
-                return (
-                  <div key={item} className="flex items-center gap-2.5">
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)]">
-                      <Check className="h-2.5 w-2.5 text-[var(--color-text-tertiary)]" weight="bold" />
-                    </span>
-                    <span className="text-[13px] text-[var(--color-text-secondary)]">{item}</span>
-                    {!isFree && !isStarter && (
-                      <span className="ml-auto shrink-0 text-[10px] font-medium text-[var(--color-text-tertiary)]">Pro</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="space-y-2">
+            <div className="space-y-2 px-6 pb-6">
               {plan === 'pro' ? (
-                <Button variant="outline" className="w-full" disabled>
+                <Button variant="outline" className="w-full" isDisabled>
                   {buttonFor('pro')}
                 </Button>
               ) : (
                 <Button
-                  onClick={() => startCheckout('pro')}
-                  disabled={isRedirecting[`pro-${interval}`]}
+                  onPress={() => startCheckout('pro')}
+                  isDisabled={isRedirecting[`pro-${interval}`]}
                   className="w-full"
                 >
                   {buttonFor('pro')}
@@ -340,7 +346,7 @@ export function PricingPageClient({
                 <p className="text-center text-[11px] text-[var(--color-text-tertiary)]">7 days free · then {priceFor('pro').value}{priceFor('pro').suffix} · cancel anytime</p>
               )}
             </div>
-          </article>
+          </Card>
         </div>
 
         {/* Manage subscription */}

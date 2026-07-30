@@ -12,10 +12,17 @@ import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
 import { parseStatement, ParseResult } from '../services/statement-parser';
 import { processStatementJob } from '../services/statement-job-processor';
 import { detectBankName } from '../services/statement-job-processor';
-import { initiateConnection, isComposioConfigured } from '../services/composio';
+import { initiateConnection, refreshConnectionStatus, isComposioConfigured } from '../services/composio';
 
 
 const logger = createLogger('Revenue');
+
+const COMPOSIO_REDIRECT_BASE = (
+  process.env.COMPOSIO_REDIRECT_BASE_URL
+  || process.env.PUBLIC_APP_URL
+  || process.env.WEB_CLIENT_URL
+  || 'http://localhost:3001'
+).replace(/\/+$/, '');
 
 const router = Router();
 
@@ -2370,7 +2377,7 @@ router.post('/ledger/export-to-sheets', authenticate, async (req: Request, res: 
 
     if (!connRow || connRow.status !== 'active') {
       // Not connected — return the OAuth URL
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/revenue/ledger/export-to-sheets/callback`;
+      const redirectUri = `${COMPOSIO_REDIRECT_BASE}/settings?integration_connected=google_sheets`;
       const { redirectUrl } = await initiateConnection({ userId: user.id, provider: 'google_sheets', redirectUri });
       res.json({ success: true, data: { needsConnection: true, redirectUrl } });
       return;
@@ -2625,201 +2632,10 @@ Write in second person ("you"), be encouraging and specific. Focus on the key nu
 });
 
 // ── Receipt Forwarding (Resend inbound webhook) ──────────────────────────────
-
-// POST /api/revenue/receipt-forwarding/resend-webhook
-// Called by Resend when emails are forwarded to the user's inbound address.
-// Resend sends: { email: { from, subject, text, html, attachments: [{ filename, content, content_type }] } }
-router.post('/receipt-forwarding/resend-webhook', async (req: Request, res: Response, _next) => {
-  try {
-    const { email } = req.body;
-
-    if (!email || !email.from) {
-      res.status(400).json({ success: false, error: { message: 'Invalid Resend webhook payload' } });
-      return;
-    }
-
-    // Find the user by their receipt forwarding email alias
-    const recipientEmail = String(email.to || '').toLowerCase().trim();
-    const fromEmail = String(email.from || '').toLowerCase().trim();
-    const subject = String(email.subject || '').trim();
-    const textBody = String(email.text || email.html || '').trim();
-
-    logger.info('Receipt forwarding webhook received', { from: fromEmail, subject, recipient: recipientEmail });
-
-    // Extract the user ID from the recipient email (e.g., abc123@receipts.hedwig.app)
-    const userPrefix = recipientEmail.split('@')[0];
-    if (!userPrefix || userPrefix.length < 4) {
-      logger.warn('Could not extract user from recipient email', { recipient: recipientEmail });
-      res.json({ success: true }); // ack to prevent resend
-      return;
-    }
-
-    // Look up user by matching the webhook secret/prefix
-    const { data: users, error: userErr } = await supabase
-      .from('users')
-      .select('id')
-      .ilike('id', `${userPrefix}%`)
-      .limit(1);
-
-    if (userErr || !users || users.length === 0) {
-      logger.warn('No user found for receipt forwarding', { userPrefix });
-      res.json({ success: true });
-      return;
-    }
-
-    const userId = users[0].id;
-
-    // Check if there are attachments
-    const attachments = Array.isArray(email.attachments) ? email.attachments : [];
-
-    if (attachments.length === 0) {
-      // No attachments — try to use the email body text as a manual expense description
-      if (textBody) {
-        const { error: insErr } = await supabase
-          .from('expenses')
-          .insert({
-            user_id: userId,
-            amount: 0, // amount unknown from text alone
-            currency: 'USD',
-            converted_amount_usd: 0,
-            category: 'other',
-            note: `[Email receipt] ${subject} — ${textBody.slice(0, 200)}`,
-            source_type: 'email_import',
-            date: new Date().toISOString(),
-          });
-
-        if (insErr) {
-          logger.error('Failed to create email-only expense', { error: insErr });
-        } else {
-          logger.info('Created email-only expense from forwarded receipt', { userId });
-        }
-      }
-
-      res.json({ success: true });
-      return;
-    }
-
-    // Process attachments through AI ingestion
-    const apiKey = process.env.AI_GATEWAY_API_KEY;
-    const createdExpenses: string[] = [];
-
-    for (const attachment of attachments) {
-      const filename = attachment.filename || 'receipt';
-      const contentB64 = attachment.content || '';
-      const contentType = attachment.content_type || 'application/octet-stream';
-
-      if (!contentB64) continue;
-
-      // Skip non-image/non-PDF attachments
-      const supportedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'];
-      const normalizedType = supportedTypes.includes(contentType)
-        ? contentType
-        : filename.endsWith('.pdf') ? 'application/pdf'
-        : filename.endsWith('.png') ? 'image/png'
-        : filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg'
-        : null;
-
-      if (!normalizedType) {
-        logger.info('Skipping unsupported attachment type', { filename, contentType });
-        continue;
-      }
-
-      // Only process with AI if key is available
-      if (!apiKey) {
-        // Create a basic expense from the attachment
-        const { error: insErr } = await supabase
-          .from('expenses')
-          .insert({
-            user_id: userId,
-            amount: 0,
-            currency: 'USD',
-            converted_amount_usd: 0,
-            category: 'other',
-            note: `[Receipt] ${subject || filename}`,
-            source_type: 'email_import',
-            date: new Date().toISOString(),
-          });
-
-        if (!insErr) {
-          createdExpenses.push(filename);
-          logger.info('Created basic expense from forwarded receipt (no AI)', { userId, filename });
-        }
-        continue;
-      }
-
-      // Analyze with AI
-      try {
-        const prompt = `You are Hedwig, a receipt processing assistant. Extract the following fields from this receipt image.
-Return ONLY valid JSON with no markdown fences, no commentary.
-
-Schema:
-{
-  "amount": number or null,
-  "currency": "3-letter ISO code or null",
-  "date": "YYYY-MM-DD or null",
-  "merchant": "Merchant name or null",
-  "category": "software" | "contractors" | "marketing" | "travel" | "meals" | "office" | "operations" | "taxes" | "subscriptions" | "other"
-}`;
-
-        const aiResult = (await llmService.generateText(prompt, {
-          maxOutputTokens: 500,
-          temperature: 0.1,
-          files: [{ mimeType: normalizedType, data: contentB64 }],
-        })).trim();
-
-        const jsonMatch = aiResult.match(/\{[\s\S]*\}/);
-        let parsed: Record<string, unknown> = {};
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]);
-        }
-
-        const amount = typeof parsed.amount === 'number' && parsed.amount > 0 ? parsed.amount : 0;
-        const currency = String(parsed.currency || 'USD').toUpperCase();
-        const category = ['software', 'contractors', 'marketing', 'travel', 'meals', 'office', 'operations', 'taxes', 'subscriptions'].includes(String(parsed.category)) ? String(parsed.category) : 'other';
-        const merchant = parsed.merchant ? String(parsed.merchant) : subject;
-
-        let convertedAmountUsd: number;
-        if (currency === 'USD') {
-          convertedAmountUsd = amount;
-        } else {
-          try {
-            convertedAmountUsd = await convertToUsd(amount, currency);
-          } catch {
-            convertedAmountUsd = amount;
-          }
-        }
-
-        const { error: insErr } = await supabase
-          .from('expenses')
-          .insert({
-            user_id: userId,
-            amount,
-            currency,
-            converted_amount_usd: convertedAmountUsd,
-            category,
-            note: `[Forwarded receipt] ${merchant}${subject !== merchant ? ` — ${subject}` : ''} (via email)`,
-            source_type: 'email_import',
-            date: parsed.date ? String(parsed.date).slice(0, 10) : new Date().toISOString(),
-          });
-
-        if (!insErr) {
-          createdExpenses.push(filename);
-          logger.info('Created AI-processed expense from forwarded receipt', { userId, filename, amount, category });
-        }
-      } catch (aiErr) {
-        logger.warn('AI processing failed for forwarded receipt attachment', { filename, error: aiErr instanceof Error ? aiErr.message : 'Unknown' });
-      }
-    }
-
-    logger.info('Receipt forwarding processed', { userId, attachmentsCount: attachments.length, createdCount: createdExpenses.length });
-
-    res.json({ success: true, data: { processedCount: createdExpenses.length } });
-  } catch (error) {
-    logger.error('Receipt forwarding webhook failed', { error: error instanceof Error ? error.message : 'Unknown' });
-    // Always ack to prevent Resend from retrying endlessly
-    res.json({ success: true });
-  }
-});
+// DISABLED — will be re-enabled later once stability is confirmed.
+// router.post('/receipt-forwarding/resend-webhook', async (req: Request, res: Response, _next) => {
+//   res.json({ success: true });
+// });
 
 router.post('/statement-imports/backfill-banks', authenticate, async (req: Request, res: Response, next) => {
   try {

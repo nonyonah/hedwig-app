@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChartBar, FileText, DownloadSimple, CurrencyCircleDollar, CalendarBlank, Sparkle, ArrowsLeftRight, ArrowUp, ArrowDown } from '@/components/ui/lucide-icons';
+import { ChartBar, FileText, DownloadSimple, CurrencyCircleDollar, CalendarBlank, Sparkle, ArrowsLeftRight, ArrowUp, ArrowDown, GoogleSheetsLogo } from '@/components/ui/lucide-icons';
 import { Loader } from '@/components/ui/loader';
 import { AttachedStatGrid, type AttachedStatCardItem } from '@/components/ui/attached-stat-cards';
-import { Table } from '@heroui/react';
+import { Alert, Button, Dropdown, Label, Table, Tabs } from '@heroui/react';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
 
@@ -30,6 +30,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
   } | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
   const [journalPage, setJournalPage] = useState(1);
+  const [exportingToSheets, setExportingToSheets] = useState(false);
 
   const loadLedger = useCallback(() => {
     if (!accessToken) return;
@@ -48,7 +49,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
 
   useEffect(() => { loadLedger(); }, [loadLedger]);
 
-  const handleExport = async () => {
+  const handleExportXlsx = async () => {
     if (!accessToken) return;
     try {
       const blob = await hedwigApi.ledgerExportBlob('30d', { accessToken });
@@ -66,11 +67,24 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
     }
   };
 
-  const reportTabs: { key: ReportType; label: string; icon: React.ReactNode }[] = [
-    { key: 'pnl', label: 'P&L', icon: <ChartBar className="h-4 w-4" weight="bold" /> },
-    { key: 'cashflow', label: 'Cash Flow', icon: <CalendarBlank className="h-4 w-4" weight="bold" /> },
-    { key: 'journal', label: 'Journal', icon: <ArrowsLeftRight className="h-4 w-4" weight="bold" /> },
-  ];
+  const handleExportSheets = async () => {
+    if (!accessToken) return;
+    setExportingToSheets(true);
+    try {
+      const result = await hedwigApi.exportToGoogleSheets('30d', { accessToken });
+      if (result.needsConnection && result.redirectUrl) {
+        window.open(result.redirectUrl, '_blank');
+        toast({ type: 'info', title: 'Connect Google Sheets', message: 'Complete the OAuth flow in the new tab, then try exporting again.' });
+      } else if (result.spreadsheetUrl) {
+        window.open(result.spreadsheetUrl, '_blank');
+        toast({ type: 'success', title: 'Exported to Sheets', message: 'P&L data has been pushed to Google Sheets.' });
+      }
+    } catch {
+      toast({ type: 'error', title: 'Export failed', message: 'Could not export to Google Sheets. Check your connection.' });
+    } finally {
+      setExportingToSheets(false);
+    }
+  };
 
   if (loading && !ledgerData) {
     return (
@@ -113,45 +127,46 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
 
   return (
     <div className="space-y-5">
-      {/* AI Narrative */}
       {displayNarrative && (
-        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)]">
-            <Sparkle className="h-4 w-4 text-[var(--color-accent)]" weight="fill" />
-          </span>
-          <p className="text-[13px] text-[var(--color-foreground)] leading-relaxed">{displayNarrative}</p>
-        </div>
+        <Alert status="accent">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Description>{displayNarrative}</Alert.Description>
+          </Alert.Content>
+        </Alert>
       )}
 
-      {/* Report tabs — w-fit so it doesn't stretch full width */}
-      <div className="w-fit rounded-xl bg-[var(--color-surface-secondary)] p-1">
-        <div className="flex gap-1">
-          {reportTabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveReport(tab.key)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${
-                activeReport === tab.key
-                  ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-              }`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <Tabs variant="primary" selectedKey={activeReport} onSelectionChange={(key) => setActiveReport(key as ReportType)}>
+        <Tabs.ListContainer>
+          <Tabs.List aria-label="Report type">
+            <Tabs.Tab id="pnl">
+              <ChartBar className="h-4 w-4" weight="bold" />
+              P&L
+              <Tabs.Indicator />
+            </Tabs.Tab>
+            <Tabs.Tab id="cashflow">
+              <CalendarBlank className="h-4 w-4" weight="bold" />
+              Cash Flow
+              <Tabs.Indicator />
+            </Tabs.Tab>
+            <Tabs.Tab id="journal">
+              <ArrowsLeftRight className="h-4 w-4" weight="bold" />
+              Journal
+              <Tabs.Indicator />
+            </Tabs.Tab>
+          </Tabs.List>
+        </Tabs.ListContainer>
 
-      {!summary ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-20 text-center">
-          <CurrencyCircleDollar className="h-8 w-8 text-[var(--color-border-input)]" weight="thin" />
-          <p className="text-[13px] text-[var(--color-text-muted)]">No data yet. Add invoices or expenses to see reports.</p>
-        </div>
-      ) : (
-        <>
-          {activeReport === 'pnl' && (
-            <div className="space-y-4">
+        {!summary ? (
+          <Tabs.Panel className="pt-4" id={activeReport}>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-20 text-center">
+              <CurrencyCircleDollar className="h-8 w-8 text-[var(--color-border-input)]" weight="thin" />
+              <p className="text-[13px] text-[var(--color-text-muted)]">No data yet. Add invoices or expenses to see reports.</p>
+            </div>
+          </Tabs.Panel>
+        ) : (
+          <>
+            <Tabs.Panel className="pt-4 space-y-4" id="pnl">
               <AttachedStatGrid items={statCards} className="grid-cols-1 md:grid-cols-3" />
 
               <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
@@ -186,19 +201,35 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
               </div>
 
               <div className="flex justify-end">
-                <button
-                  onClick={handleExport}
-                  className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-[12px] font-semibold text-[var(--color-foreground)] transition hover:bg-[var(--color-background)]"
-                >
-                  <DownloadSimple className="h-4 w-4" weight="bold" />
-                  Export as XLSX
-                </button>
+                <Dropdown>
+                  <Dropdown.Trigger>
+                    <span>
+                      <Button variant="outline" className="flex items-center gap-2">
+                        <DownloadSimple className="h-4 w-4" weight="bold" />
+                        Export
+                      </Button>
+                    </span>
+                  </Dropdown.Trigger>
+                  <Dropdown.Popover>
+                    <Dropdown.Menu onAction={(key) => {
+                      if (key === 'device') handleExportXlsx();
+                      if (key === 'sheets') handleExportSheets();
+                    }}>
+                      <Dropdown.Item id="device" textValue="Export to device">
+                        <DownloadSimple className="h-3.5 w-3.5 text-[var(--color-text-placeholder)]" weight="bold" />
+                        <Label>Export to Device</Label>
+                      </Dropdown.Item>
+                      <Dropdown.Item id="sheets" textValue="Export to Google Sheets">
+                        {exportingToSheets ? <Loader size={14} /> : <GoogleSheetsLogo size={14} className="text-[var(--color-text-placeholder)]" />}
+                        <Label>Export to Google Sheets</Label>
+                      </Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown.Popover>
+                </Dropdown>
               </div>
-            </div>
-          )}
+            </Tabs.Panel>
 
-          {activeReport === 'cashflow' && (
-            <div className="space-y-4">
+            <Tabs.Panel className="pt-4 space-y-4" id="cashflow">
               <AttachedStatGrid items={statCards} className="grid-cols-1 md:grid-cols-3" />
 
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
@@ -207,11 +238,9 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
                   Cash flow tracking is most useful once you have 3+ months of data. Currently showing a simplified operating view based on your revenue and expenses.
                 </p>
               </div>
-            </div>
-          )}
+            </Tabs.Panel>
 
-          {activeReport === 'journal' && (
-            <div className="space-y-4">
+            <Tabs.Panel className="pt-4 space-y-4" id="journal">
               <Table>
                 <Table.ScrollContainer>
                   <Table.Content aria-label="Journal entries">
@@ -267,10 +296,10 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
                   </div>
                 </div>
               )}
-            </div>
-          )}
-        </>
-      )}
+            </Tabs.Panel>
+          </>
+        )}
+      </Tabs>
     </div>
   );
 }
