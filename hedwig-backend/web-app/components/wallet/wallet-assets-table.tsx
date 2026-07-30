@@ -52,13 +52,7 @@ export function WalletAssetsTable({
 
         <Table variant="secondary" className="[&_.table__row]:cursor-pointer">
           <Table.ScrollContainer>
-            <Table.Content
-              aria-label="Wallet assets"
-              onRowAction={(key) => {
-                const asset = allAssets.find((a) => a.id === key);
-                if (asset) setSelected(asset);
-              }}
-            >
+            <Table.Content aria-label="Wallet assets">
               <Table.Header>
                 <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Asset</Table.Column>
                 <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Balance</Table.Column>
@@ -78,7 +72,7 @@ export function WalletAssetsTable({
                 {allAssets.map((asset) => {
                   const tokenIcon = tokenIconBySymbol[asset.symbol.toUpperCase()];
                   return (
-                    <Table.Row key={asset.id}>
+                    <Table.Row key={asset.id} onAction={() => setSelected(asset)}>
                       <Table.Cell>
                         <div className="flex items-center gap-3">
                           <div className="relative shrink-0">
