@@ -149,7 +149,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
         </Alert>
       )}
 
-      <Tabs variant="primary" className="w-fit" selectedKey={activeReport} onSelectionChange={(key) => setActiveReport(key as ReportType)}>
+      <Tabs variant="primary" selectedKey={activeReport} onSelectionChange={(key) => setActiveReport(key as ReportType)}>
         <Tabs.ListContainer>
           <Tabs.List aria-label="Report type">
             <Tabs.Tab id="pnl" className="px-3 py-2 text-[13px]">
