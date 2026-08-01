@@ -33,17 +33,23 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
   const [exportingToSheets, setExportingToSheets] = useState(false);
   const [sheetsConnected, setSheetsConnected] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/integrations/composio/status')
-      .then((r) => r.json())
-      .then((payload) => {
-        if (payload.success) {
-          const gs = (payload.data.connections ?? []).find((c: any) => c.provider === 'google_sheets');
-          setSheetsConnected(gs?.status === 'active');
-        }
-      })
-      .catch(() => {});
+  const checkSheetsConnection = useCallback(async () => {
+    try {
+      const payload = await fetch('/api/integrations/composio/status', { cache: 'no-store' }).then((r) => r.json());
+      if (payload.success) {
+        const gs = (payload.data.connections ?? []).find((c: any) => c.provider === 'google_sheets');
+        setSheetsConnected(gs?.status === 'active');
+      }
+    } catch {}
   }, []);
+
+  useEffect(() => {
+    void checkSheetsConnection();
+    // Re-check when the user returns to this tab after completing
+    // the Google Sheets OAuth flow in a new tab.
+    window.addEventListener('focus', checkSheetsConnection);
+    return () => window.removeEventListener('focus', checkSheetsConnection);
+  }, [checkSheetsConnection]);
 
   const loadLedger = useCallback(() => {
     if (!accessToken) return;
@@ -96,6 +102,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
       toast({ type: 'error', title: 'Export failed', message: 'Could not export to Google Sheets. Check your connection.' });
     } finally {
       setExportingToSheets(false);
+      void checkSheetsConnection();
     }
   };
 

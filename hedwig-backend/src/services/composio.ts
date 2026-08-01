@@ -335,10 +335,15 @@ export async function refreshConnectionStatus(userId: string, provider: Composio
 
   try {
     const sdk = getSdk();
-    const account: any = row.composio_connected_account_id
-      ? await sdk.connectedAccounts.get(row.composio_connected_account_id)
-      : await findRemoteConnection(userId, provider, row.composio_integration_id);
-
+    // Always search the remote list first — after OAuth completes, Composio
+    // creates a new connected account whose id differs from the placeholder
+    // stored at initiate time. Search finds ACTIVE accounts reliably.
+    let account = await findRemoteConnection(userId, provider, row.composio_integration_id);
+    if (!account && row.composio_connected_account_id) {
+      account = await sdk.connectedAccounts
+        .get(row.composio_connected_account_id)
+        .catch(() => null);
+    }
     if (!account) return row;
 
     const connectedAccountId = account?.id ?? row.composio_connected_account_id ?? null;
