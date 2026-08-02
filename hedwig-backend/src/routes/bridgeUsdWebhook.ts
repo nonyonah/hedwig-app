@@ -4,6 +4,7 @@ import { bridgeUsdService } from '../services/bridgeUsd';
 import NotificationService from '../services/notifications';
 import { createLogger } from '../utils/logger';
 import { buildUsdDepositCopy } from '../utils/notificationCopy';
+import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
 
 const logger = createLogger('BridgeUsdWebhook');
 const router = Router();
@@ -208,6 +209,36 @@ router.post('/', async (req: Request, res: Response) => {
                     network_fee: feeCalc.providerFeeUsd,
                     timestamp: new Date().toISOString(),
                 });
+
+            // Emit financial event for the settled deposit (idempotent per bridge_transfer_id)
+            await emitFinancialEvent({
+                userId,
+                workspaceId: null,
+                eventType: FINANCIAL_EVENT_TYPES.WALLET_DEPOSIT_RECEIVED,
+                entityType: 'bridge_usd_transfer',
+                entityId: transfer.id,
+                version: 1,
+                occurredAt: new Date(),
+                amount: computedUsdcSettled,
+                currency: 'USDC',
+                amountUsd: computedUsdcSettled,
+                fxRateUsd: 1,
+                fxSource: 'identity',
+                direction: 'in',
+                source: 'bridge-usd',
+                correlationId: event.transferId,
+                payload: {
+                    bridge_transfer_id: event.transferId,
+                    bridge_event_id: event.eventId,
+                    gross_usd: event.amountUsd,
+                    hedwig_fee_usd: feeCalc.hedwigFeeUsd,
+                    provider_fee_usd: feeCalc.providerFeeUsd,
+                    net_usd: feeCalc.netSettlementUsd,
+                    settlement_chain: settlement.chain,
+                    settlement_wallet: destinationWallet,
+                    usdc_tx_hash: event.usdcTxHash,
+                },
+            });
 
             try {
                 await NotificationService.notifyUser(userId, {

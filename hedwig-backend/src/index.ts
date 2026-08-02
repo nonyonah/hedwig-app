@@ -469,6 +469,10 @@ schedulerRouter.post('/payment-link-boost-nudges', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.sendPaymentLinkBoostNudges();
 });
+schedulerRouter.post('/ledger-shadow-diffs', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.runLedgerShadowDiffs();
+});
 
 app.use('/internal/scheduler', schedulerRouter);
 

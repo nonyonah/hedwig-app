@@ -7,6 +7,7 @@ import BackendAnalytics from '../services/analytics';
 import { markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
 import { buildIncomingPaymentCopy, formatNetworkLabel } from '../utils/notificationCopy';
+import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
 
 const logger = createLogger('Webhook');
 
@@ -258,6 +259,31 @@ async function processPrivyFundsEvent(event: PrivyFundsEvent) {
                         });
                     }
                 }
+
+                // Emit financial event (idempotent by fingerprint: document|id|txHash)
+                await emitFinancialEvent({
+                    userId: recipientUser.id,
+                    workspaceId: document.workspace_id ?? null,
+                    eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+                    entityType: 'document',
+                    entityId: document.id,
+                    version: txHash,
+                    occurredAt: new Date(),
+                    amount: document.amount,
+                    currency: document.currency || 'USD',
+                    direction: 'in',
+                    source: 'privy',
+                    correlationId: txHash,
+                    payload: {
+                        title: document.title,
+                        doc_type: document.type,
+                        paid_amount: amount,
+                        payment_token: token,
+                        payment_chain: chain,
+                        payer_address: from,
+                        bookkeeping_only: Boolean(document.content?.bookkeeping_only),
+                    },
+                });
             }
         }
 
@@ -287,6 +313,32 @@ async function processPrivyFundsEvent(event: PrivyFundsEvent) {
         });
 
         BackendAnalytics.paymentReceived(recipientUser.id, amount, token, txHash, document?.id);
+
+        // Unmatched USDC deposit (not tied to a document) → wallet.deposit.received.
+        // Emission is idempotent per tx hash, so webhook replays are safe.
+        if (!document && token === 'USDC') {
+            await emitFinancialEvent({
+                userId: recipientUser.id,
+                workspaceId: null,
+                eventType: FINANCIAL_EVENT_TYPES.WALLET_DEPOSIT_RECEIVED,
+                entityType: 'transaction',
+                entityId: txHash,
+                version: 1,
+                occurredAt: new Date(),
+                amount,
+                currency: 'USDC',
+                direction: 'in',
+                source: 'privy',
+                correlationId: txHash,
+                payload: {
+                    chain,
+                    label,
+                    from_address: from,
+                    to_address: to,
+                    tx_hash: txHash,
+                },
+            });
+        }
     } else if (senderUser) {
         await NotificationService.notifyTransaction(senderUser.id, {
             type: 'sent',
@@ -732,6 +784,30 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                         } else {
                             await markCalendarEventCompleted('invoice', document.id);
                         }
+
+                        await emitFinancialEvent({
+                            userId: recipientUser.id,
+                            workspaceId: document.workspace_id ?? null,
+                            eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+                            entityType: 'document',
+                            entityId: document.id,
+                            version: transfer.txHash,
+                            occurredAt: new Date(),
+                            amount: document.amount,
+                            currency: document.currency || 'USD',
+                            direction: 'in',
+                            source: 'alchemy',
+                            correlationId: transfer.txHash,
+                            payload: {
+                                title: document.title,
+                                doc_type: document.type,
+                                paid_amount: parseFloat(transfer.value.toString()),
+                                payment_token: transfer.asset,
+                                payment_chain: network,
+                                payer_address: transfer.from,
+                                bookkeeping_only: Boolean(document.content?.bookkeeping_only),
+                            },
+                        });
                     }
                 }
 
@@ -779,6 +855,30 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 );
 
                 logger.info('User notified of received payment');
+
+                // Unmatched USDC deposit (no PENDING document) → wallet.deposit.received
+                if (!document && String(transfer.asset).toUpperCase() === 'USDC') {
+                    await emitFinancialEvent({
+                        userId: recipientUser.id,
+                        workspaceId: null,
+                        eventType: FINANCIAL_EVENT_TYPES.WALLET_DEPOSIT_RECEIVED,
+                        entityType: 'transaction',
+                        entityId: transfer.txHash,
+                        version: 1,
+                        occurredAt: new Date(),
+                        amount: parseFloat(transfer.value.toString()),
+                        currency: 'USDC',
+                        direction: 'in',
+                        source: 'alchemy',
+                        correlationId: transfer.txHash,
+                        payload: {
+                            network,
+                            from_address: transfer.from,
+                            to_address: transfer.to,
+                            tx_hash: transfer.txHash,
+                        },
+                    });
+                }
             } else {
                 logger.warn('No recipient user found for address', { toAddress: toAddressLower });
             }
@@ -920,6 +1020,54 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                         } else {
                             await markCalendarEventCompleted('invoice', document.id);
                         }
+
+                        await emitFinancialEvent({
+                            userId: recipientUser.id,
+                            workspaceId: document.workspace_id ?? null,
+                            eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+                            entityType: 'document',
+                            entityId: document.id,
+                            version: transfer.signature,
+                            occurredAt: new Date(),
+                            amount: document.amount,
+                            currency: document.currency || 'USD',
+                            direction: 'in',
+                            source: 'alchemy-solana',
+                            correlationId: transfer.signature,
+                            payload: {
+                                title: document.title,
+                                doc_type: document.type,
+                                paid_amount: transfer.value,
+                                payment_token: transfer.asset,
+                                payment_chain: 'SOLANA',
+                                payer_address: transfer.from,
+                                bookkeeping_only: Boolean(document.content?.bookkeeping_only),
+                            },
+                        });
+                    }
+
+                    // Unmatched USDC deposit (no PENDING document) → wallet.deposit.received
+                    if (!document && String(transfer.asset).toUpperCase() === 'USDC') {
+                        await emitFinancialEvent({
+                            userId: recipientUser.id,
+                            workspaceId: null,
+                            eventType: FINANCIAL_EVENT_TYPES.WALLET_DEPOSIT_RECEIVED,
+                            entityType: 'transaction',
+                            entityId: transfer.signature,
+                            version: 1,
+                            occurredAt: new Date(),
+                            amount: transfer.value,
+                            currency: 'USDC',
+                            direction: 'in',
+                            source: 'alchemy-solana',
+                            correlationId: transfer.signature,
+                            payload: {
+                                network: 'SOLANA',
+                                from_address: transfer.from,
+                                to_address: transfer.to,
+                                tx_hash: transfer.signature,
+                            },
+                        });
                     }
 
                     // Send push notification

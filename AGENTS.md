@@ -103,6 +103,22 @@ To re-enable Stellar: git revert `hedwig-backend/src/routes/bridge.ts` and the f
 - **`hedwig-backend/src/services/statement-parser.ts`**: Exported `ParseResult` interface so it can be re-used in the revenue route.
 - **`web-app/app/(app)/revenue/import-dialog.tsx`**: Added `'choose-type'` step for PDF/image files — after file selection, user picks "Receipt or Invoice" (routes to document/AI analysis) or "Bank Statement" (routes to statement parse & transaction table). Changed doc file size limit from 10MB to 20MB to match statements.
 
+## Session Summary (Aug 2, 2026) — Financial Event Engine (Phases 0–5)
+
+Architecture: append-only `financial_events` journal is the system of record; `ledger_entries` is a CQRS projection of it. USD is a **frozen presentation reference** captured at event time (`amount_usd`, `fx_rate_usd`, `fx_source`) — the legacy read path converts FX at read time, causing historical P&L drift. This fixes that and adds on-rail coverage the legacy path never saw.
+
+- **`hedwig-backend/supabase/migrations/089_financial_events.sql`** — `financial_events` (fingerprint `sha256(event_type|entity_type|entity_id|version)` UNIQUE → idempotent emission; `occurred_at` effective vs `recorded_at`; `direction in/out/none`; denormalized money columns) + `ledger_entries` (projection; `event_id UNIQUE` checkpoint; mirrors the `/ledger` entry contract; types `revenue|expense|credit|transfer`).
+- **`hedwig-backend/supabase/migrations/090_ledger_projection_state.sql`** — per (user, workspace) checkpoint row; absence → full replay.
+- **`hedwig-backend/src/services/financial-events.ts`** — `emitFinancialEvent()` helper (never throws, dedupes on fingerprint, freezes FX from the deterministic rate snapshot).
+- **Instrumented rails** (all fire-and-forget, idempotent): `document.ts` pay/status → `document.paid`; `webhook.ts` (Privy, Alchemy EVM + Solana) → `document.paid` (version = tx hash) + `wallet.deposit.received` (unmatched USDC only); `blockradarWebhook.ts` both; `bridgeUsdWebhook.ts` settled inbound; `paycrestWebhook.ts` COMPLETED → `offramp.settled`, FAILED+`refunded` tail → `offramp.refunded`; `revenue.ts` expenses create/update/delete + import match/confirm/bulk-confirm (bookkeeping credit docs now get `paid_at` in content); `statement-job-processor.ts` → `imported_transaction.created`.
+- **`hedwig-backend/src/services/ledger.ts`** — legacy read path extracted verbatim (`buildLegacyLedgerEntries` + helpers) for shadow diffing; byte-compatible entry contract.
+- **`hedwig-backend/src/services/ledger-projection.ts`** — `ensureProjection` (incremental by recorded_at since checkpoint) / `rebuildProjection` (full replay in occurred_at order). REPLACE semantics per entity: update/delete events reconcile to latest state (expense.updated replaces, expense.deleted removes, imported_transaction.updated with expensed/skipped removes the transfer entry). Personal workspaces also pull NULL-workspace events (deposits).
+- **`hedwig-backend/src/services/ledger-shadow.ts`** — `runLedgerShadowDiff`: legacy vs projection; `missingFromProjection` = bug, `extraInProjection` = new coverage (Withdrawals, Other Income, Refunds), amount deltas = frozen vs live FX. Wired as weekly cron + `POST /internal/scheduler/ledger-shadow-diffs`.
+- **`hedwig-backend/src/routes/revenue.ts`** — `/ledger` route: `LEDGER_USE_PROJECTION=true` env flag switches to projection read; response shape unchanged.
+- **`hedwig-backend/scripts/backfillFinancialEvents.ts`** (`npm run backfill:financial-events`) — idempotent backfill: PAID docs, expenses, imported txns (+terminal states), COMPLETED offramps, USDC deposits without documents.
+- `tsc` build passes; `npm run lint` is pre-broken (ESLint 9, no `eslint.config.js` in repo).
+- **Order matters**: run the backfill BEFORE enabling `LEDGER_USE_PROJECTION` or the ledger shows only new events. `/ledger/export` was not flipped (still legacy aggregation).
+
 ## Content boundaries
 
 {/* Define what should and shouldn't be documented */}

@@ -5,6 +5,7 @@ import NotificationService from '../services/notifications';
 import BackendAnalytics from '../services/analytics';
 import { createLogger } from '../utils/logger';
 import { buildOfframpCopy } from '../utils/notificationCopy';
+import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
 
 const logger = createLogger('PaycrestWebhook');
 
@@ -618,6 +619,55 @@ router.post('/', async (req: Request, res: Response) => {
                     reason: updateData.error_message || null,
                 });
             }
+        }
+
+        // Emit financial events for terminal offramp states (idempotent per order + version)
+        if (newStatus === 'COMPLETED') {
+            await emitFinancialEvent({
+                userId: resolvedOrder.user_id,
+                workspaceId: (resolvedOrder as any).workspace_id ?? null,
+                eventType: FINANCIAL_EVENT_TYPES.OFFRAMP_SETTLED,
+                entityType: 'offramp_order',
+                entityId: resolvedOrder.id,
+                version: resolvedOrder.updated_at ? new Date(resolvedOrder.updated_at).toISOString() : 'settled',
+                occurredAt: new Date(),
+                amount: resolvedOrder.crypto_amount,
+                currency: resolvedOrder.crypto_currency || resolvedOrder.token || 'USDC',
+                direction: 'out',
+                source: 'paycrest',
+                correlationId: txHash || paycrestOrderId,
+                payload: {
+                    paycrest_order_id: paycrestOrderId,
+                    fiat_amount: resolvedOrder.fiat_amount,
+                    fiat_currency: resolvedOrder.fiat_currency,
+                    bank_name: resolvedOrder.bank_name,
+                    account_number: resolvedOrder.account_number,
+                    offramp_source: resolvedOrder.offramp_source || null,
+                    tx_hash: txHash || null,
+                },
+            });
+        } else if (newStatus === 'FAILED' && String(event).split('.').pop() === 'refunded') {
+            await emitFinancialEvent({
+                userId: resolvedOrder.user_id,
+                workspaceId: (resolvedOrder as any).workspace_id ?? null,
+                eventType: FINANCIAL_EVENT_TYPES.OFFRAMP_REFUNDED,
+                entityType: 'offramp_order',
+                entityId: resolvedOrder.id,
+                version: resolvedOrder.updated_at ? new Date(resolvedOrder.updated_at).toISOString() : 'refunded',
+                occurredAt: new Date(),
+                amount: resolvedOrder.crypto_amount,
+                currency: resolvedOrder.crypto_currency || resolvedOrder.token || 'USDC',
+                direction: 'in',
+                source: 'paycrest',
+                correlationId: txHash || paycrestOrderId,
+                payload: {
+                    paycrest_order_id: paycrestOrderId,
+                    fiat_amount: resolvedOrder.fiat_amount,
+                    fiat_currency: resolvedOrder.fiat_currency,
+                    bank_name: resolvedOrder.bank_name,
+                    reason: updateData.error_message || null,
+                },
+            });
         }
 
         // 3. Notify user when status changes so withdrawal UI stays in sync.

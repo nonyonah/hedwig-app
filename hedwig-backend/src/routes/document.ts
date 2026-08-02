@@ -13,6 +13,7 @@ import { anchorDocumentPaidProof } from '../services/celoProofRegistry';
 import { checkDocumentCreationLimit } from '../services/billingRules';
 import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
 import { getEffectiveWorkspaceId } from '../utils/workspace';
+import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
 // import BlockradarService from '../services/blockradar'; // REMOVED: Reverting to direct wallet-to-wallet payments
 
 const logger = createLogger('Documents');
@@ -1271,6 +1272,32 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
 
         logger.info('Document marked as paid');
 
+        // Emit financial event (idempotent by fingerprint: event_type|document|id|txHash)
+        await emitFinancialEvent({
+            userId: updatedDoc.user_id,
+            workspaceId: updatedDoc.workspace_id ?? null,
+            eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+            entityType: 'document',
+            entityId: updatedDoc.id,
+            version: txHash || 'onchain',
+            occurredAt: paidAtIso,
+            amount: updatedDoc.amount,
+            currency: updatedDoc.currency || 'USD',
+            direction: 'in',
+            source: 'document.pay',
+            correlationId: txHash || null,
+            payload: {
+                title: updatedDoc.title,
+                client_id: updatedDoc.client_id,
+                doc_type: updatedDoc.type,
+                paid_amount: amount,
+                payment_token: token,
+                payment_chain: chain,
+                payer_address: payer,
+                bookkeeping_only: Boolean(updatedDoc.content?.bookkeeping_only),
+            },
+        });
+
         // Record treasury transaction if payment was routed to workspace treasury
         if (updatedDoc.payment_destination === 'treasury' && updatedDoc.workspace_id) {
             try {
@@ -1531,6 +1558,31 @@ router.patch('/:id/status', authenticate, async (req: Request, res: Response, ne
              await markCalendarEventCompleted('invoice', id as string);
              // Also try payment_link just in case (sourceType might vary)
              await markCalendarEventCompleted('payment_link', id as string);
+        }
+
+        // Emit financial event for PAID transition (only when status actually changed)
+        if (status === 'PAID' && doc.status !== 'PAID') {
+            await emitFinancialEvent({
+                userId: userData.id,
+                workspaceId: updatedDoc.workspace_id ?? null,
+                eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+                entityType: 'document',
+                entityId: updatedDoc.id,
+                version: 'manual',
+                occurredAt: updatedDoc.content?.paid_at || new Date().toISOString(),
+                amount: updatedDoc.amount,
+                currency: updatedDoc.currency || 'USD',
+                direction: 'in',
+                source: 'document.status',
+                correlationId: reference ? String(reference).slice(0, 200) : null,
+                payload: {
+                    title: updatedDoc.title,
+                    doc_type: updatedDoc.type,
+                    manual_mark_paid: true,
+                    paid_via: paid_via || null,
+                    payment_reference: reference ? String(reference).slice(0, 200) : null,
+                },
+            });
         }
 
         res.json({

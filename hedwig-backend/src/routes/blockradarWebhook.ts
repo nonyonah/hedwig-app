@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import BlockradarService from '../services/blockradar';
 import NotificationService from '../services/notifications';
+import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
 
 const router = Router();
 const logger = createLogger('BlockradarWebhook');
@@ -153,6 +154,28 @@ async function handleDeposit(data: any) {
     metadata: { txHash, amount, asset },
   });
 
+  // Emit financial event for the deposit (idempotent per tx hash)
+  await emitFinancialEvent({
+    userId: user.id,
+    workspaceId: null,
+    eventType: FINANCIAL_EVENT_TYPES.WALLET_DEPOSIT_RECEIVED,
+    entityType: 'transaction',
+    entityId: txHash,
+    version: 1,
+    occurredAt: new Date(),
+    amount: parseFloat(amount) || 0,
+    currency: asset.toUpperCase(),
+    direction: 'in',
+    source: 'blockradar',
+    correlationId: txHash,
+    payload: {
+      addressId,
+      from_address: data.from || data.sender || 'external',
+      to_address: data.to || data.address?.address || addressId,
+      tx_hash: txHash,
+    },
+  });
+
   // Also send push notification
   try {
       await NotificationService.notifyUser(user.id, {
@@ -205,6 +228,32 @@ async function handlePaymentLinkDeposit(data: any) {
             }
         }).eq('id', documentId);
         logger.info('Document marked as PAID', { documentId });
+
+        // Emit financial event (idempotent by fingerprint: document|id|txHash)
+        await emitFinancialEvent({
+            userId,
+            workspaceId: currentDoc.workspace_id ?? null,
+            eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+            entityType: 'document',
+            entityId: documentId,
+            version: txHash,
+            occurredAt: new Date(),
+            amount: currentDoc.amount,
+            currency: currentDoc.currency || 'USD',
+            direction: 'in',
+            source: 'blockradar',
+            correlationId: txHash,
+            payload: {
+                title: currentDoc.title,
+                doc_type: currentDoc.type,
+                paid_amount: amount,
+                payment_token: asset,
+                payment_chain: 'BASE',
+                payer_address: data.from || data.sender || null,
+                blockradar_tx_id: data.id,
+                bookkeeping_only: Boolean(currentDoc.content?.bookkeeping_only),
+            },
+        });
 
         // Update client total_earnings if document has a client
         if (currentDoc.client_id) {

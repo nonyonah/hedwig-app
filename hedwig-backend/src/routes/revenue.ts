@@ -13,6 +13,7 @@ import { parseStatement, ParseResult } from '../services/statement-parser';
 import { processStatementJob } from '../services/statement-job-processor';
 import { detectBankName } from '../services/statement-job-processor';
 import { initiateConnection, isComposioConfigured } from '../services/composio';
+import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
 
 
 const logger = createLogger('Revenue');
@@ -931,6 +932,29 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
 
         if (error) throw new Error(`expense insert failed: ${summarizeError(error)}`);
 
+        // Emit financial event (idempotent per expense + creation timestamp)
+        await emitFinancialEvent({
+            userId: user.id,
+            workspaceId: effectiveWsId,
+            eventType: FINANCIAL_EVENT_TYPES.EXPENSE_CREATED,
+            entityType: 'expense',
+            entityId: data.id,
+            version: data.created_at ? new Date(data.created_at).toISOString() : 'created',
+            occurredAt: data.date || new Date(),
+            amount: numericAmount,
+            currency: currencyCode,
+            amountUsd: usdAmount,
+            direction: 'out',
+            source: 'revenue.expenses',
+            payload: {
+                category: data.category,
+                note: String(note),
+                client_id: clientId || null,
+                project_id: projectId || null,
+                source_type: String(sourceType),
+            },
+        });
+
         res.status(201).json({ success: true, data });
     } catch (error) {
         logger.error('Failed to create expense', { error: error instanceof Error ? error.message : 'Unknown' });
@@ -1010,6 +1034,29 @@ router.patch('/expenses/:id', authenticate, async (req: Request, res: Response, 
             return;
         }
 
+        // Emit financial event (idempotent per expense + updated_at version)
+        await emitFinancialEvent({
+            userId: user.id,
+            workspaceId: data.workspace_id ?? null,
+            eventType: FINANCIAL_EVENT_TYPES.EXPENSE_UPDATED,
+            entityType: 'expense',
+            entityId: data.id,
+            version: data.updated_at ? new Date(data.updated_at).toISOString() : 'updated',
+            occurredAt: data.date || new Date(),
+            amount: data.amount,
+            currency: data.currency || 'USD',
+            amountUsd: data.converted_amount_usd ?? null,
+            direction: 'out',
+            source: 'revenue.expenses',
+            payload: {
+                category: data.category,
+                note: data.note,
+                client_id: data.client_id,
+                project_id: data.project_id,
+                source_type: data.source_type,
+            },
+        });
+
         res.json({ success: true, data });
     } catch (error) {
         logger.error('Failed to update expense', { error: error instanceof Error ? error.message : 'Unknown' });
@@ -1031,16 +1078,42 @@ router.delete('/expenses/:id', authenticate, async (req: Request, res: Response,
 
         const { id } = req.params;
 
-        const { error, count } = await supabase
+        const { data: deletedExpense, error, count } = await supabase
             .from('expenses')
             .delete({ count: 'exact' })
             .eq('id', id)
-            .eq('user_id', user.id);
+            .eq('user_id', user.id)
+            .select('*');
 
         if (error) throw new Error(`expense delete failed: ${summarizeError(error)}`);
         if (!count) {
             res.status(404).json({ success: false, error: { message: 'Expense not found' } });
             return;
+        }
+
+        // Emit financial event (deletion is a new event, never an update)
+        const removed = deletedExpense?.[0];
+        if (removed) {
+            await emitFinancialEvent({
+                userId: user.id,
+                workspaceId: removed.workspace_id ?? null,
+                eventType: FINANCIAL_EVENT_TYPES.EXPENSE_DELETED,
+                entityType: 'expense',
+                entityId: removed.id,
+                version: new Date().toISOString(),
+                occurredAt: new Date(),
+                amount: removed.amount,
+                currency: removed.currency || 'USD',
+                amountUsd: removed.converted_amount_usd ?? null,
+                direction: 'none',
+                source: 'revenue.expenses',
+                payload: {
+                    deleted: true,
+                    deleted_at: new Date().toISOString(),
+                    category: removed.category,
+                    original_date: removed.date,
+                },
+            });
         }
 
         res.json({ success: true });
@@ -1644,6 +1717,30 @@ router.patch('/imported-transactions/:id/match', authenticate, async (req: Reque
 
     if (error) throw new Error(`match update failed: ${summarizeError(error)}`);
 
+    // Emit financial event for the match/categorization update (idempotent per updated_at)
+    await emitFinancialEvent({
+      userId: user.id,
+      workspaceId: data.workspace_id ?? null,
+      eventType: FINANCIAL_EVENT_TYPES.IMPORTED_TRANSACTION_UPDATED,
+      entityType: 'imported_transaction',
+      entityId: data.id,
+      version: data.updated_at ? new Date(data.updated_at).toISOString() : 'matched',
+      occurredAt: data.transaction_date || new Date(),
+      amount: data.amount,
+      currency: data.currency || 'USD',
+      amountUsd: data.converted_amount_usd ?? null,
+      direction: data.type === 'debit' ? 'out' : 'in',
+      source: 'revenue.match',
+      payload: {
+        matched_invoice_id: data.matched_invoice_id ?? null,
+        matched_expense_id: data.matched_expense_id ?? null,
+        matched_client_id: data.matched_client_id ?? null,
+        match_method: data.match_method ?? null,
+        status: data.status ?? null,
+        description: data.description ?? null,
+      },
+    });
+
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -1773,6 +1870,21 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
           .from('imported_transactions')
           .update({ status: 'skipped', updated_at: new Date().toISOString() })
           .eq('id', txn.id);
+
+        await emitFinancialEvent({
+          userId: user.id,
+          workspaceId: effectiveWsId,
+          eventType: FINANCIAL_EVENT_TYPES.IMPORTED_TRANSACTION_UPDATED,
+          entityType: 'imported_transaction',
+          entityId: txn.id,
+          version: `${new Date().toISOString()}|skipped`,
+          occurredAt: txn.transactionDate || new Date(),
+          amount: txn.amount,
+          currency: txn.currency || 'USD',
+          direction: 'none',
+          source: 'revenue.confirm',
+          payload: { status: 'skipped', statement_id: statementId, description: txn.description ?? null },
+        });
         continue;
       }
 
@@ -1798,6 +1910,30 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
         continue;
       }
 
+      // Emit the "expensed" state change (the derived create/pay events follow)
+      await emitFinancialEvent({
+        userId: user.id,
+        workspaceId: effectiveWsId,
+        eventType: FINANCIAL_EVENT_TYPES.IMPORTED_TRANSACTION_UPDATED,
+        entityType: 'imported_transaction',
+        entityId: txn.id,
+        version: `${new Date().toISOString()}|expensed`,
+        occurredAt: txn.transactionDate || new Date(),
+        amount: txn.amount,
+        currency: txn.currency || 'USD',
+        direction: txn.type === 'debit' ? 'out' : 'in',
+        source: 'revenue.confirm',
+        payload: {
+          status: 'expensed',
+          statement_id: statementId,
+          type: txn.type,
+          category: txn.category ?? null,
+          description: txn.description ?? null,
+          matched_client_id: txn.matchedClientId ?? null,
+          matched_project_id: txn.matchedProjectId ?? null,
+        },
+      });
+
       if (txn.type === 'debit') {
         // Create expense
         let convertedAmountUsd: number;
@@ -1812,7 +1948,7 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
           }
         }
 
-        const { error: insErr } = await supabase
+        const { data: createdExpense, error: insErr } = await supabase
           .from('expenses')
           .insert({
             user_id: user.id,
@@ -1826,18 +1962,53 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
             date: txn.transactionDate || new Date().toISOString(),
             client_id: txn.matchedClientId || null,
             project_id: txn.matchedProjectId || null,
-          });
+          })
+          .select('*')
+          .single();
 
         if (!insErr) {
           created.push(txn.id);
           totalExpenses += txn.amount;
+
+          await emitFinancialEvent({
+            userId: user.id,
+            workspaceId: effectiveWsId,
+            eventType: FINANCIAL_EVENT_TYPES.EXPENSE_CREATED,
+            entityType: 'expense',
+            entityId: createdExpense.id,
+            version: createdExpense.created_at ? new Date(createdExpense.created_at).toISOString() : 'imported',
+            occurredAt: txn.transactionDate || createdExpense.date || new Date(),
+            amount: txn.amount,
+            currency: curr,
+            amountUsd: convertedAmountUsd,
+            direction: 'out',
+            source: 'revenue.confirm',
+            payload: {
+              category: createdExpense.category,
+              note: txn.description || '',
+              source_type: 'transaction_import',
+              statement_id: statementId,
+              imported_transaction_id: txn.id,
+            },
+          });
         } else {
           logger.error('Failed to create expense from import', { error: insErr, txnId: txn.id });
         }
       } else {
         // Credit — create a bookkeeping-only revenue document
         const description = txn.description || 'Statement credit';
-        const { error: creditErr } = await supabase
+        const creditCurr = txn.currency || 'USD';
+        let creditUsd: number | null = null;
+        if (creditCurr === 'USD') {
+          creditUsd = txn.amount;
+        } else {
+          try {
+            creditUsd = await convertToUsd(txn.amount, creditCurr);
+          } catch {
+            creditUsd = null;
+          }
+        }
+        const { data: createdCredit, error: creditErr } = await supabase
           .from('documents')
           .insert({
             user_id: user.id,
@@ -1854,12 +2025,38 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
               created_from: 'statement_import',
               original_amount: txn.amount,
               original_currency: txn.currency || 'USD',
+              paid_at: txn.transactionDate || new Date().toISOString(),
             },
-          });
+          })
+          .select('*')
+          .single();
 
         if (!creditErr) {
           created.push(txn.id);
           totalCredits += txn.amount;
+
+          await emitFinancialEvent({
+            userId: user.id,
+            workspaceId: effectiveWsId,
+            eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+            entityType: 'document',
+            entityId: createdCredit.id,
+            version: txn.transactionDate || 'credit',
+            occurredAt: txn.transactionDate || new Date(),
+            amount: txn.amount,
+            currency: txn.currency || 'USD',
+            amountUsd: creditUsd,
+            direction: 'in',
+            source: 'revenue.confirm',
+            payload: {
+              title: createdCredit.title,
+              doc_type: createdCredit.type,
+              bookkeeping_only: true,
+              created_from: 'statement_import',
+              statement_id: statementId,
+              imported_transaction_id: txn.id,
+            },
+          });
         } else {
           logger.error('Failed to create credit from import', { error: creditErr, txnId: txn.id });
         }
@@ -1960,6 +2157,8 @@ interface LedgerEntry {
   currency: string;
 }
 
+const LEDGER_USE_PROJECTION = process.env.LEDGER_USE_PROJECTION === 'true';
+
 // GET /api/revenue/ledger?range=30d&type=all&page=1&pageSize=50
 router.get('/ledger', authenticate, async (req: Request, res: Response, next) => {
   try {
@@ -1973,118 +2172,32 @@ router.get('/ledger', authenticate, async (req: Request, res: Response, next) =>
     const requestedRange: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
     const { range } = await resolveRangeForUser(user, requestedRange);
     const start = getRangeStart(range);
-    const startIso = start.toISOString();
     const typeFilter = String(req.query.type || 'all').toLowerCase();
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
     const pageSize = Math.min(200, Math.max(1, parseInt(String(req.query.pageSize || '50'), 10)));
 
-    const [invoices, expenses, importedTxns] = await Promise.all([
-      fetchPaged<any>('ledger_invoices', (from, to) =>
-        supabase
-          .from('documents')
-          .select('id,type,status,amount,currency,title,created_at,updated_at,content,client_id')
-          .eq('user_id', user.id)
-          .eq('workspace_id', effectiveWsId)
-          .in('type', ['INVOICE', 'PAYMENT_LINK'])
-          .or(`created_at.gte.${startIso},updated_at.gte.${startIso}`)
-          .order('updated_at', { ascending: false })
-          .range(from, to)
-      ),
-      fetchPaged<any>('ledger_expenses', (from, to) =>
-        supabase
-          .from('expenses')
-          .select('id,amount,currency,converted_amount_usd,category,note,date,client_id,created_at')
-          .eq('user_id', user.id)
-          .gte('date', startIso)
-          .order('date', { ascending: false })
-          .range(from, to)
-      ).catch(() => [] as any[]),
-      fetchPaged<any>('ledger_imported', (from, to) =>
-        supabase
-          .from('imported_transactions')
-          .select('id,transaction_date,description,amount,converted_amount_usd,currency,type,category,status,created_at')
-          .eq('user_id', user.id)
-          .gte('created_at', startIso)
-          .order('transaction_date', { ascending: false })
-          .range(from, to)
-      ).catch(() => [] as any[]),
-    ]);
+    let entries: LedgerEntry[];
 
-    const entries: LedgerEntry[] = [];
-
-    // Paid invoices → revenue (convert non-USD to USD equivalent)
-    for (const inv of invoices) {
-      const s = normalizeStatus(inv.status);
-      if (s !== 'PAID') continue;
-      const paidAt = getDocumentPaidAt(inv);
-      if (paidAt < start) continue;
-      const isCredit = inv.content?.bookkeeping_only === true;
-      let revAmount = toNumber(inv.amount);
-      const revCurrency = inv.currency || 'USD';
-      if (revCurrency !== 'USD' && revAmount > 0) {
-        try { revAmount = await convertToUsd(revAmount, revCurrency); }
-        catch { /* leave as-is */ }
-      }
-      entries.push({
-        date: paidAt.toISOString().slice(0, 10),
-        description: inv.title || (isCredit ? 'Credit entry' : 'Invoice payment'),
-        account: isCredit ? 'Other Income' : 'Revenue',
-        debit: 0,
-        credit: revAmount,
-        type: isCredit ? 'credit' : 'revenue',
-        referenceId: inv.id,
-        category: null,
-        currency: 'USD',
-      });
-    }
-
-    // Expenses
-    for (const exp of expenses) {
-      let debitAmount = toNumber(exp.converted_amount_usd);
-      if (!debitAmount || debitAmount === 0) {
-        debitAmount = toNumber(exp.amount);
-        const expCurr = exp.currency || 'USD';
-        if (expCurr !== 'USD' && debitAmount > 0) {
-          try { debitAmount = await convertToUsd(debitAmount, expCurr); }
-          catch { /* leave raw */ }
-        }
-      }
-      entries.push({
-        date: exp.date?.slice(0, 10) || exp.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-        description: exp.note || `${exp.category || 'other'} expense`,
-        account: mapCategoryToAccount(exp.category),
-        debit: debitAmount,
-        credit: 0,
-        type: 'expense',
-        referenceId: exp.id,
-        category: exp.category || 'other',
-        currency: 'USD',
-      });
-    }
-
-    // Imported transactions (unmatched ones still in pending)
-    for (const txn of importedTxns) {
-      if (txn.status === 'skipped' || txn.status === 'expensed') continue;
-      let effectiveAmount = txn.converted_amount_usd;
-      if (!effectiveAmount || effectiveAmount === 0) {
-        effectiveAmount = toNumber(txn.amount);
-        const txnCurr = txn.currency || 'USD';
-        if (txnCurr !== 'USD' && effectiveAmount > 0) {
-          try { effectiveAmount = await convertToUsd(effectiveAmount, txnCurr); }
-          catch { /* leave raw */ }
-        }
-      }
-      entries.push({
-        date: txn.transaction_date?.slice(0, 10) || txn.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-        description: txn.description || 'Imported transaction',
-        account: txn.type === 'debit' ? mapCategoryToAccount(txn.category) : 'Imported Credit',
-        debit: txn.type === 'debit' ? toNumber(effectiveAmount) : 0,
-        credit: txn.type === 'credit' ? toNumber(effectiveAmount) : 0,
-        type: 'transfer',
-        referenceId: txn.id,
-        category: txn.category || null,
-        currency: 'USD',
-      });
+    if (LEDGER_USE_PROJECTION) {
+      // Event-driven read path (feature flag LEDGER_USE_PROJECTION=true):
+      // frozen FX at event time + on-rail coverage (withdrawals, other income).
+      const { ensureProjection, readProjectionEntries } = await import('../services/ledger-projection');
+      await ensureProjection({ userId: user.id, workspaceId: effectiveWsId });
+      const rows = await readProjectionEntries({ userId: user.id, workspaceId: effectiveWsId }, start);
+      entries = rows.map((row: any) => ({
+        date: row.date,
+        description: row.description,
+        account: row.account,
+        debit: Number(row.debit) || 0,
+        credit: Number(row.credit) || 0,
+        type: row.type,
+        referenceId: row.reference_id,
+        category: row.category,
+        currency: row.currency || 'USD',
+      }));
+    } else {
+      const { buildLegacyLedgerEntries } = await import('../services/ledger');
+      entries = await buildLegacyLedgerEntries({ userId: user.id, workspaceId: effectiveWsId, start });
     }
 
     // Sort by date descending
@@ -2756,6 +2869,28 @@ router.post('/import-statement/bulk-confirm', authenticate, async (req: Request,
           continue;
         }
 
+        // Emit the "expensed" state change
+        await emitFinancialEvent({
+          userId: user.id,
+          workspaceId: effectiveWsId,
+          eventType: FINANCIAL_EVENT_TYPES.IMPORTED_TRANSACTION_UPDATED,
+          entityType: 'imported_transaction',
+          entityId: txn.id,
+          version: `${new Date().toISOString()}|expensed`,
+          occurredAt: txn.transaction_date || new Date(),
+          amount: txn.amount,
+          currency: txn.currency || 'USD',
+          direction: txn.type === 'debit' ? 'out' : 'in',
+          source: 'revenue.bulk-confirm',
+          payload: {
+            status: 'expensed',
+            statement_id: statementId,
+            type: txn.type,
+            category: txn.category ?? null,
+            description: txn.description ?? null,
+          },
+        });
+
         if (txn.type === 'debit') {
           // Create expense
           const curr = txn.currency || 'USD';
@@ -2763,7 +2898,7 @@ router.post('/import-statement/bulk-confirm', authenticate, async (req: Request,
             ? await convertToUsd(txn.amount, curr).catch(() => txn.amount)
             : txn.amount);
 
-          const { error: insErr } = await supabase.from('expenses').insert({
+          const { data: createdExpense, error: insErr } = await supabase.from('expenses').insert({
             user_id: user.id,
             workspace_id: effectiveWsId,
             amount: txn.amount,
@@ -2775,14 +2910,39 @@ router.post('/import-statement/bulk-confirm', authenticate, async (req: Request,
             date: txn.transaction_date || new Date().toISOString(),
             client_id: txn.matched_client_id || null,
             project_id: txn.matched_project_id || null,
-          });
+          }).select('*').single();
 
-          if (!insErr) confirmed++;
-          else logger.error('Bulk confirm: failed to create expense', { error: insErr, txnId: txn.id });
+          if (!insErr) {
+            confirmed++;
+
+            await emitFinancialEvent({
+              userId: user.id,
+              workspaceId: effectiveWsId,
+              eventType: FINANCIAL_EVENT_TYPES.EXPENSE_CREATED,
+              entityType: 'expense',
+              entityId: createdExpense.id,
+              version: createdExpense.created_at ? new Date(createdExpense.created_at).toISOString() : 'bulk-imported',
+              occurredAt: txn.transaction_date || createdExpense.date || new Date(),
+              amount: txn.amount,
+              currency: curr,
+              amountUsd: convertedAmountUsd,
+              direction: 'out',
+              source: 'revenue.bulk-confirm',
+              payload: {
+                category: createdExpense.category,
+                note: txn.description || '',
+                source_type: 'transaction_import',
+                statement_id: statementId,
+                imported_transaction_id: txn.id,
+              },
+            });
+          } else {
+            logger.error('Bulk confirm: failed to create expense', { error: insErr, txnId: txn.id });
+          }
         } else {
           // Credit — create bookkeeping revenue document
           const description = txn.description || 'Statement credit';
-          const { error: creditErr } = await supabase.from('documents').insert({
+          const { data: createdCredit, error: creditErr } = await supabase.from('documents').insert({
             user_id: user.id,
             workspace_id: effectiveWsId,
             client_id: txn.matched_client_id || null,
@@ -2797,11 +2957,37 @@ router.post('/import-statement/bulk-confirm', authenticate, async (req: Request,
               created_from: 'statement_import',
               original_amount: txn.amount,
               original_currency: txn.currency || 'USD',
+              paid_at: txn.transaction_date || new Date().toISOString(),
             },
-          });
+          }).select('*').single();
 
-          if (!creditErr) confirmed++;
-          else logger.error('Bulk confirm: failed to create credit', { error: creditErr, txnId: txn.id });
+          if (!creditErr) {
+            confirmed++;
+
+            await emitFinancialEvent({
+              userId: user.id,
+              workspaceId: effectiveWsId,
+              eventType: FINANCIAL_EVENT_TYPES.DOCUMENT_PAID,
+              entityType: 'document',
+              entityId: createdCredit.id,
+              version: txn.transaction_date || 'credit',
+              occurredAt: txn.transaction_date || new Date(),
+              amount: txn.amount,
+              currency: txn.currency || 'USD',
+              direction: 'in',
+              source: 'revenue.bulk-confirm',
+              payload: {
+                title: createdCredit.title,
+                doc_type: createdCredit.type,
+                bookkeeping_only: true,
+                created_from: 'statement_import',
+                statement_id: statementId,
+                imported_transaction_id: txn.id,
+              },
+            });
+          } else {
+            logger.error('Bulk confirm: failed to create credit', { error: creditErr, txnId: txn.id });
+          }
         }
       }
 

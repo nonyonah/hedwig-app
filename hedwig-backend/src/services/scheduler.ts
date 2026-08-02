@@ -183,6 +183,56 @@ export const SchedulerService = {
             this.pollScheduledPayroll().catch((e) =>
                 logger.error('scheduled-payroll-poll error', { error: e?.message }));
         });
+
+        // Ledger projection shadow diff — weekly (Sunday 4am).
+        cron.schedule('0 4 * * 0', () => {
+            withLock('ledger-shadow-diffs', dailyLockTtl, () => this.runLedgerShadowDiffs())
+                .catch((e) => logger.error('ledger-shadow-diffs lock error', { error: e?.message }));
+        });
+    },
+
+    /**
+     * Compares the legacy /ledger read path against the event-driven
+     * projection for workspaces with financial activity, logging divergence
+     * (missing entries = bug; extra entries = new coverage; amount deltas =
+     * frozen-FX vs read-time-FX). Shadow mode only — no user-visible effect.
+     */
+    async runLedgerShadowDiffs(): Promise<void> {
+        try {
+            const cap = Number(process.env.LEDGER_SHADOW_DIFF_MAX_WORKSPACES || '200');
+            const { data: scopes, error } = await supabase
+                .from('ledger_projection_state')
+                .select('user_id, workspace_id')
+                .order('updated_at', { ascending: true, nullsFirst: true })
+                .limit(cap);
+
+            if (error) {
+                logger.error('Failed to fetch projection scopes for shadow diff', { error: error.message });
+                return;
+            }
+            if (!scopes || scopes.length === 0) {
+                logger.info('Ledger shadow diff: no projection scopes yet (backfill not run)');
+                return;
+            }
+
+            const start = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+            const { runLedgerShadowDiff } = await import('./ledger-shadow');
+            await processInBatches(scopes, SCHEDULER_CONCURRENCY, async (scope: any) => {
+                try {
+                    await runLedgerShadowDiff(
+                        { userId: String(scope.user_id), workspaceId: String(scope.workspace_id) },
+                        start
+                    );
+                } catch (err: any) {
+                    logger.error('Ledger shadow diff failed for scope', {
+                        workspaceId: scope.workspace_id,
+                        error: err?.message,
+                    });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Ledger shadow diff job failed', { error: error?.message });
+        }
     },
 
     async pollScheduledPayroll() {

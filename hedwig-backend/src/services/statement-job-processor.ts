@@ -3,6 +3,7 @@ import { llmService } from './llm';
 import { createLogger } from '../utils/logger';
 import { convertToUsd, getRate } from './currency';
 import { jsonrepair } from 'jsonrepair';
+import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from './financial-events';
 
 const logger = createLogger('StatementJobProcessor');
 
@@ -443,6 +444,34 @@ export async function processStatementJob(jobId: string): Promise<void> {
       await supabase.from('statement_imports').delete().eq('id', statementId);
       throw new Error(`Failed to insert transactions: ${summarizeError(insertErr)}`);
     }
+
+    // ── Emit financial events (idempotent per imported transaction id) ──
+    await Promise.all(insertedTxns.map(async (txn) => {
+      await emitFinancialEvent({
+        userId: job.user_id,
+        workspaceId: job.workspace_id,
+        eventType: FINANCIAL_EVENT_TYPES.IMPORTED_TRANSACTION_CREATED,
+        entityType: 'imported_transaction',
+        entityId: txn.id,
+        version: 1,
+        occurredAt: txn.transaction_date || new Date(),
+        amount: txn.amount,
+        currency: txn.currency || 'USD',
+        amountUsd: txn.converted_amount_usd ?? null,
+        fxRateUsd: txn.fx_rate ?? null,
+        fxSource: txn.fx_source ?? null,
+        direction: txn.type === 'debit' ? 'out' : 'in',
+        source: 'statement_job',
+        correlationId: statementId,
+        payload: {
+          statement_id: statementId,
+          bank_name: txn.bank_name ?? null,
+          description: txn.description ?? null,
+          original_description: txn.original_description ?? null,
+          type: txn.type,
+        },
+      });
+    }));
 
     // ── Save result ──
     const chunkInfo = chunkResults.map((r) => ({
