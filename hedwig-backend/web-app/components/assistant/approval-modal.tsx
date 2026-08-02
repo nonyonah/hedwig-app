@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   CheckCircle,
@@ -18,9 +17,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/providers/toast-provider';
 import type { AssistantSuggestion } from '@/lib/types/assistant';
-import { openPaymentDetail } from '@/lib/payments/open-detail';
-import { SUGGESTION_META, getConfidenceBadge, getEntityBadges, getPriorityBadge, getSuggestionHref } from './suggestion-meta';
+import { SUGGESTION_META, getConfidenceBadge, getEntityBadges, getPriorityBadge } from './suggestion-meta';
 
 interface ApprovalModalProps {
   suggestion: AssistantSuggestion | null;
@@ -30,6 +29,7 @@ interface ApprovalModalProps {
 }
 
 export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: ApprovalModalProps) {
+  const { toast } = useToast();
   const [saving, setSaving] = useState<'approve' | 'dismiss' | null>(null);
   const [selectedActionType, setSelectedActionType] = useState<string | null>(null);
   const actions = Array.isArray(suggestion?.actions) ? suggestion.actions : [];
@@ -44,20 +44,30 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
   const confidence = getConfidenceBadge(suggestion.confidenceScore);
   const priority = getPriorityBadge(suggestion.priority);
   const badges = getEntityBadges(suggestion);
-  const contextHref = getSuggestionHref(suggestion);
-  const contextInvoiceId = typeof suggestion.relatedEntities?.invoice_id === 'string' ? suggestion.relatedEntities.invoice_id : null;
   const selectedAction = actions.find((action) => action.type === selectedActionType) ?? actions[0] ?? null;
 
   const handleApprove = async () => {
     setSaving('approve');
     try {
-      await fetch(`/api/assistant/suggestions/${suggestion.id}`, {
+      const resp = await fetch(`/api/assistant/suggestions/${suggestion.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'approved', actionType: selectedActionType }),
       });
+      const data = await resp.json().catch(() => ({ success: false }));
+      if (!resp.ok || !data.success) {
+        const message = typeof data?.error === 'string'
+          ? data.error
+          : typeof data?.error?.message === 'string'
+            ? data.error.message
+            : 'Failed to approve suggestion';
+        toast({ type: 'error', title: 'Approval failed', message });
+        return;
+      }
       onApprove(suggestion.id);
       onClose();
+    } catch {
+      toast({ type: 'error', title: 'Approval failed', message: 'Could not reach the server. Please try again.' });
     } finally {
       setSaving(null);
     }
@@ -66,13 +76,25 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
   const handleReject = async () => {
     setSaving('dismiss');
     try {
-      await fetch(`/api/assistant/suggestions/${suggestion.id}`, {
+      const resp = await fetch(`/api/assistant/suggestions/${suggestion.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'dismissed' }),
       });
+      const data = await resp.json().catch(() => ({ success: false }));
+      if (!resp.ok || !data.success) {
+        const message = typeof data?.error === 'string'
+          ? data.error
+          : typeof data?.error?.message === 'string'
+            ? data.error.message
+            : 'Failed to dismiss suggestion';
+        toast({ type: 'error', title: 'Dismiss failed', message });
+        return;
+      }
       onReject(suggestion.id);
       onClose();
+    } catch {
+      toast({ type: 'error', title: 'Dismiss failed', message: 'Could not reach the server. Please try again.' });
     } finally {
       setSaving(null);
     }
@@ -173,21 +195,6 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
           >
             Cancel
           </Button>
-          {contextInvoiceId ? (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                openPaymentDetail('invoice', contextInvoiceId);
-                onClose();
-              }}
-            >
-              Open context
-            </Button>
-          ) : (
-            <Button asChild variant="secondary">
-              <Link href={contextHref}>Open context</Link>
-            </Button>
-          )}
           <Button
             variant="destructive"
             onClick={handleReject}

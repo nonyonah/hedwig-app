@@ -10,6 +10,7 @@ import {
   type SuggestionDraftEnvelope,
 } from '../assistantSuggestions';
 import { executeComposioWrite, stageFileForComposio } from './composio-tools';
+import { llmService } from '../llm';
 import { deleteFromR2, getFromR2 } from '../../lib/r2';
 import { createLogger } from '../../utils/logger';
 import { convertToUsd } from '../currency';
@@ -336,26 +337,98 @@ async function executeCreateProject(userId: string, draft: JsonRecord): Promise<
   };
 }
 
+const VALID_EXPENSE_CATEGORIES = [
+  'software', 'contractors', 'marketing', 'travel', 'meals', 'office', 'operations',
+  'taxes', 'subscriptions', 'shopping', 'entertainment', 'groceries', 'utilities',
+  'health', 'education', 'transportation', 'rent', 'personal_care', 'other',
+] as const;
+
+function isValidCategory(category: string): boolean {
+  return (VALID_EXPENSE_CATEGORIES as readonly string[]).includes(category);
+}
+
+async function suggestExpenseCategories(
+  expenses: Array<{ id: string; note: string | null; amountUsd: number | null; currentCategory: string }>
+): Promise<Map<string, string>> {
+  const fallback = new Map<string, string>();
+  if (expenses.length === 0) return fallback;
+
+  const lines = expenses.map((expense, index) => {
+    const note = expense.note?.trim() ? expense.note : '(no note)';
+    const amount = expense.amountUsd != null ? `$${expense.amountUsd.toFixed(2)}` : '(no amount)';
+    return `${index}: note="${note}", amount=${amount}`;
+  }).join('\n');
+
+  const prompt = [
+    'Categorize each expense below into one of these categories:',
+    VALID_EXPENSE_CATEGORIES.join(', '),
+    '',
+    lines,
+    '',
+    'Return ONLY a JSON object mapping the expense index (as a string key) to a single category, e.g. {"0":"software","1":"travel"}.',
+    'Never return a category that is not in the list. If unsure, use "other".',
+  ].join('\n');
+
+  try {
+    const text = (await llmService.generateText(prompt, {
+      temperature: 0.1,
+      maxOutputTokens: 600,
+      purpose: 'general',
+    })).trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return fallback;
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+
+    for (const expense of expenses) {
+      const raw = parsed[String(expenses.indexOf(expense))];
+      const category = typeof raw === 'string' ? raw.trim().toLowerCase() : null;
+      fallback.set(expense.id, category && isValidCategory(category) ? category : expense.currentCategory);
+    }
+  } catch (error) {
+    logger.warn('AI expense categorization failed; using draft suggestions', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return fallback;
+}
+
 async function executeCategorizeExpenses(userId: string, draft: JsonRecord, action: string): Promise<AssistantApprovalExecutionResult> {
   const expenses = Array.isArray(draft.expenses) ? draft.expenses : [];
   const fallbackIds = stringArray(draft.expense_ids);
   const nowIso = new Date().toISOString();
   let updatedCount = 0;
 
+  const parsedExpenses: Array<{ id: string; note: string | null; amountUsd: number | null; suggestedCategory: string }> = [];
   for (const item of expenses) {
     const expense = asRecord(item);
     if (!expense) continue;
     const expenseId = stringValue(expense.id);
-    const suggestedCategory = stringValue(expense.suggested_category) || 'operations';
     if (!expenseId) continue;
+    parsedExpenses.push({
+      id: expenseId,
+      note: stringValue(expense.note),
+      amountUsd: numberValue(expense.amount_usd ?? expense.amount),
+      suggestedCategory: stringValue(expense.suggested_category) || 'operations',
+    });
+  }
 
+  const aiCategories = await suggestExpenseCategories(parsedExpenses.map(({ id, note, amountUsd, suggestedCategory }) => ({
+    id,
+    note,
+    amountUsd,
+    currentCategory: suggestedCategory,
+  })));
+
+  for (const expense of parsedExpenses) {
+    const category = aiCategories.get(expense.id) ?? expense.suggestedCategory;
     const { error } = await supabase
       .from('expenses')
       .update({
-        category: suggestedCategory,
+        category,
         updated_at: nowIso,
       })
-      .eq('id', expenseId)
+      .eq('id', expense.id)
       .eq('user_id', userId);
 
     if (!error) updatedCount += 1;

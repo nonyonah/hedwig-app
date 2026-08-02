@@ -25,6 +25,7 @@ interface ContextualSuggestionsProps {
   description?: string;
   query: SuggestionQuery;
   className?: string;
+  onChanged?: () => void;
 }
 
 const typeToStatus: Record<SuggestionType, 'accent' | 'danger' | 'success' | 'warning'> = {
@@ -67,6 +68,7 @@ export function ContextualSuggestions({
   description = 'Contextual suggestions appear here only when Hedwig finds something worth reviewing.',
   query,
   className,
+  onChanged,
 }: ContextualSuggestionsProps) {
   const [loading, setLoading] = useState(true);
   const [suggestions, setSuggestions] = useState<AssistantSuggestion[]>([]);
@@ -95,16 +97,20 @@ export function ContextualSuggestions({
   }, [queryString]);
 
   const handleDismiss = async (id: string) => {
-    await fetch(`/api/assistant/suggestions/${id}`, {
+    const resp = await fetch(`/api/assistant/suggestions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'dismissed' }),
-    }).catch(() => {});
-    setSuggestions((current) => current.filter((suggestion) => suggestion.id !== id));
+    }).catch(() => null);
+    if (resp?.ok) {
+      setSuggestions((current) => current.filter((suggestion) => suggestion.id !== id));
+      onChanged?.();
+    }
   };
 
   const removeSuggestion = (id: string) => {
     setSuggestions((current) => current.filter((suggestion) => suggestion.id !== id));
+    onChanged?.();
   };
 
   if (loading) {

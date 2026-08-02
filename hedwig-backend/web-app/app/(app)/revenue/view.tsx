@@ -45,7 +45,7 @@ import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context'
 import { formatShortDate } from '@/lib/utils';
 import { hedwigApi } from '@/lib/api/client';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
-import { normalizeExpenseRecord } from '@/lib/revenue-analytics';
+import { normalizeExpenseRecord, normalizeExpenseRecords } from '@/lib/revenue-analytics';
 import { ImportDialog } from './import-dialog';
 import type { Invoice, Client } from '@/lib/models/entities';
 import { openPaymentDetail } from '@/lib/payments/open-detail';
@@ -734,11 +734,22 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
  } catch {
  // The create/update operation already reports user-facing errors.
  }
- }, [accessToken, range]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accessToken, range]); // eslint-disable-line react-hooks/exhaustive-deps
 
- const handleSaveExpense = useCallback(async (form: ExpenseFormState) => {
- setIsSavingExpense(true);
- try {
+  const refreshExpenses = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const nextExpenses = await hedwigApi.revenueExpenses(apiOpts);
+      if (!mounted.current) return;
+      setExpenses(normalizeExpenseRecords(Array.isArray(nextExpenses) ? nextExpenses : []));
+    } catch {
+      // Suggestion approval already reports user-facing errors.
+    }
+  }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSaveExpense = useCallback(async (form: ExpenseFormState) => {
+  setIsSavingExpense(true);
+  try {
  const amt = parseFloat(form.amount.replace(/[^0-9.]/g, ''));
  const fallbackConvertedAmountUsd = convertToUsd(amt, form.currency);
  const payload = {
@@ -939,6 +950,7 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
   title="Expense review"
   description="Grouped expense suggestions stay beside your revenue data so cleanup happens in context."
   query={{ expensePage: true, limit: 1 }}
+  onChanged={() => { refreshRevenueData(); void refreshExpenses(); }}
   />
 
   {/* ── Range filter ── */}
