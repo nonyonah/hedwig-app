@@ -20,7 +20,7 @@ const logger = createLogger('LedgerProjection');
 
 export interface ProjectionScope {
   userId: string;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
 interface LedgerEntryRow {
@@ -55,7 +55,23 @@ interface FinancialEventRow {
   direction: 'in' | 'out' | 'none';
 }
 
-const isPersonal = (workspaceId: string): boolean => workspaceId.startsWith('ws_personal_');
+const isPersonal = (workspaceId: string | null): boolean => workspaceId === null || workspaceId.startsWith('ws_personal_');
+
+/**
+ * Canonical workspace key for state/entry lookups. Personal scopes (null or
+ * ws_personal_<user>) always resolve to ws_personal_<user> so the state row
+ * and ledger rows are shared across both spellings of the same scope.
+ */
+const canonicalScopeKey = (scope: ProjectionScope): string =>
+  isPersonal(scope.workspaceId) ? `ws_personal_${scope.userId}` : scope.workspaceId!;
+
+/**
+ * Personal (null-workspace) events are projected under the canonical
+ * `ws_personal_<user_id>` workspace so the entry is readable from the
+ * legacy workspace-scoped scope.
+ */
+const canonicalWorkspaceId = (event: FinancialEventRow): string =>
+  event.workspace_id === null ? `ws_personal_${event.user_id}` : event.workspace_id;
 
 function projectEvent(event: FinancialEventRow): {
   action: 'insert' | 'delete' | 'ignore';
@@ -65,6 +81,7 @@ function projectEvent(event: FinancialEventRow): {
   const ref = event.entity_id;
   const date = event.occurred_at.slice(0, 10);
   const usd = event.amount_usd ?? toNumber(event.amount);
+  const workspaceId = canonicalWorkspaceId(event);
 
   switch (event.event_type) {
     case 'document.paid': {
@@ -76,7 +93,7 @@ function projectEvent(event: FinancialEventRow): {
         deleteWhere: { reference_id: ref, type },
         entry: {
           user_id: event.user_id,
-          workspace_id: event.workspace_id,
+          workspace_id: workspaceId,
           event_id: event.id,
           date,
           description: String(payload.title || (isCredit ? 'Credit entry' : 'Invoice payment')),
@@ -100,7 +117,7 @@ function projectEvent(event: FinancialEventRow): {
         deleteWhere: { reference_id: ref, type: 'expense' },
         entry: {
           user_id: event.user_id,
-          workspace_id: event.workspace_id,
+          workspace_id: workspaceId,
           event_id: event.id,
           date,
           description: String(payload.note || `${category} expense`),
@@ -128,7 +145,7 @@ function projectEvent(event: FinancialEventRow): {
         deleteWhere: { reference_id: ref, type: 'transfer' },
         entry: {
           user_id: event.user_id,
-          workspace_id: event.workspace_id,
+          workspace_id: workspaceId,
           event_id: event.id,
           date,
           description: String(payload.description || 'Imported transaction'),
@@ -157,7 +174,7 @@ function projectEvent(event: FinancialEventRow): {
         deleteWhere: { reference_id: ref, type: 'transfer' },
         entry: {
           user_id: event.user_id,
-          workspace_id: event.workspace_id,
+          workspace_id: workspaceId,
           event_id: event.id,
           date,
           description: String(payload.description || 'Imported transaction'),
@@ -179,7 +196,7 @@ function projectEvent(event: FinancialEventRow): {
         deleteWhere: { reference_id: ref, type: 'transfer' },
         entry: {
           user_id: event.user_id,
-          workspace_id: event.workspace_id,
+          workspace_id: workspaceId,
           event_id: event.id,
           date,
           description: `Withdrawal${payload.bank_name ? ` — ${String(payload.bank_name)}` : ''}`,
@@ -200,7 +217,7 @@ function projectEvent(event: FinancialEventRow): {
         deleteWhere: { reference_id: ref, type: 'credit' },
         entry: {
           user_id: event.user_id,
-          workspace_id: event.workspace_id,
+          workspace_id: workspaceId,
           event_id: event.id,
           date,
           description: 'Refunded withdrawal',
@@ -222,7 +239,7 @@ function projectEvent(event: FinancialEventRow): {
         deleteWhere: { reference_id: ref, type: 'credit' },
         entry: {
           user_id: event.user_id,
-          workspace_id: event.workspace_id,
+          workspace_id: workspaceId,
           event_id: event.id,
           date,
           description: `Deposit${payload.label ? ` — ${String(payload.label)}` : ''}`,
@@ -271,9 +288,14 @@ function eventQuery(scope: ProjectionScope, afterRecordedAt?: string, from = 0, 
     .range(from, to);
 
   if (isPersonal(scope.workspaceId)) {
-    q = q.eq('user_id', scope.userId);
+    // Personal scope: user's personal events — either stored with a NULL
+    // workspace (deposits, some expenses) or under the canonical
+    // ws_personal_<user> id. Never pull other workspaces' events here.
+    q = q
+      .eq('user_id', scope.userId)
+      .or(`workspace_id.is.null,workspace_id.eq."ws_personal_${scope.userId}"`);
   } else {
-    q = q.eq('workspace_id', scope.workspaceId);
+    q = q.eq('workspace_id', scope.workspaceId!);
   }
   if (afterRecordedAt) {
     q = q.gt('recorded_at', afterRecordedAt);
@@ -284,9 +306,11 @@ function eventQuery(scope: ProjectionScope, afterRecordedAt?: string, from = 0, 
 async function getWorkspaceMaxRecordedAt(scope: ProjectionScope): Promise<string> {
   let latestQuery = supabase.from('financial_events').select('recorded_at');
   if (isPersonal(scope.workspaceId)) {
-    latestQuery = latestQuery.eq('user_id', scope.userId);
+    latestQuery = latestQuery
+      .eq('user_id', scope.userId)
+      .or(`workspace_id.is.null,workspace_id.eq."ws_personal_${scope.userId}"`);
   } else {
-    latestQuery = latestQuery.eq('workspace_id', scope.workspaceId);
+    latestQuery = latestQuery.eq('workspace_id', scope.workspaceId!);
   }
   const { data, error } = await latestQuery
     .order('recorded_at', { ascending: false })
@@ -302,11 +326,12 @@ async function getWorkspaceMaxRecordedAt(scope: ProjectionScope): Promise<string
  */
 export async function ensureProjection(scope: ProjectionScope): Promise<void> {
   try {
+    const scopeKey = canonicalScopeKey(scope);
     const { data: state, error: stateError } = await supabase
       .from('ledger_projection_state')
       .select('last_recorded_at')
       .eq('user_id', scope.userId)
-      .eq('workspace_id', scope.workspaceId)
+      .eq('workspace_id', scopeKey)
       .maybeSingle();
 
     if (stateError) throw new Error(`projection state lookup failed: ${stateError.message}`);
@@ -339,7 +364,7 @@ export async function ensureProjection(scope: ProjectionScope): Promise<void> {
       .from('ledger_projection_state')
       .upsert({
         user_id: scope.userId,
-        workspace_id: scope.workspaceId,
+        workspace_id: scopeKey,
         last_recorded_at: latest,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,workspace_id' });
@@ -357,12 +382,24 @@ export async function ensureProjection(scope: ProjectionScope): Promise<void> {
  * out-of-order syncs.
  */
 export async function rebuildProjection(scope: ProjectionScope): Promise<void> {
-  const { error: deleteError } = await supabase
-    .from('ledger_entries')
-    .delete()
-    .eq('user_id', scope.userId)
-    .eq('workspace_id', scope.workspaceId);
-  if (deleteError) throw new Error(`projection reset failed: ${deleteError.message}`);
+  const scopeKey = canonicalScopeKey(scope);
+  if (isPersonal(scope.workspaceId)) {
+    // Clear both spellings of the personal scope: rows written under the
+    // canonical ws_personal_<user> id and any legacy null-workspace rows.
+    const { error: deleteError } = await supabase
+      .from('ledger_entries')
+      .delete()
+      .eq('user_id', scope.userId)
+      .or(`workspace_id.is.null,workspace_id.eq."${scopeKey}"`);
+    if (deleteError) throw new Error(`projection reset failed: ${deleteError.message}`);
+  } else {
+    const { error: deleteError } = await supabase
+      .from('ledger_entries')
+      .delete()
+      .eq('user_id', scope.userId)
+      .eq('workspace_id', scopeKey);
+    if (deleteError) throw new Error(`projection reset failed: ${deleteError.message}`);
+  }
 
   let processed = 0;
   for (let from = 0; from < 20000; from += 500) {
@@ -380,13 +417,13 @@ export async function rebuildProjection(scope: ProjectionScope): Promise<void> {
     .from('ledger_projection_state')
     .upsert({
       user_id: scope.userId,
-      workspace_id: scope.workspaceId,
+      workspace_id: scopeKey,
       last_recorded_at: await getWorkspaceMaxRecordedAt(scope),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id,workspace_id' });
   if (stateError) throw new Error(`projection state write failed: ${stateError.message}`);
 
-  logger.info('Projection rebuilt', { workspaceId: scope.workspaceId, events: processed });
+  logger.info('Projection rebuilt', { workspaceId: scopeKey, events: processed });
 }
 
 /**
@@ -394,14 +431,22 @@ export async function rebuildProjection(scope: ProjectionScope): Promise<void> {
  * the given start date, newest first (matches the /ledger endpoint contract).
  */
 export async function readProjectionEntries(scope: ProjectionScope, start: Date): Promise<LedgerEntryRow[]> {
-  const { data, error } = await supabase
-    .from('ledger_entries')
-    .select('id,user_id,workspace_id,event_id,date,description,account,debit,credit,type,reference_id,category,currency')
-    .eq('user_id', scope.userId)
-    .eq('workspace_id', scope.workspaceId)
-    .gte('date', start.toISOString().slice(0, 10))
-    .order('date', { ascending: false });
+  const scopeKey = canonicalScopeKey(scope);
+  const rows: LedgerEntryRow[] = [];
+  for (let from = 0; from < 20000; from += 500) {
+    const { data, error } = await supabase
+      .from('ledger_entries')
+      .select('id,user_id,workspace_id,event_id,date,description,account,debit,credit,type,reference_id,category,currency')
+      .eq('user_id', scope.userId)
+      .eq('workspace_id', scopeKey)
+      .gte('date', start.toISOString().slice(0, 10))
+      .order('date', { ascending: false })
+      .range(from, from + 499);
 
-  if (error) throw new Error(`projection read failed: ${error.message}`);
-  return (data || []) as unknown as LedgerEntryRow[];
+    if (error) throw new Error(`projection read failed: ${error.message}`);
+    const batch = (data || []) as unknown as LedgerEntryRow[];
+    rows.push(...batch);
+    if (batch.length < 500) break;
+  }
+  return rows;
 }

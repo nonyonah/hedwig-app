@@ -220,7 +220,7 @@ export const SchedulerService = {
             await processInBatches(scopes, SCHEDULER_CONCURRENCY, async (scope: any) => {
                 try {
                     await runLedgerShadowDiff(
-                        { userId: String(scope.user_id), workspaceId: String(scope.workspace_id) },
+                        { userId: String(scope.user_id), workspaceId: scope.workspace_id ?? null },
                         start
                     );
                 } catch (err: any) {
