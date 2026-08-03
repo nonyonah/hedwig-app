@@ -160,18 +160,18 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
       <Tabs variant="primary" selectedKey={activeReport} onSelectionChange={(key) => setActiveReport(key as ReportType)}>
         <Tabs.ListContainer>
           <Tabs.List aria-label="Report type">
-            <Tabs.Tab id="pnl" className="px-3 py-2 text-[13px]">
-              <ChartBar className="h-4 w-4" weight="bold" />
+            <Tabs.Tab id="pnl" className="px-2 py-1.5 text-[12px]">
+              <ChartBar className="h-3.5 w-3.5" weight="bold" />
               P&L
               <Tabs.Indicator />
             </Tabs.Tab>
-            <Tabs.Tab id="cashflow" className="px-3 py-2 text-[13px]">
-              <CalendarBlank className="h-4 w-4" weight="bold" />
+            <Tabs.Tab id="cashflow" className="px-2 py-1.5 text-[12px]">
+              <CalendarBlank className="h-3.5 w-3.5" weight="bold" />
               Cash Flow
               <Tabs.Indicator />
             </Tabs.Tab>
-            <Tabs.Tab id="ledger" className="px-3 py-2 text-[13px]">
-              <ArrowsLeftRight className="h-4 w-4" weight="bold" />
+            <Tabs.Tab id="ledger" className="px-2 py-1.5 text-[12px]">
+              <ArrowsLeftRight className="h-3.5 w-3.5" weight="bold" />
               Ledger
               <Tabs.Indicator />
             </Tabs.Tab>

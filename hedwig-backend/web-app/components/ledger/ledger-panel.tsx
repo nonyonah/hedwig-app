@@ -9,11 +9,10 @@ import {
   DownloadSimple,
   GoogleSheetsLogo,
   MagnifyingGlass,
-  Sparkle,
   X,
 } from '@/components/ui/lucide-icons';
 import { Loader } from '@/components/ui/loader';
-import { Alert, Dropdown, Label } from '@heroui/react';
+import { Dropdown, Label } from '@heroui/react';
 import { Button } from '@/components/ui/button';
 import { AttachedStatGrid, type AttachedStatCardItem } from '@/components/ui/attached-stat-cards';
 import { hedwigApi } from '@/lib/api/client';
@@ -40,10 +39,6 @@ const KINDS: { key: LedgerKind; label: string }[] = [
   { key: 'refunds', label: 'Refunds' },
   { key: 'imported', label: 'Imported' },
 ];
-
-function stripMarkdown(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, '$1');
-}
 
 function kindLabel(entry: LedgerEntry): string {
   const et = entry.event_type || '';
@@ -129,7 +124,6 @@ export function LedgerPanel({ accessToken }: { accessToken: string | null }) {
     };
     pagination: { page: number; pageSize: number; total: number; totalPages: number };
   } | null>(null);
-  const [narrative, setNarrative] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<LedgerEntry | null>(null);
@@ -170,13 +164,9 @@ export function LedgerPanel({ accessToken }: { accessToken: string | null }) {
     const params: { range: string; kind: string; q: string; page: number; pageSize: number } = {
       range, kind, q, page, pageSize: 50,
     };
-    Promise.all([
-      hedwigApi.ledger(params, { accessToken }),
-      hedwigApi.ledgerNarrative(range, { accessToken }),
-    ])
-      .then(([ledger, narr]) => {
+    hedwigApi.ledger(params, { accessToken })
+      .then((ledger) => {
         setData(ledger as any);
-        setNarrative((narr as any).narrative || null);
       })
       .catch(() => {
         setData((prev) => prev);
@@ -225,8 +215,6 @@ export function LedgerPanel({ accessToken }: { accessToken: string | null }) {
     }
   };
 
-  const displayNarrative = narrative ? stripMarkdown(narrative) : null;
-
   const statCards: AttachedStatCardItem[] = data ? [
     {
       id: 'money-in',
@@ -260,18 +248,6 @@ export function LedgerPanel({ accessToken }: { accessToken: string | null }) {
 
   return (
     <div className="space-y-4">
-      {displayNarrative && (
-        <Alert status="accent">
-          <Alert.Indicator />
-          <Alert.Content>
-            <Alert.Description className="flex items-start gap-2">
-              <Sparkle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]" weight="bold" />
-              <span>{displayNarrative}</span>
-            </Alert.Description>
-          </Alert.Content>
-        </Alert>
-      )}
-
       {/* Money movement strip */}
       <AttachedStatGrid items={statCards} className="grid-cols-1 md:grid-cols-3" />
 
