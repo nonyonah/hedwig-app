@@ -11,23 +11,24 @@ import {
  CheckCircle,
  CopySimple,
  CurrencyDollar,
- DownloadSimple,
- Envelope,
- FileText,
- LinkSimple,
- Repeat,
- Trash,
- UploadSimple,
- X,
-  Info,
-  CaretDown
+  DownloadSimple,
+  Envelope,
+  FileText,
+  LinkSimple,
+  MagnifyingGlass,
+  Repeat,
+  Trash,
+  UploadSimple,
+  X,
+   Info,
+   CaretDown
 } from '@/components/ui/lucide-icons';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
-import { Button as HButton, Dropdown, Label } from '@heroui/react';
+import { Button as HButton, Checkbox, Dropdown, Label, Pagination, type Selection } from '@heroui/react';
 import { ClientPortal } from '@/components/ui/client-portal';
 import {
  Dialog,
@@ -64,6 +65,7 @@ const INV_STATUS: Record<Invoice['status'], { dot: string; label: string; bg: st
 };
 
 const RECURRING_TEMPLATE_PREFIX = 'rtpl_';
+const PAGE_SIZE = 25;
 
 const LINK_STATUS: Record<PaymentLink['status'], { dot: string; label: string; bg: string; text: string }> = {
  active: { dot: 'bg-[var(--color-success)]', label: 'Active', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
@@ -207,8 +209,15 @@ export function PaymentsClient({
  const [isDeleting, setIsDeleting] = useState(false);
  const [isActionLoading, setIsActionLoading] = useState(false);
  const [markPaidTarget, setMarkPaidTarget] = useState<{ doc: Invoice | PaymentLink; kind: 'invoice' | 'payment-link' } | null>(null);
- const [markPaidVia, setMarkPaidVia] = useState<'crypto' | 'bank_transfer' | 'cash' | 'other'>('bank_transfer');
- const [markPaidReference, setMarkPaidReference] = useState('');
+  const [markPaidVia, setMarkPaidVia] = useState<'crypto' | 'bank_transfer' | 'cash' | 'other'>('bank_transfer');
+  const [markPaidReference, setMarkPaidReference] = useState('');
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [linkSearch, setLinkSearch] = useState('');
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [linkPage, setLinkPage] = useState(1);
+  const [invoiceSelectedKeys, setInvoiceSelectedKeys] = useState<Selection>(new Set());
+  const [linkSelectedKeys, setLinkSelectedKeys] = useState<Selection>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
  const highlightedInvoice = useMemo(
  () => invoiceItems.find((inv) => inv.id === highlightedInvoiceId) ?? null,
@@ -263,10 +272,153 @@ export function PaymentsClient({
  if (invoiceFilter === 'all') return allInvoiceItems;
  return allInvoiceItems.filter((i) => i.status === invoiceFilter);
  }, [allInvoiceItems, invoiceFilter]);
- const filteredLinks = useMemo(
- () => (linkFilter === 'all' ? paymentLinkItems : paymentLinkItems.filter((l) => l.status === linkFilter)),
- [paymentLinkItems, linkFilter]
- );
+  const filteredLinks = useMemo(
+    () => (linkFilter === 'all' ? paymentLinkItems : paymentLinkItems.filter((l) => l.status === linkFilter)),
+    [paymentLinkItems, linkFilter]
+  );
+
+  const searchedInvoices = useMemo(() => {
+    const q = invoiceSearch.trim().toLowerCase();
+    if (!q) return filteredInvoices;
+    return filteredInvoices.filter((i) =>
+      (i.title || '').toLowerCase().includes(q) ||
+      i.number.toLowerCase().includes(q) ||
+      (i.clientEmail || '').toLowerCase().includes(q)
+    );
+  }, [filteredInvoices, invoiceSearch]);
+
+  const searchedLinks = useMemo(() => {
+    const q = linkSearch.trim().toLowerCase();
+    if (!q) return filteredLinks;
+    return filteredLinks.filter((l) =>
+      l.title.toLowerCase().includes(q) ||
+      l.asset.toLowerCase().includes(q) ||
+      (l.clientEmail || '').toLowerCase().includes(q)
+    );
+  }, [filteredLinks, linkSearch]);
+
+  const invoiceTotalPages = Math.max(1, Math.ceil(searchedInvoices.length / PAGE_SIZE));
+  const linkTotalPages = Math.max(1, Math.ceil(searchedLinks.length / PAGE_SIZE));
+  const invoicePageItems = useMemo(() => {
+    const start = (invoicePage - 1) * PAGE_SIZE;
+    return searchedInvoices.slice(start, start + PAGE_SIZE);
+  }, [searchedInvoices, invoicePage]);
+  const linkPageItems = useMemo(() => {
+    const start = (linkPage - 1) * PAGE_SIZE;
+    return searchedLinks.slice(start, start + PAGE_SIZE);
+  }, [searchedLinks, linkPage]);
+  const invoicePageStart = (invoicePage - 1) * PAGE_SIZE + 1;
+  const invoicePageEnd = Math.min(invoicePage * PAGE_SIZE, searchedInvoices.length);
+  const linkPageStart = (linkPage - 1) * PAGE_SIZE + 1;
+  const linkPageEnd = Math.min(linkPage * PAGE_SIZE, searchedLinks.length);
+  const invoiceSelectedCount =
+    invoiceSelectedKeys === 'all'
+      ? searchedInvoices.filter((i) => !i.id.startsWith(RECURRING_TEMPLATE_PREFIX)).length
+      : invoiceSelectedKeys.size;
+  const linkSelectedCount = linkSelectedKeys === 'all' ? searchedLinks.length : linkSelectedKeys.size;
+
+  useEffect(() => { setInvoicePage(1); }, [invoiceFilter, invoiceSearch]);
+  useEffect(() => { setLinkPage(1); }, [linkFilter, linkSearch]);
+
+  const toggleInvoiceSelection = (id: string, checked: boolean) => {
+    setInvoiceSelectedKeys((cur) => {
+      const base = cur === 'all' ? new Set(searchedInvoices.map((i) => i.id)) : new Set(Array.from(cur).map(String));
+      if (checked) base.add(id);
+      else base.delete(id);
+      return base;
+    });
+  };
+
+  const toggleLinkSelection = (id: string, checked: boolean) => {
+    setLinkSelectedKeys((cur) => {
+      const base = cur === 'all' ? new Set(searchedLinks.map((l) => l.id)) : new Set(Array.from(cur).map(String));
+      if (checked) base.add(id);
+      else base.delete(id);
+      return base;
+    });
+  };
+
+  const toggleInvoicePageSelection = (checked: boolean) => {
+    const pageIds = invoicePageItems.filter((i) => !i.id.startsWith(RECURRING_TEMPLATE_PREFIX)).map((i) => i.id);
+    setInvoiceSelectedKeys((cur) => {
+      const base = cur === 'all' ? new Set(searchedInvoices.map((i) => i.id)) : new Set(Array.from(cur).map(String));
+      if (checked) pageIds.forEach((id) => base.add(id));
+      else pageIds.forEach((id) => base.delete(id));
+      return base;
+    });
+  };
+
+  const toggleLinkPageSelection = (checked: boolean) => {
+    const pageIds = linkPageItems.map((l) => l.id);
+    setLinkSelectedKeys((cur) => {
+      const base = cur === 'all' ? new Set(searchedLinks.map((l) => l.id)) : new Set(Array.from(cur).map(String));
+      if (checked) pageIds.forEach((id) => base.add(id));
+      else pageIds.forEach((id) => base.delete(id));
+      return base;
+    });
+  };
+
+  const invoicePageAllSelected =
+    invoicePageItems.length > 0 && invoicePageItems.filter((i) => !i.id.startsWith(RECURRING_TEMPLATE_PREFIX)).every((i) =>
+      invoiceSelectedKeys === 'all' || invoiceSelectedKeys.has(i.id)
+    );
+  const invoicePageSomeSelected =
+    invoicePageItems.filter((i) => !i.id.startsWith(RECURRING_TEMPLATE_PREFIX)).some((i) =>
+      invoiceSelectedKeys === 'all' || invoiceSelectedKeys.has(i.id)
+    );
+  const linkPageAllSelected = linkPageItems.length > 0 && linkPageItems.every((l) => linkSelectedKeys === 'all' || linkSelectedKeys.has(l.id));
+  const linkPageSomeSelected = linkPageItems.some((l) => linkSelectedKeys === 'all' || linkSelectedKeys.has(l.id));
+
+  const handleBulkDeleteInvoices = async () => {
+    if (!accessToken) return;
+    const ids =
+      invoiceSelectedKeys === 'all'
+        ? searchedInvoices.map((i) => i.id)
+        : Array.from(invoiceSelectedKeys).map(String);
+    const deletable = ids.filter((id) => !id.startsWith(RECURRING_TEMPLATE_PREFIX));
+    if (deletable.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(
+        deletable.map((id) => hedwigApi.deleteDocument(id, { accessToken, disableMockFallback: true }))
+      );
+      const removed = new Set(deletable);
+      setInvoiceItems((cur) => cur.filter((i) => !removed.has(i.id)));
+      if (selectedInvoice && removed.has(selectedInvoice.id)) setSelectedInvoice(null);
+      setInvoiceSelectedKeys(new Set());
+      capturePaymentEvent('invoice_bulk_deleted', { count: deletable.length });
+      toast({ type: 'success', title: `${deletable.length} invoice${deletable.length !== 1 ? 's' : ''} deleted`, message: 'Selected invoices were removed.' });
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Delete failed', message: e?.message || 'Please try again.' });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteLinks = async () => {
+    if (!accessToken) return;
+    const ids =
+      linkSelectedKeys === 'all'
+        ? searchedLinks.map((l) => l.id)
+        : Array.from(linkSelectedKeys).map(String);
+    if (ids.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(
+        ids.map((id) => hedwigApi.deleteDocument(id, { accessToken, disableMockFallback: true }))
+      );
+      const removed = new Set(ids);
+      setPaymentLinkItems((cur) => cur.filter((l) => !removed.has(l.id)));
+      if (selectedPaymentLink && removed.has(selectedPaymentLink.id)) setSelectedPaymentLink(null);
+      setLinkSelectedKeys(new Set());
+      capturePaymentEvent('payment_link_bulk_deleted', { count: ids.length });
+      toast({ type: 'success', title: `${ids.length} payment link${ids.length !== 1 ? 's' : ''} deleted`, message: 'Selected payment links were removed.' });
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Delete failed', message: e?.message || 'Please try again.' });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
  const publicInvoiceUrl = selectedInvoice ? `${backendConfig.publicPagesUrl}/invoice/${selectedInvoice.id}` : '';
  const publicLinkUrl = selectedPaymentLink ? `${backendConfig.publicPagesUrl}/pay/${selectedPaymentLink.id}` : '';
@@ -623,7 +775,8 @@ export function PaymentsClient({
   </div>
 
  {/* Filter chips */}
- <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-5 py-2">
+ <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-5 py-2">
+ <div className="flex items-center gap-1">
  {activeTab === 'invoices'
  ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue'] as const).map((s) => (
  <FilterChip
@@ -656,19 +809,55 @@ export function PaymentsClient({
  {s === 'all' ? 'All' : LINK_STATUS[s]?.label ?? s}
  </FilterChip>
  ))
- : (['all', 'active', 'paused'] as const).map((s) => (
- <FilterChip key={s} active={recurringFilter === s} onClick={() => setRecurringFilter(s)}>
- {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
- </FilterChip>
- ))}
- </div>
+  : (['all', 'active', 'paused'] as const).map((s) => (
+  <FilterChip key={s} active={recurringFilter === s} onClick={() => setRecurringFilter(s)}>
+  {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+  </FilterChip>
+  ))}
+  </div>
+  {activeTab !== 'recurring' && (
+  <div className="relative shrink-0">
+  <MagnifyingGlass className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-placeholder)]" />
+  <input
+  value={activeTab === 'invoices' ? invoiceSearch : linkSearch}
+  onChange={(e) => (activeTab === 'invoices' ? setInvoiceSearch(e.target.value) : setLinkSearch(e.target.value))}
+  placeholder={activeTab === 'invoices' ? 'Search invoices' : 'Search links'}
+  aria-label={activeTab === 'invoices' ? 'Search invoices' : 'Search payment links'}
+  className="h-8 w-[160px] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-8 pr-7 text-[12px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] transition focus:border-[var(--color-primary)] focus:outline-none sm:w-[200px]"
+  />
+  {(activeTab === 'invoices' ? invoiceSearch : linkSearch) && (
+  <button
+  type="button"
+  onClick={() => (activeTab === 'invoices' ? setInvoiceSearch('') : setLinkSearch(''))}
+  aria-label="Clear search"
+  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  >
+  <X className="h-3 w-3" />
+  </button>
+  )}
+  </div>
+  )}
+  </div>
 
- {/* Table header — hidden on recurring tab (it has its own headers) */}
- {activeTab !== 'recurring' && (
- <div className="grid grid-cols-[1fr_120px_110px_100px_44px] gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
- <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">
- {activeTab === 'invoices' ? 'Invoice' : 'Title'}
- </span>
+  {/* Table header — hidden on recurring tab (it has its own headers) */}
+  {activeTab !== 'recurring' && (
+  <div className="grid grid-cols-[36px_1fr_120px_110px_100px_44px] items-center gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
+  <Checkbox
+  aria-label={activeTab === 'invoices' ? 'Select all invoices on this page' : 'Select all payment links on this page'}
+  isSelected={activeTab === 'invoices' ? invoicePageAllSelected : linkPageAllSelected}
+  isIndeterminate={
+  activeTab === 'invoices'
+  ? invoicePageSomeSelected && !invoicePageAllSelected
+  : linkPageSomeSelected && !linkPageAllSelected
+  }
+  onChange={(c) => (activeTab === 'invoices' ? toggleInvoicePageSelection(c) : toggleLinkPageSelection(c))}
+  className="ml-1"
+  >
+  <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+  </Checkbox>
+  <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">
+  {activeTab === 'invoices' ? 'Invoice' : 'Title'}
+  </span>
  <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</span>
  <span className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Amount</span>
  <span className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">
@@ -701,41 +890,54 @@ export function PaymentsClient({
  )
  )}
 
- {/* Rows — invoices/payment-links tabs only */}
- {activeTab === 'invoices' ? (
- filteredInvoices.length === 0 ? (
- <EmptyState icon={<FileText className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />} text="No invoices match this filter." />
- ) : (
- <div className="divide-y divide-[var(--color-border)]">
- {filteredInvoices.map((inv) => {
- const s = INV_STATUS[inv.status];
- return (
- <div
- key={inv.id}
- onClick={() => {
- if (inv.id.startsWith(RECURRING_TEMPLATE_PREFIX)) {
- const r = recurringInvoices.find((ri) => ri.id === inv.recurringInvoiceId);
- if (r) {
- setSelectedRecurring(null);
- setSelectedInvoice(null);
- setSelectedPaymentLink(null);
- openPaymentDetail('recurring', r.id);
- }
- return;
- }
- setSelectedRecurring(null);
- setSelectedPaymentLink(null);
- setSelectedInvoice(null);
- capturePaymentEvent('invoice_viewed', {
- invoice_id: inv.id,
- status: inv.status,
- surface: 'invoices_table',
- });
- openPaymentDetail('invoice', inv.id);
- }}
- className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)] ${selectedInvoice?.id === inv.id ? 'bg-[var(--color-accent-soft)]' : ''}`}
- >
- <div className="min-w-0">
+{/* Rows — invoices/payment-links tabs only */}
+  {activeTab === 'invoices' ? (
+  searchedInvoices.length === 0 ? (
+  <EmptyState icon={<FileText className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />} text="No invoices match this filter." />
+  ) : (
+  <div className="divide-y divide-[var(--color-border)]">
+  {invoicePageItems.map((inv) => {
+  const s = INV_STATUS[inv.status];
+  const isTemplate = inv.id.startsWith(RECURRING_TEMPLATE_PREFIX);
+  const isSelected = invoiceSelectedKeys === 'all' || invoiceSelectedKeys.has(inv.id);
+  return (
+  <div
+  key={inv.id}
+  onClick={() => {
+  if (isTemplate) {
+  const r = recurringInvoices.find((ri) => ri.id === inv.recurringInvoiceId);
+  if (r) {
+    setSelectedRecurring(null);
+    setSelectedInvoice(null);
+    setSelectedPaymentLink(null);
+    openPaymentDetail('recurring', r.id);
+  }
+  return;
+  }
+  setSelectedRecurring(null);
+  setSelectedPaymentLink(null);
+  setSelectedInvoice(null);
+  capturePaymentEvent('invoice_viewed', {
+  invoice_id: inv.id,
+  status: inv.status,
+  surface: 'invoices_table',
+  });
+  openPaymentDetail('invoice', inv.id);
+  }}
+  className={`group grid cursor-pointer grid-cols-[36px_1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)] ${selectedInvoice?.id === inv.id ? 'bg-[var(--color-accent-soft)]' : ''}`}
+  >
+  <div onClick={(e) => e.stopPropagation()}>
+  <Checkbox
+  aria-label={`Select ${inv.number}`}
+  isSelected={isSelected}
+  isDisabled={isTemplate}
+  onChange={(c) => toggleInvoiceSelection(inv.id, c)}
+  className="ml-1"
+  >
+  <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+  </Checkbox>
+  </div>
+  <div className="min-w-0">
  <div className="flex items-center gap-1.5">
  <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">
  {inv.title || inv.number}
@@ -766,29 +968,40 @@ export function PaymentsClient({
  })}
  </div>
  )
- ) : activeTab === 'payment-links' && filteredLinks.length === 0 ? (
- <EmptyState icon={<LinkSimple className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />} text="No payment links match this filter." />
- ) : activeTab === 'payment-links' ? (
- <div className="divide-y divide-[var(--color-surface-secondary)]">
- {filteredLinks.map((link) => {
- const s = LINK_STATUS[link.status];
- return (
- <div
- key={link.id}
- onClick={() => {
- setSelectedInvoice(null);
- setSelectedPaymentLink(null);
- capturePaymentEvent('payment_link_opened', {
- payment_link_id: link.id,
- status: link.status,
- surface: 'payment_links_table',
- });
- openPaymentDetail('payment-link', link.id);
- }}
- className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)] ${selectedPaymentLink?.id === link.id ? 'bg-[var(--color-accent-soft)]' : ''}`}
- >
- <div className="min-w-0">
- <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{link.title}</p>
+  ) : activeTab === 'payment-links' && searchedLinks.length === 0 ? (
+  <EmptyState icon={<LinkSimple className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />} text="No payment links match this filter." />
+  ) : activeTab === 'payment-links' ? (
+  <div className="divide-y divide-[var(--color-surface-secondary)]">
+  {linkPageItems.map((link) => {
+  const s = LINK_STATUS[link.status];
+  const isSelected = linkSelectedKeys === 'all' || linkSelectedKeys.has(link.id);
+  return (
+  <div
+  key={link.id}
+  onClick={() => {
+  setSelectedInvoice(null);
+  setSelectedPaymentLink(null);
+  capturePaymentEvent('payment_link_opened', {
+  payment_link_id: link.id,
+  status: link.status,
+  surface: 'payment_links_table',
+  });
+  openPaymentDetail('payment-link', link.id);
+  }}
+  className={`group grid cursor-pointer grid-cols-[36px_1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)] ${selectedPaymentLink?.id === link.id ? 'bg-[var(--color-accent-soft)]' : ''}`}
+  >
+  <div onClick={(e) => e.stopPropagation()}>
+  <Checkbox
+  aria-label={`Select ${link.title}`}
+  isSelected={isSelected}
+  onChange={(c) => toggleLinkSelection(link.id, c)}
+  className="ml-1"
+  >
+  <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+  </Checkbox>
+  </div>
+  <div className="min-w-0">
+  <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{link.title}</p>
  <div className="flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]">
  <span>{link.asset}</span>
  <span className="text-[var(--color-border-input)]">•</span>
@@ -802,17 +1015,115 @@ export function PaymentsClient({
  <div className="flex justify-end">
  <MultiChainStack size={16} />
  </div>
- <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
- <RowActionsMenu items={linkActions(link)} />
- </div>
- </div>
- );
- })}
- </div>
- ) : null}
- </div>
+  <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+  <RowActionsMenu items={linkActions(link)} />
+  </div>
+  </div>
+  );
+  })}
+  </div>
+  ) : null}
 
- {/* Detail side panel */}
+  {/* Pagination — invoices/payment-links tabs only */}
+  {activeTab === 'invoices' && searchedInvoices.length > PAGE_SIZE && (
+  <div className="flex items-center justify-between border-t border-[var(--color-border)] px-5 py-3">
+  <Pagination size="sm">
+  <Pagination.Summary>
+  {`${invoicePageStart}–${invoicePageEnd} of ${searchedInvoices.length} invoices`}
+  </Pagination.Summary>
+  <Pagination.Content>
+  <Pagination.Item>
+  <Pagination.Previous isDisabled={invoicePage === 1} onPress={() => setInvoicePage((p) => Math.max(1, p - 1))}>
+  <Pagination.PreviousIcon />
+  Previous
+  </Pagination.Previous>
+  </Pagination.Item>
+  {Array.from({ length: Math.min(invoiceTotalPages, 5) }, (_, i) => {
+  const startPage = Math.min(Math.max(1, invoicePage - 2), Math.max(1, invoiceTotalPages - 4));
+  const p = startPage + i;
+  return (
+  <Pagination.Item key={p}>
+  <Pagination.Link isActive={p === invoicePage} onPress={() => setInvoicePage(p)}>
+  {p}
+  </Pagination.Link>
+  </Pagination.Item>
+  );
+  })}
+  <Pagination.Item>
+  <Pagination.Next isDisabled={invoicePage === invoiceTotalPages} onPress={() => setInvoicePage((p) => Math.min(invoiceTotalPages, p + 1))}>
+  Next
+  <Pagination.NextIcon />
+  </Pagination.Next>
+  </Pagination.Item>
+  </Pagination.Content>
+  </Pagination>
+  </div>
+  )}
+  {activeTab === 'payment-links' && searchedLinks.length > PAGE_SIZE && (
+  <div className="flex items-center justify-between border-t border-[var(--color-border)] px-5 py-3">
+  <Pagination size="sm">
+  <Pagination.Summary>
+  {`${linkPageStart}–${linkPageEnd} of ${searchedLinks.length} links`}
+  </Pagination.Summary>
+  <Pagination.Content>
+  <Pagination.Item>
+  <Pagination.Previous isDisabled={linkPage === 1} onPress={() => setLinkPage((p) => Math.max(1, p - 1))}>
+  <Pagination.PreviousIcon />
+  Previous
+  </Pagination.Previous>
+  </Pagination.Item>
+  {Array.from({ length: Math.min(linkTotalPages, 5) }, (_, i) => {
+  const startPage = Math.min(Math.max(1, linkPage - 2), Math.max(1, linkTotalPages - 4));
+  const p = startPage + i;
+  return (
+  <Pagination.Item key={p}>
+  <Pagination.Link isActive={p === linkPage} onPress={() => setLinkPage(p)}>
+  {p}
+  </Pagination.Link>
+  </Pagination.Item>
+  );
+  })}
+  <Pagination.Item>
+  <Pagination.Next isDisabled={linkPage === linkTotalPages} onPress={() => setLinkPage((p) => Math.min(linkTotalPages, p + 1))}>
+  Next
+  <Pagination.NextIcon />
+  </Pagination.Next>
+  </Pagination.Item>
+  </Pagination.Content>
+  </Pagination>
+  </div>
+  )}
+  </div>
+
+  {/* Bulk actions bar */}
+  {activeTab === 'invoices' && invoiceSelectedCount > 0 && (
+  <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5">
+  <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+  {invoiceSelectedCount} invoice{invoiceSelectedCount !== 1 ? 's' : ''} selected
+  </p>
+  <div className="flex items-center gap-2">
+  <Button variant="ghost" size="sm" onClick={() => setInvoiceSelectedKeys(new Set())}>Clear</Button>
+  <Button variant="destructive" size="sm" disabled={isBulkDeleting} onClick={() => void handleBulkDeleteInvoices()}>
+  {isBulkDeleting ? 'Deleting…' : 'Delete'}
+  </Button>
+  </div>
+  </div>
+  )}
+  {activeTab === 'payment-links' && linkSelectedCount > 0 && (
+  <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5">
+  <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+  {linkSelectedCount} payment link{linkSelectedCount !== 1 ? 's' : ''} selected
+  </p>
+  <div className="flex items-center gap-2">
+  <Button variant="ghost" size="sm" onClick={() => setLinkSelectedKeys(new Set())}>Clear</Button>
+  <Button variant="destructive" size="sm" disabled={isBulkDeleting} onClick={() => void handleBulkDeleteLinks()}>
+  {isBulkDeleting ? 'Deleting…' : 'Delete'}
+  </Button>
+  </div>
+  </div>
+  )}
+
+  {/* Detail side panel */}
  {(hasPanel || !!selectedRecurring) && (
  <ClientPortal>
  {/* Backdrop */}
