@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowSquareOut, CopySimple, FileText, PaperPlaneTilt } from '@/components/ui/lucide-icons';
-import { Table } from '@heroui/react';
+import { ArrowSquareOut, CopySimple, FileText, MagnifyingGlass, PaperPlaneTilt, X } from '@/components/ui/lucide-icons';
+import { Checkbox, Pagination, Table, type Selection } from '@heroui/react';
 import type { Contract } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { backendConfig } from '@/lib/auth/config';
+
+const PAGE_SIZE = 25;
 
 const CONTRACT_STATUS = {
   draft:  { dot: 'bg-[var(--color-text-muted)]', label: 'Draft',  bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
@@ -47,6 +49,9 @@ export function ContractsClient({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
 
   useEffect(() => {
     if (!accessToken) return;
@@ -78,10 +83,46 @@ export function ContractsClient({
   const reviewCount = useMemo(() => contracts.filter((c) => c.status === 'review').length, [contracts]);
   const draftCount = useMemo(() => contracts.filter((c) => c.status === 'draft').length, [contracts]);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? contracts : contracts.filter((c) => c.status === filter)),
-    [contracts, filter]
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return contracts.filter((c) => {
+      if (filter !== 'all' && c.status !== filter) return false;
+      if (!q) return true;
+      return c.title.toLowerCase().includes(q)
+        || (c.clientName ?? c.clientId ?? '').toLowerCase().includes(q);
+    });
+  }, [contracts, filter, search]);
+
+  useEffect(() => {
+    setSelectedKeys(new Set());
+    setPage(1);
+  }, [filter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+  const selectedCount = selectedKeys === 'all' ? filtered.length : selectedKeys.size;
+  const pageStart = (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, filtered.length);
+
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0 || !accessToken) return;
+    setIsDeleting(true);
+    const ids = selectedKeys === 'all' ? filtered.map((c) => c.id) : Array.from(selectedKeys).map(String);
+    try {
+      await Promise.all(ids.map((id) => hedwigApi.deleteDocument(id, { accessToken, disableMockFallback: true }).catch(() => null)));
+      const removed = new Set(ids);
+      setContracts((cur) => cur.filter((c) => !removed.has(c.id)));
+      setSelectedKeys(new Set());
+      toast({ type: 'success', title: `${ids.length} contract${ids.length !== 1 ? 's' : ''} deleted` });
+    } catch {
+      toast({ type: 'error', title: 'Failed to delete contracts', message: 'Please try again.' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!contractToDelete || !accessToken) return;
@@ -210,6 +251,26 @@ export function ContractsClient({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <div className="relative mr-1">
+            <MagnifyingGlass className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-placeholder)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search contracts"
+              aria-label="Search contracts"
+              className="h-8 w-[180px] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-8 pr-7 text-[12px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] transition focus:border-[var(--color-primary)] focus:outline-none sm:w-[200px]"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-foreground)]"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
           {STATUS_FILTERS.map((s) => (
             <Button
               key={s}
@@ -231,8 +292,19 @@ export function ContractsClient({
       {/* Table */}
       <Table>
         <Table.ScrollContainer>
-          <Table.Content aria-label="Contracts" className="min-w-[500px]">
+          <Table.Content
+            aria-label="Contracts"
+            className="min-w-[500px]"
+            selectionMode="multiple"
+            selectedKeys={selectedKeys}
+            onSelectionChange={setSelectedKeys}
+          >
             <Table.Header>
+              <Table.Column className="w-10 pr-0">
+                <Checkbox slot="selection" aria-label="Select all contracts" className="ml-3">
+                  <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                </Checkbox>
+              </Table.Column>
               <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Title</Table.Column>
               <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
               <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</Table.Column>
@@ -241,15 +313,22 @@ export function ContractsClient({
             <Table.Body
               renderEmptyState={() => (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 py-16 text-center">
-                  <p className="text-[13px] text-[var(--color-text-muted)]">No contracts match this filter.</p>
+                  <p className="text-[13px] text-[var(--color-text-muted)]">
+                    {filter === 'all' && !search ? 'No contracts yet.' : 'No contracts match your filters.'}
+                  </p>
                 </div>
               )}
             >
-              {filtered.map((contract) => {
+              {pageItems.map((contract) => {
                 const s = CONTRACT_STATUS[contract.status] ?? CONTRACT_STATUS.draft;
                 const isHighlighted = contract.id === highlightedContractId;
                 return (
-                  <Table.Row key={contract.id} className={`hover:bg-[var(--color-background)] ${isHighlighted ? 'bg-[var(--color-accent-soft)]' : ''}`}>
+                  <Table.Row key={contract.id} id={contract.id} className={`hover:bg-[var(--color-background)] ${isHighlighted ? 'bg-[var(--color-accent-soft)]' : ''}`}>
+                    <Table.Cell className="pr-0">
+                      <Checkbox slot="selection" aria-label={`Select ${contract.title}`} className="ml-3">
+                        <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                      </Checkbox>
+                    </Table.Cell>
                     <Table.Cell>
                       <div className="min-w-0">
                         <Link href={`${backendConfig.publicPagesUrl}/contract/${contract.id}`} target="_blank" className="group flex items-center gap-1.5">
@@ -275,7 +354,55 @@ export function ContractsClient({
             </Table.Body>
           </Table.Content>
         </Table.ScrollContainer>
+        {filtered.length > PAGE_SIZE && (
+          <Table.Footer>
+            <Pagination size="sm">
+              <Pagination.Summary>
+                {filtered.length === 0 ? '0 contracts' : `${pageStart}–${pageEnd} of ${filtered.length} contracts`}
+              </Pagination.Summary>
+              <Pagination.Content>
+                <Pagination.Item>
+                  <Pagination.Previous isDisabled={page === 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
+                    <Pagination.PreviousIcon />
+                    Previous
+                  </Pagination.Previous>
+                </Pagination.Item>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const startPage = Math.min(Math.max(1, page - 2), Math.max(1, totalPages - 4));
+                  const p = startPage + i;
+                  return (
+                    <Pagination.Item key={p}>
+                      <Pagination.Link isActive={p === page} onPress={() => setPage(p)}>
+                        {p}
+                      </Pagination.Link>
+                    </Pagination.Item>
+                  );
+                })}
+                <Pagination.Item>
+                  <Pagination.Next isDisabled={page === totalPages} onPress={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                    Next
+                    <Pagination.NextIcon />
+                  </Pagination.Next>
+                </Pagination.Item>
+              </Pagination.Content>
+            </Pagination>
+          </Table.Footer>
+        )}
       </Table>
+
+      {selectedCount > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5">
+          <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+            {selectedCount} contract{selectedCount !== 1 ? 's' : ''} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedKeys(new Set())}>Clear</Button>
+            <Button variant="destructive" size="sm" disabled={isDeleting || isActionLoading} onClick={() => void handleBulkDelete()}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <DeleteDialog
         open={!!contractToDelete}

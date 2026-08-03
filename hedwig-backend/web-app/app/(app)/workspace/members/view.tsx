@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, User } from '@/components/ui/lucide-icons';
+import { MagnifyingGlass, Plus, User, X } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,10 @@ import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
-import { Table } from '@heroui/react';
+import { Checkbox, Pagination, Table, type Selection } from '@heroui/react';
 import { cn, formatShortDate } from '@/lib/utils';
+
+const PAGE_SIZE = 25;
 
 interface Member {
   userId: string;
@@ -42,6 +44,9 @@ export function MembersClient() {
   const [filter, setFilter] = useState<string>('all');
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
 
   const isOwner = activeWorkspace?.role === 'owner';
   const isOrg = activeWorkspace?.type === 'organization';
@@ -71,10 +76,30 @@ export function MembersClient() {
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? members : members.filter((m) => m.role === filter)),
-    [members, filter]
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return members.filter((m) => {
+      if (filter !== 'all' && m.role !== filter) return false;
+      if (!q) return true;
+      return (m.firstName ?? '').toLowerCase().includes(q)
+        || (m.lastName ?? '').toLowerCase().includes(q)
+        || (m.email ?? '').toLowerCase().includes(q);
+    });
+  }, [members, filter, search]);
+
+  useEffect(() => {
+    setSelectedKeys(new Set());
+    setPage(1);
+  }, [filter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+  const selectedCount = selectedKeys === 'all' ? filtered.length : selectedKeys.size;
+  const pageStart = (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, filtered.length);
 
   const activeCount = useMemo(() => members.filter((m) => m.role !== 'owner').length, [members]);
 
@@ -101,6 +126,29 @@ export function MembersClient() {
     } finally {
       setRemoving(false);
       setMemberToRemove(null);
+    }
+  };
+
+  const handleBulkRemove = async () => {
+    if (!activeWorkspace || selectedCount === 0) return;
+    setRemoving(true);
+    const ids = selectedKeys === 'all' ? filtered.map((m) => m.userId) : Array.from(selectedKeys).map(String);
+    // Never remove the workspace owner through bulk actions.
+    const target = await (async () => {
+      const { data } = await api(`/api/workspaces/${activeWorkspace.id}/members`, 'GET').catch(() => ({ data: null }));
+      const ownerIds = new Set((data?.members ?? []).filter((m: Member) => m.role === 'owner').map((m: Member) => m.userId));
+      return ids.filter((id) => !ownerIds.has(id));
+    })();
+    try {
+      await Promise.all(target.map((id) => api(`/api/workspaces/${activeWorkspace.id}/members/${id}`, 'DELETE').catch(() => null)));
+      const removed = new Set(target);
+      setMembers((prev) => prev.filter((m) => !removed.has(m.userId)));
+      setSelectedKeys(new Set());
+      toast({ type: 'success', title: `${target.length} member${target.length !== 1 ? 's' : ''} removed` });
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Failed to remove members', message: err?.message });
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -138,6 +186,26 @@ export function MembersClient() {
           {members.length} member{members.length !== 1 ? 's' : ''}
         </span>
         <div className="flex items-center gap-1">
+          <div className="relative mr-1">
+            <MagnifyingGlass className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-placeholder)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search members"
+              aria-label="Search members"
+              className="h-8 w-[180px] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-8 pr-7 text-[12px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] transition focus:border-[var(--color-primary)] focus:outline-none sm:w-[200px]"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-foreground)]"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
           {ROLE_FILTERS.map((r) => (
             <Button
               key={r}
@@ -168,8 +236,19 @@ export function MembersClient() {
       {/* Table */}
       <Table>
         <Table.ScrollContainer>
-          <Table.Content aria-label="Workspace members" className="min-w-[500px]">
+          <Table.Content
+            aria-label="Workspace members"
+            className="min-w-[500px]"
+            selectionMode="multiple"
+            selectedKeys={selectedKeys}
+            onSelectionChange={setSelectedKeys}
+          >
             <Table.Header>
+              <Table.Column className="w-10 pr-0">
+                <Checkbox slot="selection" aria-label="Select all members" className="ml-3">
+                  <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                </Checkbox>
+              </Table.Column>
               <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Member</Table.Column>
               <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Role</Table.Column>
               <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Joined</Table.Column>
@@ -177,11 +256,11 @@ export function MembersClient() {
             </Table.Header>
             <Table.Body>
               {loading ? (
-                <Table.Row><Table.Cell colSpan={4}><EmptyState text="Loading members…" /></Table.Cell></Table.Row>
+                <Table.Row><Table.Cell colSpan={5}><EmptyState text="Loading members…" /></Table.Cell></Table.Row>
               ) : filtered.length === 0 ? (
-                <Table.Row><Table.Cell colSpan={4}><EmptyState text={filter === 'all' ? 'No members yet.' : 'No members match this filter.'} /></Table.Cell></Table.Row>
+                <Table.Row><Table.Cell colSpan={5}><EmptyState text={filter === 'all' && !search ? 'No members yet.' : 'No members match your filters.'} /></Table.Cell></Table.Row>
               ) : (
-                filtered.map((member) => {
+                pageItems.map((member) => {
                   const roleCfg = ROLE_CONFIG[member.role];
                   const actions: RowActionItem[] = [];
                   if (member.role !== 'owner' && isOwner) {
@@ -196,7 +275,12 @@ export function MembersClient() {
                   }
 
                   return (
-                    <Table.Row key={member.userId} className="hover:bg-[var(--color-background)]">
+                    <Table.Row key={member.userId} id={member.userId} className="hover:bg-[var(--color-background)]">
+                      <Table.Cell className="pr-0">
+                        <Checkbox slot="selection" aria-label={`Select ${member.firstName ?? member.email ?? member.userId}`} className="ml-3">
+                          <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                        </Checkbox>
+                      </Table.Cell>
                       <Table.Cell>
                         <div className="flex items-center gap-3 min-w-0">
                           <Avatar
@@ -235,7 +319,55 @@ export function MembersClient() {
             </Table.Body>
           </Table.Content>
         </Table.ScrollContainer>
+        {filtered.length > PAGE_SIZE && (
+          <Table.Footer>
+            <Pagination size="sm">
+              <Pagination.Summary>
+                {filtered.length === 0 ? '0 members' : `${pageStart}–${pageEnd} of ${filtered.length} members`}
+              </Pagination.Summary>
+              <Pagination.Content>
+                <Pagination.Item>
+                  <Pagination.Previous isDisabled={page === 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
+                    <Pagination.PreviousIcon />
+                    Previous
+                  </Pagination.Previous>
+                </Pagination.Item>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const startPage = Math.min(Math.max(1, page - 2), Math.max(1, totalPages - 4));
+                  const p = startPage + i;
+                  return (
+                    <Pagination.Item key={p}>
+                      <Pagination.Link isActive={p === page} onPress={() => setPage(p)}>
+                        {p}
+                      </Pagination.Link>
+                    </Pagination.Item>
+                  );
+                })}
+                <Pagination.Item>
+                  <Pagination.Next isDisabled={page === totalPages} onPress={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                    Next
+                    <Pagination.NextIcon />
+                  </Pagination.Next>
+                </Pagination.Item>
+              </Pagination.Content>
+            </Pagination>
+          </Table.Footer>
+        )}
       </Table>
+
+      {selectedCount > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5">
+          <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+            {selectedCount} member{selectedCount !== 1 ? 's' : ''} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedKeys(new Set())}>Clear</Button>
+            <Button variant="destructive" size="sm" disabled={removing} onClick={() => void handleBulkRemove()}>
+              {removing ? 'Removing…' : 'Remove'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <DeleteDialog
         open={!!memberToRemove}

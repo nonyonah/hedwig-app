@@ -83,7 +83,14 @@ export function ComposioIntegrations() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    // Re-check when the user returns to this page after completing an
+    // OAuth flow, so a just-connected provider flips from "Connect" to
+    // "Disconnect" without a manual refresh.
+    window.addEventListener('focus', load);
+    return () => window.removeEventListener('focus', load);
+  }, []);
 
   const handleConnect = async (provider: Provider) => {
     setBusy(provider);

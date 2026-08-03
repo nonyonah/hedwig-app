@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { Button as HeroUIButton, Dropdown, Label, Table } from '@heroui/react';
-import { DownloadSimple, Plus } from '@/components/ui/lucide-icons';
+import { Button as HeroUIButton, Checkbox, Dropdown, Label, Pagination, Table, type Selection } from '@heroui/react';
+import { DownloadSimple, MagnifyingGlass, Plus, X } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { Client, Project } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
@@ -16,6 +16,8 @@ import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { formatShortDate } from '@/lib/utils';
+
+const PAGE_SIZE = 25;
 
 const PROJECT_STATUS = {
  active: { dot: 'bg-[var(--color-success)]', label: 'Active', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
@@ -48,11 +50,14 @@ export function ProjectsClient({
  totalProjects: initialProjects.length,
  });
 
- const [projects, setProjects] = useState(initialProjects);
- const [filter, setFilter] = useState('all');
- const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
- const [isDeleting, setIsDeleting] = useState(false);
- const [linearSyncingProject, setLinearSyncingProject] = useState<string | null>(null);
+  const [projects, setProjects] = useState(initialProjects);
+  const [filter, setFilter] = useState('all');
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
+  const [linearSyncingProject, setLinearSyncingProject] = useState<string | null>(null);
  const [linkedProjects, setLinkedProjects] = useState<Record<string, { linearProjectId: string; linearUrl: string; syncedAt: string }>>({});
  const { activeWorkspace } = useWorkspaceContext();
  const canCreate = !activeWorkspace || activeWorkspace.role !== 'member';
@@ -96,10 +101,47 @@ export function ProjectsClient({
  setTimeout(() => { w.print(); }, 400);
  };
 
- const filtered = useMemo(
- () => (filter === 'all' ? projects : projects.filter((p) => p.status === filter)),
- [projects, filter]
- );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return projects.filter((p) => {
+      if (filter !== 'all' && p.status !== filter) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().includes(q)
+        || p.ownerName.toLowerCase().includes(q)
+        || (p.contract?.title ?? '').toLowerCase().includes(q);
+    });
+  }, [projects, filter, search]);
+
+  useEffect(() => {
+    setSelectedKeys(new Set());
+    setPage(1);
+  }, [filter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+  const selectedCount = selectedKeys === 'all' ? filtered.length : selectedKeys.size;
+  const pageStart = (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, filtered.length);
+
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0 || !accessToken) return;
+    setIsDeleting(true);
+    const ids = selectedKeys === 'all' ? filtered.map((p) => p.id) : Array.from(selectedKeys).map(String);
+    try {
+      await Promise.all(ids.map((id) => hedwigApi.deleteProject(id, { accessToken, disableMockFallback: true }).catch(() => null)));
+      const removed = new Set(ids);
+      setProjects((cur) => cur.filter((p) => !removed.has(p.id)));
+      setSelectedKeys(new Set());
+      toast({ type: 'success', title: `${ids.length} project${ids.length !== 1 ? 's' : ''} deleted` });
+    } catch {
+      toast({ type: 'error', title: 'Failed to delete projects', message: 'Please try again.' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
  const handleDelete = async () => {
  if (!projectToDelete || !accessToken) return;
@@ -215,8 +257,28 @@ export function ProjectsClient({
  </span>
  )}
  </div>
- <div className="flex items-center gap-1">
- {STATUS_FILTERS.map((s) => (
+  <div className="flex items-center gap-1">
+  <div className="relative mr-1">
+  <MagnifyingGlass className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-placeholder)]" />
+  <input
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  placeholder="Search projects"
+  aria-label="Search projects"
+  className="h-8 w-[180px] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-8 pr-7 text-[12px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] transition focus:border-[var(--color-primary)] focus:outline-none sm:w-[200px]"
+  />
+  {search && (
+  <button
+  type="button"
+  onClick={() => setSearch('')}
+  aria-label="Clear search"
+  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-foreground)]"
+  >
+  <X className="h-3 w-3" />
+  </button>
+  )}
+  </div>
+  {STATUS_FILTERS.map((s) => (
  <Button
  key={s}
  variant="ghost"
@@ -247,36 +309,52 @@ export function ProjectsClient({
  </div>
  </div>
 
-  {/* Table */}
-  <Table>
-    <Table.ScrollContainer>
-      <Table.Content aria-label="Projects" className="min-w-[800px]">
-        <Table.Header>
-          <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</Table.Column>
-          <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
-          <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Contract</Table.Column>
-          <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Progress</Table.Column>
-          <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Budget</Table.Column>
-          <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Deadline</Table.Column>
-          <Table.Column />
-        </Table.Header>
-        <Table.Body
-          renderEmptyState={() => (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 py-16 text-center">
-              <p className="text-[13px] text-[var(--color-text-muted)]">
-                {filter === 'all' ? 'No projects yet.' : 'No projects match this filter.'}
-              </p>
-            </div>
-          )}
-        >
-          {filtered.map((project) => {
-            const s = PROJECT_STATUS[project.status] ?? PROJECT_STATUS.active;
-            const cs = project.contract
-              ? CONTRACT_STATUS[project.contract.status] ?? CONTRACT_STATUS.draft
-              : null;
-            return (
-              <Table.Row key={project.id} className="group hover:bg-[var(--color-background)]">
-                <Table.Cell>
+   {/* Table */}
+   <Table>
+     <Table.ScrollContainer>
+       <Table.Content
+         aria-label="Projects"
+         className="min-w-[800px]"
+         selectionMode="multiple"
+         selectedKeys={selectedKeys}
+         onSelectionChange={setSelectedKeys}
+       >
+         <Table.Header>
+           <Table.Column className="w-10 pr-0">
+             <Checkbox slot="selection" aria-label="Select all projects" className="ml-3">
+               <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+             </Checkbox>
+           </Table.Column>
+           <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Project</Table.Column>
+           <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+           <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Contract</Table.Column>
+           <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Progress</Table.Column>
+           <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Budget</Table.Column>
+           <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Deadline</Table.Column>
+           <Table.Column />
+         </Table.Header>
+         <Table.Body
+           renderEmptyState={() => (
+             <div className="flex h-full w-full flex-col items-center justify-center gap-2 py-16 text-center">
+               <p className="text-[13px] text-[var(--color-text-muted)]">
+                 {filter === 'all' && !search ? 'No projects yet.' : 'No projects match your filters.'}
+               </p>
+             </div>
+           )}
+         >
+           {pageItems.map((project) => {
+             const s = PROJECT_STATUS[project.status] ?? PROJECT_STATUS.active;
+             const cs = project.contract
+               ? CONTRACT_STATUS[project.contract.status] ?? CONTRACT_STATUS.draft
+               : null;
+             return (
+               <Table.Row key={project.id} id={project.id} className="group hover:bg-[var(--color-background)]">
+                 <Table.Cell className="pr-0">
+                   <Checkbox slot="selection" aria-label={`Select ${project.name}`} className="ml-3">
+                     <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                   </Checkbox>
+                 </Table.Cell>
+                 <Table.Cell>
                   <Link href={`/projects/${project.id}`} className="min-w-0 block">
                     <p className="truncate text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:text-[var(--color-accent)]">
                       {project.name}
@@ -343,7 +421,55 @@ export function ProjectsClient({
         </Table.Body>
       </Table.Content>
     </Table.ScrollContainer>
+    {filtered.length > PAGE_SIZE && (
+      <Table.Footer>
+        <Pagination size="sm">
+          <Pagination.Summary>
+            {filtered.length === 0 ? '0 projects' : `${pageStart}–${pageEnd} of ${filtered.length} projects`}
+          </Pagination.Summary>
+          <Pagination.Content>
+            <Pagination.Item>
+              <Pagination.Previous isDisabled={page === 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
+                <Pagination.PreviousIcon />
+                Previous
+              </Pagination.Previous>
+            </Pagination.Item>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const startPage = Math.min(Math.max(1, page - 2), Math.max(1, totalPages - 4));
+              const p = startPage + i;
+              return (
+                <Pagination.Item key={p}>
+                  <Pagination.Link isActive={p === page} onPress={() => setPage(p)}>
+                    {p}
+                  </Pagination.Link>
+                </Pagination.Item>
+              );
+            })}
+            <Pagination.Item>
+              <Pagination.Next isDisabled={page === totalPages} onPress={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                Next
+                <Pagination.NextIcon />
+              </Pagination.Next>
+            </Pagination.Item>
+          </Pagination.Content>
+        </Pagination>
+      </Table.Footer>
+    )}
   </Table>
+
+  {selectedCount > 0 && (
+  <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5">
+  <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+  {selectedCount} project{selectedCount !== 1 ? 's' : ''} selected
+  </p>
+  <div className="flex items-center gap-2">
+  <Button variant="ghost" size="sm" onClick={() => setSelectedKeys(new Set())}>Clear</Button>
+  <Button variant="destructive" size="sm" disabled={isDeleting} onClick={() => void handleBulkDelete()}>
+  {isDeleting ? 'Deleting…' : 'Delete'}
+  </Button>
+  </div>
+  </div>
+  )}
 
  <DeleteDialog
  open={!!projectToDelete}

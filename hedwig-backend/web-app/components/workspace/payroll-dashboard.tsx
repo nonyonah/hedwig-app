@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
-import { Alert, Button as HeroUIButton, Dropdown, Label, Tabs } from '@heroui/react';
+import { Alert, Button as HeroUIButton, Dropdown, Label, Tabs, Table } from '@heroui/react';
 import {
   ArrowDown, ArrowRight, ArrowsClockwise, CaretDown, CaretRight,
   Check, CheckCircle, Coins, DotsThreeOutline, IdentificationCard, Trash, UsersThree, Warning, X, ArrowSquareOut,
@@ -874,62 +874,82 @@ function AddFundsButton() {
  </div>
  )}
 
- {/* ── History table ── */}
- {mainTab === 'history' && (
- <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
- <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
- <div>
- <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Payroll history</p>
- <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">Past payroll runs and their per-member breakdown.</p>
- </div>
- </div>
+  {/* ── History table ── */}
+  {mainTab === 'history' && (
+  <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+  <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
+  <div>
+  <p className="text-[15px] font-semibold text-[var(--color-foreground)]">Payroll history</p>
+  <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">Past payroll runs and their per-member breakdown.</p>
+  </div>
+  </div>
 
- <div className="grid grid-cols-[1fr_90px_100px_90px] gap-3 border-b border-[var(--color-surface-tertiary)] px-5 py-2">
- <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Run</span>
- <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Recipients</span>
- <span className="text-right text-[11px] font-semibold text-[var(--color-text-muted)]">Amount</span>
- <span className="text-right text-[11px] font-semibold text-[var(--color-text-muted)]">Date</span>
- </div>
-
- {loadingHistory ? (
- <div className="divide-y divide-[var(--color-surface-secondary)]">
- {[...Array(3)].map((_, i) => (
- <div key={i} className="h-14 animate-pulse bg-[var(--color-surface-tertiary)]" />
- ))}
- </div>
- ) : history.length === 0 ? (
- <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
- <Coins className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />
- <p className="text-[13px] text-[var(--color-text-muted)]">No payroll runs yet. Run your first payroll to see it here.</p>
- </div>
- ) : (
- <div className="divide-y divide-[var(--color-surface-secondary)]">
- {history.map(run => (
- <div key={run.id}>
- <button type="button"
- onClick={() => setExpandedRun(expandedRun === run.id ? null : run.id)}
- className="grid w-full grid-cols-[1fr_90px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-background)]"
- >
- <div className="flex min-w-0 items-center gap-3">
- <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-secondary)]">
- {run.runType === 'fixed' ? <Coins className="h-4 w-4" weight="bold" /> : <Check className="h-4 w-4" weight="bold" />}
- </div>
- <div className="min-w-0">
- <p className="truncate text-[13px] font-semibold capitalize text-[var(--color-foreground)]">{run.runType} payroll</p>
- <div className="flex items-center gap-1.5">
- {run.scheduledPayrollId && (
- <span className="inline-block rounded-full bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700 dark:text-blue-400">Scheduled</span>
- )}
- <p className="text-[11px] text-[var(--color-text-muted)]">{run.initiatedBy.name}</p>
- </div>
- </div>
- </div>
- <p className="text-[12px] font-medium text-[var(--color-text-muted)]">{run.itemCount}</p>
- <p className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">${run.totalAmountUsd}</p>
- <div className="flex items-center justify-end gap-1.5 relative">
- <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold ${statusPill(run.status)}`}>
- {run.status === 'partial_failed' ? 'Partial' : run.status.replace('_', ' ')}
- </span>
+  <Table>
+  <Table.ScrollContainer>
+  <Table.Content aria-label="Payroll history" className="min-w-[640px]">
+  <Table.Header>
+  <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Run</Table.Column>
+  <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Recipients</Table.Column>
+  <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Amount</Table.Column>
+  <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
+  <Table.Column />
+  </Table.Header>
+  <Table.Body
+  renderEmptyState={() => (
+  <div className="flex h-full w-full flex-col items-center justify-center gap-3 py-16 text-center">
+  {loadingHistory ? (
+  <>
+  {[...Array(3)].map((_, i) => (
+  <div key={i} className="h-14 w-full animate-pulse rounded-xl bg-[var(--color-surface-tertiary)]" />
+  ))}
+  </>
+  ) : (
+  <>
+  <Coins className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />
+  <p className="text-[13px] text-[var(--color-text-muted)]">No payroll runs yet. Run your first payroll to see it here.</p>
+  </>
+  )}
+  </div>
+  )}
+  >
+  {history.map(run => (
+  <>
+  <Table.Row key={run.id} className="group hover:bg-[var(--color-background)]">
+  <Table.Cell>
+  <button type="button"
+  onClick={() => setExpandedRun(expandedRun === run.id ? null : run.id)}
+  className="flex w-full min-w-0 items-center gap-3 text-left"
+  >
+  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-secondary)]">
+  {run.runType === 'fixed' ? <Coins className="h-4 w-4" weight="bold" /> : <Check className="h-4 w-4" weight="bold" />}
+  </div>
+  <div className="min-w-0">
+  <p className="truncate text-[13px] font-semibold capitalize text-[var(--color-foreground)]">{run.runType} payroll</p>
+  <div className="flex items-center gap-1.5">
+  {run.scheduledPayrollId && (
+  <span className="inline-block rounded-full bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700 dark:text-blue-400">Scheduled</span>
+  )}
+  <p className="text-[11px] text-[var(--color-text-muted)]">{run.initiatedBy.name}</p>
+  </div>
+  </div>
+  </button>
+  </Table.Cell>
+  <Table.Cell>
+  <p className="text-[12px] font-medium text-[var(--color-text-muted)]">{run.itemCount}</p>
+  </Table.Cell>
+  <Table.Cell>
+  <p className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-foreground)]">${run.totalAmountUsd}</p>
+  </Table.Cell>
+  <Table.Cell>
+  <div className="flex items-center justify-end gap-1.5">
+  <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold ${statusPill(run.status)}`}>
+  {run.status === 'partial_failed' ? 'Partial' : run.status.replace('_', ' ')}
+  </span>
+  {expandedRun === run.id ? <CaretDown className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" /> : <CaretRight className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" />}
+  </div>
+  </Table.Cell>
+  <Table.Cell>
+  <div className="flex items-center justify-end">
   <Dropdown>
   <HeroUIButton isIconOnly variant="ghost" aria-label="Run actions" className="h-7 w-7 min-w-0">
   <DotsThreeOutline className="h-4 w-4" weight="bold" />
@@ -947,53 +967,59 @@ function AddFundsButton() {
   </Dropdown.Menu>
   </Dropdown.Popover>
   </Dropdown>
- {expandedRun === run.id ? <CaretDown className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" /> : <CaretRight className="h-3 w-3 text-[var(--color-text-muted)]" weight="bold" />}
- </div>
- </button>
+  </div>
+  </Table.Cell>
+  </Table.Row>
 
- {expandedRun === run.id && (
- <div className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-background)] px-5 py-3">
- <div className="space-y-1.5">
- {run.items.map((item, i) => (
- <div key={i} className="flex items-center justify-between rounded-full bg-[var(--color-surface)] px-3 py-2.5">
- <div className="min-w-0 flex-1">
- <p className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.recipientName}</p>
- <div className="flex items-center gap-2 mt-0.5">
- <span className={`inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${statusPill(item.status)}`}>{item.status.replace('_', ' ')}</span>
- {item.txHash && (
- <a href={BASESCAN_TX(item.txHash)} target="_blank" rel="noreferrer"
- className="inline-flex items-center gap-0.5 text-[10px] text-[var(--color-primary)] hover:underline">
- Basescan <ArrowSquareOut className="h-2.5 w-2.5" weight="bold" />
- </a>
- )}
- </div>
- </div>
- <p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">${item.amountUsd}</p>
- </div>
- ))}
- </div>
- {run.status === 'partial_failed' && (
- <Button variant="outline" size="sm" className="mt-3 w-full"
- onClick={() => handleRetry(run.id)}
- disabled={retrying === run.id}>
- {retrying === run.id ? <><ArrowsClockwise className="h-3.5 w-3.5 animate-spin" weight="bold" /> Retrying…</> : 'Retry failed payments'}
- </Button>
- )}
- </div>
- )}
- </div>
- ))}
- </div>
- )}
+  {expandedRun === run.id && (
+  <Table.Row key={`${run.id}-details`} className="bg-[var(--color-background)]">
+  <Table.Cell colSpan={5} className="p-0">
+  <div className="border-t border-[var(--color-surface-tertiary)] px-5 py-3">
+  <div className="space-y-1.5">
+  {run.items.map((item, i) => (
+  <div key={i} className="flex items-center justify-between rounded-full bg-[var(--color-surface)] px-3 py-2.5">
+  <div className="min-w-0 flex-1">
+  <p className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.recipientName}</p>
+  <div className="flex items-center gap-2 mt-0.5">
+  <span className={`inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${statusPill(item.status)}`}>{item.status.replace('_', ' ')}</span>
+  {item.txHash && (
+  <a href={BASESCAN_TX(item.txHash)} target="_blank" rel="noreferrer"
+  className="inline-flex items-center gap-0.5 text-[10px] text-[var(--color-primary)] hover:underline">
+  Basescan <ArrowSquareOut className="h-2.5 w-2.5" weight="bold" />
+  </a>
+  )}
+  </div>
+  </div>
+  <p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">${item.amountUsd}</p>
+  </div>
+  ))}
+  </div>
+  {run.status === 'partial_failed' && (
+  <Button variant="outline" size="sm" className="mt-3 w-full"
+  onClick={() => handleRetry(run.id)}
+  disabled={retrying === run.id}>
+  {retrying === run.id ? <><ArrowsClockwise className="h-3.5 w-3.5 animate-spin" weight="bold" /> Retrying…</> : 'Retry failed payments'}
+  </Button>
+  )}
+  </div>
+  </Table.Cell>
+  </Table.Row>
+  )}
+  </>
+  ))}
+  </Table.Body>
+  </Table.Content>
+  </Table.ScrollContainer>
+  </Table>
 
- {!loadingHistory && historyTotal > 20 && (
- <div className="flex items-center justify-center gap-2 border-t border-[var(--color-border)] px-5 py-3">
- <Button variant="outline" size="sm" disabled={historyPage <= 1} onClick={() => setHistoryPage(p => Math.max(1, p - 1))}>Previous</Button>
- <Button variant="outline" size="sm" disabled={historyPage * 20 >= historyTotal} onClick={() => setHistoryPage(p => p + 1)}>Next</Button>
- </div>
- )}
- </div>
- )}
+  {!loadingHistory && historyTotal > 20 && (
+  <div className="flex items-center justify-center gap-2 border-t border-[var(--color-border)] px-5 py-3">
+  <Button variant="outline" size="sm" disabled={historyPage <= 1} onClick={() => setHistoryPage(p => Math.max(1, p - 1))}>Previous</Button>
+  <Button variant="outline" size="sm" disabled={historyPage * 20 >= historyTotal} onClick={() => setHistoryPage(p => p + 1)}>Next</Button>
+  </div>
+  )}
+  </div>
+  )}
 
  {/* ── Scheduled list ── */}
  {mainTab === 'scheduled' && (

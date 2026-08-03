@@ -32,15 +32,23 @@ type GmailAttachmentPart = {
   mimeType: string;
 };
 
-const IMPORTABLE_THREAD_TYPES = new Set(['invoice', 'contract', 'receipt', 'proposal', 'other']);
+const IMPORTABLE_THREAD_TYPES = new Set(['invoice', 'receipt', 'statement', 'other']);
 const SKIPPED_THREAD_TYPES = new Set<string>();
 const DOCUMENT_KEYWORDS = [
   'invoice',
-  'contract',
-  'agreement',
-  'retainer',
+  'receipt',
+  'payment',
+  'payment confirmation',
+  'payment received',
   'statement',
-  'proposal',
+  'bank',
+  'bank alert',
+  'transaction alert',
+  'deposit',
+  'transfer',
+  'credit',
+  'salary',
+  'payout',
 ];
 
 function normalizeDetectedType(value?: string | null): ThreadIntelligence['detectedType'] | undefined {
@@ -253,9 +261,10 @@ export async function syncGmailThreads(userId: string, integrationId: string, ma
     return;
   }
 
-  // Fetch inbox threads with financial document attachments (invoices and contracts only).
+  // Fetch inbox threads with financial document attachments (invoices,
+  // receipts, statements, bank alerts — no other email types).
   const financeAttachmentQuery =
-    'in:inbox has:attachment (hedwig OR work OR client OR project OR freelance OR invoice OR contract OR agreement OR retainer OR statement OR proposal OR payment) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
+    'in:inbox has:attachment (invoice OR receipt OR statement OR payment OR bank OR deposit OR transfer OR salary OR payout) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
   const listResp = await gmailGet(
     accessToken,
     `/threads?maxResults=${maxResults}&labelIds=INBOX&q=${encodeURIComponent(financeAttachmentQuery)}`
@@ -298,7 +307,7 @@ export async function syncComposioGmailThreads(userId: string, maxResults = 50):
 
   const sdk = getComposioSdk();
   const integrationId = await ensureComposioGmailIntegration(userId);
-  const query = 'in:inbox has:attachment (hedwig OR work OR client OR project OR freelance OR invoice OR contract OR agreement OR retainer OR statement OR proposal OR payment) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
+  const query = 'in:inbox has:attachment (invoice OR receipt OR statement OR payment OR bank OR deposit OR transfer OR salary OR payout) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
 
   const result: any = await sdk.tools.execute('GMAIL_FETCH_EMAILS', {
     userId: composioUserIdFor(userId),

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Plus } from '@/components/ui/lucide-icons';
+import { MagnifyingGlass, Plus, X } from '@/components/ui/lucide-icons';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
@@ -15,7 +15,9 @@ import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { formatShortDate } from '@/lib/utils';
-import { Table } from '@heroui/react';
+import { Checkbox, Pagination, Table, type Selection } from '@heroui/react';
+
+const PAGE_SIZE = 25;
 
 const CLIENT_STATUS = {
   active:   { dot: 'bg-[var(--color-success)]', label: 'Active',   bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
@@ -91,6 +93,9 @@ export function ClientsClient({
   const [filter, setFilter] = useState<FilterKey>('all');
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
   const canCreate = !activeWorkspace || activeWorkspace.role !== 'member';
 
   useEffect(() => {
@@ -116,12 +121,37 @@ export function ClientsClient({
   const totalOutstanding = useMemo(() => clients.reduce((s, c) => s + c.outstandingUsd, 0), [clients]);
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return clients;
-    if (filter === 'new' || filter === 'active' || filter === 'lapsing' || filter === 'dormant') {
-      return clients.filter((c) => c.segment === filter);
-    }
-    return clients.filter((c) => c.status === filter);
-  }, [clients, filter]);
+    const byFilter = (c: Client) => {
+      if (filter === 'all') return true;
+      if (filter === 'new' || filter === 'active' || filter === 'lapsing' || filter === 'dormant') {
+        return c.segment === filter;
+      }
+      return c.status === filter;
+    };
+    const q = search.trim().toLowerCase();
+    return clients.filter((c) => {
+      if (!byFilter(c)) return false;
+      if (!q) return true;
+      return c.name.toLowerCase().includes(q)
+        || (c.company?.toLowerCase() ?? '').includes(q)
+        || c.email.toLowerCase().includes(q);
+    });
+  }, [clients, filter, search]);
+
+  useEffect(() => {
+    setSelectedKeys(new Set());
+    setPage(1);
+  }, [filter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+  const selectedCount = selectedKeys === 'all' ? filtered.length : selectedKeys.size;
+
+  const pageStart = (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, filtered.length);
 
   const handleDelete = async () => {
     if (!clientToDelete || !accessToken) return;
@@ -133,6 +163,23 @@ export function ClientsClient({
       setClientToDelete(null);
     } catch (error: any) {
       toast({ type: 'error', title: 'Failed to delete client', message: error?.message || 'Please try again.' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0 || !accessToken) return;
+    setIsDeleting(true);
+    const ids = selectedKeys === 'all' ? filtered.map((c) => c.id) : Array.from(selectedKeys).map(String);
+    try {
+      await Promise.all(ids.map((id) => hedwigApi.deleteClient(id, { accessToken, disableMockFallback: true }).catch(() => null)));
+      const removed = new Set(ids);
+      setClients((cur) => cur.filter((c) => !removed.has(c.id)));
+      setSelectedKeys(new Set());
+      toast({ type: 'success', title: `${ids.length} client${ids.length !== 1 ? 's' : ''} deleted` });
+    } catch {
+      toast({ type: 'error', title: 'Failed to delete clients', message: 'Please try again.' });
     } finally {
       setIsDeleting(false);
     }
@@ -173,6 +220,26 @@ export function ClientsClient({
           {clients.length} client{clients.length !== 1 ? 's' : ''}
         </span>
         <div className="flex items-center gap-1">
+          <div className="relative mr-1">
+            <MagnifyingGlass className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-placeholder)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search clients"
+              aria-label="Search clients"
+              className="h-8 w-[180px] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-8 pr-7 text-[12px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] transition focus:border-[var(--color-primary)] focus:outline-none sm:w-[200px]"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-foreground)]"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
           {ALL_FILTERS.map((s) => (
             <Button
               key={s}
@@ -205,8 +272,19 @@ export function ClientsClient({
       {/* Table */}
       <Table>
         <Table.ScrollContainer>
-          <Table.Content aria-label="Clients" className="min-w-[900px]">
+          <Table.Content
+            aria-label="Clients"
+            className="min-w-[900px]"
+            selectionMode="multiple"
+            selectedKeys={selectedKeys}
+            onSelectionChange={setSelectedKeys}
+          >
             <Table.Header>
+              <Table.Column className="w-10 pr-0">
+                <Checkbox slot="selection" aria-label="Select all clients" className="ml-3">
+                  <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                </Checkbox>
+              </Table.Column>
               <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Client</Table.Column>
               <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Segment</Table.Column>
               <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</Table.Column>
@@ -219,16 +297,21 @@ export function ClientsClient({
               renderEmptyState={() => (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 py-16 text-center">
                   <p className="text-[13px] text-[var(--color-text-muted)]">
-                    {filter === 'all' ? 'No clients yet.' : 'No clients match this filter.'}
+                    {filter === 'all' && !search ? 'No clients yet.' : 'No clients match your filters.'}
                   </p>
                 </div>
               )}
             >
-              {filtered.map((client) => {
+              {pageItems.map((client) => {
                 const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
                 const segMeta = SEGMENT_META[client.segment];
                 return (
-                  <Table.Row key={client.id} className="group hover:bg-[var(--color-background)]">
+                  <Table.Row key={client.id} id={client.id} className="group hover:bg-[var(--color-background)]">
+                    <Table.Cell className="pr-0">
+                      <Checkbox slot="selection" aria-label={`Select ${client.name}`} className="ml-3">
+                        <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                      </Checkbox>
+                    </Table.Cell>
                     <Table.Cell>
                       <Link href={`/clients/${client.id}`} className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-secondary)] text-[11px] font-bold text-[var(--color-text-tertiary)]">
@@ -286,7 +369,55 @@ export function ClientsClient({
             </Table.Body>
           </Table.Content>
         </Table.ScrollContainer>
+        {filtered.length > PAGE_SIZE && (
+          <Table.Footer>
+            <Pagination size="sm">
+              <Pagination.Summary>
+                {filtered.length === 0 ? '0 clients' : `${pageStart}–${pageEnd} of ${filtered.length} clients`}
+              </Pagination.Summary>
+              <Pagination.Content>
+                <Pagination.Item>
+                  <Pagination.Previous isDisabled={page === 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
+                    <Pagination.PreviousIcon />
+                    Previous
+                  </Pagination.Previous>
+                </Pagination.Item>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const startPage = Math.min(Math.max(1, page - 2), Math.max(1, totalPages - 4));
+                  const p = startPage + i;
+                  return (
+                    <Pagination.Item key={p}>
+                      <Pagination.Link isActive={p === page} onPress={() => setPage(p)}>
+                        {p}
+                      </Pagination.Link>
+                    </Pagination.Item>
+                  );
+                })}
+                <Pagination.Item>
+                  <Pagination.Next isDisabled={page === totalPages} onPress={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                    Next
+                    <Pagination.NextIcon />
+                  </Pagination.Next>
+                </Pagination.Item>
+              </Pagination.Content>
+            </Pagination>
+          </Table.Footer>
+        )}
       </Table>
+
+      {selectedCount > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5">
+          <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+            {selectedCount} client{selectedCount !== 1 ? 's' : ''} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedKeys(new Set())}>Clear</Button>
+            <Button variant="destructive" size="sm" disabled={isDeleting} onClick={() => void handleBulkDelete()}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <DeleteDialog
         open={!!clientToDelete}
