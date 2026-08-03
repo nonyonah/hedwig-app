@@ -2506,17 +2506,32 @@ export const hedwigApi = {
 
   // ── P&L Ledger ────────────────────────────────────────────────────────────
 
-  async ledger(params: { range?: string; type?: string; page?: number; pageSize?: number }, options?: ApiOptions): Promise<{
+  async ledger(params: { range?: string; type?: string; kind?: string; q?: string; page?: number; pageSize?: number }, options?: ApiOptions): Promise<{
     entries: Record<string, unknown>[];
-    summary: { totalRevenue: number; totalCredits: number; totalExpenses: number; netIncome: number; entryCount: number };
+    summary: {
+      totalRevenue: number; totalCredits: number; totalExpenses: number; netIncome: number; entryCount: number;
+      moneyIn: number; moneyOut: number; net: number;
+      movement: { in: { account: string; amount: number }[]; out: { account: string; amount: number }[] };
+    };
     pagination: { page: number; pageSize: number; total: number; totalPages: number };
   }> {
     const qs = new URLSearchParams();
     if (params.range) qs.set('range', params.range);
     if (params.type) qs.set('type', params.type);
+    if (params.kind) qs.set('kind', params.kind);
+    if (params.q) qs.set('q', params.q);
     if (params.page) qs.set('page', String(params.page));
     if (params.pageSize) qs.set('pageSize', String(params.pageSize));
     return request(`/api/revenue/ledger${qs.toString() ? `?${qs.toString()}` : ''}`, options);
+  },
+
+  /** Full financial event history for a ledger entry (drives the detail view). */
+  async ledgerEvents(referenceId: string, options?: ApiOptions): Promise<{
+    entityType: string;
+    entityId: string;
+    events: Record<string, unknown>[];
+  }> {
+    return request(`/api/revenue/ledger/events/${encodeURIComponent(referenceId)}`, options);
   },
 
   /** Download XLSX export — returns blob, caller handles the download */

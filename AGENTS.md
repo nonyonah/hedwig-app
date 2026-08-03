@@ -119,6 +119,19 @@ Architecture: append-only `financial_events` journal is the system of record; `l
 - `tsc` build passes; `npm run lint` is pre-broken (ESLint 9, no `eslint.config.js` in repo).
 - **Order matters**: run the backfill BEFORE enabling `LEDGER_USE_PROJECTION` or the ledger shows only new events. `/ledger/export` was not flipped (still legacy aggregation).
 
+## Session Summary (Aug 2, 2026) — Phase 6: Projection verification & personal-scope fixes
+
+- Migration 091 applied by user; 1539 canonical events verified (fingerprint parity 0 mismatches). Committed as `68d21a5` + pushed.
+- **`ledger-projection.ts`** — fixed personal (null-workspace) scope handling:
+  - `ProjectionScope.workspaceId: string | null`; `isPersonal(null)` = true
+  - Personal events project under canonical `ws_personal_<user>` (null-workspace events like deposits/exps were unreadable from the workspace-scoped read)
+  - `eventQuery`/`getWorkspaceMaxRecordedAt` scope personal queries to `workspace_id IS NULL OR ws_personal_<user>` (was user-only → pulled other workspaces' events → duplicate `event_id` crash)
+  - state rows + entry filters use canonical scope key; `rebuildProjection` clears both null + canonical rows; `readProjectionEntries` paginated (PostgREST 1000-row cap was silently truncating the diff)
+- **`scheduler.ts:223`** — `String(scope.workspace_id)` was turning null into literal `'null'` workspace for personal scopes.
+- **Verification result (live prod data)**: personal scope `missing: 0`, `extra: 42` (25 offramps + 17 deposits = expected new coverage), 34 amount mismatches = **FX fetch artifact** (Frankfurter unreachable in local env → legacy leaves raw NGN vs frozen USD; in prod legacy converts at read time). demo + morgan scopes fully consistent. Shared workspace `ws_2cfedc91…`: legacy 1091 vs projection 1 — legacy's expenses/imported queries filter `user_id` only (no workspace filter) so it leaks personal expenses into shared-workspace ledgers; projection is workspace-scoped by design (that leak is a legacy bug).
+- Committed as `7819057` + pushed (Render auto-deploy).
+- **Remaining**: spot-check `/api/revenue/ledger` pre-flip → set `LEDGER_USE_PROJECTION=true` in Render env → spot-check post-flip (shape identical + new entry types) → optionally flip `/ledger/export` + `/ledger/narrative`.
+
 ## Content boundaries
 
 {/* Define what should and shouldn't be documented */}

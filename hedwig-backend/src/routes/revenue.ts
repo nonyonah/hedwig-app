@@ -2155,11 +2155,88 @@ interface LedgerEntry {
   referenceId: string;
   category: string | null;
   currency: string;
+  /** Enriched from financial_events (projection path): the money event kind. */
+  event_type?: string | null;
+  /** Enriched reconciliation state (imported_transaction status). */
+  status?: string | null;
 }
 
 const LEDGER_USE_PROJECTION = process.env.LEDGER_USE_PROJECTION === 'true';
 
-// GET /api/revenue/ledger?range=30d&type=all&page=1&pageSize=50
+const LEDGER_KINDS = ['all', 'income', 'expenses', 'withdrawals', 'deposits', 'refunds', 'imported'] as const;
+type LedgerKind = (typeof LEDGER_KINDS)[number];
+
+function applyKindFilter(entries: LedgerEntry[], kind: LedgerKind): LedgerEntry[] {
+  switch (kind) {
+    case 'income':
+      return entries.filter((e) => e.type === 'revenue');
+    case 'expenses':
+      return entries.filter((e) => e.type === 'expense');
+    case 'withdrawals':
+      return entries.filter((e) => e.event_type === 'offramp.settled' || (e.type === 'transfer' && e.debit > 0));
+    case 'deposits':
+      return entries.filter((e) => e.event_type === 'wallet.deposit.received' || (e.type === 'credit' && e.category === 'deposits'));
+    case 'refunds':
+      return entries.filter((e) => e.event_type === 'offramp.refunded' || (e.type === 'credit' && e.category === 'refunds'));
+    case 'imported':
+      return entries.filter((e) => (e.event_type || '').startsWith('imported_transaction.'));
+    default:
+      return entries;
+  }
+}
+
+/**
+ * Best-effort enrichment: attach the latest financial event type + imported
+ * reconciliation status to each entry. Batch-fetched by entity id so a
+ * report-sized page costs one round trip per 300 refs.
+ */
+async function enrichEntriesWithEvents(entries: LedgerEntry[]): Promise<LedgerEntry[]> {
+  if (entries.length === 0) return entries;
+  const byRef = new Map<string, { event_type: string; status: string | null }>();
+  const refs = Array.from(new Set(entries.map((e) => e.referenceId)));
+
+  for (let i = 0; i < refs.length; i += 300) {
+    const chunk = refs.slice(i, i + 300);
+    const { data, error } = await supabase
+      .from('financial_events')
+      .select('entity_id, event_type, payload, recorded_at')
+      .in('entity_id', chunk)
+      .order('recorded_at', { ascending: false });
+    if (error) break; // enrichment is display-only; never fail the read
+    for (const row of data || []) {
+      if (!byRef.has(row.entity_id)) {
+        const status = (row.payload && typeof row.payload === 'object' && ('status' in row.payload))
+          ? String((row.payload as Record<string, unknown>).status) : null;
+        byRef.set(row.entity_id, { event_type: String(row.event_type || ''), status });
+      }
+    }
+  }
+
+  return entries.map((e) => {
+    const meta = byRef.get(e.referenceId);
+    return meta ? { ...e, event_type: meta.event_type, status: meta.status } : e;
+  });
+}
+
+function buildMovementBreakdown(entries: LedgerEntry[]): {
+  in: { account: string; amount: number }[];
+  out: { account: string; amount: number }[];
+} {
+  const inBy = new Map<string, number>();
+  const outBy = new Map<string, number>();
+  for (const e of entries) {
+    if (e.credit > 0) inBy.set(e.account, (inBy.get(e.account) || 0) + e.credit);
+    if (e.debit > 0) outBy.set(e.account, (outBy.get(e.account) || 0) + e.debit);
+  }
+  const top = (map: Map<string, number>) => Array.from(map.entries())
+    .map(([account, amount]) => ({ account, amount: Number(amount.toFixed(2)) }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+  return { in: top(inBy), out: top(outBy) };
+}
+
+// GET /api/revenue/ledger?range=30d&kind=all&q=&page=1&pageSize=50
+// (legacy `type` param still accepted: all | revenue | expense)
 router.get('/ledger', authenticate, async (req: Request, res: Response, next) => {
   try {
     const privyId = req.user!.id;
@@ -2172,9 +2249,17 @@ router.get('/ledger', authenticate, async (req: Request, res: Response, next) =>
     const requestedRange: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
     const { range } = await resolveRangeForUser(user, requestedRange);
     const start = getRangeStart(range);
-    const typeFilter = String(req.query.type || 'all').toLowerCase();
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
     const pageSize = Math.min(200, Math.max(1, parseInt(String(req.query.pageSize || '50'), 10)));
+
+    const typeRaw = String(req.query.type || 'all').toLowerCase();
+    const kindRaw = String(req.query.kind || 'all').toLowerCase();
+    const kind: LedgerKind = (LEDGER_KINDS as readonly string[]).includes(kindRaw)
+      ? (kindRaw as LedgerKind)
+      : typeRaw === 'revenue' ? 'income'
+      : typeRaw === 'expense' ? 'expenses'
+      : 'all';
+    const q = String(req.query.q || '').trim().toLowerCase();
 
     let entries: LedgerEntry[];
 
@@ -2195,6 +2280,7 @@ router.get('/ledger', authenticate, async (req: Request, res: Response, next) =>
         category: row.category,
         currency: row.currency || 'USD',
       }));
+      entries = await enrichEntriesWithEvents(entries);
     } else {
       const { buildLegacyLedgerEntries } = await import('../services/ledger');
       entries = await buildLegacyLedgerEntries({ userId: user.id, workspaceId: effectiveWsId, start });
@@ -2203,11 +2289,18 @@ router.get('/ledger', authenticate, async (req: Request, res: Response, next) =>
     // Sort by date descending
     entries.sort((a, b) => b.date.localeCompare(a.date));
 
-    // Filter by type
-    const filtered = typeFilter === 'all' ? entries
-      : typeFilter === 'revenue' ? entries.filter((e) => e.type === 'revenue' || e.type === 'credit')
-      : typeFilter === 'expense' ? entries.filter((e) => e.type === 'expense')
-      : entries;
+    // Money-movement filters (kind + search) — the summary strip reacts to them
+    let filtered = applyKindFilter(entries, kind);
+
+    if (q) {
+      filtered = filtered.filter((e) =>
+        e.description.toLowerCase().includes(q) || (e.account || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Money movement over the *filtered* set (Mercury-style: charts follow filters)
+    const moneyIn = filtered.filter((e) => e.credit > 0).reduce((s, e) => s + e.credit, 0);
+    const moneyOut = filtered.filter((e) => e.debit > 0).reduce((s, e) => s + e.debit, 0);
 
     // Paginate
     const total = filtered.length;
@@ -2215,7 +2308,7 @@ router.get('/ledger', authenticate, async (req: Request, res: Response, next) =>
     const startIdx = (page - 1) * pageSize;
     const paged = filtered.slice(startIdx, startIdx + pageSize);
 
-    // Compute P&L summary from filtered data
+    // P&L summary (period, unfiltered) — unchanged for P&L compatibility
     const totalRevenue = entries.filter((e) => e.type === 'revenue').reduce((s, e) => s + e.credit, 0);
     const totalCredits = entries.filter((e) => e.type === 'credit').reduce((s, e) => s + e.credit, 0);
     const totalExpenses = entries.filter((e) => e.type === 'expense').reduce((s, e) => s + e.debit, 0);
@@ -2230,12 +2323,83 @@ router.get('/ledger', authenticate, async (req: Request, res: Response, next) =>
           totalExpenses: Number(totalExpenses.toFixed(2)),
           netIncome: Number((totalRevenue + totalCredits - totalExpenses).toFixed(2)),
           entryCount: total,
+          moneyIn: Number(moneyIn.toFixed(2)),
+          moneyOut: Number(moneyOut.toFixed(2)),
+          net: Number((moneyIn - moneyOut).toFixed(2)),
+          movement: buildMovementBreakdown(filtered),
         },
         pagination: { page, pageSize, total, totalPages },
       },
     });
   } catch (error) {
     logger.error('Failed to build ledger', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
+});
+
+// GET /api/revenue/ledger/events/:referenceId — full event history for one entity
+router.get('/ledger/events/:referenceId', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+    if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+    const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+    const referenceId = String(req.params.referenceId || '');
+    if (!referenceId) { res.status(400).json({ success: false, error: { message: 'Missing reference id' } }); return; }
+
+    const isPersonalScope = !effectiveWsId || String(effectiveWsId).startsWith('ws_personal_');
+    let query = supabase
+      .from('financial_events')
+      .select('id,event_type,entity_type,entity_id,occurred_at,recorded_at,payload,amount,currency,amount_usd,fx_rate_usd,fx_source,direction,source,correlation_id')
+      .eq('entity_id', referenceId)
+      .order('occurred_at', { ascending: true })
+      .order('recorded_at', { ascending: true });
+
+    if (isPersonalScope) {
+      query = query
+        .eq('user_id', user.id)
+        .or(`workspace_id.is.null,workspace_id.eq."${effectiveWsId}"`);
+    } else {
+      query = query.eq('workspace_id', effectiveWsId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      logger.error('Failed to load financial event', { error: error.message });
+      res.status(500).json({ success: false, error: { message: 'Could not load event details.' } });
+      return;
+    }
+    if (!data || data.length === 0) {
+      res.status(404).json({ success: false, error: { message: 'Event not found' } });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        entityType: data[0].entity_type,
+        entityId: data[0].entity_id,
+        events: data.map((ev: any) => ({
+          id: ev.id,
+          eventType: ev.event_type,
+          occurredAt: ev.occurred_at,
+          recordedAt: ev.recorded_at,
+          amount: ev.amount === null ? null : Number(ev.amount),
+          currency: ev.currency,
+          amountUsd: ev.amount_usd === null ? null : Number(ev.amount_usd),
+          fxRateUsd: ev.fx_rate_usd === null ? null : Number(ev.fx_rate_usd),
+          fxSource: ev.fx_source,
+          direction: ev.direction,
+          source: ev.source,
+          correlationId: ev.correlation_id,
+          payload: ev.payload || {},
+        })),
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to load financial event', { error: error instanceof Error ? error.message : 'Unknown' });
     next(error);
   }
 });

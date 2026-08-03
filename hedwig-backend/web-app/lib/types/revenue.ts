@@ -208,3 +208,77 @@ export interface InsightRisk {
   actionLabel?: string;
   actionRoute?: string;
 }
+
+// ── Ledger (financial events explorer) ───────────────────────────────────────
+
+export type LedgerEntryType = 'revenue' | 'expense' | 'credit' | 'transfer';
+
+export type LedgerKind = 'all' | 'income' | 'expenses' | 'withdrawals' | 'deposits' | 'refunds' | 'imported';
+
+export interface LedgerEntry {
+  date: string;
+  description: string;
+  account: string;
+  debit: number;
+  credit: number;
+  type: LedgerEntryType;
+  referenceId: string;
+  category: string | null;
+  currency: string;
+  /** Financial event kind (document.paid, expense.created, offramp.settled, ...). */
+  event_type?: string | null;
+  /** Reconciliation status for imported transactions (pending/reviewing/matched/...). */
+  status?: string | null;
+}
+
+export interface LedgerMovementItem {
+  account: string;
+  amount: number;
+}
+
+export interface LedgerSummary {
+  totalRevenue: number;
+  totalCredits: number;
+  totalExpenses: number;
+  netIncome: number;
+  entryCount: number;
+  moneyIn: number;
+  moneyOut: number;
+  net: number;
+  movement: { in: LedgerMovementItem[]; out: LedgerMovementItem[] };
+}
+
+export interface LedgerPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface LedgerResponse {
+  entries: LedgerEntry[];
+  summary: LedgerSummary;
+  pagination: LedgerPagination;
+}
+
+export interface LedgerFinancialEvent {
+  id: string;
+  eventType: string;
+  occurredAt: string;
+  recordedAt: string;
+  amount: number | null;
+  currency: string | null;
+  amountUsd: number | null;
+  fxRateUsd: number | null;
+  fxSource: string | null;
+  direction: 'in' | 'out' | 'none';
+  source: string | null;
+  correlationId: string | null;
+  payload: Record<string, unknown>;
+}
+
+export interface LedgerEventDetail {
+  entityType: string;
+  entityId: string;
+  events: LedgerFinancialEvent[];
+}

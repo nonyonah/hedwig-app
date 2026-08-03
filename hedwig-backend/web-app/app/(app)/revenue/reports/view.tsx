@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChartBar, FileText, DownloadSimple, CurrencyCircleDollar, CalendarBlank, Sparkle, ArrowsLeftRight, ArrowUp, ArrowDown, CheckCircle, GoogleSheetsLogo } from '@/components/ui/lucide-icons';
+import { ChartBar, DownloadSimple, CurrencyCircleDollar, CalendarBlank, Sparkle, ArrowsLeftRight, ArrowUp, ArrowDown, CheckCircle, GoogleSheetsLogo } from '@/components/ui/lucide-icons';
 import { Loader } from '@/components/ui/loader';
 import { AttachedStatGrid, type AttachedStatCardItem } from '@/components/ui/attached-stat-cards';
-import { Alert, Button, Dropdown, Label, Table, Tabs } from '@heroui/react';
+import { Alert, Button, Dropdown, Label, Tabs } from '@heroui/react';
+import { LedgerPanel } from '@/components/ledger/ledger-panel';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
 
@@ -266,61 +267,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
             </Tabs.Panel>
 
             <Tabs.Panel className="pt-4 space-y-4" id="journal">
-              <Table>
-                <Table.ScrollContainer>
-                  <Table.Content aria-label="Journal entries">
-                    <Table.Header>
-                      <Table.Column isRowHeader className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Date</Table.Column>
-                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Description</Table.Column>
-                      <Table.Column className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Account</Table.Column>
-                      <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Debit</Table.Column>
-                      <Table.Column className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Credit</Table.Column>
-                    </Table.Header>
-                    <Table.Body>
-                      {entries.map((entry: any, idx: number) => (
-                        <Table.Row key={idx} className="hover:bg-[var(--color-background)]">
-                          <Table.Cell className="whitespace-nowrap text-[var(--color-text-muted)] tabular-nums">{entry.date}</Table.Cell>
-                          <Table.Cell className="max-w-[280px] truncate text-[var(--color-foreground)]"><span title={entry.description}>{entry.description}</span></Table.Cell>
-                          <Table.Cell className="text-[var(--color-text-muted)]">{entry.account}</Table.Cell>
-                          <Table.Cell className="text-right font-semibold tabular-nums text-[var(--color-danger)]">{entry.debit > 0 ? `$${entry.debit.toFixed(2)}` : ''}</Table.Cell>
-                          <Table.Cell className="text-right font-semibold tabular-nums text-[var(--color-success)]">{entry.credit > 0 ? `$${entry.credit.toFixed(2)}` : ''}</Table.Cell>
-                        </Table.Row>
-                      ))}
-                      {entries.length === 0 && (
-                        <Table.Row>
-                          <Table.Cell colSpan={5} className="text-center text-[12px] text-[var(--color-text-muted)]">
-                            No journal entries for this period.
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table.Content>
-                </Table.ScrollContainer>
-              </Table>
-
-              {ledgerData && ledgerData.pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] text-[var(--color-text-muted)]">
-                    Page {ledgerData.pagination.page} of {ledgerData.pagination.totalPages} ({ledgerData.pagination.total} entries)
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setJournalPage((p) => Math.max(1, p - 1))}
-                      disabled={journalPage <= 1}
-                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-foreground)] transition hover:bg-[var(--color-background)] disabled:opacity-40"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => setJournalPage((p) => Math.min(ledgerData.pagination.totalPages, p + 1))}
-                      disabled={journalPage >= ledgerData.pagination.totalPages}
-                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-foreground)] transition hover:bg-[var(--color-background)] disabled:opacity-40"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
+              <LedgerPanel accessToken={accessToken} />
             </Tabs.Panel>
           </>
         )}
