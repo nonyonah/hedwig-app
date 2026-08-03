@@ -132,6 +132,17 @@ Architecture: append-only `financial_events` journal is the system of record; `l
 - Committed as `7819057` + pushed (Render auto-deploy).
 - **Remaining**: spot-check `/api/revenue/ledger` pre-flip → set `LEDGER_USE_PROJECTION=true` in Render env → spot-check post-flip (shape identical + new entry types) → optionally flip `/ledger/export` + `/ledger/narrative`.
 
+## Session Summary (Aug 3, 2026) — Phase 7: Ledger experience + Financial Event Detail
+
+Shipped as `553b3f9` (UI + list API) then `cc118c1` (export flip + tab rename); pushed, Render deploy verified green.
+
+- **`routes/revenue.ts` `/ledger`** — added `kind` (all/income/expenses/withdrawals/deposits/refunds/imported) + `q` (description/account search) filters; enriches each entry with `event_type` + reconciliation `status` from `financial_events` (chunked 300-ref batch, ordered by recorded_at desc, display-only never fails the read); summary now includes `moneyIn`/`moneyOut`/`net` + `movement {in,out}` top-5 accounts computed **from the filtered set** (Mercury-style: strip follows filters). P&L fields unchanged. Legacy `type` param still maps onto `kind`.
+- **New `GET /ledger/events/:referenceId`** — full event history (occurred_at asc) with payload, frozen `amount_usd`/`fx_rate_usd`/`fx_source`, direction, source rail, correlation_id; scope-checked per user (null-workspace) or workspace.
+- **`/ledger/export`** — now reads the projection when `LEDGER_USE_PROJECTION=true` (same coverage as the Ledger screen); P&L + General Ledger + Expense Categories sheets rebuilt from normalized ledger entries; legacy path kept behind the flag. `/ledger/narrative` still legacy.
+- **NEW `web-app/components/ledger/`** — reusable `financial-event-detail.tsx` (type-adaptive drill-down: invoice payment, expense, bank import w/ reconciliation chip, withdrawal w/ bank+fiat, deposit w/ chain+addresses, refund; frozen-USD FX note, copyable hashes/addresses, event-history timeline), `financial-event-detail-dialog.tsx` (fetching shell, reusable by Timeline/Copilot/search/notifications), `ledger-panel.tsx` (Ledger experience: AI narrative alert w/ Sparkle, money movement strip + by-account bars, kind pills, debounced search, 7d–YTD range dropdown, enriched table w/ status chips + row drill-down + loading/empty/error states, range-aware XLSX/Sheets export).
+- **Reports page** — Journal tab renamed **Ledger** (`ReportType 'journal'` → `'ledger'`); `hedwigApi.ledger()` accepts `kind`/`q`; added `hedwigApi.ledgerEvents()`; `LedgerEntry`/`LedgerSummary`/`LedgerFinancialEvent` types in `lib/types/revenue.ts`.
+- Verify: `tsc --noEmit` green in `hedwig-backend` + `web-app`. Prod routes live (`/ledger`, `/ledger/events/:id`, `/ledger/export` → 401 auth-gated, not 404).
+
 ## Content boundaries
 
 {/* Define what should and shouldn't be documented */}
