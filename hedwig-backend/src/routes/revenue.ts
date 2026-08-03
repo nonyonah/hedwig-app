@@ -2783,31 +2783,44 @@ router.post('/ledger/export-to-sheets', authenticate, async (req: Request, res: 
     const composioUserId = `hedwig_${user.id}`;
 
     const title = `Hedwig P&L — ${range} (${start.toISOString().slice(0, 10)} to ${new Date().toISOString().slice(0, 10)})`;
-    const createResult: any = await sdk.tools.execute('googlesheets', 'googlesheets_create_spreadsheet', {
-      entityId: composioUserId,
-      connectedAccountId: connRow.composio_connected_account_id!,
-      input: { title },
+    const createResult: any = await sdk.tools.execute('GOOGLESHEETS_CREATE_GOOGLE_SHEET1', {
+      userId: composioUserId,
+      arguments: { title },
+      dangerouslySkipVersionCheck: true,
     });
 
-    const spreadsheetId = createResult?.data?.spreadsheetId || createResult?.spreadsheetId || createResult?.id;
+    let spreadsheetId: string | null = null;
+    const createdPayload: any = createResult?.data ?? createResult;
+    if (typeof createdPayload === 'string') {
+      try {
+        const parsed = JSON.parse(createdPayload);
+        spreadsheetId = parsed?.spreadsheetId ?? parsed?.spreadsheet_id ?? parsed?.id ?? null;
+      } catch {}
+    } else {
+      spreadsheetId =
+        createdPayload?.spreadsheetId ??
+        createdPayload?.spreadsheet_id ??
+        createdPayload?.id ??
+        createdPayload?.data?.spreadsheetId ??
+        createdPayload?.data?.spreadsheet_id ??
+        null;
+    }
     if (!spreadsheetId) {
       throw new Error('Failed to create spreadsheet: no spreadsheet ID returned');
     }
 
     // Write data to the sheet
-    await sdk.tools.execute('googlesheets', 'googlesheets_batch_update', {
-      entityId: composioUserId,
-      connectedAccountId: connRow.composio_connected_account_id!,
-      input: {
-        spreadsheetId,
-        requests: [{
-          updateCells: {
-            range: { sheetId: 0, startRowIndex: 0, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 6 },
-            rows: rows.map((row) => ({ values: row.map((cell) => ({ userEnteredValue: { stringValue: cell } })) })),
-            fields: 'userEnteredValue',
-          },
-        }],
+    await sdk.tools.execute('GOOGLESHEETS_VALUES_UPDATE', {
+      userId: composioUserId,
+      arguments: {
+        spreadsheet_id: spreadsheetId,
+        range: 'A1',
+        values: rows,
+        major_dimension: 'ROWS',
+        value_input_option: 'RAW',
+        auto_expand_sheet: true,
       },
+      dangerouslySkipVersionCheck: true,
     });
 
     // Update last_synced_at
