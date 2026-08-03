@@ -9,7 +9,7 @@ import { LedgerPanel } from '@/components/ledger/ledger-panel';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
 
-type ReportType = 'pnl' | 'cashflow' | 'journal';
+type ReportType = 'pnl' | 'cashflow' | 'ledger';
 
 function stripMarkdown(text: string): string {
   return text.replace(/\*\*(.*?)\*\*/g, '$1');
@@ -170,9 +170,9 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
               Cash Flow
               <Tabs.Indicator />
             </Tabs.Tab>
-            <Tabs.Tab id="journal" className="px-3 py-2 text-[13px]">
+            <Tabs.Tab id="ledger" className="px-3 py-2 text-[13px]">
               <ArrowsLeftRight className="h-4 w-4" weight="bold" />
-              Journal
+              Ledger
               <Tabs.Indicator />
             </Tabs.Tab>
           </Tabs.List>
@@ -266,7 +266,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
               </div>
             </Tabs.Panel>
 
-            <Tabs.Panel className="pt-4 space-y-4" id="journal">
+            <Tabs.Panel className="pt-4 space-y-4" id="ledger">
               <LedgerPanel accessToken={accessToken} />
             </Tabs.Panel>
           </>

@@ -2444,20 +2444,71 @@ router.get('/ledger/export', authenticate, async (req: Request, res: Response, n
     const start = getRangeStart(range);
     const startIso = start.toISOString();
 
-    const [invoices, expenses] = await Promise.all([
-      fetchPaged<any>('export_ledger_invoices', (from, to) =>
-        supabase.from('documents').select('id,type,status,amount,currency,title,created_at,updated_at,content,client_id')
-          .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
-          .in('type', ['INVOICE', 'PAYMENT_LINK'])
-          .or(`created_at.gte.${startIso},updated_at.gte.${startIso}`)
-          .order('updated_at', { ascending: false }).range(from, to)
-      ),
-      fetchPaged<any>('export_ledger_expenses', (from, to) =>
-        supabase.from('expenses').select('id,amount,currency,converted_amount_usd,category,note,date,client_id,created_at')
-          .eq('user_id', user.id).gte('date', startIso)
-          .order('date', { ascending: false }).range(from, to)
-      ).catch(() => [] as any[]),
-    ]);
+    // Read source rows: the event-driven projection (frozen FX + on-rail
+    // coverage) when enabled, otherwise the legacy invoice/expense aggregation.
+    // Both normalize to the same ledger shape.
+    const ledgerSource: { date: string; description: string; account: string; debit: number; credit: number; type: string; category: string | null }[] = [];
+
+    if (LEDGER_USE_PROJECTION) {
+      const { ensureProjection, readProjectionEntries } = await import('../services/ledger-projection');
+      await ensureProjection({ userId: user.id, workspaceId: effectiveWsId });
+      const rows = await readProjectionEntries({ userId: user.id, workspaceId: effectiveWsId }, start);
+      ledgerSource.push(...rows.map((row: any) => ({
+        date: row.date,
+        description: row.description,
+        account: row.account,
+        debit: Number(row.debit) || 0,
+        credit: Number(row.credit) || 0,
+        type: row.type,
+        category: row.category,
+      })));
+    } else {
+      const [invoices, expenses] = await Promise.all([
+        fetchPaged<any>('export_ledger_invoices', (from, to) =>
+          supabase.from('documents').select('id,type,status,amount,currency,title,created_at,updated_at,content,client_id')
+            .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
+            .in('type', ['INVOICE', 'PAYMENT_LINK'])
+            .or(`created_at.gte.${startIso},updated_at.gte.${startIso}`)
+            .order('updated_at', { ascending: false }).range(from, to)
+        ),
+        fetchPaged<any>('export_ledger_expenses', (from, to) =>
+          supabase.from('expenses').select('id,amount,currency,converted_amount_usd,category,note,date,client_id,created_at')
+            .eq('user_id', user.id).gte('date', startIso)
+            .order('date', { ascending: false }).range(from, to)
+        ).catch(() => [] as any[]),
+      ]);
+      for (const inv of invoices) {
+        if (normalizeStatus(inv.status) !== 'PAID') continue;
+        const paidAt = getDocumentPaidAt(inv);
+        if (paidAt < start) continue;
+        const isCredit = inv.content?.bookkeeping_only === true;
+        let amt = toNumber(inv.amount);
+        const curr = inv.currency || 'USD';
+        if (curr !== 'USD' && amt > 0) {
+          try { amt = await convertToUsd(amt, curr); } catch { /* leave as-is */ }
+        }
+        ledgerSource.push({
+          date: paidAt.toISOString().slice(0, 10),
+          description: inv.title || 'Invoice payment',
+          account: isCredit ? 'Other Income' : 'Revenue',
+          debit: 0,
+          credit: amt,
+          type: isCredit ? 'credit' : 'revenue',
+          category: null,
+        });
+      }
+      for (const exp of expenses) {
+        ledgerSource.push({
+          date: exp.date?.slice(0, 10) || exp.created_at?.slice(0, 10),
+          description: exp.note || `${exp.category} expense`,
+          account: mapCategoryToAccount(exp.category),
+          debit: toNumber(exp.converted_amount_usd || exp.amount),
+          credit: 0,
+          type: 'expense',
+          category: exp.category || 'other',
+        });
+      }
+    }
 
     // Build the Excel workbook
     const ExcelJS = require('exceljs');
@@ -2472,30 +2523,34 @@ router.get('/ledger/export', authenticate, async (req: Request, res: Response, n
       { header: '% of Revenue', key: 'pct', width: 15 },
     ];
 
-    // Revenue
+    // Aggregate P&L buckets, journal rows, and category totals from normalized entries
     let totalRev = 0;
     let totalExp = 0;
 
     const revenueByAccount: Record<string, number> = {};
-    for (const inv of invoices) {
-      if (normalizeStatus(inv.status) !== 'PAID') continue;
-      const isCredit = inv.content?.bookkeeping_only === true;
-      const account = isCredit ? 'Other Income' : 'Revenue';
-      let amt = toNumber(inv.amount);
-      const curr = inv.currency || 'USD';
-      if (curr !== 'USD' && amt > 0) {
-        try { amt = await convertToUsd(amt, curr); } catch { /* leave as-is */ }
-      }
-      revenueByAccount[account] = (revenueByAccount[account] || 0) + amt;
-      totalRev += amt;
-    }
-
     const expensesByAccount: Record<string, number> = {};
-    for (const exp of expenses) {
-      const account = mapCategoryToAccount(exp.category);
-      const amt = toNumber(exp.converted_amount_usd || exp.amount);
-      expensesByAccount[account] = (expensesByAccount[account] || 0) + amt;
-      totalExp += amt;
+    const allEntries: any[] = [];
+    const catTotals: Record<string, number> = {};
+
+    for (const e of ledgerSource) {
+      allEntries.push({
+        date: e.date,
+        description: e.description,
+        account: e.account,
+        debit: e.debit,
+        credit: e.credit,
+        type: e.type === 'revenue' ? 'Revenue' : e.type === 'expense' ? 'Expense' : e.type === 'credit' ? 'Credit' : 'Transfer',
+      });
+      if (e.credit > 0 && (e.type === 'revenue' || e.type === 'credit')) {
+        revenueByAccount[e.account] = (revenueByAccount[e.account] || 0) + e.credit;
+        totalRev += e.credit;
+      }
+      if (e.type === 'expense' && e.debit > 0) {
+        expensesByAccount[e.account] = (expensesByAccount[e.account] || 0) + e.debit;
+        totalExp += e.debit;
+        const cat = e.category || 'other';
+        catTotals[cat] = (catTotals[cat] || 0) + e.debit;
+      }
     }
 
     // Title row
@@ -2552,36 +2607,7 @@ router.get('/ledger/export', authenticate, async (req: Request, res: Response, n
 
     glSheet.getRow(1).font = { bold: true };
 
-    // Build sorted entries
-    const allEntries: any[] = [];
-    for (const inv of invoices) {
-      if (normalizeStatus(inv.status) !== 'PAID') continue;
-      const paidAt = getDocumentPaidAt(inv);
-      if (paidAt < start) continue;
-      const isCredit = inv.content?.bookkeeping_only === true;
-      let amt = toNumber(inv.amount);
-      const curr = inv.currency || 'USD';
-      if (curr !== 'USD' && amt > 0) {
-        try { amt = await convertToUsd(amt, curr); } catch { /* leave as-is */ }
-      }
-      allEntries.push({
-        date: paidAt.toISOString().slice(0, 10),
-        description: inv.title || 'Invoice payment',
-        account: isCredit ? 'Other Income' : 'Revenue',
-        debit: 0, credit: amt,
-        type: isCredit ? 'Credit' : 'Revenue',
-      });
-    }
-    for (const exp of expenses) {
-      allEntries.push({
-        date: exp.date?.slice(0, 10) || exp.created_at?.slice(0, 10),
-        description: exp.note || `${exp.category} expense`,
-        account: mapCategoryToAccount(exp.category),
-        debit: toNumber(exp.converted_amount_usd || exp.amount), credit: 0,
-        type: 'Expense',
-      });
-    }
-
+    // Journal rows (already normalized + aggregated above)
     allEntries.sort((a: any, b: any) => b.date.localeCompare(a.date));
 
     for (const entry of allEntries) {
@@ -2601,12 +2627,6 @@ router.get('/ledger/export', authenticate, async (req: Request, res: Response, n
     ];
     catSheet.getRow(1).font = { bold: true };
 
-    // Group expenses by category
-    const catTotals: Record<string, number> = {};
-    for (const exp of expenses) {
-      const cat = exp.category || 'other';
-      catTotals[cat] = (catTotals[cat] || 0) + toNumber(exp.converted_amount_usd || exp.amount);
-    }
     const catTotalSum = Object.values(catTotals).reduce((s, v) => s + v, 0);
     for (const [cat, amt] of Object.entries(catTotals).sort(([, a], [, b]) => b - a)) {
       const row = catSheet.addRow([cat, amt, catTotalSum > 0 ? (amt / catTotalSum * 100).toFixed(1) + '%' : '0%']);
