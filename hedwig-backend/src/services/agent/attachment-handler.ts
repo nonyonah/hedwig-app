@@ -547,7 +547,7 @@ async function importInvoiceFromExtraction(
   }
 }
 
-async function importExpenseFromExtraction(
+export async function importExpenseFromExtraction(
   hedwigUserId: string,
   fileName: string,
   invoice: ExtractedInvoice
@@ -614,7 +614,7 @@ async function importExpenseFromExtraction(
   }
 }
 
-async function importPaidRevenueFromBankStatement(
+export async function importPaidRevenueFromBankStatement(
   hedwigUserId: string,
   fileName: string,
   statement: ExtractedBankStatement

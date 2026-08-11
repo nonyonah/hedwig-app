@@ -9,7 +9,7 @@ import { differenceInDays, parseISO, addDays, isSameDay, format } from 'date-fns
 import { createLogger } from '../utils/logger';
 import { withLock } from '../utils/distributedLock';
 import { generateDailyBrief, generateWeeklySummary } from './agent/assistant-runtime';
-import { matchThreadsToWorkspace, syncComposioGmailThreads, syncGmailThreads } from './emailSync';
+import { matchThreadsToWorkspace, syncComposioBankAlerts, syncComposioGmailThreads, syncGmailThreads } from './emailSync';
 
 const logger = createLogger('Scheduler');
 
@@ -336,6 +336,7 @@ export const SchedulerService = {
                 try {
                     if (integration.source === 'composio') {
                         await syncComposioGmailThreads(userId, 50);
+                        await syncComposioBankAlerts(userId, 25);
                     } else {
                         await syncGmailThreads(userId, integrationId, 50);
                     }

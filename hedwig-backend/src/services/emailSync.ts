@@ -3,6 +3,7 @@ import { Composio } from '@composio/core';
 import { createLogger } from '../utils/logger';
 import { getValidAccessToken } from './integrations';
 import { uploadToR2 } from '../lib/r2';
+import { processAttachment, importExpenseFromExtraction, importPaidRevenueFromBankStatement } from './agent/attachment-handler';
 
 const logger = createLogger('EmailSync');
 
@@ -30,6 +31,7 @@ type GmailAttachmentPart = {
   attachmentId: string;
   filename: string;
   mimeType: string;
+  messageId?: string;
 };
 
 const IMPORTABLE_THREAD_TYPES = new Set(['invoice', 'receipt', 'statement', 'other']);
@@ -164,12 +166,15 @@ function pickString(source: any, keys: string[]): string {
   return '';
 }
 
-function normalizeComposioAttachment(raw: any): GmailAttachmentPart | null {
+function normalizeComposioAttachment(raw: any, fallbackMessageId?: string): GmailAttachmentPart | null {
   const filename = pickString(raw, ['filename', 'name', 'fileName', 'attachment.filename']);
   const mimeType = pickString(raw, ['mimeType', 'mime_type', 'contentType', 'content_type']) || 'application/octet-stream';
   const attachmentId = pickString(raw, ['id', 'attachmentId', 'attachment_id', 'provider_attachment_id']) || filename;
+  const messageId =
+    pickString(raw, ['message_id', 'messageId', 'message.id', 'messageId.id'])
+    || fallbackMessageId || undefined;
   if (!filename) return null;
-  return { filename, mimeType, attachmentId };
+  return { filename, mimeType, attachmentId, messageId };
 }
 
 async function ensureComposioGmailIntegration(userId: string): Promise<string> {
@@ -229,7 +234,7 @@ function normalizeComposioEmail(raw: any) {
     || new Date().toISOString();
   const parsedDateMs = /^\d+$/.test(lastMessageAt) ? Number(lastMessageAt) : Date.parse(lastMessageAt);
   const attachments = asArray(raw?.attachments)
-    .map(normalizeComposioAttachment)
+    .map((part) => normalizeComposioAttachment(part, pickString(raw, ['id', 'messageId', 'message_id'])))
     .filter((attachment): attachment is GmailAttachmentPart => Boolean(attachment));
   const participants = new Set<string>();
   for (const field of ['to', 'cc', 'recipients']) {
@@ -422,7 +427,299 @@ async function ingestComposioEmail(userId: string, integrationId: string, rawEma
     });
   }
 
+  // Bookkeeping: import receipt/statement/invoice attachments into expenses
+  // and paid-revenue credits. Deduped via email_attachments.parsed_data so a
+  // re-sync never creates duplicate ledger rows.
+  if (supportedAttachmentParts.length > 0) {
+    importAttachmentsToBookkeeping(userId, email, upserted.id, supportedAttachmentParts)
+      .catch((err) => logger.error('Composio attachment bookkeeping import failed', { userId, threadDbId: upserted.id, err }));
+  }
+
   summarizeThread(userId, upserted.id).catch(() => {});
+}
+
+// ─── Bookkeeping: download email attachments + import into ledger ────────────
+
+async function downloadComposioAttachment(
+  userId: string,
+  messageId: string,
+  attachment: GmailAttachmentPart
+): Promise<Buffer | null> {
+  try {
+    const sdk = getComposioSdk();
+    const result: any = await sdk.tools.execute('GMAIL_GET_ATTACHMENT', {
+      userId: composioUserIdFor(userId),
+      arguments: {
+        message_id: messageId,
+        attachment_id: attachment.attachmentId,
+        file_name: attachment.filename,
+      },
+      dangerouslySkipVersionCheck: true,
+    });
+
+    if (result?.successful === false || result?.error) {
+      logger.warn('Composio attachment fetch failed', { userId, filename: attachment.filename, error: result?.error });
+      return null;
+    }
+
+    const inner: any = result?.data ?? result;
+    let base64: string | null = null;
+    if (typeof inner === 'string') {
+      base64 = inner;
+    } else if (inner && typeof inner === 'object') {
+      if (typeof inner.data === 'string') base64 = inner.data;
+      else if (typeof inner.base64 === 'string') base64 = inner.base64;
+      else if (typeof inner.content === 'string') base64 = inner.content;
+      else if (typeof inner.base64Content === 'string') base64 = inner.base64Content;
+    }
+    if (!base64) {
+      logger.warn('Composio attachment returned no decodable content', { userId, filename: attachment.filename });
+      return null;
+    }
+    return Buffer.from(base64.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  } catch (error) {
+    logger.error('Composio attachment download threw', {
+      userId,
+      filename: attachment.filename,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function importAttachmentsToBookkeeping(
+  userId: string,
+  email: ReturnType<typeof normalizeComposioEmail>,
+  threadDbId: string,
+  supportedAttachmentParts: GmailAttachmentPart[]
+): Promise<void> {
+  const { data: existingAttachments } = await supabase
+    .from('email_attachments')
+    .select('id, parsed_data')
+    .eq('thread_id', threadDbId);
+
+  const rows = existingAttachments ?? [];
+  if (rows.some((row: any) => row.parsed_data?.bookkeeping_imported_at)) return;
+
+  const messageId =
+    supportedAttachmentParts.find((part) => part.messageId)?.messageId
+    || email.providerThreadId;
+
+  for (const attachment of supportedAttachmentParts) {
+    const bytes = await downloadComposioAttachment(userId, messageId, attachment);
+    if (!bytes || bytes.length === 0) continue;
+
+    const { data: uploaded } = await supabase
+      .from('email_attachments')
+      .select('r2_key')
+      .eq('thread_id', threadDbId)
+      .eq('provider_attachment_id', attachment.attachmentId)
+      .maybeSingle();
+
+    let r2KeyStored: string | null = null;
+    if (!uploaded?.r2_key) {
+      try {
+        const r2Key = `attachments/${userId}/${threadDbId}/${messageId}_${attachment.filename}`;
+        r2KeyStored = (await uploadToR2(r2Key, bytes, attachment.mimeType)).key;
+      } catch (r2Err) {
+        logger.warn('R2 upload failed for synced attachment', { userId, filename: attachment.filename, r2Err });
+      }
+      if (r2KeyStored) {
+        await supabase
+          .from('email_attachments')
+          .update({ r2_key: r2KeyStored, size_bytes: bytes.length })
+          .eq('thread_id', threadDbId)
+          .eq('provider_attachment_id', attachment.attachmentId);
+      }
+    }
+
+    const result = await processAttachment({
+      userId,
+      fileName: attachment.filename,
+      mimeType: attachment.mimeType,
+      buffer: bytes,
+    });
+
+    if (result?.createdEntities?.length) {
+      const merged = { ...(rows[0]?.parsed_data ?? {}), bookkeeping_imported_at: new Date().toISOString() };
+      await supabase
+        .from('email_attachments')
+        .update({ parsed_data: merged })
+        .eq('thread_id', threadDbId);
+      logger.info('Composio attachment imported into bookkeeping', {
+        userId,
+        threadDbId,
+        filename: attachment.filename,
+        entities: result.createdEntities,
+      });
+      return;
+    }
+  }
+
+  const attempts = (rows[0]?.parsed_data?.bookkeeping_attempts ?? 0) + 1;
+  await supabase
+    .from('email_attachments')
+    .update({ parsed_data: { ...(rows[0]?.parsed_data ?? {}), bookkeeping_attempts: attempts, bookkeeping_attempted_at: new Date().toISOString() } })
+    .eq('thread_id', threadDbId);
+
+  logger.warn('Composio attachments imported nothing into bookkeeping', { userId, threadDbId });
+}
+
+// ─── Bank alerts: text-only money notifications → ledger entries ─────────────
+
+const BANK_ALERT_QUERY = [
+  'in:inbox',
+  '(bank alert OR transaction alert OR debit alert OR credit alert',
+  '"was debited" OR "was credited" OR "account debited" OR "account credited"',
+  '"money in" OR "money out" OR "payment received" OR "transfer received" OR "sent you" OR "deposit received")',
+].join(' ');
+
+const CREDIT_ALERT_SIGNALS = /\b(credit|deposit|credited|inflow|received|money in|incoming|salary|refund|payment received|transfer received)\b/i;
+const DEBIT_ALERT_SIGNALS = /\b(debit|debit alert|withdrawal|debited|charged|deducted|money out|sent|paid|pos|atm|outflow)\b/i;
+const AMOUNT_WITH_CURRENCY = /(?:₦|N\s+|NGN|US\$|\$|€|£|₵|KES|GHS|ZAR)\s*([\d,]+(?:\.\d{1,2})?)/i;
+const AMOUNT_AFTER_LABEL = /(?:amount|sum|of)\s*[:=]?\s*([\d,]+(?:\.\d{1,2})?)/i;
+
+function parseBankAlert(subject: string, snippet: string): { amount: number; currency: string; direction: 'debit' | 'credit' } | null {
+  const text = `${subject}\n${snippet}`;
+
+  const currencyMatch = text.match(/\b(USD|NGN|EUR|GBP|KES|GHS|ZAR|CAD|AUD|CNY|JPY)\b/);
+  const currency = (currencyMatch && currencyMatch[1].toUpperCase()) || 'NGN';
+
+  const amountMatch = text.match(AMOUNT_WITH_CURRENCY) || text.match(AMOUNT_AFTER_LABEL);
+  if (!amountMatch) return null;
+  const amount = Number(amountMatch[1].replace(/,/g, ''));
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  let direction: 'debit' | 'credit' | null = null;
+  if (CREDIT_ALERT_SIGNALS.test(subject)) direction = 'credit';
+  if (DEBIT_ALERT_SIGNALS.test(subject) && direction !== 'credit') direction = 'debit';
+  if (!direction) {
+    if (CREDIT_ALERT_SIGNALS.test(snippet) && !DEBIT_ALERT_SIGNALS.test(snippet)) direction = 'credit';
+    else if (DEBIT_ALERT_SIGNALS.test(snippet)) direction = 'debit';
+  }
+  if (!direction) return null;
+
+  return { amount, currency, direction };
+}
+
+export async function syncComposioBankAlerts(userId: string, maxResults = 25): Promise<void> {
+  if (!(await hasActiveComposioGmail(userId))) {
+    logger.warn('No active Composio Gmail connection for bank alerts', { userId });
+    return;
+  }
+
+  const sdk = getComposioSdk();
+  const integrationId = await ensureComposioGmailIntegration(userId);
+
+  const result: any = await sdk.tools.execute('GMAIL_FETCH_EMAILS', {
+    userId: composioUserIdFor(userId),
+    arguments: {
+      query: BANK_ALERT_QUERY,
+      max_results: Math.min(maxResults, 50),
+      include_payload: true,
+    },
+    dangerouslySkipVersionCheck: true,
+  });
+
+  const emails = asArray(result?.data ?? result).slice(0, maxResults);
+  let imported = 0;
+
+  for (const rawEmail of emails) {
+    try {
+      const email = normalizeComposioEmail(rawEmail);
+      const parsed = parseBankAlert(email.subject, email.snippet);
+      if (!parsed) {
+        logger.warn('Bank alert skipped — no amount/direction parseable', { userId, subject: email.subject });
+        continue;
+      }
+
+      const { data: existingThread } = await supabase
+        .from('email_threads')
+        .select('id, bookkeeping_synced_at')
+        .eq('user_id', userId)
+        .eq('provider', 'gmail')
+        .eq('provider_thread_id', email.providerThreadId)
+        .maybeSingle();
+
+      if (existingThread?.bookkeeping_synced_at) continue;
+
+      let created: { id: string } | null = null;
+      if (parsed.direction === 'debit') {
+        created = await importExpenseFromExtraction(userId, `${safeLabel(email.subject)}.txt`, {
+          issuer: email.from.name || email.from.email || 'Bank alert',
+          amount: parsed.amount,
+          currency: parsed.currency,
+          issueDate: email.lastMessageAt.slice(0, 10),
+          notes: `${email.subject} — ${email.snippet.slice(0, 200)}`,
+          paymentStatus: 'paid',
+          category: 'other',
+        });
+      } else {
+        created = await importPaidRevenueFromBankStatement(userId, `${safeLabel(email.subject)}.txt`, {
+          bankName: email.from.name || 'Bank alert',
+          currency: parsed.currency,
+          totalCredit: parsed.amount,
+          periodStart: email.lastMessageAt.slice(0, 10),
+          periodEnd: email.lastMessageAt.slice(0, 10),
+        });
+      }
+
+      if (created?.id) {
+        const nowIso = new Date().toISOString();
+        await supabase
+          .from('email_threads')
+          .upsert({
+            user_id: userId,
+            integration_id: integrationId,
+            provider: 'gmail',
+            provider_thread_id: email.providerThreadId,
+            subject: email.subject,
+            snippet: email.snippet,
+            from_email: email.from.email,
+            from_name: email.from.name,
+            participants: email.participants,
+            message_count: Number(rawEmail?.message_count ?? rawEmail?.messageCount ?? 1),
+            has_attachments: false,
+            attachment_count: 0,
+            last_message_at: email.lastMessageAt,
+            labels: email.labels.map((label) => label.toLowerCase()),
+            detected_type: 'other',
+            detected_amount: parsed.amount,
+            detected_currency: parsed.currency,
+            status: 'imported',
+            bookkeeping_synced_at: nowIso,
+            updated_at: nowIso,
+          }, { onConflict: 'user_id,provider,provider_thread_id' });
+        imported++;
+        logger.info('Bank alert imported into ledger', {
+          userId,
+          direction: parsed.direction,
+          amount: parsed.amount,
+          currency: parsed.currency,
+          providerThreadId: email.providerThreadId,
+        });
+      }
+    } catch (err) {
+      logger.error('Bank alert import failed', { userId, err });
+    }
+  }
+
+  await supabase
+    .from('user_integrations')
+    .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', integrationId);
+
+  await supabase
+    .from('composio_connections')
+    .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('provider', 'gmail');
+
+  logger.info('Composio bank alert sync complete', { userId, count: emails.length, imported });
+}
+
+function safeLabel(text: string): string {
+  return text.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-').slice(0, 80);
 }
 
 async function ingestThread(
