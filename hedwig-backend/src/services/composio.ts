@@ -138,16 +138,22 @@ async function findRemoteConnection(userId: string, provider: ComposioProvider, 
   const composioUserId = userIdFor(userId);
   const toolkit = PROVIDER_TO_TOOLKIT[provider];
 
+  // NOTE: the SDK v0.10 list endpoint only honors camelCase params
+  // (userIds / toolkitSlugs). snake_case fields (user_ids, toolkit_slugs)
+  // are silently ignored and return the user's full connection list, which
+  // caused every provider refresh to pick the first ACTIVE account (e.g.
+  // google_sheets) and corrupt the composio_connections rows. We filter
+  // again client-side as a hard guarantee regardless of API param handling.
   const response: any = await sdk.connectedAccounts.list({
-    user_ids: [composioUserId],
-    toolkit_slugs: [toolkit],
-    ...(authConfigId ? { auth_config_ids: [authConfigId] } : {}),
-    order_by: 'updated_at',
-    order_direction: 'desc',
-    limit: 10,
+    userIds: [composioUserId],
+    toolkitSlugs: [toolkit],
+    ...(authConfigId ? { authConfigIds: [authConfigId] } : {}),
+    limit: 20,
   } as any);
 
-  const items: any[] = response?.items ?? response?.data ?? [];
+  const items: any[] = (response?.items ?? response?.data ?? [])
+    .filter((item: any) => String(item?.toolkit?.slug || '').toLowerCase() === toolkit);
+
   return items.find((item) => item?.status === 'ACTIVE')
     ?? items.find((item) => ['INITIATED', 'INITIALIZING', 'PENDING'].includes(String(item?.status || '').toUpperCase()))
     ?? items[0]
@@ -330,28 +336,65 @@ export async function initiateConnection(params: {
 }
 
 export async function refreshConnectionStatus(userId: string, provider: ComposioProvider): Promise<ComposioConnectionRecord | null> {
-  const row = await getConnectionRow(userId, provider);
-  if (!row) return row;
-
   try {
     const sdk = getSdk();
     // Always search the remote list first — after OAuth completes, Composio
     // creates a new connected account whose id differs from the placeholder
     // stored at initiate time. Search finds ACTIVE accounts reliably.
-    let account = await findRemoteConnection(userId, provider, row.composio_integration_id);
-    if (!account && row.composio_connected_account_id) {
+    const existingRow = await getConnectionRow(userId, provider);
+    let account = await findRemoteConnection(userId, provider);
+    if (!account && existingRow?.composio_connected_account_id) {
       account = await sdk.connectedAccounts
-        .get(row.composio_connected_account_id)
+        .get(existingRow.composio_connected_account_id)
         .catch(() => null);
     }
-    if (!account) return row;
+    if (!account) {
+      return existingRow;
+    }
 
-    const connectedAccountId = account?.id ?? row.composio_connected_account_id ?? null;
-    const nextStatus = normalizeRemoteStatus(account?.status, row.status);
-    const accountLabel = accountLabelFromRemote(account, row.account_label);
+    const composioUserId = userIdFor(userId);
+    const connectedAccountId: string | null = account?.id ?? null;
+    const status = normalizeRemoteStatus(account?.status, 'pending');
+    const accountLabel = accountLabelFromRemote(account, null);
+    const nowIso = new Date().toISOString();
+    const metadata = {
+      remoteStatus: account?.status ?? null,
+      statusReason: account?.status_reason ?? null,
+      toolkit: account?.toolkit?.slug ?? PROVIDER_TO_TOOLKIT[provider],
+    };
 
+    // A connection can exist remotely without a local row (e.g. OAuth
+    // completed after the initiate-time upsert failed, or the row was
+    // removed). Recreate it so the row and remote state converge.
+    if (!existingRow) {
+      const { data: inserted, error } = await supabase
+        .from('composio_connections')
+        .upsert({
+          user_id: userId,
+          provider,
+          composio_entity_id: composioUserId,
+          composio_connected_account_id: connectedAccountId,
+          composio_integration_id: account?.authConfig?.id ?? null,
+          status,
+          account_label: accountLabel,
+          metadata,
+          last_synced_at: nowIso,
+          updated_at: nowIso,
+        }, { onConflict: 'user_id,provider' })
+        .select('*')
+        .single();
+
+      if (error) {
+        logger.warn('Composio refresh insert failed', { userId, provider, error: error.message });
+        return null;
+      }
+      logger.info('Composio connection row recreated from remote state', { userId, provider, connectedAccountId });
+      return (inserted as ComposioConnectionRecord) ?? null;
+    }
+
+    const row = existingRow;
     if (
-      nextStatus !== row.status
+      status !== row.status
       || accountLabel !== row.account_label
       || connectedAccountId !== row.composio_connected_account_id
     ) {
@@ -359,15 +402,13 @@ export async function refreshConnectionStatus(userId: string, provider: Composio
         .from('composio_connections')
         .update({
           composio_connected_account_id: connectedAccountId,
-          status: nextStatus,
+          status,
           account_label: accountLabel,
           metadata: {
             ...(row.metadata ?? {}),
-            remoteStatus: account?.status ?? null,
-            statusReason: account?.status_reason ?? null,
-            toolkit: account?.toolkit?.slug ?? PROVIDER_TO_TOOLKIT[provider],
+            ...metadata,
           },
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         })
         .eq('id', row.id);
     }
@@ -375,7 +416,7 @@ export async function refreshConnectionStatus(userId: string, provider: Composio
     return {
       ...row,
       composio_connected_account_id: connectedAccountId,
-      status: nextStatus,
+      status,
       account_label: accountLabel,
     };
   } catch (error) {
@@ -384,7 +425,7 @@ export async function refreshConnectionStatus(userId: string, provider: Composio
       provider,
       message: error instanceof Error ? error.message : String(error),
     });
-    return row;
+    return null;
   }
 }
 

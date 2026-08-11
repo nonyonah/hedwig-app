@@ -12,7 +12,7 @@ import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
 import { parseStatement, ParseResult } from '../services/statement-parser';
 import { processStatementJob } from '../services/statement-job-processor';
 import { detectBankName } from '../services/statement-job-processor';
-import { initiateConnection, isComposioConfigured } from '../services/composio';
+import { initiateConnection, isComposioConfigured, refreshConnectionStatus } from '../services/composio';
 import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
 
 
@@ -2337,6 +2337,170 @@ router.get('/ledger', authenticate, async (req: Request, res: Response, next) =>
   }
 });
 
+// GET /api/revenue/ledger/events/feed?limit=50&cursor=&since=
+// Tail of financial events (newest first) for the user's scope — the raw
+// event journal, not the ledger projection. Drives the mobile Timeline feed:
+// pull-to-refresh via `since` (recorded_at), infinite scroll via keyset
+// `cursor` (occurred_at + id tiebreaker). Display labels are computed
+// server-side so clients stay dumb.
+router.get('/ledger/events/feed', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+    if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+    const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
+    const sinceRaw = String(req.query.since || '');
+    const cursorRaw = String(req.query.cursor || '');
+
+    let query = supabase
+      .from('financial_events')
+      .select('id,event_type,entity_type,entity_id,occurred_at,recorded_at,payload,amount,currency,amount_usd,fx_rate_usd,fx_source,direction,source,correlation_id')
+      .order('occurred_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit + 1); // +1 to detect hasMore
+
+    const isPersonalScope = !effectiveWsId || String(effectiveWsId).startsWith('ws_personal_');
+    if (isPersonalScope) {
+      query = query
+        .eq('user_id', user.id)
+        .or(`workspace_id.is.null,workspace_id.eq."${effectiveWsId}"`);
+    } else {
+      query = query.eq('workspace_id', effectiveWsId);
+    }
+
+    if (sinceRaw) {
+      const sinceDate = new Date(sinceRaw);
+      if (Number.isNaN(sinceDate.getTime())) {
+        res.status(400).json({ success: false, error: { message: 'Invalid `since` timestamp.' } });
+        return;
+      }
+      query = query.gt('recorded_at', sinceDate.toISOString());
+    }
+
+    if (cursorRaw) {
+      const decoded = Buffer.from(cursorRaw, 'base64url').toString('utf-8');
+      const sepIndex = decoded.lastIndexOf('|');
+      const cursorTime = decoded.slice(0, sepIndex);
+      const cursorId = decoded.slice(sepIndex + 1);
+      if (sepIndex < 0 || !cursorTime || !cursorId) {
+        res.status(400).json({ success: false, error: { message: 'Invalid `cursor`.' } });
+        return;
+      }
+      query = query.or(
+        `occurred_at.lt.${cursorTime},and(occurred_at.eq.${cursorTime},id.lt.${cursorId})`
+      );
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      logger.error('Failed to load ledger event feed', { error: error.message });
+      res.status(500).json({ success: false, error: { message: 'Could not load the activity feed.' } });
+      return;
+    }
+
+    const rows = data || [];
+    const hasMore = rows.length > limit;
+    const page = rows.slice(0, limit);
+
+    const events = page.map((ev: any) => {
+      const payload = ev.payload || {};
+      return {
+        id: ev.id,
+        eventType: ev.event_type,
+        entityType: ev.entity_type,
+        entityId: ev.entity_id,
+        occurredAt: ev.occurred_at,
+        recordedAt: ev.recorded_at,
+        amount: ev.amount === null ? null : Number(ev.amount),
+        currency: ev.currency,
+        amountUsd: ev.amount_usd === null ? null : Number(ev.amount_usd),
+        fxRateUsd: ev.fx_rate_usd === null ? null : Number(ev.fx_rate_usd),
+        fxSource: ev.fx_source,
+        direction: ev.direction || 'none',
+        source: ev.source,
+        correlationId: ev.correlation_id,
+        title: feedEventTitle(ev.event_type, payload),
+        account: feedEventAccount(ev.event_type, payload),
+        payload,
+      };
+    });
+
+    const last = page[page.length - 1];
+    res.json({
+      success: true,
+      data: {
+        events,
+        pagination: {
+          limit,
+          hasMore,
+          nextCursor: hasMore && last
+            ? Buffer.from(`${last.occurred_at}|${last.id}`).toString('base64url')
+            : null,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to load ledger event feed', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
+});
+
+// Human title for a feed row — payload-first, falls back to a per-type label.
+function feedEventTitle(eventType: string, payload: Record<string, unknown>): string {
+  switch (eventType) {
+    case 'document.paid':
+      return String(payload.title || (payload.bookkeeping_only === true ? 'Credit received' : 'Invoice paid'));
+    case 'expense.created':
+      return String(payload.note || 'Expense added');
+    case 'expense.updated':
+      return String(payload.note || 'Expense updated');
+    case 'expense.deleted':
+      return 'Expense removed';
+    case 'imported_transaction.created':
+      return String(payload.description || 'Imported transaction');
+    case 'imported_transaction.updated':
+      return 'Transaction updated';
+    case 'wallet.deposit.received':
+      return 'USDC received';
+    case 'offramp.settled':
+      return 'Withdrawal settled';
+    case 'offramp.refunded':
+      return 'Withdrawal refunded';
+    default:
+      return eventType
+        .replace(/\./g, ' ')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}
+
+// Ledger account a feed row would land in — mirrors ledger-projection mapping
+// so the Timeline subtitle matches the Ledger screen.
+function feedEventAccount(eventType: string, payload: Record<string, unknown>): string {
+  switch (eventType) {
+    case 'document.paid':
+      return payload.bookkeeping_only === true ? 'Other Income' : 'Revenue';
+    case 'expense.created':
+    case 'expense.updated':
+      return mapCategoryToAccount(String(payload.category || 'other'));
+    case 'imported_transaction.created':
+      return payload.type === 'debit'
+        ? mapCategoryToAccount(String(payload.category || ''))
+        : 'Imported Credit';
+    case 'wallet.deposit.received':
+      return 'Deposits';
+    case 'offramp.settled':
+      return 'Withdrawals';
+    case 'offramp.refunded':
+      return 'Refunds';
+    default:
+      return 'Other';
+  }
+}
+
 // GET /api/revenue/ledger/events/:referenceId — full event history for one entity
 router.get('/ledger/events/:referenceId', authenticate, async (req: Request, res: Response, next) => {
   try {
@@ -2664,13 +2828,22 @@ router.post('/ledger/export-to-sheets', authenticate, async (req: Request, res: 
     const start = getRangeStart(range);
     const startIso = start.toISOString();
 
-    // Check if Google Sheets is connected
-    const { data: connRow } = await supabase
+    // Check if Google Sheets is connected — self-heal: refresh from the
+    // remote Composio state first (fixes stale/missing rows, e.g. rows
+    // written with the wrong connected_account_id by older code).
+    let { data: connRow } = await supabase
       .from('composio_connections')
       .select('*')
       .eq('user_id', user.id)
       .eq('provider', 'google_sheets')
       .maybeSingle();
+
+    if (!connRow || connRow.status !== 'active') {
+      const refreshed = await refreshConnectionStatus(user.id, 'google_sheets');
+      if (refreshed?.status === 'active') {
+        connRow = refreshed;
+      }
+    }
 
     if (!connRow || connRow.status !== 'active') {
       // Not connected — return the OAuth URL
