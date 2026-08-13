@@ -1,19 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChartBar, DownloadSimple, CurrencyCircleDollar, CalendarBlank, Sparkle, ArrowsLeftRight, ArrowUp, ArrowDown, CheckCircle, GoogleSheetsLogo } from '@/components/ui/lucide-icons';
+import { ChartBar, DownloadSimple, CurrencyCircleDollar, CalendarBlank, ArrowsLeftRight, ArrowUp, ArrowDown, CheckCircle, GoogleSheetsLogo } from '@/components/ui/lucide-icons';
 import { Loader } from '@/components/ui/loader';
 import { AttachedStatGrid, type AttachedStatCardItem } from '@/components/ui/attached-stat-cards';
-import { Alert, Button, Dropdown, Label, Tabs } from '@heroui/react';
+import { Button, Dropdown, Label, Tabs } from '@heroui/react';
 import { LedgerPanel } from '@/components/ledger/ledger-panel';
+import { FinancialBrief } from '@/components/revenue/financial-brief';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
 
 type ReportType = 'pnl' | 'cashflow' | 'ledger';
-
-function stripMarkdown(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, '$1');
-}
 
 function formatAmount(value: number): string {
   const abs = Math.abs(value);
@@ -29,7 +26,6 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
     entries: any[]; summary: { totalRevenue: number; totalExpenses: number; netIncome: number; entryCount: number };
     pagination: { page: number; pageSize: number; total: number; totalPages: number };
   } | null>(null);
-  const [narrative, setNarrative] = useState<string | null>(null);
   const [journalPage, setJournalPage] = useState(1);
   const [exportingToSheets, setExportingToSheets] = useState(false);
   const [sheetsConnected, setSheetsConnected] = useState(false);
@@ -55,13 +51,10 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
   const loadLedger = useCallback(() => {
     if (!accessToken) return;
     setLoading(true);
-    Promise.all([
-      hedwigApi.ledger({ range: '30d', type: 'all', page: journalPage }, { accessToken }),
-      hedwigApi.ledgerNarrative('30d', { accessToken }),
-    ])
-      .then(([ledger, narr]) => {
+    hedwigApi
+      .ledger({ range: '30d', type: 'all', page: journalPage }, { accessToken })
+      .then((ledger) => {
         setLedgerData(ledger as any);
-        setNarrative((narr as any).narrative || null);
       })
       .catch(() => toast({ type: 'error', title: 'Failed to load', message: 'Could not load report data.' }))
       .finally(() => setLoading(false));
@@ -117,7 +110,6 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
 
   const summary = ledgerData?.summary;
   const entries = ledgerData?.entries || [];
-  const displayNarrative = narrative ? stripMarkdown(narrative) : null;
 
   const statCards: AttachedStatCardItem[] = summary ? [
     {
@@ -148,14 +140,7 @@ export function ReportsClient({ accessToken }: { accessToken: string | null }) {
 
   return (
     <div className="space-y-5">
-      {displayNarrative && (
-        <Alert status="accent">
-          <Alert.Indicator />
-          <Alert.Content>
-            <Alert.Description>{displayNarrative}</Alert.Description>
-          </Alert.Content>
-        </Alert>
-      )}
+      <FinancialBrief accessToken={accessToken} mode="narrative" />
 
       <Tabs variant="primary" selectedKey={activeReport} onSelectionChange={(key) => setActiveReport(key as ReportType)}>
         <Tabs.ListContainer>

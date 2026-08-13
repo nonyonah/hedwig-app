@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { HedwigLogo } from '@/components/ui/hedwig-logo';
 import { redirect } from 'next/navigation';
 import { ArrowRight } from '@/components/ui/lucide-icons';
@@ -8,6 +9,12 @@ import { FeaturesShowcase } from './features-showcase';
 import { AnimateIn } from './animate-in';
 import { ForceLightTheme } from './force-light-theme';
 import { LandingPageClientMount, EmailCaptureField } from './landing-page-client';
+
+export const metadata: Metadata = {
+  other: {
+    'base:app_id': '6a7da2cac2daf0f5f55bdb63',
+  },
+};
 
 export default async function IndexPage() {
   const session = await getCurrentSession();

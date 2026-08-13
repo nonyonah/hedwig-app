@@ -388,3 +388,12 @@ Completed Phase 5 of REVENUE-PAGE-STRATEGY.md — duplicate-payment detection, m
   - `app/(app)/revenue/view.tsx` — dock query types += both new types.
   - `components/revenue/financial-brief.tsx` — RUNWAY strip (Base/Best/Worst months, Mercury-style 3-col divide-x, success/danger tones) rendered under the CTA when `facts.runwayScenarios.base !== null`.
 - Verification: `npx tsc --noEmit` green in `hedwig-backend/` + `web-app/` (web-app 0 errors baseline). Migration 095 still needs applying by the user before dunning/brief-prefs features are live.
+
+## Session Summary (Aug 13, 2026) — Merged Financial Brief (Alert design, dismissible, no metrics)
+
+- **`hedwig-backend/web-app/components/revenue/financial-brief.tsx`** — rewritten: both brief surfaces (Revenue page card + Reports narrative Alert) merged into one component with the Reports design (HeroUI `Alert status="accent"` + Indicator + Description). Two modes:
+  - `mode="brief"` (default, Revenue page): headline from `/api/revenue/brief` — bullets, CTA, and the Phase 5 runway strip all removed (no metrics).
+  - `mode="narrative"` (Reports): narrative from `/api/revenue/ledger/narrative`, markdown stripped.
+  - **Dismissible**: X button (absolute right, `Cancel01Icon` via lucide `X`), persisted in localStorage key `hedwig:brief-dismissed:<mode>:<range>:<YYYY-MM>` — returns next calendar month. Hidden while loading (no skeleton — slim alert).
+- **`hedwig-backend/web-app/app/(app)/revenue/reports/view.tsx`** — removed `narrative` state + `ledgerNarrative` from `loadLedger` (now single ledger fetch), deleted local `stripMarkdown`, replaced inline `Alert` block with `<FinancialBrief accessToken={accessToken} mode="narrative" />`; cleaned unused `Alert`/`Sparkle` imports.
+- Verified: `npx tsc --noEmit` green in web-app (0 errors baseline).
