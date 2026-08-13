@@ -337,7 +337,7 @@ router.get('/preferences', authenticate, async (req: Request, res: Response) => 
         if (!access.allowed) return;
         const { data: user, error } = await supabase
             .from('users')
-            .select('asst_daily_brief_email, asst_weekly_summary_email, asst_invoice_alerts, asst_deadline_alerts')
+            .select('asst_daily_brief_email, asst_weekly_summary_email, asst_invoice_alerts, asst_deadline_alerts, asst_revenue_brief, asst_dunning_emails')
             .eq('privy_id', req.user!.id)
             .single();
 
@@ -350,6 +350,8 @@ router.get('/preferences', authenticate, async (req: Request, res: Response) => 
                 weeklySummaryEmail: user.asst_weekly_summary_email ?? false,
                 invoiceAlerts: user.asst_invoice_alerts ?? true,
                 deadlineAlerts: user.asst_deadline_alerts ?? true,
+                revenueBriefCadence: user.asst_revenue_brief ?? 'weekly',
+                dunningEmails: user.asst_dunning_emails ?? true,
             },
         });
     } catch (err: any) {
@@ -368,17 +370,29 @@ router.patch('/preferences', authenticate, async (req: Request, res: Response) =
             .from('users').select('id').eq('privy_id', req.user!.id).single();
         if (findErr || !user) { res.status(404).json({ success: false }); return; }
 
-        const allowed = ['dailyBriefEmail', 'weeklySummaryEmail', 'invoiceAlerts', 'deadlineAlerts'] as const;
+        const allowed = ['dailyBriefEmail', 'weeklySummaryEmail', 'invoiceAlerts', 'deadlineAlerts', 'revenueBriefCadence', 'dunningEmails'] as const;
         const colMap: Record<string, string> = {
             dailyBriefEmail: 'asst_daily_brief_email',
             weeklySummaryEmail: 'asst_weekly_summary_email',
             invoiceAlerts: 'asst_invoice_alerts',
             deadlineAlerts: 'asst_deadline_alerts',
+            revenueBriefCadence: 'asst_revenue_brief',
+            dunningEmails: 'asst_dunning_emails',
         };
 
-        const updates: Record<string, boolean> = {};
+        const updates: Record<string, boolean | string> = {};
         for (const key of allowed) {
-            if (key in req.body) updates[colMap[key]] = Boolean(req.body[key]);
+            if (!(key in req.body)) continue;
+            if (key === 'revenueBriefCadence') {
+                const value = String(req.body[key] || 'weekly');
+                if (!['off', 'daily', 'weekly'].includes(value)) {
+                    res.status(400).json({ success: false, error: 'revenueBriefCadence must be off, daily, or weekly' });
+                    return;
+                }
+                updates[colMap[key]] = value;
+            } else {
+                updates[colMap[key]] = Boolean(req.body[key]);
+            }
         }
 
         if (Object.keys(updates).length === 0) {

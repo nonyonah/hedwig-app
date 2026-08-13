@@ -42,6 +42,21 @@
 ### In Progress
 - (none)
 
+## Session Summary (Aug 12, 2026) — Revenue Overview IA rework (Phase 0+1 of REVENUE-PAGE-STRATEGY.md)
+
+Reworked the Revenue Overview per `REVENUE-PAGE-STRATEGY.md` (repo root): react-query migration (Phase 0) + new IA (Phase 1). No backend changes; the strategy's `timeline_events` (Phase 2), AI Brief (Phase 3), notifications (Phase 4) are intentionally NOT in this change.
+
+- **`components/ledger/ledger-panel.tsx`** — now reusable/embeddable:
+  - New `embedded` prop → hides the money-movement strip + MovementBoxes (Overview places them full-width itself).
+  - New optional controlled `range`/`onRangeChange` props → dropdown writes back to the page-level range; internal `internalRange` state used only when uncontrolled (Reports unchanged).
+  - Extracted + exported `LedgerPanelData` type, `buildStatCards`, and **`LedgerMoneyStrip`** (In/Out/Net strip + "Money in/out by account" MovementBoxes) so the Overview renders the strip full-width above the timeline from its own ledger fetch.
+- **`app/(app)/revenue/view.tsx`** — rewritten RevenueClient:
+  - **Phase 0**: range-dependent data (summary/metrics/breakdown/payment-sources) now via `useQuery` keyed `['revenue-range', range]` (global `QueryProvider` already present) with SSR props as `placeholderData`; manual `refreshRangeData`/`refreshRevenueData` states removed. Mutations (expense save/delete, credit, import, suggestion approve) invalidate `['revenue-range']` + `['revenue-ledger-strip']` via `queryClient.invalidateQueries`.
+  - **Phase 1 IA**: header/import + `ContextualSuggestions` kept → range pills (single `range` shared with ledger dropdown, backend accepts `ytd` too) → **compact 4-stat cluster** (Cash in / Outstanding / Overdue / Runway, all clickable; replaces the 9-card wall) → **`LedgerMoneyStrip`** full-width → two-column `lg:grid-cols-[2fr_1fr]`: left = **Financial Timeline** (`LedgerPanel embedded` + controlled range: kind pills, search, range, export, drill-down, pagination) | right rail = Invoice status (Unpaid/Overdue/Recently paid) + Revenue by client + Payment sources (net-revenue callout) + **Expense categories (clean list, replaces the rainbow donut)** → full-width **Expenses CRUD** below.
+  - Removed: 9-card stat wall, `ExpensePieChart`, legacy "Recent activity" card (`ACTIVITY_COLORS`/`ActivityEvent`/`formatTimeAgo`), "By project" block, `showAddExpenseDialog`.
+- Verified: `tsc --noEmit` green project-wide; Next dev (~Turbopack) compiles `/revenue` with zero errors. `next build`/lint blocked by env (build too slow under load; ESLint 9 no flat config — pre-existing web-app issue, same family as backend lint).
+- Reversal: `git checkout -- "hedwig-backend/web-app/app/(app)/revenue/view.tsx" "hedwig-backend/web-app/components/ledger/ledger-panel.tsx"` restores the previous page.
+
 ## Session Summary (Jul 18, 2026) — Linear-style restyling
 
 ### Changed design tokens

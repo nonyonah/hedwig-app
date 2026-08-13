@@ -45,6 +45,8 @@ import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context'
 import { formatShortDate } from '@/lib/utils';
 import { hedwigApi } from '@/lib/api/client';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
+import { UpcomingObligations } from '@/components/revenue/upcoming-obligations';
+import { FinancialBrief } from '@/components/revenue/financial-brief';
 import { normalizeExpenseRecord, normalizeExpenseRecords } from '@/lib/revenue-analytics';
 import { ImportDialog } from './import-dialog';
 import type { Invoice, Client } from '@/lib/models/entities';
@@ -124,6 +126,12 @@ const ACTIVITY_COLORS: Record<ActivityEvent['type'], { dot: string; bg: string }
  payment_link_active:{ dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
  invoice_overdue: { dot: 'bg-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
  expense_added: { dot: 'bg-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
+ invoice_viewed: { dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+ contract_sent: { dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+ contract_signed: { dot: 'bg-[var(--color-success)]', bg: 'bg-[var(--color-success-soft)]' },
+ statement_imported: { dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+ receipt_imported: { dot: 'bg-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+ reminder_sent: { dot: 'bg-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
 };
 const DEFAULT_ACTIVITY_COLORS = { dot: 'bg-[var(--color-text-muted)]', bg: 'bg-[var(--color-surface-tertiary)]' };
 
@@ -939,6 +947,10 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
 
    </div>
   </div>
+
+  {/* ── Financial Brief (Phase 3 AI layer) — below header, above stats ── */}
+  <FinancialBrief accessToken={accessToken} range={range} />
+
   <ImportDialog
   open={showImportDialog}
   onClose={() => setShowImportDialog(false)}
@@ -947,9 +959,9 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
   />
 
   <ContextualSuggestions
-  title="Expense review"
-  description="Grouped expense suggestions stay beside your revenue data so cleanup happens in context."
-  query={{ expensePage: true, limit: 1 }}
+  title="Suggested next steps"
+  description="Curated follow-ups — Hedwig surfaces these only when there's something worth tackling."
+  query={{ types: ['invoice_reminder', 'expense_categorization', 'tax_review', 'runway_alert', 'duplicate_payment', 'spending_anomaly', 'client_concentration'], limit: 2 }}
   onChanged={() => { refreshRevenueData(); void refreshExpenses(); }}
   />
 
@@ -1055,9 +1067,11 @@ const [showAllExpenses, setShowAllExpenses] = useState(false);
  },
  ]}
  className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
- />
+  />
 
- {/* ── Invoice Status + Revenue Breakdown ── */}
+  <UpcomingObligations accessToken={accessToken} />
+
+  {/* ── Invoice Status + Revenue Breakdown ── */}
  <div className="grid gap-4 lg:grid-cols-2">
 
  {/* Invoice Status */}

@@ -473,6 +473,14 @@ schedulerRouter.post('/ledger-shadow-diffs', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.runLedgerShadowDiffs();
 });
+schedulerRouter.post('/dunning-engine', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.runDunningEngine();
+});
+schedulerRouter.post('/monthly-state-of-business', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendMonthlyStateOfBusiness();
+});
 
 app.use('/internal/scheduler', schedulerRouter);
 

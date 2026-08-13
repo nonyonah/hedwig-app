@@ -1,7 +1,10 @@
 import type { ComponentType } from 'react';
 import {
+  ArrowUpRight,
   Bell,
   CalendarDots,
+  ChartBar,
+  Copy,
   FileText,
   FolderSimple,
   Receipt,
@@ -27,6 +30,10 @@ export const SUGGESTION_META: Record<SuggestionType, SuggestionMeta> = {
   calendar_event: { label: 'Calendar event', icon: CalendarDots, color: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
   project_action: { label: 'Project action', icon: FolderSimple, color: 'text-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
   tax_review: { label: 'Tax review', icon: FileText, color: 'text-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
+  runway_alert: { label: 'Runway alert', icon: ChartBar, color: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
+  duplicate_payment: { label: 'Duplicate payment', icon: Copy, color: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
+  spending_anomaly: { label: 'Spending anomaly', icon: ArrowUpRight, color: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
+  client_concentration: { label: 'Client concentration', icon: UsersThree, color: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
 };
 
 export function getConfidenceBadge(value: number) {

@@ -9,7 +9,11 @@ export type AssistantSuggestionType =
   | 'expense_categorization'
   | 'calendar_event'
   | 'project_action'
-  | 'tax_review';
+  | 'tax_review'
+  | 'runway_alert'
+  | 'duplicate_payment'
+  | 'spending_anomaly'
+  | 'client_concentration';
 
 export type AssistantSuggestionPriority = 'high' | 'medium' | 'low';
 export type AssistantSuggestionStatus = 'active' | 'dismissed' | 'approved' | 'rejected';
@@ -495,6 +499,14 @@ function getCooldownHours(suggestion: AssistantSuggestionRecord): number | null 
       return 72;
     case 'tax_review':
       return 168;
+    case 'runway_alert':
+      return 168;
+    case 'duplicate_payment':
+      return 24;
+    case 'spending_anomaly':
+      return 168;
+    case 'client_concentration':
+      return 168;
     default:
       return 24;
   }
@@ -801,7 +813,8 @@ function buildContractActionCandidates(
 
 function buildInvoiceReminderCandidates(
   documents: DocumentRow[],
-  now: Date
+  now: Date,
+  remindedEntityIds: Set<string>
 ): SuggestionCandidate[] {
   const candidates: SuggestionCandidate[] = [];
 
@@ -811,6 +824,10 @@ function buildInvoiceReminderCandidates(
   )) {
     const dueDate = getDocumentDueDate(invoice);
     if (!dueDate) continue;
+
+    // Dedupe vs timeline: the dunning engine (or a manual reminder) already
+    // touched this invoice within the last 7 days — don't re-suggest it.
+    if (remindedEntityIds.has(invoice.id)) continue;
 
     const dueAt = new Date(dueDate);
     if (Number.isNaN(dueAt.getTime())) continue;
@@ -1033,6 +1050,30 @@ async function fetchContext(userId: string) {
     milestones = (milestoneRows || []) as MilestoneRow[];
   }
 
+  // Phase 3/4 context: recent reminder events (dedupe — don't suggest a
+  // reminder the dunning engine already sent this week) and recent document
+  // payments (duplicate-payment detection). Both are best-effort: a missing
+  // table (migration not applied) must never fail the sync.
+  const [reminderEvents, recentPaidEvents] = await Promise.all([
+    supabase
+      .from('timeline_events')
+      .select('entity_id,entity_type,recorded_at')
+      .eq('user_id', userId)
+      .eq('kind', 'reminder')
+      .gte('recorded_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .limit(100)
+      .then((r) => r.data || [], () => [] as any[]),
+    supabase
+      .from('financial_events')
+      .select('entity_id,entity_type,amount,currency,amount_usd,version,source,correlation_id,recorded_at')
+      .eq('user_id', userId)
+      .eq('event_type', 'document.paid')
+      .gte('recorded_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
+      .order('recorded_at', { ascending: false })
+      .limit(200)
+      .then((r) => r.data || [], () => [] as any[]),
+  ]);
+
   return {
     documents: (documentsRes.data || []) as DocumentRow[],
     projects,
@@ -1042,6 +1083,8 @@ async function fetchContext(userId: string) {
     emailThreads: (threadsRes.data || []) as EmailThreadRow[],
     clients: (clientsRes.data || []) as ClientRow[],
     recurringInvoices: (recurringInvoicesRes.data || []) as RecurringInvoiceRow[],
+    remindedEntityIds: new Set((reminderEvents as any[]).map((e) => e.entity_id).filter(Boolean)),
+    recentPaidEvents: (recentPaidEvents as any[]),
   };
 }
 
@@ -1049,7 +1092,7 @@ function buildCandidates(context: Awaited<ReturnType<typeof fetchContext>>, now 
   const invoices = context.documents.filter((doc) => normalizeType(doc.type) === 'INVOICE');
 
   return [
-    ...buildInvoiceReminderCandidates(context.documents, now),
+    ...buildInvoiceReminderCandidates(context.documents, now, context.remindedEntityIds),
     ...buildImportMatchCandidates(context.emailThreads),
     ...buildExpenseCategorizationCandidates(context.expenses),
     ...buildCalendarEventCandidates(invoices, context.projects, context.calendarEvents),
@@ -1058,12 +1101,236 @@ function buildCandidates(context: Awaited<ReturnType<typeof fetchContext>>, now 
     ...buildPaymentLinkActionCandidates(context.documents, now),
     ...buildMilestoneActionCandidates(context.milestones, context.projects, now),
     ...buildRecurringInvoiceCandidates(context.recurringInvoices, now),
+    ...buildRunwayAlertCandidates(context.documents, context.expenses, now),
+    ...buildDuplicatePaymentCandidates(context.recentPaidEvents, context.documents),
+    ...buildSpendingAnomalyCandidates(context.expenses, now),
+    ...buildClientConcentrationCandidates(context.documents, now),
   ].filter((candidate) =>
     candidate.actionable &&
     candidate.high_signal &&
     candidate.confidence_score >= MEDIUM_CONFIDENCE_THRESHOLD &&
     confidenceAllowsSurface(candidate.surface, candidate.confidence_score)
   );
+}
+
+function buildRunwayAlertCandidates(
+  documents: DocumentRow[],
+  expenses: ExpenseRow[],
+  now: Date
+): SuggestionCandidate[] {
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+  const paidRevenue90d = documents
+    .filter((doc) => normalizeStatus(doc.status) === 'PAID' && new Date(doc.updated_at) >= ninetyDaysAgo)
+    .reduce((sum, doc) => sum + toNumber(doc.amount), 0);
+
+  const expenses90d = expenses
+    .filter((expense) => expense.date && new Date(expense.date) >= ninetyDaysAgo)
+    .reduce((sum, expense) => sum + toNumber(expense.converted_amount_usd ?? expense.amount), 0);
+
+  const burnRate = expenses90d / 3;
+  if (burnRate <= 0 || paidRevenue90d <= 0) return [];
+
+  const runwayMonths = paidRevenue90d / burnRate;
+  if (runwayMonths >= 6) return [];
+
+  const months = Math.floor(runwayMonths);
+  const isCritical = runwayMonths < 3;
+  return [
+    {
+      type: 'runway_alert',
+      title: isCritical
+        ? `Runway is critically low — about ${months} month${months === 1 ? '' : 's'}`
+        : `Runway is tight — about ${months} month${months === 1 ? '' : 's'} of coverage`,
+      description: isCritical
+        ? `At your current burn rate, incoming revenue covers roughly ${months} month${months === 1 ? '' : 's'} of expenses. Prioritize collecting outstanding invoices.`
+        : `Incoming revenue covers about ${months} month${months === 1 ? '' : 's'} of expenses at your current burn rate. Worth watching.`,
+      priority: isCritical ? 'high' : 'medium',
+      confidence_score: isCritical ? 0.85 : 0.72,
+      reason: `Computed runway (90-day paid revenue vs 90-day burn) is under ${isCritical ? '3' : '6'} months.`,
+      surface: 'assistant_panel',
+      actions: [buildAction('Review Finances', 'review_finances')],
+      related_entities: {
+        runway_months: Number(runwayMonths.toFixed(1)),
+      },
+      suggestion_key: `runway-alert:${isCritical ? 'critical' : 'watch'}:${Math.floor(runwayMonths)}`,
+      actionable: true,
+      high_signal: true,
+    },
+  ];
+}
+
+function buildDuplicatePaymentCandidates(
+  recentPaidEvents: any[],
+  documents: DocumentRow[]
+): SuggestionCandidate[] {  const docsById = new Map(documents.map((doc) => [doc.id, doc]));
+  const candidates: SuggestionCandidate[] = [];
+
+  const byDocument = new Map<string, any[]>();
+  for (const event of recentPaidEvents) {
+    const list = byDocument.get(event.entity_id) || [];
+    list.push(event);
+    byDocument.set(event.entity_id, list);
+  }
+
+  for (const [documentId, events] of byDocument) {
+    if (events.length < 2) continue;
+    const uniqueTouches = new Set(events.map((e) => String(e.version ?? e.correlation_id ?? e.recorded_at)));
+    if (uniqueTouches.size < 2) continue;
+
+    const amounts = events.map((e) => toNumber(e.amount_usd ?? e.amount)).filter((a) => a > 0);
+    const sameAmount = amounts.length >= 2 && new Set(amounts.map((a) => Math.round(a * 100))).size === 1;
+    const doc = docsById.get(documentId);
+    const docTitle = doc?.title || 'a document';
+
+    candidates.push({
+      type: 'duplicate_payment',
+      title: `${events.length} payments received on ${docTitle}`,
+      description: `${events.length} payments landed on the same ${doc ? normalizeType(doc.type).toLowerCase().replace('_', ' ') : 'document'} within the last 14 days${sameAmount ? ' for the same amount' : ''}. Verify one isn't a duplicate before recording it.`,
+      priority: sameAmount ? 'high' : 'medium',
+      confidence_score: sameAmount ? 0.88 : 0.74,
+      reason: `${events.length} distinct payment events were recorded for the same document within 14 days.`,
+      surface: sameAmount ? 'inline' : 'assistant_panel',
+      actions: [buildAction('Review Payments', 'review_payments')],
+      related_entities: {
+        document_id: documentId,
+        payment_count: events.length,
+      },
+      suggestion_key: `duplicate-payment:${documentId}:${events.length}`,
+      actionable: true,
+      high_signal: true,
+    });
+  }
+
+  return candidates;
+}
+
+/**
+ * Phase 5 — spending anomaly: a category's last-30d spend spiked >20% vs the
+ * 30d before it. Threshold-gated (≥$50 absolute increase) to avoid noise;
+ * larger spikes get inline surface + higher confidence.
+ */
+function buildSpendingAnomalyCandidates(expenses: ExpenseRow[], now: Date): SuggestionCandidate[] {
+  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const twoMonthsAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+  const currentByCategory: Record<string, number> = {};
+  const priorByCategory: Record<string, number> = {};
+  for (const expense of expenses) {
+    if (!expense.date) continue;
+    const date = new Date(expense.date);
+    if (Number.isNaN(date.getTime())) continue;
+    const amount = toNumber(expense.converted_amount_usd ?? expense.amount);
+    const category = String(expense.category || 'other').toLowerCase() || 'other';
+    if (date >= monthAgo) {
+      currentByCategory[category] = (currentByCategory[category] || 0) + amount;
+    } else if (date >= twoMonthsAgo) {
+      priorByCategory[category] = (priorByCategory[category] || 0) + amount;
+    }
+  }
+
+  const candidates: SuggestionCandidate[] = [];
+  for (const [category, current] of Object.entries(currentByCategory)) {
+    const prior = priorByCategory[category] || 0;
+    if (prior <= 0) continue;
+    const increase = current - prior;
+    if (increase < 50) continue;
+    const spikePct = (increase / prior) * 100;
+    if (spikePct <= 20) continue;
+
+    const severe = spikePct >= 50;
+    const title = `${category} spending ${severe ? 'jumped' : 'up'} ${Math.round(spikePct)}% vs last month`;
+    const description = `${category.charAt(0).toUpperCase() + category.slice(1)} spend went from $${prior.toFixed(0)} to $${current.toFixed(0)} in the last 30 days${severe ? ' — worth a review' : ''}.`;
+
+    candidates.push({
+      type: 'spending_anomaly',
+      title,
+      description,
+      priority: severe ? 'high' : 'medium',
+      confidence_score: severe ? 0.86 : 0.78,
+      reason: `Last 30 days of ${category} spend rose ${Math.round(spikePct)}% vs the prior 30 days ($${increase.toFixed(0)} absolute).`,
+      surface: severe ? 'inline' : 'assistant_panel',
+      actions: [buildAction('Review Spending', 'review_finances')],
+      related_entities: {
+        category,
+        current_amount_usd: Math.round(current * 100) / 100,
+        prior_amount_usd: Math.round(prior * 100) / 100,
+        spike_pct: Math.round(spikePct),
+      },
+      suggestion_key: `spending-anomaly:${category}:${Math.round(current * 100)}`,
+      actionable: true,
+      high_signal: true,
+    });
+  }
+
+  return candidates.sort((a, b) => b.confidence_score - a.confidence_score).slice(0, 2);
+}
+
+/**
+ * Phase 5 — client-concentration risk: one client = >50% of paid revenue over
+ * the last 90 days. Freelancer dependency signal (REVENUE-PAGE-STRATEGY §1.2).
+ */
+function buildClientConcentrationCandidates(documents: DocumentRow[], now: Date): SuggestionCandidate[] {
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const paid90d = documents.filter(
+    (doc) =>
+      normalizeType(doc.type) === 'INVOICE' &&
+      normalizeStatus(doc.status) === 'PAID' &&
+      new Date(doc.updated_at) >= ninetyDaysAgo
+  );
+
+  const total = paid90d.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
+  if (total <= 0) return [];
+
+  const byClient: Record<string, { amount: number; name: string; count: number }> = {};
+  for (const doc of paid90d) {
+    const clientId = doc.client_id || 'unknown';
+    const name = String(doc.content?.client_name || doc.content?.clientName || 'a client');
+    const amount = toNumber(doc.amount);
+    const entry = byClient[clientId] || { amount: 0, name, count: 0 };
+    entry.amount += amount;
+    entry.count += 1;
+    if (entry.name === 'a client' && name !== 'a client') entry.name = name;
+    byClient[clientId] = entry;
+  }
+
+  const top = Object.values(byClient).sort((a, b) => b.amount - a.amount)[0];
+  if (!top) return [];
+
+  const concentrationPct = (top.amount / total) * 100;
+  if (concentrationPct <= 50) return [];
+
+  const severe = concentrationPct >= 75;
+  const months = Math.floor(concentrationPct / 10);
+  const title = severe
+    ? `${top.name} is ${Math.round(concentrationPct)}% of your revenue`
+    : `${top.name} makes up most of your revenue`;
+
+  return [
+    {
+      type: 'client_concentration',
+      title,
+      description: `${top.name} accounts for ${Math.round(concentrationPct)}% of the ${formatCurrency(total)} you collected over the last 90 days (${top.count} payment${top.count === 1 ? '' : 's'}).`,
+      priority: severe ? 'high' : 'medium',
+      confidence_score: severe ? 0.85 : 0.76,
+      reason: `Client concentration over the last 90 days is ${Math.round(concentrationPct)}% — above the 50% risk threshold.`,
+      surface: severe ? 'inline' : 'assistant_panel',
+      actions: [buildAction('Review Clients', 'review_clients')],
+      related_entities: {
+        client_id: top.name,
+        concentration_pct: Math.round(concentrationPct),
+        revenue_90d_usd: Math.round(total * 100) / 100,
+        months_covered: Math.max(months, 1),
+      },
+      suggestion_key: `client-concentration:${Math.round(concentrationPct)}:${Math.round(total)}`,
+      actionable: true,
+      high_signal: true,
+    },
+  ];
+}
+
+function formatCurrency(amount: number): string {
+  return amount >= 1000 ? `$${(amount / 1000).toFixed(1)}k` : `$${amount.toFixed(2)}`;
 }
 
 async function loadExistingSuggestions(userId: string): Promise<Map<string, ExistingSuggestionRow>> {

@@ -51,8 +51,11 @@ export default function TabLayout() {
     if (!NativeTabs) {
         return (
             <Tabs screenOptions={{ headerShown: false }}>
-                <Tabs.Screen name="wallet" options={{ title: 'Wallet' }} />
-                <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+                <Tabs.Screen name="index" options={{ title: 'Timeline' }} />
+                <Tabs.Screen name="wallet" options={{ title: 'Money' }} />
+                <Tabs.Screen name="documents" options={{ title: 'Documents' }} />
+                <Tabs.Screen name="search" options={{ title: 'Search' }} />
+                <Tabs.Screen name="settings" options={{ title: 'Settings', href: null }} />
             </Tabs>
         );
     }
@@ -80,35 +83,47 @@ export default function TabLayout() {
         ? { default: androidUnselectedColor, selected: androidTintColor }
         : { default: iosUnselectedColor, selected: iosTintColor };
 
-    return (
-        <NativeTabs
-            tintColor={tintColor}
-            iconColor={iconColor}
-            labelStyle={
-                isAndroid
-                    ? ({
-                        default: { color: androidUnselectedColor, fontSize: 12, fontWeight: '600', fontFamily: 'GoogleSansFlex_600SemiBold' },
-                        selected: { color: androidTintColor, fontSize: 12, fontWeight: '700', fontFamily: 'GoogleSansFlex_600SemiBold' },
-                    } as const)
-                    : ({
-                        default: { color: iosUnselectedColor, fontSize: 11, fontWeight: '600', fontFamily: 'GoogleSansFlex_600SemiBold' },
-                        selected: { color: iosTintColor, fontSize: 11, fontWeight: '700', fontFamily: 'GoogleSansFlex_600SemiBold' },
-                    } as const)
-            }
-            {...(isAndroid ? { labelVisibilityMode: 'labeled' as const } : {})}
-            {...(isAndroid ? { backgroundColor: androidBackgroundColor as any } : {})}
-            {...(isAndroid ? { disableTransparentOnScrollEdge: true as const } : {})}
-            {...(!isAndroid ? { minimizeBehavior: 'onScrollDown' as const } : {})}
-        >
-            <NativeTabs.Trigger name="wallet">
-                <NativeTabs.Trigger.Label>Wallet</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="creditcard.fill" md="account_balance_wallet" />
-            </NativeTabs.Trigger>
+    const labelStyle = isAndroid
+        ? ({
+            default: { color: androidUnselectedColor, fontSize: 12, fontWeight: '600', fontFamily: 'GoogleSansFlex_600SemiBold' },
+            selected: { color: androidTintColor, fontSize: 12, fontWeight: '700', fontFamily: 'GoogleSansFlex_600SemiBold' },
+        } as const)
+        : ({
+            default: { color: iosUnselectedColor, fontSize: 11, fontWeight: '600', fontFamily: 'GoogleSansFlex_600SemiBold' },
+            selected: { color: iosTintColor, fontSize: 11, fontWeight: '700', fontFamily: 'GoogleSansFlex_600SemiBold' },
+        } as const);
 
-            <NativeTabs.Trigger name="settings">
-                <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="gearshape.fill" md="settings" />
-            </NativeTabs.Trigger>
-        </NativeTabs>
+    return (
+        <>
+            <NativeTabs
+                tintColor={tintColor}
+                iconColor={iconColor}
+                labelStyle={labelStyle}
+                {...(isAndroid ? { labelVisibilityMode: 'labeled' as const } : {})}
+                {...(isAndroid ? { backgroundColor: androidBackgroundColor as any } : {})}
+                {...(isAndroid ? { disableTransparentOnScrollEdge: true as const } : {})}
+                {...(!isAndroid ? { minimizeBehavior: 'onScrollDown' as const } : {})}
+            >
+                <NativeTabs.Trigger name="index">
+                    <NativeTabs.Trigger.Label>Timeline</NativeTabs.Trigger.Label>
+                    <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" md="timeline" />
+                </NativeTabs.Trigger>
+
+                <NativeTabs.Trigger name="wallet">
+                    <NativeTabs.Trigger.Label>Money</NativeTabs.Trigger.Label>
+                    <NativeTabs.Trigger.Icon sf="creditcard.fill" md="account_balance_wallet" />
+                </NativeTabs.Trigger>
+
+                <NativeTabs.Trigger name="documents">
+                    <NativeTabs.Trigger.Label>Documents</NativeTabs.Trigger.Label>
+                    <NativeTabs.Trigger.Icon sf="doc.text.fill" md="description" />
+                </NativeTabs.Trigger>
+
+                <NativeTabs.Trigger name="search">
+                    <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
+                    <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
+                </NativeTabs.Trigger>
+            </NativeTabs>
+        </>
     );
 }

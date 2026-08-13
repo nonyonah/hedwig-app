@@ -14,6 +14,7 @@ import { checkDocumentCreationLimit } from '../services/billingRules';
 import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
 import { getEffectiveWorkspaceId } from '../utils/workspace';
 import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
+import { emitTimelineEvent, TIMELINE_EVENT_KINDS, TIMELINE_EVENT_VERBS } from '../services/timeline-events';
 // import BlockradarService from '../services/blockradar'; // REMOVED: Reverting to direct wallet-to-wallet payments
 
 const logger = createLogger('Documents');
@@ -274,6 +275,24 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         if (error) throw error;
 
+        // Emit timeline event (non-money journal) — invoice created
+        await emitTimelineEvent({
+            userId: doc.user_id,
+            workspaceId: doc.workspace_id ?? null,
+            kind: TIMELINE_EVENT_KINDS.INVOICE,
+            entityType: 'invoice',
+            entityId: doc.id,
+            verb: TIMELINE_EVENT_VERBS.CREATED,
+            title: `${doc.title || 'Invoice'} created`,
+            context: {
+                title: doc.title,
+                amount: parseFloat(amount),
+                currency: 'USD',
+                client_name: clientName || null,
+                due_date: dueDate || null,
+            },
+        });
+
         // Auto-create calendar event if invoice has due date
         if (dueDate && doc) {
             await createCalendarEventFromSource(
@@ -316,6 +335,25 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 // Update status to SENT
                 await supabase.from('documents').update({ status: 'SENT' }).eq('id', doc.id);
                 doc.status = 'SENT';
+
+                // Emit timeline event — invoice sent to client
+                await emitTimelineEvent({
+                    userId: doc.user_id,
+                    workspaceId: doc.workspace_id ?? null,
+                    kind: TIMELINE_EVENT_KINDS.INVOICE,
+                    entityType: 'invoice',
+                    entityId: doc.id,
+                    verb: TIMELINE_EVENT_VERBS.SENT,
+                    title: `${doc.title || 'Invoice'} sent`,
+                    context: {
+                        title: doc.title,
+                        amount: parseFloat(amount),
+                        currency: 'USD',
+                        client_name: clientName || null,
+                        client_email: resolvedEmail || null,
+                        due_date: dueDate || null,
+                    },
+                });
             }
         }
 
@@ -418,6 +456,24 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             .single();
 
         if (error) throw error;
+
+        // Emit timeline event (non-money journal) — payment link created
+        await emitTimelineEvent({
+            userId: doc.user_id,
+            workspaceId: doc.workspace_id ?? null,
+            kind: TIMELINE_EVENT_KINDS.PAYMENT_LINK,
+            entityType: 'payment_link',
+            entityId: doc.id,
+            verb: TIMELINE_EVENT_VERBS.CREATED,
+            title: `${doc.title || 'Payment link'} created`,
+            context: {
+                title: doc.title,
+                amount: parseFloat(amount),
+                currency: currency || 'USDC',
+                client_name: clientName || null,
+                due_date: dueDate || null,
+            },
+        });
 
         // Generate shareable Vercel URL
         const shareableUrl = `${WEB_CLIENT_URL}/pay/${doc.id}`;
@@ -1000,7 +1056,7 @@ router.post('/:id/viewed', async (req: Request, res: Response, next) => {
 
         const { data: doc, error: fetchError } = await supabase
             .from('documents')
-            .select('id,user_id,type,status,title,content,amount,currency')
+            .select('id,user_id,workspace_id,type,status,title,content,amount,currency')
             .eq('id', id)
             .single();
 
@@ -1045,6 +1101,23 @@ router.post('/:id/viewed', async (req: Request, res: Response, next) => {
             if (updateError) {
                 throw new AppError(`Failed to mark document as viewed: ${updateError.message}`, 500);
             }
+
+            // Emit timeline event (non-money journal) — invoice / payment link viewed
+            await emitTimelineEvent({
+                userId: doc.user_id,
+                workspaceId: doc.workspace_id ?? null,
+                kind: docType === 'INVOICE' ? TIMELINE_EVENT_KINDS.INVOICE : TIMELINE_EVENT_KINDS.PAYMENT_LINK,
+                entityType: docType === 'INVOICE' ? 'invoice' : 'payment_link',
+                entityId: doc.id,
+                verb: TIMELINE_EVENT_VERBS.VIEWED,
+                title: `${doc.title || (docType === 'INVOICE' ? 'Invoice' : 'Payment link')} viewed`,
+                context: {
+                    title: doc.title,
+                    amount: Number(doc.amount) || 0,
+                    currency: doc.currency || 'USD',
+                    viewer: viewer || null,
+                },
+            });
 
             const notificationType = docType === 'INVOICE' ? 'invoice_viewed' : 'payment_link_viewed';
             const href = docType === 'INVOICE' ? `/payments?invoice=${doc.id}` : `/payments?link=${doc.id}`;
@@ -1940,6 +2013,95 @@ router.post('/:id/toggle-reminders', authenticate, async (req: Request, res: Res
 });
 
 /**
+ * PATCH /api/documents/:id/dunning
+ * Pause/resume the staged dunning sequence for an invoice or payment link
+ * (e.g. client replied, disputed the charge, or promised a payment date).
+ * Pauses are stored on the document content so the dunning engine can read
+ * them without an extra join; resume clears the flags.
+ */
+router.patch('/:id/dunning', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { paused, reason, promisedPaymentDate } = req.body;
+        const privyId = req.user!.id;
+
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const { data: doc, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !doc) {
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        if (doc.user_id !== userData.id) {
+            res.status(403).json({ success: false, error: { message: 'Not authorized' } });
+            return;
+        }
+
+        const content = doc.content || {};
+        const patch: Record<string, unknown> = {
+            dunning_paused: Boolean(paused),
+        };
+        if (paused) {
+            patch.dunning_pause_reason = typeof reason === 'string' && reason.trim() ? reason.trim() : null;
+        } else {
+            patch.dunning_pause_reason = null;
+        }
+        if (promisedPaymentDate) {
+            patch.promised_payment_date = String(promisedPaymentDate);
+        } else if (paused !== true) {
+            patch.promised_payment_date = null;
+        }
+
+        const { data: updatedDoc, error: updateError } = await supabase
+            .from('documents')
+            .update({ content: { ...content, ...patch } })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new AppError(`Failed to update document: ${updateError.message}`, 500);
+        }
+
+        // Keep the state row in sync so the engine's read of dunning_state
+        // matches the content flags it is honoring.
+        try {
+            const { DunningEngine } = await import('../services/dunning');
+            const reasonStr = typeof reason === 'string' ? reason : Array.isArray(reason) ? String(reason[0]) : undefined;
+            const promisedStr = typeof promisedPaymentDate === 'string' ? promisedPaymentDate : undefined;
+            await DunningEngine.setPaused(String(id), Boolean(paused), reasonStr, promisedStr ?? null);
+        } catch {
+            // best-effort — content flags are authoritative
+        }
+
+        res.json({
+            success: true,
+            data: {
+                document: updatedDoc,
+                dunningPaused: Boolean(paused),
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/documents/:id/send
  * Send a contract to client via email
  */
@@ -2036,6 +2198,24 @@ router.post('/:id/send', authenticate, async (req: Request, res: Response, next)
             milestoneCount: milestones.length
         });
 
+        // Emit timeline event (non-money journal) — contract sent for approval
+        await emitTimelineEvent({
+            userId: updatedContract.user_id,
+            workspaceId: updatedContract.workspace_id ?? null,
+            kind: TIMELINE_EVENT_KINDS.CONTRACT,
+            entityType: 'contract',
+            entityId: updatedContract.id,
+            verb: TIMELINE_EVENT_VERBS.SENT,
+            title: `${updatedContract.title || 'Contract'} sent`,
+            context: {
+                title: updatedContract.title,
+                amount: Number(updatedContract.amount) || 0,
+                currency: updatedContract.currency || 'USD',
+                client_email: clientEmail || null,
+                milestone_count: milestones.length,
+            },
+        });
+
         res.json({
             success: true,
             data: {
@@ -2123,6 +2303,24 @@ router.post('/approve/:id', async (req: Request, res: Response, next) => {
         if (updateError) {
             throw new AppError(`Failed to approve contract: ${updateError.message}`, 500);
         }
+
+        // Emit timeline event (non-money journal) — contract signed by client
+        await emitTimelineEvent({
+            userId: contract.user_id,
+            workspaceId: contract.workspace_id ?? null,
+            kind: TIMELINE_EVENT_KINDS.CONTRACT,
+            entityType: 'contract',
+            entityId: contract.id,
+            verb: TIMELINE_EVENT_VERBS.SIGNED,
+            title: `${contract.title || 'Contract'} signed`,
+            context: {
+                title: contract.title,
+                amount: Number(contract.amount) || 0,
+                currency: contract.currency || 'USD',
+                client_name: contract.content?.client_name || null,
+                milestone_count: contract.content?.milestones?.length ?? 0,
+            },
+        });
 
         // Generate milestone-based invoices
         const milestones = contract.content?.milestones || [];

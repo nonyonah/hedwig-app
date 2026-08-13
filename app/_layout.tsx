@@ -1,6 +1,7 @@
 // Crypto polyfills - MUST be first before any other imports
 import 'react-native-get-random-values';
 import 'fast-text-encoding';
+import '../global.css';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Stack, useNavigationContainerRef } from 'expo-router';
@@ -22,6 +23,7 @@ import { LockScreen } from '../components/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { HeroUINativeProvider } from 'heroui-native/provider';
 import {
     SettingsProvider,
     useSettings,
@@ -138,6 +140,7 @@ function ThemedStack() {
             }}
         >
             <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
+            <Stack.Screen name="capture" options={{ headerShown: false }} />
             <Stack.Screen name="auth/welcome" />
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
@@ -156,16 +159,11 @@ function ThemedStack() {
             <Stack.Screen name="onramp/bank" />
             <Stack.Screen name="onramp/review" />
             <Stack.Screen name="onramp/[id]" />
-            <Stack.Screen
-                name="creation-box"
-                options={{
-                    headerShown: false,
-                }}
-            />
 
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="search/index" />
             <Stack.Screen name="insights/index" />
+            <Stack.Screen name="activity/index" />
             <Stack.Screen
                 name="offramp-history/bank-selection"
                 options={{
@@ -189,6 +187,7 @@ function WebLayout() {
             }}
         >
             <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
+            <Stack.Screen name="capture" options={{ headerShown: false }} />
             <Stack.Screen name="auth/welcome" />
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
@@ -203,12 +202,6 @@ function WebLayout() {
             <Stack.Screen name="wallet/send" />
             <Stack.Screen name="wallet/send-address" />
             <Stack.Screen name="wallet/send-token" />
-            <Stack.Screen
-                name="creation-box"
-                options={{
-                    headerShown: false,
-                }}
-            />
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="search/index" />
             <Stack.Screen name="insights/index" />
@@ -217,6 +210,7 @@ function WebLayout() {
 }
 
 import { UserProvider } from '../context/UserContext';
+import { CaptureActionButton } from '../components/capture/CaptureActionButton';
 
 function PushNotificationBootstrap() {
     const { user, isReady, getAccessToken } = useAuth();
@@ -447,6 +441,7 @@ function NativeLayout() {
                     <AppLockGate>
                         <PushNotificationBootstrap />
                         <ThemedStack />
+                        <CaptureActionButton />
                     </AppLockGate>
                 </UserProvider>
             </PrivyProvider>
@@ -581,12 +576,25 @@ function RootLayout() {
             <SettingsProvider>
                 <TutorialProvider>
                     <GestureHandlerRootView style={{ flex: 1 }}>
-                        <ThemeAwareStatusBar />
-                        <BottomSheetModalProvider>
-                            <StartupGate isApiWarmed={appReady}>
-                                {isWeb ? <WebLayout /> : <NativeLayout />}
-                            </StartupGate>
-                        </BottomSheetModalProvider>
+                        {isWeb ? (
+                            <React.Fragment>
+                                <ThemeAwareStatusBar />
+                                <BottomSheetModalProvider>
+                                    <StartupGate isApiWarmed={appReady}>
+                                        <WebLayout />
+                                    </StartupGate>
+                                </BottomSheetModalProvider>
+                            </React.Fragment>
+                        ) : (
+                            <HeroUINativeProvider>
+                                <ThemeAwareStatusBar />
+                                <BottomSheetModalProvider>
+                                    <StartupGate isApiWarmed={appReady}>
+                                        <NativeLayout />
+                                    </StartupGate>
+                                </BottomSheetModalProvider>
+                            </HeroUINativeProvider>
+                        )}
                     </GestureHandlerRootView>
                 </TutorialProvider>
             </SettingsProvider>

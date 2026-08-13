@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Trash, Faders, Bank, Globe, CaretDown } from '@/components/ui/lucide-icons';
-import { Button, Dropdown, Label } from '@heroui/react';
+import { Button, Dropdown, Label, Switch } from '@heroui/react';
 import { Loader } from '@/components/ui/loader';
 import { hedwigApi } from '@/lib/api/client';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
@@ -16,6 +16,73 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
   const [showCreate, setShowCreate] = useState(false);
   const [newRule, setNewRule] = useState({ descriptionPattern: '', category: '', priority: '0' });
 
+  const [briefCadence, setBriefCadence] = useState<'off' | 'daily' | 'weekly'>('weekly');
+  const [dunningEmails, setDunningEmails] = useState(true);
+  const [weeklySummaryEmail, setWeeklySummaryEmail] = useState(false);
+  const [dailyBriefEmail, setDailyBriefEmail] = useState(false);
+  const [isSavingBrief, setIsSavingBrief] = useState(false);
+  const briefCadenceLabel = briefCadence === 'off' ? 'Off' : briefCadence === 'daily' ? 'Daily' : 'Weekly';
+
+  const loadPrefs = () => {
+    if (!accessToken) return;
+    fetch('/api/assistant/preferences', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((resp) => (resp.ok ? resp.json() : Promise.reject()))
+      .then((data) => {
+        if (!data?.success) return;
+        if (data.data?.revenueBriefCadence) setBriefCadence(data.data.revenueBriefCadence);
+        if (typeof data.data?.dunningEmails === 'boolean') setDunningEmails(data.data.dunningEmails);
+        if (typeof data.data?.weeklySummaryEmail === 'boolean') setWeeklySummaryEmail(data.data.weeklySummaryEmail);
+        if (typeof data.data?.dailyBriefEmail === 'boolean') setDailyBriefEmail(data.data.dailyBriefEmail);
+      })
+      .catch(() => { /* keep defaults */ });
+  };
+
+  const handleBriefCadenceChange = async (cadence: string) => {
+    if (!['off', 'daily', 'weekly'].includes(cadence)) return;
+    const next = cadence as 'off' | 'daily' | 'weekly';
+    const prev = briefCadence;
+    setBriefCadence(next);
+    setIsSavingBrief(true);
+    try {
+      const resp = await fetch('/api/assistant/preferences', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revenueBriefCadence: next }),
+      });
+      if (!resp.ok) throw new Error('Preference update failed');
+    } catch {
+      setBriefCadence(prev);
+      toast({ type: 'error', title: 'Could not save preference', message: 'Please try again.' });
+    } finally {
+      setIsSavingBrief(false);
+    }
+  };
+
+  const handleBriefPrefToggle = async (key: 'dunningEmails' | 'weeklySummaryEmail' | 'dailyBriefEmail', value: boolean) => {
+    const setters: Record<string, (v: boolean) => void> = {
+      dunningEmails: setDunningEmails,
+      weeklySummaryEmail: setWeeklySummaryEmail,
+      dailyBriefEmail: setDailyBriefEmail,
+    };
+    setters[key](value);
+    setIsSavingBrief(true);
+    try {
+      const resp = await fetch('/api/assistant/preferences', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (!resp.ok) throw new Error('Preference update failed');
+    } catch {
+      setters[key](!value);
+      toast({ type: 'error', title: 'Could not save preference', message: 'Please try again.' });
+    } finally {
+      setIsSavingBrief(false);
+    }
+  };
+
   const loadRules = () => {
     if (!accessToken) return;
     setLoading(true);
@@ -25,7 +92,7 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadRules(); }, [accessToken]);
+  useEffect(() => { loadRules(); loadPrefs(); }, [accessToken]);
 
   const handleCreate = async () => {
     if (!newRule.descriptionPattern || !newRule.category) {
@@ -223,6 +290,95 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
                 </Dropdown.Popover>
               </Dropdown>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Briefs & notifications */}
+      <div className="space-y-2">
+        <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Briefs &amp; notifications</p>
+        <p className="text-[13px] text-[var(--color-text-tertiary)]">Control how often Hedwig summarizes your finances and follows up on unpaid invoices.</p>
+        <div className="divide-y divide-[var(--color-border)] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+          <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Financial brief cadence</p>
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">Weekly is the default. Daily emails a fresh summary each morning; Off hides the card and emails.</p>
+            </div>
+            <div className="w-[140px] shrink-0">
+              <Dropdown>
+                <Button
+                  variant="secondary"
+                  className="flex h-9 w-full items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[13px] font-medium text-[var(--color-foreground)]"
+                  aria-label="Financial brief cadence"
+                  isDisabled={isSavingBrief}
+                >
+                  <span className="capitalize">{briefCadenceLabel}</span>
+                  <CaretDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)]" weight="bold" />
+                </Button>
+                <Dropdown.Popover className="min-w-[140px]">
+                  <Dropdown.Menu
+                    selectionMode="single"
+                    selectedKeys={new Set([briefCadence])}
+                    onSelectionChange={(keys) => {
+                      const key = [...keys][0];
+                      if (key) void handleBriefCadenceChange(String(key));
+                    }}
+                  >
+                    <Dropdown.Item key="off" id="off" textValue="Off">
+                      <Label>Off</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item key="daily" id="daily" textValue="Daily">
+                      <Label>Daily</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item key="weekly" id="weekly" textValue="Weekly">
+                      <Label>Weekly</Label>
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Dunning emails</p>
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">Staged follow-up sequence for unpaid invoices: pre-due, due, overdue, escalation, final.</p>
+            </div>
+            <Switch
+              isSelected={dunningEmails}
+              isDisabled={isSavingBrief}
+              onChange={() => void handleBriefPrefToggle('dunningEmails', !dunningEmails)}
+            >
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+            </Switch>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Weekly summary email</p>
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">A weekly recap of revenue, expenses, and follow-ups worth your attention.</p>
+            </div>
+            <Switch
+              isSelected={weeklySummaryEmail}
+              isDisabled={isSavingBrief}
+              onChange={() => void handleBriefPrefToggle('weeklySummaryEmail', !weeklySummaryEmail)}
+            >
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+            </Switch>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Daily brief email</p>
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">A short daily snapshot of what needs attention right now.</p>
+            </div>
+            <Switch
+              isSelected={dailyBriefEmail}
+              isDisabled={isSavingBrief}
+              onChange={() => void handleBriefPrefToggle('dailyBriefEmail', !dailyBriefEmail)}
+            >
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+            </Switch>
           </div>
         </div>
       </div>

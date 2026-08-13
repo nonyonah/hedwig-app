@@ -32,6 +32,7 @@ import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { getUserGradient } from '../../utils/gradientUtils';
+import { parseAvatar } from '../../utils/avatar';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
@@ -225,20 +226,8 @@ export default function PaymentLinksScreen() {
                 });
 
                 // Set profile icon - handle data URIs and regular URLs
-                if (userData.avatar) {
-                    if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
-                        setProfileIcon({ imageUri: userData.avatar });
-                    } else {
-                        try {
-                            const parsed = JSON.parse(userData.avatar);
-                            if (parsed.imageUri) {
-                                setProfileIcon({ imageUri: parsed.imageUri });
-                            }
-                        } catch (e) {
-                            setProfileIcon({ imageUri: userData.avatar });
-                        }
-                    }
-                }
+                const icon = parseAvatar(userData.avatar);
+                if (icon.imageUri || icon.emoji) setProfileIcon(icon);
                 setWalletAddresses({
                     evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                     solana: userData.solanaWalletAddress
@@ -962,7 +951,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
     },
     header: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
         paddingBottom: 12,
     },
     headerTop: {
@@ -1002,7 +991,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20, // Increased from 16 to match card padding (20) for text alignment
         paddingVertical: 8,
         borderRadius: 20,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.surfaceHighlight,
     },
     filterChipActive: {
         backgroundColor: Colors.primary,
@@ -1154,7 +1143,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
@@ -1290,9 +1279,9 @@ const styles = StyleSheet.create({
         width: 18,
         height: 18,
         borderRadius: 9,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
         borderWidth: 2,
-        borderColor: '#FFFFFF',
+        borderColor: Colors.surface,
     },
     modalTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
@@ -1306,7 +1295,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     amountCard: {
-        backgroundColor: '#F9FAFB',
+        backgroundColor: Colors.surfaceHighlight,
         borderRadius: 20,
         padding: 24,
         alignItems: 'center',
@@ -1334,7 +1323,7 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
     },
     detailsCard: {
-        backgroundColor: '#F9FAFB',
+        backgroundColor: Colors.surfaceHighlight,
         borderRadius: 16,
         padding: 20,
         marginBottom: 24,

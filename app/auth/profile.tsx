@@ -8,6 +8,7 @@ import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { getUserGradient } from '../../utils/gradientUtils';
+import { parseAvatar } from '../../utils/avatar';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
@@ -120,16 +121,9 @@ export default function ProfileScreen() {
                         setName(fullName);
                     }
                     // Pre-fill profile icon
-                    if (existingUser.avatar) {
-                        try {
-                            if (existingUser.avatar.startsWith('{')) {
-                                setProfileIcon(JSON.parse(existingUser.avatar));
-                            } else {
-                                setProfileIcon({ imageUri: existingUser.avatar });
-                            }
-                        } catch (e) {
-                            setProfileIcon({ imageUri: existingUser.avatar });
-                        }
+                    const icon = parseAvatar(existingUser.avatar);
+                    if (icon.imageUri || icon.emoji) {
+                        setProfileIcon(icon);
                     } else if (existingUser.profileEmoji) {
                         setProfileIcon({ emoji: existingUser.profileEmoji });
                     } else if (existingUser.profileColorIndex !== undefined) {

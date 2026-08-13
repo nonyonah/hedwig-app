@@ -8,8 +8,15 @@ import { PaycrestService } from './paycrest';
 import { differenceInDays, parseISO, addDays, isSameDay, format } from 'date-fns';
 import { createLogger } from '../utils/logger';
 import { withLock } from '../utils/distributedLock';
-import { generateDailyBrief, generateWeeklySummary } from './agent/assistant-runtime';
+import { generateDailyBrief, generateWeeklySummary, generateMonthlyStateOfBusiness } from './agent/assistant-runtime';
+import {
+  resolveChannelPlan,
+  pushBudgetExceeded,
+  shouldSendPush,
+  type EventClass,
+} from './channel-matrix';
 import { matchThreadsToWorkspace, syncComposioBankAlerts, syncComposioGmailThreads, syncGmailThreads } from './emailSync';
+import { emitTimelineEvent, TIMELINE_EVENT_KINDS, TIMELINE_EVENT_VERBS } from './timeline-events';
 
 const logger = createLogger('Scheduler');
 
@@ -57,6 +64,17 @@ function currentUtcWeekKey(): string {
     return monday.toISOString().slice(0, 10);
 }
 
+function currentUtcMonthKey(): string {
+    const now = new Date();
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Reads the user's notif_preferences JSONB override for an event class. */
+function channelPlanForUser(user: any, eventClass: EventClass) {
+    const rawPrefs = user?.notif_preferences ?? null;
+    return resolveChannelPlan(eventClass, rawPrefs);
+}
+
 export const SchedulerService = {
     initScheduler() {
         // When SCHEDULER_MODE=cloud, cron jobs are driven by Cloud Scheduler HTTP calls
@@ -101,6 +119,11 @@ export const SchedulerService = {
         cron.schedule('0 9 * * 1', () => {
             withLock('assistant-weekly-summaries', 6 * 24 * 60 * 60, () => this.sendAssistantWeeklySummaries())
                 .catch((e) => logger.error('assistant-weekly-summaries lock error', { error: e?.message }));
+        });
+
+        cron.schedule('0 8 1 * *', () => {
+            withLock('monthly-state-of-business', 26 * 24 * 60 * 60, () => this.sendMonthlyStateOfBusiness())
+                .catch((e) => logger.error('monthly-state-of-business lock error', { error: e?.message }));
         });
 
         cron.schedule('15 * * * *', () => {
@@ -216,8 +239,7 @@ export const SchedulerService = {
             }
 
             const start = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-            const { runLedgerShadowDiff } = await import('./ledger-shadow');
-            await processInBatches(scopes, SCHEDULER_CONCURRENCY, async (scope: any) => {
+            const { runLedgerShadowDiff } = await import('./ledger-shadow');            await processInBatches(scopes, SCHEDULER_CONCURRENCY, async (scope: any) => {
                 try {
                     await runLedgerShadowDiff(
                         { userId: String(scope.user_id), workspaceId: scope.workspace_id ?? null },
@@ -232,6 +254,21 @@ export const SchedulerService = {
             });
         } catch (error: any) {
             logger.error('Ledger shadow diff job failed', { error: error?.message });
+        }
+    },
+
+    /**
+     * Runs the staged dunning engine (pre-due → due → overdue → escalation →
+     * final). The engine is the single reminder sender for documents it
+     * manages (first touch sets content.dunning_active, which suppresses the
+     * legacy 7-day remind path) — no double delivery by construction.
+     */
+    async runDunningEngine(): Promise<void> {
+        try {
+            const { DunningEngine } = await import('./dunning');
+            await DunningEngine.run();
+        } catch (error: any) {
+            logger.error('Dunning engine job failed', { error: error?.message });
         }
     },
 
@@ -429,7 +466,7 @@ export const SchedulerService = {
             const periodKey = currentUtcDateKey();
             const { data: users, error } = await supabase
                 .from('users')
-                .select('id, email, first_name, asst_daily_brief_email')
+                .select('id, email, first_name, asst_daily_brief_email, notif_preferences')
                 .eq('asst_daily_brief_email', true)
                 .limit(SCHEDULER_MAX_USERS_PER_RUN);
 
@@ -466,8 +503,9 @@ export const SchedulerService = {
                             : null,
                     ], 3);
                     let emailSent = false;
+                    const channelPlan = channelPlanForUser(user, 'daily_brief');
 
-                    if (user.email) {
+                    if (user.email && channelPlan.email !== 'off') {
                         emailSent = await EmailService.sendAssistantBriefEmail({
                             to: user.email,
                             subject: 'Your daily Hedwig brief',
@@ -496,8 +534,10 @@ export const SchedulerService = {
                         },
                         highlights: actionHighlights,
                         email_sent: emailSent,
+                        push_channel: channelPlan.push,
                     };
 
+                    let pushSent = false;
                     if (existingNotification) {
                         await supabase.from('notifications')
                             .update({ title, message, metadata })
@@ -512,11 +552,23 @@ export const SchedulerService = {
                             is_read: false,
                         });
 
-                        await NotificationService.notifyUser(userId, {
-                            title,
-                            body: message,
-                            data: { type: 'assistant_daily_brief', periodKey },
-                        }).catch((err) => logger.warn('Daily brief push failed', { userId, error: err?.message }));
+                        const capExceeded = await pushBudgetExceeded(supabase, userId);
+                        if (shouldSendPush(channelPlan) && !capExceeded) {
+                            await NotificationService.notifyUser(userId, {
+                                title,
+                                body: message,
+                                data: { type: 'assistant_daily_brief', periodKey },
+                            }).catch((err) => logger.warn('Daily brief push failed', { userId, error: err?.message }));
+                            pushSent = true;
+                        }
+                        if (pushSent) {
+                            await supabase.from('notifications')
+                                .update({ metadata: { ...metadata, push_sent: true } })
+                                .eq('user_id', userId)
+                                .eq('type', 'assistant')
+                                .eq('metadata->>assistant_type', 'daily_brief')
+                                .eq('metadata->>period_key', periodKey);
+                        }
                     }
                 } catch (err: any) {
                     logger.error('Failed to send assistant daily brief', { userId, error: err?.message });
@@ -534,7 +586,7 @@ export const SchedulerService = {
             const periodKey = currentUtcWeekKey();
             const { data: users, error } = await supabase
                 .from('users')
-                .select('id, email, first_name, asst_weekly_summary_email')
+                .select('id, email, first_name, asst_weekly_summary_email, notif_preferences')
                 .eq('asst_weekly_summary_email', true)
                 .limit(SCHEDULER_MAX_USERS_PER_RUN);
 
@@ -572,10 +624,14 @@ export const SchedulerService = {
                         summary.overdueCount > 0
                             ? `${summary.overdueCount} overdue invoice${summary.overdueCount === 1 ? '' : 's'} worth ${formatUsdBrief(summary.overdueAmountUsd)}`
                             : 'No overdue invoices at week end',
+                        (summary.upcomingDeadlines ?? 0) > 0
+                            ? `${summary.upcomingDeadlines} due date${summary.upcomingDeadlines === 1 ? '' : 's'} coming up this week`
+                            : null,
                     ], 3);
                     let emailSent = false;
+                    const channelPlan = channelPlanForUser(user, 'weekly_summary');
 
-                    if (user.email) {
+                    if (user.email && channelPlan.email !== 'off') {
                         emailSent = await EmailService.sendAssistantBriefEmail({
                             to: user.email,
                             subject: 'Your weekly Hedwig summary',
@@ -607,6 +663,134 @@ export const SchedulerService = {
                         top_clients: summary.topClients,
                         highlights: weeklyHighlights,
                         email_sent: emailSent,
+                        push_channel: channelPlan.push,
+                    };
+
+                    let weeklyPushSent = false;
+                    if (existingNotification) {
+                        await supabase.from('notifications')
+                            .update({ title, message, metadata })
+                            .eq('id', existingNotification.id);
+                    } else {
+                        await supabase.from('notifications').insert({
+                            user_id: userId,
+                            type: 'assistant',
+                            title,
+                            message,
+                            metadata,
+                            is_read: false,
+                        });
+
+                        const capExceeded = await pushBudgetExceeded(supabase, userId);
+                        if (shouldSendPush(channelPlan) && !capExceeded) {
+                            await NotificationService.notifyUser(userId, {
+                                title,
+                                body: message,
+                                data: { type: 'assistant_weekly_summary', periodKey },
+                            }).catch((err) => logger.warn('Weekly summary push failed', { userId, error: err?.message }));
+                            weeklyPushSent = true;
+                        }
+                        if (weeklyPushSent) {
+                            await supabase.from('notifications')
+                                .update({ metadata: { ...metadata, push_sent: true } })
+                                .eq('user_id', userId)
+                                .eq('type', 'assistant')
+                                .eq('metadata->>assistant_type', 'weekly_summary')
+                                .eq('metadata->>period_key', periodKey);
+                        }
+                    }
+                } catch (err: any) {
+                    logger.error('Failed to send assistant weekly summary', { userId, error: err?.message });
+                }
+            });
+
+            logger.info('Assistant weekly summaries processed', { count: candidates.length });
+        } catch (error: any) {
+            logger.error('Assistant weekly summaries job failed', { error: error?.message });
+        }
+    },
+
+    async sendMonthlyStateOfBusiness() {
+        try {
+            const periodKey = currentUtcMonthKey();
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, email, first_name, asst_revenue_brief, notif_preferences')
+                .not('asst_revenue_brief', 'eq', 'off')
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for monthly state of business', { error: error.message });
+                return;
+            }
+
+            const candidates = users || [];
+            if (candidates.length === 0) {
+                logger.debug('No users opted in for monthly state of business');
+                return;
+            }
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user: any) => {
+                const userId = String(user.id || '');
+                if (!userId) return;
+                const existingNotification = await this.getAssistantNotification(userId, 'monthly_state_of_business', periodKey);
+                if (existingNotification?.emailSent) return;
+
+                try {
+                    const state = await generateMonthlyStateOfBusiness(userId);
+                    const title = 'Your monthly Hedwig state of business';
+                    const message = state.summary || `Here's how ${state.monthLabel} went.`;
+                    const highlights = [
+                        ...(state.highlights || []),
+                        state.expectedIncomingUsd > 0
+                            ? `Expected incoming from open invoices: ${formatUsdBrief(state.expectedIncomingUsd)}`
+                            : null,
+                        state.daysToTaxDeadline !== null && state.estimatedTaxSetAsideUsd > 0
+                            ? `Tax set-aside $${state.estimatedTaxSetAsideUsd.toFixed(0)} due in ${state.daysToTaxDeadline} days`
+                            : null,
+                    ];
+                    let emailSent = false;
+                    const channelPlan = channelPlanForUser(user, 'monthly_state_of_business');
+
+                    if (user.email && channelPlan.email !== 'off') {
+                        emailSent = await EmailService.sendAssistantBriefEmail({
+                            to: user.email,
+                            subject: `Your ${state.monthLabel} state of business`,
+                            eyebrow: 'Monthly state of business',
+                            heading: `${state.monthLabel} review`,
+                            summary: message,
+                            highlights: compactList(highlights, 4),
+                            stats: [
+                                { label: 'Revenue', value: formatUsdBrief(state.revenueUsd) },
+                                { label: 'Expenses', value: formatUsdBrief(state.expensesTotalUsd) },
+                                { label: 'Net', value: formatUsdBrief(state.netUsd) },
+                                { label: 'Overdue', value: formatUsdBrief(state.overdueAmountUsd) },
+                            ],
+                            ctaPath: '/revenue',
+                        });
+                    }
+
+                    const metadata = {
+                        ...(existingNotification?.metadata || {}),
+                        assistant_type: 'monthly_state_of_business',
+                        period_key: periodKey,
+                        month_label: state.monthLabel,
+                        revenue_usd: state.revenueUsd,
+                        previous_month_revenue_usd: state.previousMonthRevenueUsd,
+                        revenue_change_pct: state.revenueChangePct,
+                        expenses_total_usd: state.expensesTotalUsd,
+                        net_usd: state.netUsd,
+                        overdue_amount_usd: state.overdueAmountUsd,
+                        expected_incoming_usd: state.expectedIncomingUsd,
+                        top_clients: state.topClients,
+                        top_client_concentration_pct: state.topClientConcentrationPct,
+                        subscriptions: state.subscriptions,
+                        subscriptions_monthly_total: state.subscriptionsMonthlyTotal,
+                        estimated_tax_set_aside_usd: state.estimatedTaxSetAsideUsd,
+                        days_to_tax_deadline: state.daysToTaxDeadline,
+                        runway_months: state.runwayMonths,
+                        highlights: compactList(highlights, 4),
+                        email_sent: emailSent,
                     };
 
                     if (existingNotification) {
@@ -622,21 +806,15 @@ export const SchedulerService = {
                             metadata,
                             is_read: false,
                         });
-
-                        await NotificationService.notifyUser(userId, {
-                            title,
-                            body: message,
-                            data: { type: 'assistant_weekly_summary', periodKey },
-                        }).catch((err) => logger.warn('Weekly summary push failed', { userId, error: err?.message }));
                     }
                 } catch (err: any) {
-                    logger.error('Failed to send assistant weekly summary', { userId, error: err?.message });
+                    logger.error('Failed to send monthly state of business', { userId, error: err?.message });
                 }
             });
 
-            logger.info('Assistant weekly summaries processed', { count: candidates.length });
+            logger.info('Monthly state of business processed', { count: candidates.length });
         } catch (error: any) {
-            logger.error('Assistant weekly summaries job failed', { error: error?.message });
+            logger.error('Monthly state of business job failed', { error: error?.message });
         }
     },
 
@@ -2510,6 +2688,13 @@ export const SchedulerService = {
                 return { sent: false, reason: 'Global reminders disabled' };
             }
 
+            // Dunning engine owns reminders for documents it has touched —
+            // never double-deliver alongside the staged sequence.
+            if (!isManual && content.dunning_active === true) {
+                logger.debug('Skipping: Managed by dunning engine');
+                return { sent: false, reason: 'Managed by dunning engine' };
+            }
+
             // Check if reminders are enabled for this document (default: true for backwards compatibility)
             const remindersEnabled = content.reminders_enabled !== false;
             // If manual, we ignore the enabled flag (user explicitly requested it)
@@ -2587,6 +2772,27 @@ export const SchedulerService = {
                         }
                     })
                     .eq('id', doc.id);
+
+                // Emit timeline event (non-money journal) — reminder sent for an
+                // invoice or payment link. Version = fresh ISO timestamp so each
+                // dunning touch produces a distinct, idempotent event.
+                await emitTimelineEvent({
+                    userId: doc.user_id,
+                    workspaceId: doc.workspace_id ?? null,
+                    kind: TIMELINE_EVENT_KINDS.REMINDER,
+                    entityType: doc.type === 'PAYMENT_LINK' ? 'payment_link' : 'invoice',
+                    entityId: doc.id,
+                    verb: TIMELINE_EVENT_VERBS.REMINDED,
+                    version: new Date().toISOString(),
+                    title: `Reminder sent for ${doc.title || (doc.type === 'PAYMENT_LINK' ? 'payment link' : 'invoice')}`,
+                    context: {
+                        title: doc.title || null,
+                        amount: Number.isFinite(Number(doc.amount)) ? Number(doc.amount) : null,
+                        currency: doc.currency || 'USD',
+                        type: doc.type || 'INVOICE',
+                        days_since_creation: daysSinceCreation,
+                    },
+                });
 
                 logger.info('Reminder sent and recorded');
                 return { sent: true };

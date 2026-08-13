@@ -30,10 +30,6 @@ import {
     X, ArrowUp, Wallet as WalletIcon, ShieldCheck, ArrowRight,
     ArrowLeftRight as ArrowLeftRightIcon,
     Landmark as LandmarkIcon,
-    Clock as ClockIcon,
-    CheckCircle as CheckCircleIcon,
-    TriangleAlert as TriangleAlertIcon,
-    RotateCcw as RotateCcwIcon,
     ArrowUpRight as ArrowUpRightIcon,
     ArrowDownLeft as ArrowDownLeftIcon,
 } from '../../../components/ui/AppIcon';
@@ -42,7 +38,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format } from 'date-fns';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { formatCurrency } from '../../../utils/currencyUtils';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
@@ -52,405 +48,35 @@ import { SelectorSheet } from '../../../components/SelectorSheet';
 import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetailSheet';
 import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
+import { parseAvatar } from '../../../utils/avatar';
 import type { OnrampOrder } from '../../../hooks/useOnramp';
 import type { CoinbasePayActivitySession } from '../../../hooks/useCoinbasePay';
-
-// ─── Settlement chains ───────────────────────────────────────────────────────
-const SETTLEMENT_CHAINS = [
-    { id: 'base',   name: 'EVM',    icon: require('../../../assets/icons/tokens/eth.png') },
-    { id: 'solana', name: 'Solana', icon: require('../../../assets/icons/networks/solana.png') },
-];
-
-// ─── Chain icon map ──────────────────────────────────────────────────────────
-const CHAIN_ICON_MAP: Record<string, any> = {
-    base:     require('../../../assets/icons/networks/base.png'),
-    solana:   require('../../../assets/icons/networks/solana.png'),
-    arbitrum: require('../../../assets/icons/networks/arbitrum.png'),
-    polygon:  require('../../../assets/icons/networks/polygon.png'),
-    optimism: require('../../../assets/icons/networks/optimism.png'),
-    celo:     require('../../../assets/icons/networks/celo.png'),
-};
-
-const getChainIcon = (chain: string) => CHAIN_ICON_MAP[chain?.toLowerCase()] ?? CHAIN_ICON_MAP['base'];
-
-const CHAIN_DISPLAY_NAMES: Record<string, string> = {
-    base: 'Base', arbitrum: 'Arbitrum', polygon: 'Polygon',
-    optimism: 'Optimism', celo: 'Celo', solana: 'Solana',
-};
-
-// ─── Activity icons ──────────────────────────────────────────────────────────
-const ACTIVITY_ICONS = {
-    usdc:    require('../../../assets/icons/tokens/usdc.png'),
-    base:    require('../../../assets/icons/networks/base.png'),
-    solana:  require('../../../assets/icons/networks/solana.png'),
-    arbitrum:require('../../../assets/icons/networks/arbitrum.png'),
-    polygon: require('../../../assets/icons/networks/polygon.png'),
-    optimism:require('../../../assets/icons/networks/optimism.png'),
-    celo:    require('../../../assets/icons/networks/celo.png'),
-    send:    require('../../../assets/icons/status/send.png'),
-    receive: require('../../../assets/icons/status/receive.png'),
-};
-
-const ACTIVITY_CHAINS: Record<string, { name: string; icon: any }> = {
-    base:     { name: 'Base',     icon: ACTIVITY_ICONS.base },
-    solana:   { name: 'Solana',   icon: ACTIVITY_ICONS.solana },
-    arbitrum: { name: 'Arbitrum', icon: ACTIVITY_ICONS.arbitrum },
-    polygon:  { name: 'Polygon',  icon: ACTIVITY_ICONS.polygon },
-    optimism: { name: 'Optimism', icon: ACTIVITY_ICONS.optimism },
-    celo:     { name: 'Celo',     icon: ACTIVITY_ICONS.celo },
-    // Offramp uses uppercase chain keys
-    BASE:     { name: 'Base',     icon: ACTIVITY_ICONS.base },
-    SOLANA:   { name: 'Solana',   icon: ACTIVITY_ICONS.solana },
-    ARBITRUM: { name: 'Arbitrum', icon: ACTIVITY_ICONS.arbitrum },
-    POLYGON:  { name: 'Polygon',  icon: ACTIVITY_ICONS.polygon },
-    OPTIMISM: { name: 'Optimism', icon: ACTIVITY_ICONS.optimism },
-    CELO:     { name: 'Celo',     icon: ACTIVITY_ICONS.celo },
-};
-
-// ─── Withdrawal status config ────────────────────────────────────────────────
-const WITHDRAWAL_STATUS_CONFIG: Record<string, { color: string; label: string; Icon: React.ComponentType<any> }> = {
-    PENDING:    { color: '#F59E0B', label: 'Pending',    Icon: (p: any) => <ClockIcon {...p} /> },
-    PROCESSING: { color: '#3B82F6', label: 'Processing', Icon: (p: any) => <RotateCcwIcon {...p} /> },
-    COMPLETED:  { color: '#10B981', label: 'Completed',  Icon: (p: any) => <CheckCircleIcon {...p} /> },
-    FAILED:     { color: '#EF4444', label: 'Failed',     Icon: (p: any) => <TriangleAlertIcon {...p} /> },
-    CANCELLED:  { color: '#6B7280', label: 'Cancelled',  Icon: (p: any) => <X {...p} /> },
-};
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-interface Transaction {
-    id: string;
-    type: 'IN' | 'OUT';
-    description: string;
-    amount: string;
-    token: string;
-    date: string;
-    hash: string;
-    network: 'base' | 'solana' | 'optimism' | 'arbitrum' | 'polygon' | 'celo';
-    status: 'completed' | 'pending' | 'failed';
-    from: string;
-    to: string;
-}
-
-interface OfframpOrder {
-    id: string;
-    providerOrderId?: string;
-    paycrestOrderId?: string;
-    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-    chain: string;
-    token: string;
-    cryptoAmount: number;
-    fiatCurrency: string;
-    fiatAmount: number;
-    exchangeRate: number;
-    serviceFee: number;
-    bankName: string;
-    accountNumber: string;
-    accountName: string;
-    txHash?: string;
-    createdAt: string;
-    completedAt?: string;
-}
-
-type ActivityItem =
-    | { kind: 'tx';         data: Transaction  }
-    | { kind: 'withdrawal'; data: OfframpOrder }
-    | { kind: 'onramp';     data: OnrampOrder  }
-    | { kind: 'coinbase';   data: CoinbasePayActivitySession }
-    | { kind: 'usd';        data: UsdTransfer };
-
-type ActivityFilter = 'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'failed';
-type NetworkFilter = 'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo';
-
-const NETWORK_FILTER_OPTIONS: Array<{ id: NetworkFilter; label: string; sublabel: string; icon?: any }> = [
-    { id: 'all', label: 'All networks', sublabel: 'Show balances across every supported network' },
-    { id: 'base', label: 'Base', sublabel: 'Base balances', icon: CHAIN_ICON_MAP.base },
-    { id: 'arbitrum', label: 'Arbitrum', sublabel: 'Arbitrum balances', icon: CHAIN_ICON_MAP.arbitrum },
-    { id: 'polygon', label: 'Polygon', sublabel: 'Polygon balances', icon: CHAIN_ICON_MAP.polygon },
-    { id: 'optimism', label: 'Optimism', sublabel: 'Optimism balances', icon: CHAIN_ICON_MAP.optimism },
-    { id: 'solana', label: 'Solana', sublabel: 'Solana balances', icon: CHAIN_ICON_MAP.solana },
-];
-
-const getNetworkFilterLabel = (filter: NetworkFilter): string =>
-    NETWORK_FILTER_OPTIONS.find(option => option.id === filter)?.label || 'All networks';
-
-const ACTIVITY_FILTER_OPTIONS: Array<{ id: ActivityFilter; label: string; sublabel: string }> = [
-    { id: 'all', label: 'All', sublabel: 'Show every wallet activity item' },
-    { id: 'in', label: 'Received', sublabel: 'Incoming transfers and bought USDC' },
-    { id: 'out', label: 'Sent', sublabel: 'Outgoing wallet transfers' },
-    { id: 'withdrawals', label: 'Withdrawals', sublabel: 'Bank cash-out activity' },
-    { id: 'onramps', label: 'Buy USDC', sublabel: 'Fiat deposits and USDC purchases' },
-    { id: 'failed', label: 'Failed', sublabel: 'Failed or cancelled activity' },
-];
-
-const getActivityFilterLabel = (filter: ActivityFilter): string =>
-    ACTIVITY_FILTER_OPTIONS.find(option => option.id === filter)?.label || 'All';
-
-const WALLET_ACTIVITY_RENDER_LIMIT = 60;
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-const toNumber = (value: unknown): number => {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-    if (typeof value !== 'string') return 0;
-    const normalized = value.replace(/,/g, '').trim();
-    const parsed = parseFloat(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const MAINSTREAM_ACTIVITY_TOKENS = new Set([
-    'USDC',
-    'USDC.E',
-    'ETH',
-    'WETH',
-    'SOL',
-    'POL',
-    'MATIC',
-    'CELO',
-    'USD',
-    'USDT',
-]);
-
-const SUSPICIOUS_TOKEN_PATTERNS = [
-    'http',
-    'www',
-    '.com',
-    '.net',
-    '.org',
-    '.io',
-    '.app',
-    '.site',
-    '.top',
-    '.link',
-    '.click',
-    '.xyz',
-    '://',
-    'claim',
-    'airdrop',
-    'reward',
-    'bonus',
-    'visit',
-    'voucher',
-    'coupon',
-    'prize',
-    'winner',
-    'free',
-    'swap',
-    'scam',
-    'phish',
-    'verify',
-    'connect',
-    'official',
-];
-
-const KNOWN_SPAM_ZERO_ADDRESSES = new Set([
-    '0x0000000000000000000000000000000000000000',
-    '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-]);
-
-const pickFirstNumber = (...values: unknown[]): number | null => {
-    for (const value of values) {
-        if (value === null || value === undefined || value === '') continue;
-        const parsed = toNumber(value);
-        if (Number.isFinite(parsed) && parsed >= 0) return parsed;
-    }
-    return null;
-};
-
-const stringContainsSuspiciousPattern = (...values: unknown[]): boolean =>
-    values.some(value => {
-        const lower = String(value || '').trim().toLowerCase();
-        if (!lower) return false;
-        return SUSPICIOUS_TOKEN_PATTERNS.some(pattern => lower.includes(pattern));
-    });
-
-const isMainstreamActivityToken = (token: unknown): boolean => {
-    const normalized = String(token || '').trim().toUpperCase();
-    if (!normalized) return false;
-    const lower = normalized.toLowerCase();
-    if (SUSPICIOUS_TOKEN_PATTERNS.some(pattern => lower.includes(pattern))) return false;
-    return MAINSTREAM_ACTIVITY_TOKENS.has(normalized);
-};
-
-const getActivityUsdValue = (item: ActivityItem): number | null => {
-    if (item.kind === 'tx') {
-        const tx = item.data as any;
-        const explicitUsd = pickFirstNumber(
-            tx.amountUsd,
-            tx.amount_usd,
-            tx.usdAmount,
-            tx.usd_amount,
-            tx.valueUsd,
-            tx.value_usd,
-            tx.displayValueUsd,
-            tx.display_value_usd,
-            tx.display_values?.usd,
-            tx.metadata?.valueUsd,
-            tx.metadata?.usd
-        );
-        if (explicitUsd !== null) return explicitUsd;
-
-        const token = item.data.token?.toUpperCase?.() || '';
-        const amount = toNumber(item.data.amount);
-        if (['USDC', 'USDT', 'USD'].includes(token)) return amount;
-        if (['ETH', 'WETH', 'SOL', 'POL', 'MATIC', 'CELO'].includes(token)) {
-            return amount < 0.10 ? amount : null;
-        }
-        return amount;
-    }
-    if (item.kind === 'withdrawal') return toNumber(item.data.fiatAmount);
-    if (item.kind === 'onramp') return toNumber(item.data.cryptoAmount);
-    if (item.kind === 'usd') return toNumber(item.data.netUsd || item.data.grossUsd);
-    if (item.kind === 'coinbase') {
-        if (typeof item.data.fiatAmount === 'number') return item.data.fiatAmount;
-        return String(item.data.token || '').toUpperCase() === 'USDC' ? toNumber(item.data.cryptoAmount) : toNumber(item.data.cryptoAmount);
-    }
-    return null;
-};
-
-const normalizeUsdTransferStatus = (status?: string | null): keyof typeof WITHDRAWAL_STATUS_CONFIG => {
-    const key = String(status || 'PENDING').trim().toUpperCase();
-    if (key in WITHDRAWAL_STATUS_CONFIG) return key as keyof typeof WITHDRAWAL_STATUS_CONFIG;
-    if (key === 'SUCCESS' || key === 'SETTLED') return 'COMPLETED';
-    if (key === 'ERROR') return 'FAILED';
-    return 'PENDING';
-};
-
-const isUnusualInboundActivity = (item: ActivityItem): boolean => {
-    if (item.kind !== 'tx' || item.data.type !== 'IN') return false;
-    const tx = item.data as any;
-    const token = String(tx.token || '').trim();
-    const contractAddress = String(tx.contractAddress || tx.contract_address || tx.rawContract?.address || '').toLowerCase();
-    const description = String(tx.description || '').trim();
-    const from = String(tx.from || '').toLowerCase();
-
-    if (stringContainsSuspiciousPattern(token, description, tx.tokenName, tx.asset, tx.symbol)) return true;
-    if (KNOWN_SPAM_ZERO_ADDRESSES.has(contractAddress) || KNOWN_SPAM_ZERO_ADDRESSES.has(from)) return true;
-    if (!isMainstreamActivityToken(token)) return true;
-
-    return false;
-};
-
-const getTokenBalance = (entry: any, decimals: number): number => {
-    const displayToken = toNumber(entry?.display_values?.token);
-    if (displayToken > 0) return displayToken;
-    const rawValue = entry?.raw_value;
-    if (typeof rawValue === 'string' && rawValue.length > 0) {
-        const parsedRaw = Number(rawValue);
-        if (Number.isFinite(parsedRaw) && parsedRaw > 0) return parsedRaw / Math.pow(10, decimals);
-    }
-    return 0;
-};
-
-const parseFeatureFlag = (value: string | undefined, fallback = false): boolean => {
-    if (typeof value !== 'string') return fallback;
-    const normalized = value.trim().toLowerCase();
-    if (['1', 'true', 'yes', 'on', 'enabled'].includes(normalized)) return true;
-    if (['0', 'false', 'no', 'off', 'disabled'].includes(normalized)) return false;
-    return fallback;
-};
-
-const parseOptionalNumber = (value: unknown): number | null => {
-    if (value === null || value === undefined) return null;
-    const parsed = toNumber(value);
-    return Number.isFinite(parsed) ? parsed : null;
-};
-
-const normalizeOfframpStatus = (
-    rawStatus: unknown,
-    txHash?: unknown,
-    completedAt?: unknown
-): OfframpOrder['status'] => {
-    const status = typeof rawStatus === 'string' ? rawStatus.trim().toLowerCase() : '';
-    const hasEvidence = Boolean(
-        (typeof txHash === 'string' && txHash.trim().length > 0) ||
-        (typeof completedAt === 'string' && completedAt.trim().length > 0)
-    );
-    let normalized: OfframpOrder['status'] = 'PROCESSING';
-    switch (status) {
-        case 'pending': case 'initiated': normalized = 'PENDING'; break;
-        case 'processing': case 'in_progress': case 'submitted': case 'queued': normalized = 'PROCESSING'; break;
-        case 'completed': case 'settled': case 'success': case 'validated': case 'paid': case 'done': normalized = 'COMPLETED'; break;
-        case 'failed': case 'expired': case 'refunded': case 'reversed': case 'rejected': case 'error': normalized = 'FAILED'; break;
-        case 'cancelled': case 'canceled': normalized = 'CANCELLED'; break;
-        default: normalized = hasEvidence ? 'COMPLETED' : 'PROCESSING'; break;
-    }
-    if ((normalized === 'FAILED' || normalized === 'CANCELLED') && hasEvidence) return 'COMPLETED';
-    return normalized;
-};
-
-const groupByDate = <T,>(
-    items: T[],
-    getDate: (item: T) => Date
-): { title: string; data: T[] }[] =>
-    items.reduce((acc, item) => {
-        const date = getDate(item);
-        let title = format(date, 'MMM d');
-        if (isToday(date)) title = 'Today';
-        if (isYesterday(date)) title = 'Yesterday';
-        const existing = acc.find(s => s.title === title);
-        if (existing) existing.data.push(item);
-        else acc.push({ title, data: [item] });
-        return acc;
-    }, [] as { title: string; data: T[] }[]);
-
-// ─── Withdrawal progress steps ────────────────────────────────────────────────
-function ProgressSteps({ status, themeColors }: { status: string; themeColors: any }) {
-    const steps = [
-        { key: 'PENDING',    label: 'Initiated' },
-        { key: 'PROCESSING', label: 'Processing' },
-        { key: 'COMPLETED',  label: 'Completed' },
-    ];
-    const currentIndex = steps.findIndex(s => s.key === status);
-    const isFailed = status === 'FAILED' || status === 'CANCELLED';
-
-    return (
-        <View style={ps.container}>
-            {steps.map((step, index) => {
-                const isActive    = index <= currentIndex && !isFailed;
-                const isCompleted = index < currentIndex && !isFailed;
-                const isCurrent   = index === currentIndex && !isFailed;
-                return (
-                    <View key={step.key} style={ps.step}>
-                        {index > 0 && (
-                            <View style={[ps.line, isActive && ps.lineActive]} />
-                        )}
-                        <View style={[
-                            ps.circle,
-                            isActive && ps.circleActive,
-                            isCurrent && ps.circleCurrent,
-                            isFailed && index === currentIndex && ps.circleFailed,
-                        ]}>
-                            {isCompleted ? (
-                                <CheckCircleIcon size={16} color="#FFFFFF" strokeWidth={3} />
-                            ) : isFailed && index === currentIndex ? (
-                                <X size={16} color="#FFFFFF" strokeWidth={4} />
-                            ) : (
-                                <Text style={[ps.num, isActive && ps.numActive]}>{index + 1}</Text>
-                            )}
-                        </View>
-                        <Text style={[ps.label, isActive && [ps.labelActive, { color: themeColors.textPrimary }]]}>
-                            {step.label}
-                        </Text>
-                    </View>
-                );
-            })}
-        </View>
-    );
-}
-
-const ps = StyleSheet.create({
-    container:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    step:         { flex: 1, alignItems: 'center', position: 'relative' },
-    line:         { position: 'absolute', top: 14, left: -50, right: 50, height: 2, backgroundColor: '#E5E7EB', zIndex: -1 },
-    lineActive:   { backgroundColor: Colors.primary },
-    circle:       { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-    circleActive: { backgroundColor: Colors.primary },
-    circleCurrent:{ backgroundColor: Colors.primary, borderWidth: 3, borderColor: '#DBEAFE' },
-    circleFailed: { backgroundColor: '#EF4444' },
-    num:          { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 12, color: '#9CA3AF' },
-    numActive:    { color: '#FFFFFF' },
-    label:        { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 12, color: '#9CA3AF', textAlign: 'center' },
-    labelActive:  {},
-});
+import {
+    SETTLEMENT_CHAINS,
+    CHAIN_ICON_MAP,
+    getChainIcon,
+    CHAIN_DISPLAY_NAMES,
+    ACTIVITY_ICONS,
+    ACTIVITY_CHAINS,
+    WITHDRAWAL_STATUS_CONFIG,
+    NETWORK_FILTER_OPTIONS,
+    getNetworkFilterLabel,
+    ACTIVITY_FILTER_OPTIONS,
+    getActivityFilterLabel,
+    WALLET_ACTIVITY_RENDER_LIMIT,
+    toNumber,
+    getActivityUsdValue,
+    normalizeUsdTransferStatus,
+    isUnusualInboundActivity,
+    getTokenBalance,
+    parseFeatureFlag,
+    parseOptionalNumber,
+    normalizeOfframpStatus,
+    groupByDate,
+    safeFormatDate,
+} from '../../../components/money/walletData';
+import type { Transaction, OfframpOrder, ActivityItem, ActivityFilter, NetworkFilter } from '../../../components/money/walletTypes';
+import ProgressSteps from '../../../components/money/WithdrawalProgress';
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function WalletScreen() {
@@ -576,16 +202,8 @@ export default function WalletScreen() {
             if (profileData.success && profileData.data) {
                 const userData = profileData.data.user || profileData.data;
                 setUserName({ firstName: userData.firstName || '', lastName: userData.lastName || '' });
-                if (userData.avatar) {
-                    if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
-                        setProfileIcon({ imageUri: userData.avatar });
-                    } else {
-                        try {
-                            const parsed = JSON.parse(userData.avatar);
-                            if (parsed.imageUri) setProfileIcon({ imageUri: parsed.imageUri });
-                        } catch { setProfileIcon({ imageUri: userData.avatar }); }
-                    }
-                }
+                const icon = parseAvatar(userData.avatar);
+                if (icon.imageUri || icon.emoji) setProfileIcon(icon);
             }
         } catch (error) { console.error('Failed to fetch user data:', error); }
     }, [user, getAccessToken]);
@@ -2031,7 +1649,7 @@ export default function WalletScreen() {
                                 <View>
                                     <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>USD account deposit</Text>
                                     <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedUsdTransfer?.createdAt ? format(new Date(selectedUsdTransfer.createdAt), 'MMM d, h:mm a') : ''}
+                                        {safeFormatDate(selectedUsdTransfer?.createdAt, 'MMM d, h:mm a')}
                                     </Text>
                                 </View>
                             </View>
@@ -2160,7 +1778,7 @@ export default function WalletScreen() {
                                         {selectedTx?.type === 'IN' ? 'Received' : 'Sent'}
                                     </Text>
                                     <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedTx?.date ? format(new Date(selectedTx.date), 'MMM d, yyyy • h:mm a') : ''}
+                                        {safeFormatDate(selectedTx?.date, 'MMM d, yyyy • h:mm a')}
                                     </Text>
                                 </View>
                             </View>
@@ -2255,7 +1873,7 @@ export default function WalletScreen() {
                                             : 'Withdrawal'}
                                     </Text>
                                     <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, h:mm a') : ''}
+                                        {safeFormatDate(selectedOrder?.createdAt, 'MMM d, h:mm a')}
                                     </Text>
                                 </View>
                             </View>
@@ -2341,7 +1959,7 @@ export default function WalletScreen() {
                                             : 'Buy USDC'}
                                     </Text>
                                     <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedOnrampOrder?.createdAt ? format(new Date(selectedOnrampOrder.createdAt), 'MMM d, h:mm a') : ''}
+                                        {safeFormatDate(selectedOnrampOrder?.createdAt, 'MMM d, h:mm a')}
                                     </Text>
                                 </View>
                             </View>
@@ -2377,7 +1995,7 @@ export default function WalletScreen() {
                                         { label: 'Refund bank', value: selectedOnrampOrder.refundInstitution || 'Not set', sub: selectedOnrampOrder.refundAccountNumber || undefined },
                                         { label: 'Chain', value: ACTIVITY_CHAINS[selectedOnrampOrder.chain]?.name || 'Base', chainIcon: ACTIVITY_CHAINS[selectedOnrampOrder.chain]?.icon },
                                         { label: 'Rate', value: `1 ${selectedOnrampOrder.token} = ${selectedOnrampOrder.fiatCurrency} ${Number(selectedOnrampOrder.exchangeRate || 0).toLocaleString()}` },
-                                        ...(selectedOnrampOrder.validUntil ? [{ label: 'Deposit window', value: format(new Date(selectedOnrampOrder.validUntil), 'MMM d, h:mm a') }] : []),
+                                        ...(selectedOnrampOrder.validUntil ? [{ label: 'Deposit window', value: safeFormatDate(selectedOnrampOrder.validUntil, 'MMM d, h:mm a') }] : []),
                                     ].map((row, i, arr) => (
                                         <View key={row.label}>
                                             <View style={styles.detailRow}>
@@ -2422,17 +2040,17 @@ const styles = StyleSheet.create({
     content:        { flex: 1, paddingHorizontal: 20 },
 
     balanceSection: { marginTop: 24, marginBottom: 28, alignItems: 'flex-start' },
-    totalBalance:   { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 44, letterSpacing: -1.5 },
+    totalBalance:   { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 34, letterSpacing: -1.0 },
     addressCopyText:{ fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13 },
 
-    actionButtons:     { flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 32 },
-    actionButton:      { alignItems: 'center', gap: 8, minWidth: 72 },
+    actionButtons:     { flexDirection: 'row', gap: 12, marginBottom: 32 },
+    actionButton:      { flex: 1, alignItems: 'center', gap: 8, borderRadius: 16, paddingVertical: 14 },
     actionIconBox:     { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
     actionButtonLabel: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
 
     usdAccountSection:  { marginBottom: 20 },
-    tokenHeader:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12 },
-    sectionTitle:       { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 22 },
+    tokenHeader:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 },
+    sectionTitle:       { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13, letterSpacing: 0.2, textTransform: 'uppercase' },
     usdMutedText:       { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, lineHeight: 18 },
     usdActionRow:       { marginTop: 12 },
     usdActionButton:    { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' },
@@ -2467,11 +2085,11 @@ const styles = StyleSheet.create({
     networkFilterIcon:   { width: 16, height: 16, borderRadius: 8 },
     networkFilterText:   { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
 
-    tokenItem:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4 },
+    tokenItem:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, borderRadius: 20, marginBottom: 4 },
     tokenLeft:          { flexDirection: 'row', alignItems: 'center', gap: 14 },
     tokenIconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', position: 'relative' },
     tokenIconImage:     { width: 32, height: 32, borderRadius: 16 },
-    chainBadgeOverlay:  { position: 'absolute', bottom: -2, right: -2, backgroundColor: '#FFFFFF', borderRadius: 8, padding: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+    chainBadgeOverlay:  { position: 'absolute', bottom: -2, right: -2, backgroundColor: Colors.surface, borderRadius: 8, padding: 2, shadowColor: '#1E1C14', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
     chainBadgeIcon:     { width: 12, height: 12, borderRadius: 6 },
     tokenName:          { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 17 },
     tokenSymbol:        { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14, marginTop: 2 },
@@ -2487,17 +2105,18 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 13,
         letterSpacing: 0.2,
+        textTransform: 'uppercase',
         marginTop: 8,
-        marginBottom: 2,
+        marginBottom: 10,
     },
     activityItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 11,
-        borderBottomWidth: 1,
+        paddingVertical: 15,
+        borderBottomWidth: StyleSheet.hairlineWidth,
     },
-    activityIconContainer: { position: 'relative', marginRight: 16 },
-    activityTokenIcon:     { width: 44, height: 44, borderRadius: 22 },
+    activityIconContainer: { position: 'relative', marginRight: 14 },
+    activityTokenIcon:     { width: 38, height: 38, borderRadius: 19 },
     activityBankIcon:      { alignItems: 'center', justifyContent: 'center' },
     activityChainBadge: {
         position: 'absolute', bottom: -2, right: -2,

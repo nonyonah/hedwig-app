@@ -552,15 +552,15 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         width: SIDEBAR_WIDTH,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
         paddingHorizontal: 20,
-        shadowColor: "#000",
+        shadowColor: "#1E1C14",
         shadowOffset: {
             width: 0,
             height: 2,
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
         elevation: 5,
     },
     searchHeader: {
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.surfaceHighlight,
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 12,

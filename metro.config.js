@@ -2,6 +2,7 @@ const {
     getSentryExpoConfig
 } = require("@sentry/react-native/metro");
 const path = require('path');
+const { withUniwindConfig } = require('uniwind/metro');
 // Temporarily disabled due to build error - TypeError: Cannot read properties of undefined (reading 'match')
 // const { withSentryConfig } = require('@sentry/react-native/metro');
 
@@ -58,4 +59,8 @@ config.transformer = {
 };
 
 // Export without Sentry wrapper for now (Sentry still works, just no automatic source map upload)
-module.exports = config;
+// Uniwind must be the OUTERMOST wrapper — it processes global.css and scans classNames.
+module.exports = withUniwindConfig(config, {
+    cssEntryFile: './global.css',
+    dtsFile: './types/uniwind.d.ts',
+});

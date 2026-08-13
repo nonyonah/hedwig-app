@@ -1,0 +1,145 @@
+@import 'tailwindcss';
+@import 'uniwind';
+@import 'heroui-native/styles';
+
+/*
+ * The repo root holds several non-app trees (backends, native build dirs,
+ * secrets, images). Tailwind v4 auto-scans from global.css outward, which
+ * would compile for minutes over hedwig-backend etc. — exclude them so the
+ * scan stays scoped to mobile app code (app/, components/, hooks/, ...).
+ */
+@source not "./hedwig-backend/**";
+@source not "./stellar-disbursement-platform-backend/**";
+@source not "./credentials/**";
+@source not "./dist/**";
+@source not "./android/**";
+@source not "./ios/**";
+@source not "./assets/**";
+@source not "./images/**";
+@source not "./logo/**";
+@source not "./scripts/**";
+@source not "./supabase/**";
+@source not "./workspace/**";
+@source not "./skills/**";
+
+/*
+ * HeroUI Native theme overrides mapped to the app's warm cream palette
+ * (see theme/colors.ts). Only HeroUI components consume these tokens; the
+ * rest of the app uses the custom ThemeColors system. Dark values mirror
+ * the app's near-black dark palette.
+ */
+@layer theme {
+  :root {
+    @variant light {
+      /* Base Colors */
+      --background: oklch(93.4% 0.02 95);
+      --foreground: oklch(21% 0.02 80);
+
+      /* Surface - cards, accordions, disclosure groups */
+      --surface: oklch(100% 0 0);
+      --surface-foreground: var(--foreground);
+      --surface-secondary: oklch(97.8% 0.005 85);
+      --surface-secondary-foreground: var(--foreground);
+      --surface-tertiary: oklch(93.4% 0.02 95);
+      --surface-tertiary-foreground: var(--foreground);
+
+      /* Overlay: floating/overlay components (dialogs, popovers, menus) */
+      --overlay: oklch(100% 0 0);
+      --overlay-foreground: var(--foreground);
+      --backdrop: oklch(12% 0.02 80 / 35%);
+
+      --muted: oklch(62% 0.02 90);
+
+      --default: oklch(93.4% 0.02 95);
+      --default-foreground: var(--foreground);
+
+      --accent: oklch(55.6% 0.187 262.13);
+      --accent-foreground: oklch(100% 0 0);
+
+      /* Form Fields */
+      --field-background: oklch(97.8% 0.005 85);
+      --field-foreground: var(--foreground);
+      --field-placeholder: oklch(76% 0.02 90);
+      --field-border: oklch(28% 0.02 80 / 8%);
+
+      /* Status Colors */
+      --success: oklch(69.9% 0.15 162);
+      --success-foreground: oklch(100% 0 0);
+      --warning: oklch(79.5% 0.16 80);
+      --warning-foreground: oklch(21% 0.02 80);
+      --danger: oklch(63.7% 0.23 25);
+      --danger-foreground: oklch(100% 0 0);
+
+      /* Component Colors */
+      --segment: oklch(100% 0 0);
+      --segment-foreground: var(--foreground);
+
+      /* Misc Colors */
+      --border: oklch(28% 0.02 80 / 8%);
+      --separator: oklch(28% 0.02 80 / 12%);
+      --focus: var(--accent);
+      --link: var(--accent);
+
+      /* Shadows — warm, soft (matches theme/elevation.ts resting tier) */
+      --surface-shadow: 0 2px 12px rgba(30, 28, 20, 0.06);
+      --overlay-shadow: 0 -4px 24px rgba(30, 28, 20, 0.1);
+      --field-shadow: 0 2px 12px rgba(30, 28, 20, 0.06);
+    }
+
+    @variant dark {
+      /* Base Colors */
+      --background: oklch(14% 0.005 90);
+      --foreground: oklch(97% 0.005 85);
+
+      /* Surface */
+      --surface: oklch(19% 0.004 90);
+      --surface-foreground: var(--foreground);
+      --surface-secondary: oklch(23% 0.004 90);
+      --surface-secondary-foreground: var(--foreground);
+      --surface-tertiary: oklch(25% 0.004 90);
+      --surface-tertiary-foreground: var(--foreground);
+
+      /* Overlay */
+      --overlay: oklch(21% 0.004 90);
+      --overlay-foreground: var(--foreground);
+      --backdrop: oklch(0% 0 0 / 55%);
+
+      --muted: oklch(70% 0.005 85);
+
+      --default: oklch(23% 0.004 90);
+      --default-foreground: var(--foreground);
+
+      --accent: oklch(62% 0.145 257);
+      --accent-foreground: oklch(100% 0 0);
+
+      /* Form Fields */
+      --field-background: oklch(21% 0.004 90);
+      --field-foreground: var(--foreground);
+      --field-placeholder: oklch(40% 0.005 85);
+      --field-border: oklch(100% 0 0 / 8%);
+
+      /* Status Colors */
+      --success: oklch(75% 0.19 162);
+      --success-foreground: oklch(100% 0 0);
+      --warning: oklch(82% 0.14 80);
+      --warning-foreground: oklch(21% 0.02 80);
+      --danger: oklch(63.7% 0.23 25);
+      --danger-foreground: oklch(100% 0 0);
+
+      /* Component Colors */
+      --segment: oklch(23% 0.004 90);
+      --segment-foreground: var(--foreground);
+
+      /* Misc Colors */
+      --border: oklch(100% 0 0 / 8%);
+      --separator: oklch(100% 0 0 / 12%);
+      --focus: var(--accent);
+      --link: var(--accent);
+
+      /* Shadows — subtle on dark */
+      --surface-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
+      --overlay-shadow: 0 -4px 24px rgba(0, 0, 0, 0.32);
+      --field-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
+    }
+  }
+}

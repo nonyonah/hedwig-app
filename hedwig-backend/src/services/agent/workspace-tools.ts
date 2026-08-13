@@ -49,10 +49,36 @@ export interface WeeklySummarySnapshot {
   paidInvoiceCount: number;
   overdueCount: number;
   overdueAmountUsd: number;
+  upcomingDeadlines: number;
   expensesTotalUsd: number;
   expenseCategories: Array<{ category: string; amountUsd: number }>;
   topClients: Array<{ name: string; amountUsd: number }>;
   projectHighlights: string[];
+  contextSummary: string;
+}
+
+export interface MonthlyStateSnapshot {
+  monthLabel: string;
+  startDate: string;
+  endDate: string;
+  revenueUsd: number;
+  previousMonthRevenueUsd: number;
+  revenueChangePct: number;
+  newInvoiceCount: number;
+  paidInvoiceCount: number;
+  overdueCount: number;
+  overdueAmountUsd: number;
+  expectedIncomingUsd: number;
+  expensesTotalUsd: number;
+  expenseCategories: Array<{ category: string; amountUsd: number }>;
+  netUsd: number;
+  topClients: Array<{ name: string; amountUsd: number }>;
+  topClientConcentrationPct: number | null;
+  subscriptions: Array<{ label: string; amountUsd: number; monthlyCount: number }>;
+  subscriptionsMonthlyTotal: number;
+  estimatedTaxSetAsideUsd: number;
+  daysToTaxDeadline: number | null;
+  runwayMonths: number | null;
   contextSummary: string;
 }
 
@@ -104,6 +130,20 @@ export const weeklySummaryResponseSchema: Record<string, unknown> = {
     insight: { type: 'string' },
   },
   required: ['insight'],
+  additionalProperties: false,
+};
+
+export const monthlyStateResponseSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    highlights: {
+      type: 'array',
+      items: { type: 'string' },
+      maxItems: 4,
+    },
+  },
+  required: ['summary', 'highlights'],
   additionalProperties: false,
 };
 
@@ -382,6 +422,16 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
   const projects = projectsRes.data ?? [];
   const expenseRows = expensesRes.data ?? [];
 
+  const dueSoonDocs = (invoiceQueueRes.data ?? []).filter((doc) => {
+    const content = (doc as any).content ?? {};
+    const dueDate = typeof content.due_date === 'string' ? content.due_date
+      : typeof content.dueDate === 'string' ? content.dueDate : null;
+    if (!dueDate) return false;
+    const daysLeft = Math.floor((new Date(dueDate).getTime() - now.getTime()) / 86_400_000);
+    return daysLeft >= 0 && daysLeft <= 7;
+  });
+  const upcomingDeadlines = dueSoonDocs.length;
+
   const revenueUsd = paidDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
   const previousWeekRevenueUsd = prevPaidDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
   const overdueAmountUsd = overdueDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
@@ -445,6 +495,7 @@ export async function buildWeeklySummarySnapshot(userId: string): Promise<Weekly
     paidInvoiceCount: paidDocs.length,
     overdueCount: overdueDocs.length,
     overdueAmountUsd,
+    upcomingDeadlines,
     expensesTotalUsd,
     expenseCategories,
     topClients,
@@ -476,6 +527,197 @@ export function createWeeklySummaryTool(): AgentToolDefinition {
       required: [],
     },
     execute: async (_args, context) => buildWeeklySummarySnapshot(context.userId),
+  };
+}
+
+export async function buildMonthlyStateSnapshot(userId: string): Promise<MonthlyStateSnapshot> {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
+  const prevMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0));
+
+  const [paidRes, prevPaidRes, newRes, openRes, expensesRes, prevExpensesRes, runwayPaidRes, runwayExpensesRes] = await Promise.all([
+    supabase.from('documents').select('id, amount, currency, content').eq('user_id', userId)
+      .eq('type', 'INVOICE').eq('status', 'PAID')
+      .gte('updated_at', monthStart.toISOString()).lt('updated_at', nowIso),
+    supabase.from('documents').select('amount, currency').eq('user_id', userId)
+      .eq('type', 'INVOICE').eq('status', 'PAID')
+      .gte('updated_at', prevMonthStart.toISOString()).lt('updated_at', monthStart.toISOString()),
+    supabase.from('documents').select('id').eq('user_id', userId)
+      .eq('type', 'INVOICE').gte('created_at', monthStart.toISOString()).lt('updated_at', nowIso),
+    supabase.from('documents').select('id, amount, currency, content, status').eq('user_id', userId)
+      .eq('type', 'INVOICE').in('status', ['SENT', 'VIEWED']),
+    supabase.from('expenses').select('amount, converted_amount_usd, category, note, date, currency').eq('user_id', userId)
+      .gte('date', monthStart.toISOString()).lt('date', nowIso),
+    supabase.from('expenses').select('converted_amount_usd').eq('user_id', userId)
+      .gte('date', prevMonthStart.toISOString()).lt('date', monthStart.toISOString()),
+    supabase.from('documents').select('amount, currency').eq('user_id', userId)
+      .eq('type', 'INVOICE').eq('status', 'PAID')
+      .gte('updated_at', new Date(now.getTime() - 90 * 86_400_000).toISOString()),
+    supabase.from('expenses').select('amount, converted_amount_usd').eq('user_id', userId)
+      .gte('date', new Date(now.getTime() - 90 * 86_400_000).toISOString()),
+  ]);
+
+  const paidDocs = paidRes.data ?? [];
+  const prevPaidDocs = prevPaidRes.data ?? [];
+  const newDocs = newRes.data ?? [];
+  const openDocs = openRes.data ?? [];
+  const expenseRows = expensesRes.data ?? [];
+  const prevExpenseRows = prevExpensesRes.data ?? [];
+  const runwayPaidDocs = runwayPaidRes.data ?? [];
+  const runwayExpenseRows = runwayExpensesRes.data ?? [];
+
+  const docToUsd = (doc: any): number => {
+    const amount = toNumber(doc.amount);
+    const currency = String(doc.currency || 'USD').toUpperCase();
+    if (currency === 'USD' || !amount) return amount;
+    return amount; // Non-USD invoices carry converted amounts upstream; treat as USD for the digest.
+  };
+  const revenueUsd = paidDocs.reduce((sum, doc) => sum + docToUsd(doc), 0);
+  const previousMonthRevenueUsd = prevPaidDocs.reduce((sum, doc) => sum + docToUsd(doc), 0);
+  const revenueChangePct = previousMonthRevenueUsd > 0
+    ? Math.round(((revenueUsd - previousMonthRevenueUsd) / previousMonthRevenueUsd) * 100)
+    : 0;
+
+  const overdueDocs = openDocs.filter((doc) => isOverdueInvoice(doc as any, nowIso));
+  const overdueAmountUsd = overdueDocs.reduce((sum, doc) => sum + docToUsd(doc), 0);
+
+  const expectedIncomingUsd = openDocs.reduce((sum, doc) => sum + docToUsd(doc), 0);
+
+  const expensesTotalUsd = expenseRows.reduce((sum, row) => sum + toNumber(row.converted_amount_usd || row.amount), 0);
+  const prevExpensesUsd = prevExpenseRows.reduce((sum, row) => sum + toNumber(row.converted_amount_usd), 0);
+  const expenseCategoryTotals: Record<string, number> = {};
+  for (const row of expenseRows) {
+    const cat = String(row.category || 'other');
+    expenseCategoryTotals[cat] = (expenseCategoryTotals[cat] ?? 0) + toNumber(row.converted_amount_usd || row.amount);
+  }
+  const expenseCategories = Object.entries(expenseCategoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([category, amountUsd]) => ({ category, amountUsd: Math.round(amountUsd * 100) / 100 }));
+
+  const clientTotals: Record<string, number> = {};
+  for (const doc of paidDocs) {
+    const content = doc.content ?? {};
+    const clientName = typeof content.client_name === 'string'
+      ? content.client_name
+      : typeof content.clientName === 'string'
+        ? content.clientName
+        : 'Unknown client';
+    clientTotals[clientName] = (clientTotals[clientName] ?? 0) + docToUsd(doc);
+  }
+  const topClientTotals = Object.entries(clientTotals).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const topClients = topClientTotals.map(([name, amountUsd]) => ({ name, amountUsd }));
+  const topClientConcentrationPct = revenueUsd > 0 && topClients.length > 0
+    ? Math.round((topClients[0].amountUsd / revenueUsd) * 100)
+    : null;
+
+  const subscriptionCandidates = new Map<string, { label: string; amountUsd: number; months: Set<string> }>();
+  const byNote = new Map<string, Map<number, string>>();
+  for (const row of expenseRows) {
+    const note = String(row.note || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!note) continue;
+    const usd = toNumber(row.converted_amount_usd || row.amount);
+    if (usd <= 0) continue;
+    const date = row.date ? new Date(row.date) : null;
+    if (!date || Number.isNaN(date.getTime())) continue;
+    const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+    const rounded = Math.round(usd * 100) / 100;
+
+    let noteMap = byNote.get(note);
+    if (!noteMap) {
+      noteMap = new Map();
+      byNote.set(note, noteMap);
+    }
+    const subKey = noteMap.get(rounded);
+    if (subKey !== undefined) {
+      subscriptionCandidates.get(subKey)?.months.add(monthKey);
+    } else {
+      const key = `${note}::${rounded}`;
+      const entry = { label: note, amountUsd: rounded, months: new Set([monthKey]) };
+      noteMap.set(rounded, key);
+      subscriptionCandidates.set(key, entry);
+    }
+  }
+
+  const subscriptions = [...subscriptionCandidates.values()]
+    .filter((sub) => sub.months.size >= 2)
+    .sort((a, b) => b.amountUsd - a.amountUsd)
+    .slice(0, 5)
+    .map((sub) => ({ label: sub.label, amountUsd: sub.amountUsd, monthlyCount: sub.months.size }));
+  const subscriptionsMonthlyTotal = subscriptions.reduce((sum, sub) => sum + sub.amountUsd, 0);
+
+  const today = new Date();
+  const net90d = runwayPaidDocs.reduce((sum, doc) => sum + docToUsd(doc), 0)
+    - runwayExpenseRows.reduce((sum, row) => sum + toNumber(row.converted_amount_usd || row.amount), 0);
+  const estimatedTaxSetAsideUsd = Math.max(0, Math.round(net90d * 0.25 * 100) / 100);
+
+  const year = today.getFullYear();
+  const quarterEnds = [
+    new Date(year, 2, 31),
+    new Date(year, 5, 30),
+    new Date(year, 8, 30),
+    new Date(year, 11, 31),
+  ].filter((d) => d.getTime() >= today.getTime());
+  const nextDeadline = quarterEnds[0] ?? new Date(year + 1, 2, 31);
+  const daysToTaxDeadline = Math.ceil((nextDeadline.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+
+  const revenue90d = runwayPaidDocs.reduce((sum, doc) => sum + docToUsd(doc), 0);
+  const expenses90dTotal = runwayExpenseRows.reduce((sum, row) => sum + toNumber(row.converted_amount_usd || row.amount), 0);
+  const burnRate = expenses90dTotal / 3;
+  const runwayMonths = burnRate > 0 ? revenue90d / burnRate : null;
+
+  const netUsd = Math.round((revenueUsd - expensesTotalUsd) * 100) / 100;
+
+  const contextSummary = [
+    `Revenue this month: ${formatUsd(revenueUsd)}${previousMonthRevenueUsd > 0 ? ` (${revenueChangePct >= 0 ? '+' : ''}${revenueChangePct}% vs last month)` : ''}`,
+    `Expenses: ${formatUsd(expensesTotalUsd)}${prevExpensesUsd > 0 ? ` (${Math.round(((expensesTotalUsd - prevExpensesUsd) / prevExpensesUsd) * 100) >= 0 ? '+' : ''}${Math.round(((expensesTotalUsd - prevExpensesUsd) / prevExpensesUsd) * 100)}% vs last month)` : ''}`,
+    `Net: ${formatUsd(netUsd)}`,
+    `${newDocs.length} new invoice${newDocs.length !== 1 ? 's' : ''} created, ${paidDocs.length} paid`,
+    overdueDocs.length > 0 ? `${overdueDocs.length} overdue totaling ${formatUsd(overdueAmountUsd)}` : 'No overdue invoices',
+    expectedIncomingUsd > 0 ? `Expected incoming: ${formatUsd(expectedIncomingUsd)}` : null,
+    topClients[0] ? `Top client: ${topClients[0].name} (${formatUsd(topClients[0].amountUsd)}${topClientConcentrationPct !== null ? `, ${topClientConcentrationPct}% of revenue` : ''})` : null,
+    subscriptions.length > 0 ? `${subscriptions.length} recurring subscriptions totaling ${formatUsd(subscriptionsMonthlyTotal)}/mo` : 'No recurring subscriptions detected',
+    runwayMonths !== null ? `Runway: ${runwayMonths.toFixed(1)} months at current burn` : null,
+    estimatedTaxSetAsideUsd > 0 ? `Tax set-aside: ${formatUsd(estimatedTaxSetAsideUsd)} (deadline in ${daysToTaxDeadline} days)` : null,
+  ].filter(Boolean).join('. ');
+
+  return {
+    monthLabel: new Date(monthStart).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    startDate: monthStart.toISOString(),
+    endDate: nowIso,
+    revenueUsd: Math.round(revenueUsd * 100) / 100,
+    previousMonthRevenueUsd: Math.round(previousMonthRevenueUsd * 100) / 100,
+    revenueChangePct,
+    newInvoiceCount: newDocs.length,
+    paidInvoiceCount: paidDocs.length,
+    overdueCount: overdueDocs.length,
+    overdueAmountUsd: Math.round(overdueAmountUsd * 100) / 100,
+    expectedIncomingUsd: Math.round(expectedIncomingUsd * 100) / 100,
+    expensesTotalUsd: Math.round(expensesTotalUsd * 100) / 100,
+    expenseCategories,
+    netUsd,
+    topClients: topClients.map((client) => ({ name: client.name, amountUsd: Math.round(client.amountUsd * 100) / 100 })),
+    topClientConcentrationPct,
+    subscriptions,
+    subscriptionsMonthlyTotal: Math.round(subscriptionsMonthlyTotal * 100) / 100,
+    estimatedTaxSetAsideUsd,
+    daysToTaxDeadline: Math.max(0, daysToTaxDeadline),
+    runwayMonths: runwayMonths !== null ? Number(runwayMonths.toFixed(1)) : null,
+    contextSummary,
+  };
+}
+
+export function createMonthlyStateTool(): AgentToolDefinition {
+  return {
+    name: 'get_monthly_state_snapshot',
+    description: 'Fetches the monthly state-of-business snapshot: revenue vs last month, expenses, net, overdue, expected incoming, top clients, subscriptions, tax set-aside, and runway for the monthly state-of-business digest.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+    execute: async (_args, context) => buildMonthlyStateSnapshot(context.userId),
   };
 }
 

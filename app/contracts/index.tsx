@@ -15,6 +15,7 @@ import { Typography } from '../../styles/typography';
 import { ProfileModal } from '../../components/ProfileModal';
 import { ContractIcon } from '../../components/ui/ContractIcon';
 import { getUserGradient } from '../../utils/gradientUtils';
+import { parseAvatar } from '../../utils/avatar';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
@@ -154,20 +155,8 @@ export default function ContractsScreen() {
                 });
 
                 // Set profile icon - handle data URIs and regular URLs
-                if (userData.avatar) {
-                    if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
-                        setProfileIcon({ imageUri: userData.avatar });
-                    } else {
-                        try {
-                            const parsed = JSON.parse(userData.avatar);
-                            if (parsed.imageUri) {
-                                setProfileIcon({ imageUri: parsed.imageUri });
-                            }
-                        } catch (e) {
-                            setProfileIcon({ imageUri: userData.avatar });
-                        }
-                    }
-                }
+                const icon = parseAvatar(userData.avatar);
+                if (icon.imageUri || icon.emoji) setProfileIcon(icon);
                 setWalletAddresses({
                     evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                     solana: userData.solanaWalletAddress

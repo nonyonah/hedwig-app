@@ -154,6 +154,21 @@ export async function emitFinancialEvent(input: EmitFinancialEventInput): Promis
       return { emitted: false, id: null };
     }
 
+    // document.paid → terminate any active dunning sequence immediately
+    // (cancel on paid per the dunning state machine). Lazy import avoids a
+    // circular dependency; failure must never affect the primary write path.
+    if (input.eventType === FINANCIAL_EVENT_TYPES.DOCUMENT_PAID && input.entityId) {
+      try {
+        const { DunningEngine } = await import('./dunning');
+        await DunningEngine.markCompleted(input.entityId, 'paid');
+      } catch (hookError) {
+        logger.warn('Dunning cancel-on-paid hook failed', {
+          documentId: input.entityId,
+          message: hookError instanceof Error ? hookError.message : String(hookError),
+        });
+      }
+    }
+
     return { emitted: Boolean(data?.id), id: data?.id ?? null };
   } catch (error) {
     logger.error('emitFinancialEvent threw', { eventType: input.eventType, entityId: input.entityId, message: error instanceof Error ? error.message : String(error) });

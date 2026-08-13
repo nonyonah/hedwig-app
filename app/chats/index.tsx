@@ -11,6 +11,7 @@ import { ProfileModal } from '../../components/ProfileModal';
 import * as Haptics from 'expo-haptics';
 import Fuse from 'fuse.js';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { parseAvatar } from '../../utils/avatar';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import * as HugeiconsCore from '@hugeicons/core-free-icons';
@@ -94,16 +95,9 @@ export default function ChatsScreen() {
                 });
 
                 // Set profile icon
-                if (userData.avatar) {
-                    try {
-                        if (typeof userData.avatar === 'string' && userData.avatar.trim().startsWith('{')) {
-                            setProfileIcon(JSON.parse(userData.avatar));
-                        } else {
-                            setProfileIcon({ imageUri: userData.avatar });
-                        }
-                    } catch (e) {
-                        setProfileIcon({ imageUri: userData.avatar });
-                    }
+                const icon = parseAvatar(userData.avatar);
+                if (icon.imageUri || icon.emoji) {
+                    setProfileIcon(icon);
                 } else if (userData.profileEmoji) {
                     setProfileIcon({ emoji: userData.profileEmoji });
                 } else if (userData.profileColorIndex !== undefined) {

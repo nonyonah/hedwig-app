@@ -545,7 +545,7 @@ export default function TransactionsScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
     },
     header: {
         backgroundColor: Colors.background,
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#FFFFFF', // To be overridden
+        backgroundColor: Colors.surface, // To be overridden
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         paddingHorizontal: 24,
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
     },
     detailDivider: {
         height: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.surfaceHighlight,
     },
     detailLabel: {
         fontFamily: 'GoogleSansFlex_500Medium',

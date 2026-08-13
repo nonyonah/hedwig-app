@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
+import { parseISO } from 'date-fns';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
@@ -14,6 +15,7 @@ import { processStatementJob } from '../services/statement-job-processor';
 import { detectBankName } from '../services/statement-job-processor';
 import { initiateConnection, isComposioConfigured, refreshConnectionStatus } from '../services/composio';
 import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
+import { emitTimelineEvent, TIMELINE_EVENT_KINDS, TIMELINE_EVENT_VERBS } from '../services/timeline-events';
 
 
 const logger = createLogger('Revenue');
@@ -578,7 +580,7 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const nowIso = new Date().toISOString();
 
-        const [invoices, expensesRes] = await Promise.all([
+        const [invoices, expensesRes, timelineRes] = await Promise.all([
             supabase
                 .from('documents')
                 .select('id,type,status,amount,title,created_at,updated_at,content')
@@ -595,6 +597,15 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
                     .gte('created_at', thirtyDaysAgo)
                     .order('created_at', { ascending: false })
                     .limit(20)
+            ).catch(() => ({ data: [] as any[], error: null })),
+            Promise.resolve(
+                supabase
+                    .from('timeline_events')
+                    .select('id,kind,entity_type,entity_id,verb,title,context,occurred_at,recorded_at')
+                    .eq('user_id', user.id)
+                    .gte('recorded_at', thirtyDaysAgo)
+                    .order('occurred_at', { ascending: false })
+                    .limit(30)
             ).catch(() => ({ data: [] as any[], error: null })),
         ]);
 
@@ -663,6 +674,42 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
                 nativeAmount: toNumber(exp.amount),
                 currency: exp.currency || 'USD',
                 createdAt: exp.created_at,
+            });
+        }
+
+        // Timeline events (non-money journal) — invoice viewed, contract sent/
+        // signed, statement/receipt imported, reminder sent.
+        const timelineActivityType = (kind: string, verb: string): string | null => {
+            if (verb === 'viewed') return 'invoice_viewed';
+            if (kind === 'contract' && verb === 'sent') return 'contract_sent';
+            if (kind === 'contract' && verb === 'signed') return 'contract_signed';
+            if (kind === 'statement' && verb === 'imported') return 'statement_imported';
+            if (kind === 'receipt' && verb === 'imported') return 'receipt_imported';
+            if (kind === 'reminder' && verb === 'reminded') return 'reminder_sent';
+            return null;
+        };
+
+        for (const ev of (timelineRes.data || []) as any[]) {
+            const type = timelineActivityType(String(ev.kind || ''), String(ev.verb || ''));
+            if (!type) continue;
+            const context = ev.context || {};
+            const title = String(ev.title || `${ev.kind} ${ev.verb}`);
+            const descriptions: Record<string, string> = {
+                invoice_viewed: `${title} was viewed by the client`,
+                contract_sent: `${title} was sent for approval`,
+                contract_signed: `${title} was signed by the client`,
+                statement_imported: `Bank statement imported (${context.confirmed_count ?? 0} transaction${Number(context.confirmed_count ?? 0) === 1 ? '' : 's'} confirmed)`,
+                receipt_imported: `${title} was imported and recorded`,
+                reminder_sent: `Reminder sent for ${context.title || title}`,
+            };
+            const amount = toNumber(context.amount);
+            events.push({
+                id: `tl_${ev.id}`,
+                type,
+                title,
+                description: descriptions[type] || `${title} (${ev.verb})`,
+                ...(amount > 0 ? { amount, nativeAmount: amount, currency: String(context.currency || 'USD') } : {}),
+                createdAt: ev.occurred_at || ev.recorded_at,
             });
         }
 
@@ -1357,6 +1404,27 @@ router.post('/import-document/confirm', authenticate, async (req: Request, res: 
         .single();
 
       if (error) throw new Error(`expense insert failed: ${summarizeError(error)}`);
+
+      // Emit timeline event (non-money journal) — receipt/document imported as expense
+      await emitTimelineEvent({
+        userId: user.id,
+        workspaceId: effectiveWsId,
+        kind: TIMELINE_EVENT_KINDS.RECEIPT,
+        entityType: 'expense',
+        entityId: data.id,
+        verb: TIMELINE_EVENT_VERBS.IMPORTED,
+        title: `${note || suggestedTitle || 'Receipt'} imported`,
+        context: {
+          title: note || suggestedTitle || null,
+          amount: amt,
+          currency: curr,
+          entry_type: 'expense',
+          category: category || 'other',
+          classification: classification || null,
+          date: date ? new Date(date).toISOString() : new Date().toISOString(),
+        },
+      });
+
       res.json({ success: true, data });
       return;
     }
@@ -1388,6 +1456,26 @@ router.post('/import-document/confirm', authenticate, async (req: Request, res: 
       .single();
 
     if (error) throw new Error(`credit insert failed: ${summarizeError(error)}`);
+
+    // Emit timeline event (non-money journal) — receipt/document imported as credit
+    await emitTimelineEvent({
+      userId: user.id,
+      workspaceId: effectiveWsId,
+      kind: TIMELINE_EVENT_KINDS.RECEIPT,
+      entityType: 'document',
+      entityId: data.id,
+      verb: TIMELINE_EVENT_VERBS.IMPORTED,
+      title: `${creditTitle} imported`,
+      context: {
+        title: creditTitle,
+        amount: amt,
+        currency: curr,
+        entry_type: 'credit',
+        classification: classification || null,
+        date: date ? new Date(date).toISOString() : new Date().toISOString(),
+      },
+    });
+
     res.json({ success: true, data });
   } catch (error) {
     logger.error('Document import confirm failed', { error: error instanceof Error ? error.message : 'Unknown' });
@@ -2081,6 +2169,26 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
       logger.error('Failed to update statement status', { error: updateStmtErr, statementId });
     }
 
+    // Emit timeline event (non-money journal) — bank statement confirmed & imported
+    await emitTimelineEvent({
+      userId: user.id,
+      workspaceId: effectiveWsId,
+      kind: TIMELINE_EVENT_KINDS.STATEMENT,
+      entityType: 'statement_import',
+      entityId: statementId,
+      verb: TIMELINE_EVENT_VERBS.IMPORTED,
+      title: `Bank statement imported`,
+      context: {
+        statement_id: statementId,
+        currency: stmtData?.currency || null,
+        confirmed_count: confirmedCount,
+        skipped_count: skippedCount,
+        total_expenses: totalExpenses,
+        total_credits: totalCredits,
+        status: finalStatus,
+      },
+    });
+
     res.json({
       success: true,
       data: {
@@ -2500,6 +2608,380 @@ function feedEventAccount(eventType: string, payload: Record<string, unknown>): 
       return 'Other';
   }
 }
+
+// GET /api/revenue/timeline?limit=50&cursor=&since=
+// Unified Financial Timeline: timeline_events (non-money facts: invoice sent/
+// viewed, contract signed, reminder sent, imports) ∪ financial_events (money
+// journal), newest first. Same keyset cursor + `since` contract as
+// /ledger/events/feed — both journals share (occurred_at, id) and the same
+// predicate is applied to each table independently, so the merged page is a
+// correct keyed slice. Row IDs never collide across journals (fe_*/te_*).
+router.get('/timeline', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+    if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+    const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
+    const sinceRaw = String(req.query.since || '');
+    const cursorRaw = String(req.query.cursor || '');
+
+    const isPersonalScope = !effectiveWsId || String(effectiveWsId).startsWith('ws_personal_');
+
+    if (sinceRaw) {
+      const sinceDate = new Date(sinceRaw);
+      if (Number.isNaN(sinceDate.getTime())) {
+        res.status(400).json({ success: false, error: { message: 'Invalid `since` timestamp.' } });
+        return;
+      }
+    }
+
+    let cursorTime = '';
+    let cursorId = '';
+    if (cursorRaw) {
+      const decoded = Buffer.from(cursorRaw, 'base64url').toString('utf-8');
+      const sepIndex = decoded.lastIndexOf('|');
+      cursorTime = decoded.slice(0, sepIndex);
+      cursorId = decoded.slice(sepIndex + 1);
+      if (sepIndex < 0 || !cursorTime || !cursorId) {
+        res.status(400).json({ success: false, error: { message: 'Invalid `cursor`.' } });
+        return;
+      }
+    }
+
+    const applyWindow = (q: any) => {
+      if (isPersonalScope) {
+        q = q.eq('user_id', user.id).or(`workspace_id.is.null,workspace_id.eq."${effectiveWsId}"`);
+      } else {
+        q = q.eq('workspace_id', effectiveWsId);
+      }
+      if (sinceRaw) q = q.gt('recorded_at', new Date(sinceRaw).toISOString());
+      if (cursorTime && cursorId) {
+        q = q.or(`occurred_at.lt.${cursorTime},and(occurred_at.eq.${cursorTime},id.lt.${cursorId})`);
+      }
+      return q.order('occurred_at', { ascending: false }).order('id', { ascending: false }).limit(limit + 1);
+    };
+
+    const [financialRes, timelineRes] = await Promise.all([
+      applyWindow(
+        supabase
+          .from('financial_events')
+          .select('id,event_type,entity_type,entity_id,occurred_at,recorded_at,payload,amount,currency,amount_usd,fx_rate_usd,fx_source,direction,source,correlation_id')
+      ),
+      applyWindow(
+        supabase
+          .from('timeline_events')
+          .select('id,kind,entity_type,entity_id,verb,title,context,occurred_at,recorded_at')
+      ),
+    ]);
+
+    if (financialRes.error || timelineRes.error) {
+      logger.error('Failed to load unified timeline', {
+        financial: financialRes.error?.message,
+        timeline: timelineRes.error?.message,
+      });
+      res.status(500).json({ success: false, error: { message: 'Could not load the activity feed.' } });
+      return;
+    }
+
+    type MergedRow = {
+      id: string;
+      source: 'financial' | 'timeline';
+      eventType: string;
+      verb: string;
+      entityType: string;
+      entityId: string;
+      title: string;
+      account: string;
+      occurredAt: string;
+      recordedAt: string;
+      direction: 'in' | 'out' | 'none';
+      amount: number | null;
+      currency: string | null;
+      amountUsd: number | null;
+      fxRateUsd: number | null;
+      fxSource: string | null;
+      sourceRail: string | null;
+      payload: Record<string, unknown>;
+      context: Record<string, unknown>;
+    };
+
+    const merged: MergedRow[] = [];
+
+    for (const ev of (financialRes.data || []) as any[]) {
+      const payload = ev.payload || {};
+      merged.push({
+        id: ev.id,
+        source: 'financial',
+        eventType: ev.event_type,
+        verb: String(ev.event_type).split('.').pop() || 'created',
+        entityType: ev.entity_type,
+        entityId: ev.entity_id,
+        title: feedEventTitle(ev.event_type, payload),
+        account: feedEventAccount(ev.event_type, payload),
+        occurredAt: ev.occurred_at,
+        recordedAt: ev.recorded_at,
+        direction: ev.direction || 'none',
+        amount: ev.amount === null ? null : Number(ev.amount),
+        currency: ev.currency,
+        amountUsd: ev.amount_usd === null ? null : Number(ev.amount_usd),
+        fxRateUsd: ev.fx_rate_usd === null ? null : Number(ev.fx_rate_usd),
+        fxSource: ev.fx_source,
+        sourceRail: ev.source,
+        payload,
+        context: {},
+      });
+    }
+
+    for (const ev of (timelineRes.data || []) as any[]) {
+      merged.push({
+        id: ev.id,
+        source: 'timeline',
+        eventType: `${ev.kind}.${ev.verb}`,
+        verb: ev.verb,
+        entityType: ev.entity_type,
+        entityId: ev.entity_id,
+        title: String(ev.title || `${ev.kind} ${ev.verb}`),
+        account: 'Activities',
+        occurredAt: ev.occurred_at,
+        recordedAt: ev.recorded_at,
+        direction: 'none',
+        amount: null,
+        currency: null,
+        amountUsd: null,
+        fxRateUsd: null,
+        fxSource: null,
+        sourceRail: null,
+        payload: {},
+        context: ev.context || {},
+      });
+    }
+
+    merged.sort((a, b) => {
+      if (a.occurredAt === b.occurredAt) return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+      return a.occurredAt < b.occurredAt ? 1 : -1;
+    });
+
+    const hasMore = merged.length > limit;
+    const page = merged.slice(0, limit);
+    const last = page[page.length - 1];
+
+    res.json({
+      success: true,
+      data: {
+        events: page,
+        pagination: {
+          limit,
+          hasMore,
+          nextCursor: hasMore && last
+            ? Buffer.from(`${last.occurredAt}|${last.id}`).toString('base64url')
+            : null,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to load unified timeline', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
+});
+
+// GET /api/revenue/upcoming
+// Forward-looking obligations — the dry-month layer:
+//  - upcoming: open DRAFT/SENT/VIEWED invoices + ACTIVE payment links with due_date >= today
+//  - overdue:  same, but due_date < today (DRAFT excluded)
+//  - tax:      set-aside estimate (max(0, net income last 90d * 0.25)) + next quarterly deadline
+//  - subscriptions: recurring expenses (same normalized note + rounded amount in >= 2
+//    distinct months within the last 6 months), capped at 5, with monthlyTotal.
+router.get('/upcoming', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+    if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    const { data: docs, error: docsErr } = await supabase
+      .from('documents')
+      .select('id,type,status,amount,currency,title,content')
+      .eq('user_id', user.id)
+      .in('type', ['INVOICE', 'PAYMENT_LINK']);
+
+    if (docsErr) throw new Error(`upcoming documents query failed: ${summarizeError(docsErr)}`);
+
+    type ObligationItem = { id: string; title: string; amountUsd: number; dueDate: string; daysLeft: number; type: 'invoice' | 'payment_link' };
+
+    const upcoming: ObligationItem[] = [];
+    const overdue: ObligationItem[] = [];
+
+    for (const doc of (docs || []) as any[]) {
+      const s = normalizeStatus(doc.status);
+      const isPaymentLink = normalizeStatus(doc.type) === 'PAYMENT_LINK';
+      const openInvoice = !isPaymentLink && ['DRAFT', 'SENT', 'VIEWED'].includes(s);
+      const openLink = isPaymentLink && s === 'ACTIVE';
+      if (!openInvoice && !openLink) continue;
+
+      const dueRaw = doc.content?.due_date ?? doc.content?.dueDate ?? null;
+      if (!dueRaw) continue;
+      const due = new Date(dueRaw);
+      if (Number.isNaN(due.getTime())) continue;
+
+      const amountUsd = await toUsdAmount(toNumber(doc.amount), doc.currency || 'USD');
+      const item: ObligationItem = {
+        id: doc.id,
+        title: doc.title || (isPaymentLink ? 'Payment link' : 'Invoice'),
+        amountUsd,
+        dueDate: due.toISOString(),
+        daysLeft: Math.ceil((due.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000)),
+        type: isPaymentLink ? 'payment_link' : 'invoice',
+      };
+
+      const stillOpen = due.getTime() >= startOfToday.getTime();
+      if (stillOpen) {
+        upcoming.push(item);
+      } else if (!isPaymentLink && s !== 'DRAFT') {
+        overdue.push(item);
+      }
+    }
+
+    upcoming.sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
+    overdue.sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
+
+    // ── Tax set-aside: max(0, net income last 90d * 0.25) + next quarterly deadline ──
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const scope = getEffectiveWorkspaceId(req, user.id);
+    const isPersonalScope = !scope || String(scope).startsWith('ws_personal_');
+    let net90d = 0;
+    let taxEventsError: string | null = null;
+
+    let taxQuery = supabase
+      .from('financial_events')
+      .select('direction,amount,currency,amount_usd')
+      .gte('occurred_at', ninetyDaysAgo);
+    if (isPersonalScope) {
+      taxQuery = taxQuery.eq('user_id', user.id).or(`workspace_id.is.null,workspace_id.eq."${scope}"`);
+    } else {
+      taxQuery = taxQuery.eq('workspace_id', scope);
+    }
+
+    const { data: taxEvents, error: taxErr } = await taxQuery;
+    if (taxErr) {
+      taxEventsError = summarizeError(taxErr);
+      logger.warn('Upcoming: tax query failed, using $0 set-aside', { error: taxErr.message });
+    } else {
+      for (const ev of (taxEvents || []) as any[]) {
+        const usd = ev.amount_usd !== null && ev.amount_usd !== undefined
+          ? Number(ev.amount_usd)
+          : ev.currency && String(ev.currency).toUpperCase() === 'USD'
+            ? Number(ev.amount ?? 0)
+            : null;
+        if (usd === null || !Number.isFinite(usd)) continue;
+        if (ev.direction === 'in') net90d += usd;
+        else if (ev.direction === 'out') net90d -= usd;
+      }
+    }
+
+    const estimatedSetAside = Math.max(0, Math.round(net90d * 0.25 * 100) / 100);
+
+    // Next quarterly deadline: Mar 31 / Jun 30 / Sep 30 / Dec 31.
+    const year = today.getFullYear();
+    const quarterEnds = [
+      new Date(year, 2, 31),
+      new Date(year, 5, 30),
+      new Date(year, 8, 30),
+      new Date(year, 11, 31),
+    ].filter((d) => d.getTime() >= startOfToday.getTime());
+    const nextDeadline = quarterEnds[0] ?? new Date(year + 1, 2, 31);
+    const daysUntil = Math.ceil((nextDeadline.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
+
+    // ── Subscriptions: recurring expenses in the last 6 months ──
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const { data: expenses, error: expErr } = await supabase
+      .from('expenses')
+      .select('id,note,category,amount,currency,converted_amount_usd,date')
+      .eq('user_id', user.id)
+      .gte('date', sixMonthsAgo.toISOString())
+      .order('date', { ascending: false });
+
+    if (expErr) throw new Error(`upcoming expenses query failed: ${summarizeError(expErr)}`);
+
+    interface SubscriptionCandidate {
+      label: string;
+      amountUsd: number;
+      category: string;
+      months: Set<string>;
+    }
+    const byNote: Map<string, { candidates: Map<string, SubscriptionCandidate>; label: string; category: string; lastAmount: number }> = new Map();
+
+    for (const exp of (expenses || []) as any[]) {
+      const note = String(exp.note || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      if (!note) continue;
+      const amountUsd = exp.converted_amount_usd !== null && exp.converted_amount_usd !== undefined
+        ? Number(exp.converted_amount_usd)
+        : exp.currency && String(exp.currency).toUpperCase() === 'USD'
+          ? Number(exp.amount ?? 0)
+          : null;
+      if (amountUsd === null || !Number.isFinite(amountUsd) || amountUsd <= 0) continue;
+
+      const rounded = Math.round(amountUsd * 100) / 100;
+      const date = exp.date ? new Date(exp.date) : null;
+      if (!date || Number.isNaN(date.getTime())) continue;
+      const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+
+      let group = byNote.get(note);
+      if (!group) {
+        group = { candidates: new Map(), label: note, category: String(exp.category || 'other'), lastAmount: rounded };
+        byNote.set(note, group);
+      }
+      group.lastAmount = rounded;
+      let sub = group.candidates.get(String(rounded));
+      if (!sub) {
+        sub = { label: note, amountUsd: rounded, category: String(exp.category || 'other'), months: new Set() };
+        group.candidates.set(String(rounded), sub);
+      }
+      sub.months.add(monthKey);
+    }
+
+    const subscriptions: { label: string; amountUsd: number; monthlyCount: number; category: string }[] = [];
+    let monthlyTotal = 0;
+    for (const group of byNote.values()) {
+      for (const sub of group.candidates.values()) {
+        if (sub.months.size < 2) continue;
+        subscriptions.push({ label: sub.label, amountUsd: sub.amountUsd, monthlyCount: sub.months.size, category: sub.category });
+      }
+    }
+
+    subscriptions.sort((a, b) => b.amountUsd - a.amountUsd);
+    const subscriptionItems = subscriptions.slice(0, 5);
+    for (const sub of subscriptionItems) monthlyTotal += sub.amountUsd;
+
+    res.json({
+      success: true,
+      data: {
+        upcoming,
+        overdue,
+        tax: {
+          estimatedSetAside,
+          nextDeadline: nextDeadline.toISOString(),
+          daysUntil: Math.max(0, daysUntil),
+          source: taxEventsError ? 'fallback' : 'financial-events',
+        },
+        subscriptions: {
+          items: subscriptionItems,
+          monthlyTotal: Math.round(monthlyTotal * 100) / 100,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to build upcoming obligations', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
+});
 
 // GET /api/revenue/ledger/events/:referenceId — full event history for one entity
 router.get('/ledger/events/:referenceId', authenticate, async (req: Request, res: Response, next) => {
@@ -3021,7 +3503,7 @@ router.get('/ledger/narrative', authenticate, async (req: Request, res: Response
     const start = getRangeStart(range);
     const startIso = start.toISOString();
 
-    const [narrativeInvoices, narrativeExpenses] = await Promise.all([
+    const [narrativeInvoices, narrativeExpenses, narrativeOpen] = await Promise.all([
       fetchPaged<any>('narrative_invoices', (from, to) =>
         supabase.from('documents').select('id,type,status,amount,currency,title,created_at,content')
           .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
@@ -3033,6 +3515,13 @@ router.get('/ledger/narrative', authenticate, async (req: Request, res: Response
         supabase.from('expenses').select('amount,currency,converted_amount_usd,category,date,note')
           .eq('user_id', user.id).gte('date', startIso)
           .order('date', { ascending: false }).range(from, to)
+      ).catch(() => [] as any[]),
+      fetchPaged<any>('narrative_open', (from, to) =>
+        supabase.from('documents').select('id,type,status,amount,currency,title,created_at,content')
+          .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
+          .in('type', ['INVOICE', 'PAYMENT_LINK'])
+          .in('status', ['SENT', 'VIEWED'])
+          .order('created_at', { ascending: false }).range(from, to)
       ).catch(() => [] as any[]),
     ]);
 
@@ -3060,6 +3549,32 @@ router.get('/ledger/narrative', authenticate, async (req: Request, res: Response
       ? `Top expense categories: ${topCatEntries.map(([c, a]) => `${c} ($${a.toFixed(2)})`).join(', ')}.`
       : '';
 
+    // Dunning state (Phase 4): overdue / due-soon facts feed the AI's wording
+    // so the narrative can mention follow-ups without inventing facts.
+    const now = new Date();
+    const overdueOpen: any[] = [];
+    let dueSoonOpen = 0;
+    for (const doc of narrativeOpen) {
+      const dueDate = doc.content?.due_date || doc.content?.dueDate || null;
+      if (typeof dueDate !== 'string' || !dueDate.trim()) continue;
+      const daysLeft = Math.floor((parseISO(dueDate).getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      if (daysLeft < 0) {
+        overdueOpen.push({ doc, daysOverdue: -daysLeft });
+      } else if (daysLeft <= 7) {
+        dueSoonOpen += 1;
+      }
+    }
+    const overdueAmountUsd = (await Promise.all(overdueOpen.map((o) => toUsdAmount(toNumber(o.doc.amount), o.doc.currency || 'USD'))))
+      .reduce((s: number, v: number) => s + v, 0);
+    const maxDaysOverdue = overdueOpen.length > 0
+      ? Math.max(...overdueOpen.map((o) => o.daysOverdue))
+      : 0;
+    const dunningStr = overdueOpen.length > 0
+      ? `${overdueOpen.length} invoice${overdueOpen.length === 1 ? '' : 's'} are overdue ($${overdueAmountUsd.toFixed(2)} total, oldest ${maxDaysOverdue} day${maxDaysOverdue === 1 ? '' : 's'} late).`
+      : dueSoonOpen > 0
+        ? `${dueSoonOpen} invoice${dueSoonOpen === 1 ? '' : 's'} are due within the next 7 days.`
+        : 'No overdue invoices right now.';
+
     const prompt = `You are Hedwig, a financial assistant. Write a concise 2-3 sentence narrative summary of this business's financial performance for the last ${range}.
 
 Data:
@@ -3069,17 +3584,28 @@ Data:
 - ${narrativeExpenses.length} expenses recorded
 - ${narrativeInvoices.length} paid invoices
 ${topCatStr}
+- Dunning state: ${dunningStr}
 
-Write in second person ("you"), be encouraging and specific. Focus on the key numbers and trends.`;
+Write in second person ("you"), be encouraging and specific. Focus on the key numbers and trends. If invoices are overdue, say so plainly and encourage follow-up (e.g. "your best move today is a quick follow-up" or "worth a nudge"). Never invent numbers.`;
+
 
     const apiKey = process.env.AI_GATEWAY_API_KEY;
+    const dunningFacts = {
+      overdueCount: overdueOpen.length,
+      overdueAmountUsd: Number(overdueAmountUsd.toFixed(2)),
+      maxDaysOverdue,
+      dueSoonCount: dueSoonOpen,
+    };
     if (!apiKey) {
       // No AI configured — return a basic summary
+      const dunningLine = overdueOpen.length > 0
+        ? ` ${overdueOpen.length} invoice${overdueOpen.length === 1 ? '' : 's'} ${overdueOpen.length === 1 ? 'is' : 'are'} overdue — today is a good day for a follow-up.`
+        : '';
       res.json({
         success: true,
         data: {
-          narrative: `In the last ${range}, your business earned $${totalRevenue.toFixed(2)} in revenue and spent $${totalExpenses.toFixed(2)} on expenses, resulting in a net income of $${netIncome.toFixed(2)}. ${topCatStr}`,
-          summary: { totalRevenue, totalExpenses, netIncome, revenueCount: narrativeInvoices.length, expenseCount: narrativeExpenses.length },
+          narrative: `In the last ${range}, your business earned $${totalRevenue.toFixed(2)} in revenue and spent $${totalExpenses.toFixed(2)} on expenses, resulting in a net income of $${netIncome.toFixed(2)}. ${topCatStr}${dunningLine}`,
+          summary: { totalRevenue, totalExpenses, netIncome, revenueCount: narrativeInvoices.length, expenseCount: narrativeExpenses.length, ...dunningFacts },
         },
       });
       return;
@@ -3105,11 +3631,246 @@ Write in second person ("you"), be encouraging and specific. Focus on the key nu
           netIncome: Number(netIncome.toFixed(2)),
           revenueCount: narrativeInvoices.length,
           expenseCount: narrativeExpenses.length,
+          ...dunningFacts,
         },
       },
     });
   } catch (error) {
     logger.error('Failed to generate narrative', { error: error instanceof Error ? error.message : 'Unknown' });
+    next(error);
+  }
+});
+
+// GET /api/revenue/brief?range=30d
+// Financial Brief (Phase 3): headline + threshold-gated insight bullets +
+// 0–1 CTA. Deterministic facts; the LLM only phrases the headline. The card
+// only renders when `display` is true (money moved OR something actionable).
+type BriefTone = 'positive' | 'neutral' | 'warning' | 'danger';
+interface BriefBullet { id: string; tone: BriefTone; text: string }
+
+router.get('/brief', authenticate, async (req: Request, res: Response, next) => {
+  try {
+    const privyId = req.user!.id;
+    const user = await getOrCreateUser(privyId);
+    if (!user) { res.status(404).json({ success: false, error: { message: 'User not found' } }); return; }
+    if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+    const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+    const rangeRaw = String(req.query.range || '30d').toLowerCase();
+    const requestedRange: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
+    const { range } = await resolveRangeForUser(user, requestedRange);
+    const start = getRangeStart(range);
+    const startIso = start.toISOString();
+
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+    const [paidDocs, openDocs, rangeExpenses, expenses90d] = await Promise.all([
+      fetchPaged<any>('brief_paid', (from, to) =>
+        supabase.from('documents').select('id,amount,currency,type,status,title,content,updated_at')
+          .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
+          .in('type', ['INVOICE', 'PAYMENT_LINK'])
+          .eq('status', 'PAID').gte('updated_at', startIso)
+          .order('updated_at', { ascending: false }).range(from, to)
+      ),
+      fetchPaged<any>('brief_open', (from, to) =>
+        supabase.from('documents').select('id,amount,currency,type,status,title,content,updated_at')
+          .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
+          .in('type', ['INVOICE', 'PAYMENT_LINK'])
+          .in('status', ['SENT', 'VIEWED'])
+          .order('updated_at', { ascending: false }).range(from, to)
+      ).catch(() => [] as any[]),
+      fetchPaged<any>('brief_expenses', (from, to) =>
+        supabase.from('expenses').select('category,converted_amount_usd,date')
+          .eq('user_id', user.id).gte('date', startIso)
+          .order('date', { ascending: false }).range(from, to)
+      ).catch(() => [] as any[]),
+      fetchPaged<any>('brief_90d_expenses', (from, to) =>
+        supabase.from('expenses').select('converted_amount_usd,date')
+          .eq('user_id', user.id).gte('date', ninetyDaysAgo.toISOString())
+          .order('date', { ascending: false }).range(from, to)
+      ).catch(() => [] as any[]),
+    ]);
+
+    const totalRevenue = (await Promise.all(paidDocs.map((d: any) => toUsdAmount(toNumber(d.amount), d.currency || 'USD'))))
+      .reduce((s: number, v: number) => s + v, 0);
+    const totalExpenses = rangeExpenses.reduce((s: number, e: any) => s + toNumber(e.converted_amount_usd), 0);
+
+    // Revenue trend vs prior equal window.
+    const priorStartDate = new Date(start.getTime() - (new Date().getTime() - start.getTime()));
+    const priorPaid = await fetchPaged<any>('brief_prior_paid', (from, to) =>
+      supabase.from('documents').select('id,amount,currency,type,status,title,content,updated_at')
+        .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
+        .in('type', ['INVOICE', 'PAYMENT_LINK'])
+        .eq('status', 'PAID')
+        .gte('updated_at', priorStartDate.toISOString()).lt('updated_at', startIso)
+        .order('updated_at', { ascending: false }).range(from, to)
+    ).catch(() => [] as any[]);
+    const priorRevenue = (await Promise.all(priorPaid.map((d: any) => toUsdAmount(toNumber(d.amount), d.currency || 'USD'))))
+      .reduce((s: number, v: number) => s + v, 0);
+    const revenueDeltaPct = priorRevenue > 0 ? ((totalRevenue - priorRevenue) / priorRevenue) * 100 : 0;
+
+    // Expense spike: last 30d vs the 30d before that.
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const twoMonthsAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const last30d = rangeExpenses.filter((e: any) => new Date(e.date) >= monthAgo).reduce((s: number, e: any) => s + toNumber(e.converted_amount_usd), 0);
+    const prev30d = (await fetchPaged<any>('brief_prev_expenses', (from, to) =>
+      supabase.from('expenses').select('converted_amount_usd,date')
+        .eq('user_id', user.id)
+        .gte('date', twoMonthsAgo.toISOString()).lt('date', monthAgo.toISOString())
+        .order('date', { ascending: false }).range(from, to)
+    ).catch(() => [] as any[])).reduce((s: number, e: any) => s + toNumber(e.converted_amount_usd), 0);
+    const expenseSpikePct = prev30d > 0 ? ((last30d - prev30d) / prev30d) * 100 : 0;
+
+    // Runway (mirrors /metrics): 90d revenue vs monthly burn from 90d expenses.
+    const paidDocs90d = await fetchPaged<any>('brief_paid_90d', (from, to) =>
+      supabase.from('documents').select('id,amount,currency,type,status,title,content,updated_at')
+        .eq('user_id', user.id).eq('workspace_id', effectiveWsId)
+        .in('type', ['INVOICE', 'PAYMENT_LINK'])
+        .eq('status', 'PAID').gte('updated_at', ninetyDaysAgo.toISOString())
+        .order('updated_at', { ascending: false }).range(from, to)
+    ).catch(() => [] as any[]);
+    const revenue90d = (await Promise.all(paidDocs90d.map((d: any) => toUsdAmount(toNumber(d.amount), d.currency || 'USD'))))
+      .reduce((s: number, v: number) => s + v, 0);
+    const expenses90dTotal = expenses90d.reduce((s: number, e: any) => s + toNumber(e.converted_amount_usd), 0);
+    const burnRate = expenses90dTotal / 3;
+    const runwayMonths = burnRate > 0 ? revenue90d / burnRate : null;
+
+    // Top-client concentration from this period's paid docs.
+    const clientTotals: Record<string, number> = {};
+    for (const doc of paidDocs) {
+      const name = String(doc.content?.client_name || doc.content?.client_id || 'Unknown');
+      clientTotals[name] = (clientTotals[name] || 0) + (await toUsdAmount(toNumber(doc.amount), doc.currency || 'USD'));
+    }
+    const topClientName = Object.entries(clientTotals).sort(([, a], [, b]) => b - a)[0];
+    const topClientPct = totalRevenue > 0 && topClientName ? (topClientName[1] / totalRevenue) * 100 : 0;
+
+    // Overdue facts from open docs.
+    const now = new Date();
+    let overdueCount = 0;
+    let overdueAmountUsd = 0;
+    let maxDaysOverdue = 0;
+    for (const doc of openDocs) {
+      const dueDate = doc.content?.due_date || doc.content?.dueDate || null;
+      if (typeof dueDate !== 'string' || !dueDate.trim()) continue;
+      const daysOverdue = Math.floor((now.getTime() - parseISO(dueDate).getTime()) / (24 * 60 * 60 * 1000));
+      if (daysOverdue <= 0) continue;
+      overdueCount += 1;
+      overdueAmountUsd += await toUsdAmount(toNumber(doc.amount), doc.currency || 'USD');
+      maxDaysOverdue = Math.max(maxDaysOverdue, daysOverdue);
+    }
+
+    // ── Threshold-gated bullets (facts only, capped at 4) ──────────────────
+    const bullets: BriefBullet[] = [];
+    if (overdueCount > 0) {
+      bullets.push({
+        id: 'overdue',
+        tone: 'danger',
+        text: `${overdueCount} invoice${overdueCount === 1 ? '' : 's'} overdue — $${overdueAmountUsd.toFixed(0)} total${maxDaysOverdue > 0 ? `, oldest ${maxDaysOverdue} day${maxDaysOverdue === 1 ? '' : 's'} late` : ''}.`,
+      });
+    }
+    if (runwayMonths !== null && runwayMonths < 6) {
+      bullets.push({
+        id: 'runway',
+        tone: runwayMonths < 3 ? 'danger' : 'warning',
+        text: `About ${Math.floor(runwayMonths)} month${Math.floor(runwayMonths) === 1 ? '' : 's'} of runway at your current burn rate.`,
+      });
+    }
+    if (topClientPct > 50) {
+      bullets.push({
+        id: 'concentration',
+        tone: 'warning',
+        text: `${topClientName ? topClientName[0] : 'Your top client'} is ${topClientPct.toFixed(0)}% of this period's revenue — consider diversifying.`,
+      });
+    }
+    if (expenseSpikePct > 20) {
+      bullets.push({
+        id: 'expense-spike',
+        tone: 'warning',
+        text: `Spending is up ${expenseSpikePct.toFixed(0)}% vs the previous month.`,
+      });
+    }
+    if (totalRevenue > 0 && bullets.length < 4) {
+      bullets.push({
+        id: 'revenue-trend',
+        tone: revenueDeltaPct >= 0 ? 'positive' : 'neutral',
+        text: revenueDeltaPct >= 0
+          ? `Revenue is up ${Math.abs(revenueDeltaPct).toFixed(0)}% vs the previous period.`
+          : `Revenue is down ${Math.abs(revenueDeltaPct).toFixed(0)}% vs the previous period.`,
+      });
+    }
+
+    const display = (totalRevenue > 0 || totalExpenses > 0 || overdueCount > 0) && bullets.length >= 1;
+
+    // ── Headline: AI phrasing with deterministic fallback ──────────────────
+    const factsSummary = `Total Revenue $${totalRevenue.toFixed(2)}; Total Expenses $${totalExpenses.toFixed(2)}; Net $${(totalRevenue - totalExpenses).toFixed(2)}; revenue ${revenueDeltaPct >= 0 ? 'up' : 'down'} ${Math.abs(revenueDeltaPct).toFixed(0)}% vs prior period; ${overdueCount} overdue invoices; runway ${runwayMonths === null ? 'n/a' : `${Math.floor(runwayMonths)} months`}.`;
+    let headline = '';
+    let source: 'ai' | 'fallback' = 'fallback';
+    const apiKey = process.env.AI_GATEWAY_API_KEY;
+    if (apiKey && display) {
+      try {
+        const aiText = (await llmService.generateText(
+          `You are Hedwig. Write ONE sentence (max 14 words, second person "you", encouraging, specific, no numbers you were not given) summarizing this period for a freelancer: ${factsSummary}`,
+          { maxOutputTokens: 80, temperature: 0.4 }
+        )).trim().replace(/\s+/g, ' ');
+        if (aiText.length > 0) { headline = aiText; source = 'ai'; }
+      } catch { /* fall through to deterministic */ }
+    }
+    if (!headline) {
+      headline = totalRevenue > 0
+        ? `You brought in $${totalRevenue.toFixed(0)} this period${revenueDeltaPct !== 0 ? ` (${revenueDeltaPct >= 0 ? '+' : ''}${revenueDeltaPct.toFixed(0)}% vs prior)` : ''}.`
+        : totalExpenses > 0
+          ? `$${totalExpenses.toFixed(0)} in expenses this period${overdueCount > 0 ? ` and ${overdueCount} overdue invoice${overdueCount === 1 ? '' : 's'}` : ''}.`
+          : 'Nothing on the books yet this period.';
+    }
+
+    // ── CTA: at most one ────────────────────────────────────────────────────
+    let cta: { label: string; href: string } | null = null;
+    if (overdueCount > 0) {
+      cta = { label: `Follow up on ${overdueCount} unpaid invoice${overdueCount === 1 ? '' : 's'}`, href: '/payments' };
+    } else if (runwayMonths !== null && runwayMonths < 3) {
+      cta = { label: 'Review runway', href: '/payments' };
+    }
+
+    // Runway scenarios (Phase 5, Mercury-style base/best/worst): same burn,
+    // revenue adjusted by what's realistically collectible. Best = 90d revenue
+    // + all open (SENT/VIEWED) invoice amounts; worst = 70% of the 90d run-rate.
+    let runwayScenarios: { base: number | null; best: number | null; worst: number | null } = { base: null, best: null, worst: null };
+    if (burnRate > 0) {
+      const expectedIncoming = (await Promise.all(openDocs.map((d: any) => toUsdAmount(toNumber(d.amount), d.currency || 'USD'))))
+        .reduce((s: number, v: number) => s + v, 0);
+      runwayScenarios = {
+        base: Number((revenue90d / burnRate).toFixed(1)),
+        best: Number(((revenue90d + expectedIncoming) / burnRate).toFixed(1)),
+        worst: Number(((revenue90d * 0.7) / burnRate).toFixed(1)),
+      };
+    }
+
+    res.json({
+      success: true,
+      data: {
+        display,
+        source,
+        range,
+        headline,
+        bullets,
+        cta,
+        facts: {
+          totalRevenue: Number(totalRevenue.toFixed(2)),
+          totalExpenses: Number(totalExpenses.toFixed(2)),
+          netIncome: Number((totalRevenue - totalExpenses).toFixed(2)),
+          overdueCount,
+          overdueAmountUsd: Number(overdueAmountUsd.toFixed(2)),
+          maxDaysOverdue,
+          runwayMonths: runwayMonths === null ? null : Number(runwayMonths.toFixed(1)),
+          topClientPct: Number(topClientPct.toFixed(1)),
+          expenseSpikePct: Number(expenseSpikePct.toFixed(1)),
+          revenueDeltaPct: Number(revenueDeltaPct.toFixed(1)),
+          runwayScenarios,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to build financial brief', { error: error instanceof Error ? error.message : 'Unknown' });
     next(error);
   }
 });

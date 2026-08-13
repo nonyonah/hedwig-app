@@ -13,6 +13,7 @@ import React from 'react';
 import { StyleSheet, View, Platform, Animated, ViewStyle, TouchableWithoutFeedback } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { Colors } from '../../theme/colors';
 
 /**
  * Trigger haptic feedback for modal interactions
@@ -142,7 +143,7 @@ export const getModalContentStyle = (customHeight?: number): ViewStyle => {
         borderBottomLeftRadius: 28,
         borderBottomRightRadius: 28,
         elevation: 16,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
     };
 };
 
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
     // Android Material Expressive
     androidContent: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
     },

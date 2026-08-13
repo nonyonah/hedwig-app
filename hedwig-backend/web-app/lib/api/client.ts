@@ -29,7 +29,7 @@ import {
   activityFeed as mockActivityFeed,
   paymentSources as mockPaymentSources,
 } from '@/lib/mock/revenue';
-import type { ExpenseRecord, RevenueMetrics, RevenueSummary } from '@/lib/types/revenue';
+import type { ExpenseRecord, RevenueMetrics, RevenueSummary, UpcomingObligations, TimelineFeedResponse, FinancialBrief } from '@/lib/types/revenue';
 import type {
   AccountTransaction,
   Activity,
@@ -2283,6 +2283,59 @@ export const hedwigApi = {
       () => mockActivityFeed,
       options,
     );
+  },
+
+  /** Forward layer: expected payments, overdue, tax set-aside, subscriptions. */
+  async upcoming(options?: ApiOptions): Promise<UpcomingObligations> {
+    return withFallback(
+      () => request<UpcomingObligations>('/api/revenue/upcoming', options),
+      () => ({
+        upcoming: [],
+        overdue: [],
+        tax: { estimatedSetAside: 0, nextDeadline: '', daysUntil: 0 },
+        subscriptions: { items: [], monthlyTotal: 0 },
+      }),
+      options,
+    );
+  },
+
+  /** Financial Brief (Phase 3): headline + threshold-gated bullets + CTA. */
+  async revenueBrief(range: string = '30d', options?: ApiOptions): Promise<FinancialBrief> {
+    const safeRange = ['7d', '30d', '90d', '1y', 'ytd'].includes(range) ? range : '30d';
+    return withFallback(
+      () => request<FinancialBrief>(`/api/revenue/brief?range=${safeRange}`, options),
+      () => ({
+        display: false,
+        source: 'fallback',
+        range: safeRange,
+        headline: '',
+        bullets: [],
+        cta: null,
+        facts: {
+          totalRevenue: 0,
+          totalExpenses: 0,
+          netIncome: 0,
+          overdueCount: 0,
+          overdueAmountUsd: 0,
+          maxDaysOverdue: 0,
+          runwayMonths: null,
+          topClientPct: 0,
+          expenseSpikePct: 0,
+          revenueDeltaPct: 0,
+          runwayScenarios: { base: null, best: null, worst: null },
+        },
+      }),
+      options,
+    );
+  },
+
+  /** Unified Financial Timeline: timeline_events ∪ financial_events, newest first. */
+  async timeline(params: { limit?: number; cursor?: string; since?: string }, options?: ApiOptions): Promise<TimelineFeedResponse> {
+    const qs = new URLSearchParams();
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.cursor) qs.set('cursor', params.cursor);
+    if (params.since) qs.set('since', params.since);
+    return request<TimelineFeedResponse>(`/api/revenue/timeline${qs.toString() ? `?${qs.toString()}` : ''}`, options);
   },
 
   async revenueMetrics(range: string = '30d', options?: ApiOptions): Promise<RevenueMetrics> {

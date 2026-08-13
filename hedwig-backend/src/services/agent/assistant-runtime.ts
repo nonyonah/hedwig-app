@@ -16,13 +16,17 @@ import {
 import {
   buildDailyBriefSnapshot,
   buildWeeklySummarySnapshot,
+  buildMonthlyStateSnapshot,
   createWorkspaceAnalysisTools,
   createDailyBriefTool,
   createWeeklySummaryTool,
+  createMonthlyStateTool,
   dailyBriefResponseSchema,
   weeklySummaryResponseSchema,
+  monthlyStateResponseSchema,
   type DailyBriefSnapshot,
   type WeeklySummarySnapshot,
+  type MonthlyStateSnapshot,
 } from './workspace-tools';
 
 const logger = createLogger('AssistantRuntime');
@@ -34,6 +38,11 @@ interface DailyBriefNarrative {
 
 interface WeeklyNarrative {
   insight: string;
+}
+
+interface MonthlyStateNarrative {
+  summary: string;
+  highlights: string[];
 }
 
 function fallbackDailyBriefNarrative(snapshot: DailyBriefSnapshot): DailyBriefNarrative {
@@ -366,6 +375,116 @@ export async function generateWeeklySummary(userId: string) {
     expenseCategories: snapshot.expenseCategories,
     topClients: snapshot.topClients,
     projectHighlights: snapshot.projectHighlights,
+    upcomingDeadlines: snapshot.upcomingDeadlines ?? 0,
     aiInsight: narrative.insight,
+  };
+}
+
+function fallbackMonthlyStateNarrative(snapshot: MonthlyStateSnapshot): MonthlyStateNarrative {
+  const parts: string[] = [];
+  if (snapshot.revenueUsd > 0) {
+    const change = snapshot.previousMonthRevenueUsd > 0
+      ? ` (${snapshot.revenueChangePct >= 0 ? '+' : ''}${snapshot.revenueChangePct}% vs last month)`
+      : '';
+    parts.push(`You collected ${formatMonthlyUsd(snapshot.revenueUsd)} this month${change}.`);
+  }
+  if (snapshot.overdueCount > 0) {
+    parts.push(`${snapshot.overdueCount} invoice${snapshot.overdueCount === 1 ? '' : 's'} totaling ${formatMonthlyUsd(snapshot.overdueAmountUsd)} ${snapshot.overdueCount === 1 ? 'is' : 'are'} overdue.`);
+  }
+  if (snapshot.expectedIncomingUsd > 0) {
+    parts.push(`${formatMonthlyUsd(snapshot.expectedIncomingUsd)} is expected from open invoices.`);
+  }
+  if (snapshot.subscriptions.length > 0) {
+    parts.push(`${snapshot.subscriptions.length} recurring subscription${snapshot.subscriptions.length === 1 ? '' : 's'} cost ${formatMonthlyUsd(snapshot.subscriptionsMonthlyTotal)}/mo.`);
+  }
+  if (snapshot.runwayMonths !== null) {
+    parts.push(`At your current burn rate, runway is about ${snapshot.runwayMonths} month${snapshot.runwayMonths === 1 ? '' : 's'}.`);
+  }
+  if (snapshot.estimatedTaxSetAsideUsd > 0) {
+    parts.push(`Set aside ${formatMonthlyUsd(snapshot.estimatedTaxSetAsideUsd)} for taxes before the ${snapshot.daysToTaxDeadline}-day countdown.`);
+  }
+  if (parts.length === 0) {
+    parts.push('No revenue, expenses, or open invoices this month — a clean slate.');
+  }
+
+  const highlights: string[] = [];
+  if (snapshot.topClients[0] && snapshot.topClientConcentrationPct !== null) {
+    highlights.push(`Top client ${snapshot.topClients[0].name} is ${snapshot.topClientConcentrationPct}% of revenue — watch concentration risk.`);
+  }
+  for (const sub of snapshot.subscriptions.slice(0, 2)) {
+    highlights.push(`${sub.label}: ${formatMonthlyUsd(sub.amountUsd)}/mo, seen ${sub.monthlyCount} months in a row.`);
+  }
+  if (snapshot.daysToTaxDeadline !== null && snapshot.estimatedTaxSetAsideUsd > 0) {
+    highlights.push(`Next quarterly tax deadline is in ${snapshot.daysToTaxDeadline} days — set-aside target ${formatMonthlyUsd(snapshot.estimatedTaxSetAsideUsd)}.`);
+  }
+  return { summary: parts.join(' '), highlights: highlights.slice(0, 4) };
+}
+
+function formatMonthlyUsd(amount: number): string {
+  return amount >= 1000 ? `$${(amount / 1000).toFixed(1)}k` : `$${amount.toFixed(2)}`;
+}
+
+export async function generateMonthlyStateOfBusiness(userId: string) {
+  const snapshot = await buildMonthlyStateSnapshot(userId);
+  await refreshConnectionsForUser(userId);
+  const externalTools = await getComposioToolsForUser(userId);
+
+  let narrative = fallbackMonthlyStateNarrative(snapshot);
+  try {
+    const result = await hedwigAgentOrchestrator.run<MonthlyStateNarrative>({
+      userId,
+      role: 'dispatcher',
+      instruction: [
+        'You are Hedwig, a proactive freelancer operations agent.',
+        'Use the monthly state-of-business tool first to gather Hedwig facts.',
+        'When relevant, use the user’s connected external tools (Gmail, Calendar, Drive, Docs) for additional context. Read-only.',
+        'Return concise JSON only.',
+        'Summary must be one or two sentences and mention a real number from the snapshot.',
+        'Highlights must be at most 4 short, specific lines, each tied to a snapshot number.',
+        'No markdown. No emojis.',
+      ].join(' '),
+      userMessage: 'Prepare the monthly state-of-business narrative using the current workspace state.',
+      tools: [createMonthlyStateTool(), ...externalTools],
+      responseSchema: monthlyStateResponseSchema,
+      maxIterations: 5,
+    });
+
+    if (result.structured?.summary) {
+      narrative = {
+        summary: String(result.structured.summary),
+        highlights: Array.isArray(result.structured.highlights)
+          ? result.structured.highlights.slice(0, 4).map(String)
+          : [],
+      };
+    }
+  } catch (error) {
+    logger.warn('Falling back to deterministic monthly narrative', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return {
+    monthLabel: snapshot.monthLabel,
+    startDate: snapshot.startDate,
+    endDate: snapshot.endDate,
+    revenueUsd: snapshot.revenueUsd,
+    previousMonthRevenueUsd: snapshot.previousMonthRevenueUsd,
+    revenueChangePct: snapshot.revenueChangePct,
+    newInvoiceCount: snapshot.newInvoiceCount,
+    paidInvoiceCount: snapshot.paidInvoiceCount,
+    overdueCount: snapshot.overdueCount,
+    overdueAmountUsd: snapshot.overdueAmountUsd,
+    expectedIncomingUsd: snapshot.expectedIncomingUsd,
+    expensesTotalUsd: snapshot.expensesTotalUsd,
+    netUsd: snapshot.netUsd,
+    topClients: snapshot.topClients,
+    topClientConcentrationPct: snapshot.topClientConcentrationPct,
+    subscriptions: snapshot.subscriptions,
+    subscriptionsMonthlyTotal: snapshot.subscriptionsMonthlyTotal,
+    estimatedTaxSetAsideUsd: snapshot.estimatedTaxSetAsideUsd,
+    daysToTaxDeadline: snapshot.daysToTaxDeadline,
+    runwayMonths: snapshot.runwayMonths,
+    summary: narrative.summary,
+    highlights: narrative.highlights,
   };
 }

@@ -13,6 +13,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useLoginWithOAuth } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
+import { parseAvatar } from '../../utils/avatar';
 import { Sidebar } from '../../components/Sidebar';
 import { Button } from '../../components/Button';
 import { BlurView } from 'expo-blur';
@@ -190,20 +191,8 @@ export default function SettingsScreen() {
                         lastName: userData.lastName || ''
                     });
                     // Parse avatar - handle data URIs and regular URLs
-                    if (userData.avatar) {
-                        if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
-                            setProfileIcon({ imageUri: userData.avatar });
-                        } else {
-                            try {
-                                const parsed = JSON.parse(userData.avatar);
-                                if (parsed.imageUri) {
-                                    setProfileIcon({ imageUri: parsed.imageUri });
-                                }
-                            } catch (e) {
-                                setProfileIcon({ imageUri: userData.avatar });
-                            }
-                        }
-                    }
+                    const icon = parseAvatar(userData.avatar);
+                    if (icon.imageUri || icon.emoji) setProfileIcon(icon);
                 }
             }
         } catch (error) {
@@ -1093,7 +1082,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
     },
     header: {
         backgroundColor: Colors.background,
@@ -1148,7 +1137,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     infoContainer: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.surfaceHighlight,
         padding: 16,
         borderRadius: 12,
     },
@@ -1158,7 +1147,7 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
     },
     settingsGroup: {
-        backgroundColor: '#F9FAFB',
+        backgroundColor: Colors.surfaceHighlight,
         borderRadius: 12,
         overflow: 'hidden',
     },
@@ -1208,7 +1197,7 @@ const styles = StyleSheet.create({
     },
     divider: {
         height: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.surfaceHighlight,
         marginLeft: 16,
     },
     // Profile Card Styles
@@ -1274,7 +1263,7 @@ const styles = StyleSheet.create({
         padding: 24,
     },
     modalContent: {
-        backgroundColor: 'white',
+        backgroundColor: Colors.surface,
         borderRadius: 20,
         padding: 24,
         shadowColor: "#000",
@@ -1345,7 +1334,7 @@ const styles = StyleSheet.create({
     },
     // Recovery Warning Modal Styles
     recoveryModalContent: {
-        backgroundColor: 'white',
+        backgroundColor: Colors.surface,
         borderRadius: 24,
         padding: 24,
         marginHorizontal: 24,

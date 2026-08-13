@@ -35,6 +35,10 @@ const typeToStatus: Record<SuggestionType, 'accent' | 'danger' | 'success' | 'wa
   calendar_event: 'warning',
   project_action: 'accent',
   tax_review: 'accent',
+  runway_alert: 'warning',
+  duplicate_payment: 'danger',
+  spending_anomaly: 'warning',
+  client_concentration: 'danger',
 };
 
 function buildQueryString(query: SuggestionQuery) {

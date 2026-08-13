@@ -81,7 +81,11 @@ export type SuggestionType =
   | 'expense_categorization'
   | 'calendar_event'
   | 'project_action'
-  | 'tax_review';
+  | 'tax_review'
+  | 'runway_alert'
+  | 'duplicate_payment'
+  | 'spending_anomaly'
+  | 'client_concentration';
 
 export type SuggestionPriority = 'high' | 'medium' | 'low';
 export type SuggestionStatus = 'active' | 'dismissed' | 'approved' | 'rejected';
@@ -121,6 +125,13 @@ export interface AssistantSuggestion {
     milestone_id?: string;
     payment_link_id?: string;
     recurring_invoice_id?: string;
+    category?: string;
+    current_amount_usd?: number;
+    prior_amount_usd?: number;
+    spike_pct?: number;
+    concentration_pct?: number;
+    revenue_90d_usd?: number;
+    months_covered?: number;
   };
   actions: SuggestionAction[];
   status: SuggestionStatus;

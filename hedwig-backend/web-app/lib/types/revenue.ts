@@ -163,13 +163,123 @@ export interface ActivityEvent {
     | 'payment_received'
     | 'invoice_created'
     | 'payment_link_paid'
-    | 'payment_link_active';
+    | 'payment_link_active'
+    | 'invoice_viewed'
+    | 'contract_sent'
+    | 'contract_signed'
+    | 'statement_imported'
+    | 'receipt_imported'
+    | 'reminder_sent';
   title: string;
   description: string;
   amount?: number;
   nativeAmount?: number;
   currency?: string;
   createdAt: string;
+}
+
+// ── Upcoming & Obligations (forward layer) ───────────────────────────────────
+
+export type UpcomingObligationType = 'invoice' | 'payment_link';
+
+export interface UpcomingObligation {
+  id: string;
+  title: string;
+  amountUsd: number;
+  dueDate: string;
+  daysLeft: number;
+  type: UpcomingObligationType;
+}
+
+export interface TaxSetAside {
+  estimatedSetAside: number;
+  nextDeadline: string;
+  daysUntil: number;
+  source?: 'financial-events' | 'fallback';
+}
+
+export interface SubscriptionItem {
+  label: string;
+  amountUsd: number;
+  monthlyCount: number;
+  category: string;
+}
+
+export interface UpcomingObligations {
+  upcoming: UpcomingObligation[];
+  overdue: UpcomingObligation[];
+  tax: TaxSetAside;
+  subscriptions: {
+    items: SubscriptionItem[];
+    monthlyTotal: number;
+  };
+}
+
+// ── Financial Brief (Phase 3 AI layer) ───────────────────────────────────────
+
+export type FinancialBriefTone = 'positive' | 'neutral' | 'warning' | 'danger';
+
+export interface FinancialBriefBullet {
+  id: string;
+  tone: FinancialBriefTone;
+  text: string;
+}
+
+export interface FinancialBrief {
+  display: boolean;
+  source: 'ai' | 'fallback';
+  range: string;
+  headline: string;
+  bullets: FinancialBriefBullet[];
+  cta: { label: string; href: string } | null;
+  facts: {
+    totalRevenue: number;
+    totalExpenses: number;
+    netIncome: number;
+    overdueCount: number;
+    overdueAmountUsd: number;
+    maxDaysOverdue: number;
+    runwayMonths: number | null;
+    topClientPct: number;
+    expenseSpikePct: number;
+    revenueDeltaPct: number;
+    runwayScenarios: { base: number | null; best: number | null; worst: number | null };
+  };
+}
+
+// ── Unified Timeline feed (timeline_events ∪ financial_events) ──────────────
+
+export interface TimelineFeedEvent {
+  id: string;
+  source: 'financial' | 'timeline';
+  eventType: string;
+  verb: string;
+  entityType: string;
+  entityId: string;
+  title: string;
+  account: string;
+  occurredAt: string;
+  recordedAt: string;
+  direction: 'in' | 'out' | 'none';
+  amount: number | null;
+  currency: string | null;
+  amountUsd: number | null;
+  fxRateUsd: number | null;
+  fxSource: string | null;
+  sourceRail: string | null;
+  payload: Record<string, unknown>;
+  context: Record<string, unknown>;
+}
+
+export interface TimelineFeedPagination {
+  limit: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export interface TimelineFeedResponse {
+  events: TimelineFeedEvent[];
+  pagination: TimelineFeedPagination;
 }
 
 export interface PaymentSourceBreakdown {

@@ -23,10 +23,46 @@ interface OCRScannerProps {
 const MAX_RETRIES = 3;
 
 /**
+ * Structured result of AI document analysis
+ * (`POST /api/revenue/import-document/analyze`).
+ */
+export interface ImportAnalysis {
+    classification: string;
+    confidence: number;
+    summary: string;
+    suggestedTitle?: string;
+    suggestedEntryType: string;
+    amount: number | null;
+    currency: string | null;
+    date: string | null;
+    issuer: string | null;
+    issuerEmail: string | null;
+    paymentStatus: string;
+    category: string;
+}
+
+interface OCRScannerProps {
+    onTextDetected: (text: string) => void;
+    onClose: () => void;
+    getAccessToken: () => Promise<string | null>;
+    /** When true, uploads to the AI document analyzer and returns structured
+     * data via `onAnalyzed` instead of raw OCR text. */
+    useAiAnalysis?: boolean;
+    onAnalyzed?: (result: ImportAnalysis) => void;
+}
+
+/**
  * OCR Scanner component using expo-camera + AI Vision backend.
  * Manual capture only — user taps the shutter button to take a photo.
+ * The AI-analysis variant calls the structured import-document/analyze path.
  */
-export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: OCRScannerProps) {
+export default function OCRScanner({
+    onTextDetected,
+    onClose,
+    getAccessToken,
+    useAiAnalysis = false,
+    onAnalyzed,
+}: OCRScannerProps) {
     const themeColors = useThemeColors();
     const { cameraSoundEnabled } = useSettings();
     const [permission, requestPermission] = useCameraPermissions();
@@ -69,7 +105,11 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
                 name: 'scan.jpg',
             } as any);
 
-            const response = await fetch(`${apiUrl}/api/integrations/extract-payment-details`, {
+            const endpoint = useAiAnalysis
+                ? `${apiUrl}/api/revenue/import-document/analyze`
+                : `${apiUrl}/api/integrations/extract-payment-details`;
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -78,6 +118,16 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
             });
 
             const data = await response.json();
+
+            if (useAiAnalysis) {
+                if (response.ok && data.success && data.data) {
+                    onAnalyzed?.(data.data as ImportAnalysis);
+                } else {
+                    const errorMsg = data.error || 'Could not read the document.';
+                    handleRetry(errorMsg);
+                }
+                return;
+            }
 
             if (response.ok && data.success && data.data?.rawText && data.data.rawText.trim().length > 0) {
                 onTextDetected(data.data.rawText);
@@ -89,7 +139,7 @@ export default function OCRScanner({ onTextDetected, onClose, getAccessToken }: 
             console.error('OCR scan error:', error);
             handleRetry('Could not process the image.');
         }
-    }, [getAccessToken, onTextDetected]);
+    }, [getAccessToken, onTextDetected, useAiAnalysis, onAnalyzed]);
 
     const handleRetry = useCallback((reason: string) => {
         setRetryCount((prev) => {

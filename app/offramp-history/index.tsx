@@ -748,14 +748,14 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: -2,
         right: -2,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.surface,
         width: 20,
         height: 20,
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#FFFFFF',
+        borderColor: Colors.surface,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     progressSection: {
         paddingVertical: 24,
         paddingHorizontal: 16,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: Colors.surfaceHighlight,
         borderRadius: 16,
         marginBottom: 20,
     },
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#FFFFFF', // To be overridden
+        backgroundColor: Colors.surface, // To be overridden
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         paddingHorizontal: 24,
