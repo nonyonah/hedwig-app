@@ -13,15 +13,15 @@ async function requireAdmin(workspaceId: string, userId: string): Promise<boolea
 }
 
 /**
- * POST /workspaces/:id/external-recipients
+ * POST /api/external-recipients/:workspaceId
  */
-router.post('/', authenticate, async (req: Request, res: Response, next) => {
+router.post('/:workspaceId', authenticate, async (req: Request, res: Response, next) => {
   try {
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
     if (!user) { res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' }); return; }
 
-    const workspaceId = req.params.id as string;
+    const workspaceId = req.params.workspaceId as string;
     const isAdmin = await requireAdmin(workspaceId, user.id);
     if (!isAdmin) { res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' }); return; }
 
@@ -59,15 +59,15 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 });
 
 /**
- * GET /workspaces/:id/external-recipients
+ * GET /api/external-recipients/:workspaceId
  */
-router.get('/', authenticate, async (req: Request, res: Response, next) => {
+router.get('/:workspaceId', authenticate, async (req: Request, res: Response, next) => {
   try {
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
     if (!user) { res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' }); return; }
 
-    const workspaceId = req.params.id;
+    const workspaceId = req.params.workspaceId;
     const includeInactive = req.query.includeInactive === 'true';
 
     let query = supabase.from('external_payroll_recipients').select('*').eq('workspace_id', workspaceId);
@@ -81,15 +81,15 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 });
 
 /**
- * PATCH /workspaces/:id/external-recipients/:recipientId
+ * PATCH /api/external-recipients/:workspaceId/:recipientId
  */
-router.patch('/:recipientId', authenticate, async (req: Request, res: Response, next) => {
+router.patch('/:workspaceId/:recipientId', authenticate, async (req: Request, res: Response, next) => {
   try {
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
     if (!user) { res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' }); return; }
 
-    const workspaceId = req.params.id as string;
+    const workspaceId = req.params.workspaceId as string;
     const isAdmin = await requireAdmin(workspaceId, user.id);
     if (!isAdmin) { res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' }); return; }
 
@@ -115,15 +115,15 @@ router.patch('/:recipientId', authenticate, async (req: Request, res: Response, 
 });
 
 /**
- * DELETE /workspaces/:id/external-recipients/:recipientId
+ * DELETE /api/external-recipients/:workspaceId/:recipientId
  */
-router.delete('/:recipientId', authenticate, async (req: Request, res: Response, next) => {
+router.delete('/:workspaceId/:recipientId', authenticate, async (req: Request, res: Response, next) => {
   try {
     const privyId = req.user!.id;
     const user = await getOrCreateUser(privyId);
     if (!user) { res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' }); return; }
 
-    const workspaceId = req.params.id as string;
+    const workspaceId = req.params.workspaceId as string;
     const isAdmin = await requireAdmin(workspaceId, user.id);
     if (!isAdmin) { res.status(403).json({ error: 'Not authorised', code: 'FORBIDDEN' }); return; }
 
