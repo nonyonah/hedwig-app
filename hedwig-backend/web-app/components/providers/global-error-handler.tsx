@@ -15,17 +15,25 @@ if (process.env.NODE_ENV !== 'development') {
 // Benign browser noise that should never surface as a toast.
 // ResizeObserver loop errors fire during scroll while a React Aria
 // popover (HeroUI Dropdown) is open inside a scrollable modal — harmless.
+// "Cannot redefine property" is a wallet-provider injection race (a browser
+// extension / SDK defining window.ethereum twice) — not an app failure.
 const BENIGN_MESSAGE_PATTERNS = [
-  'ResizeObserver loop',
-  'Script error.',
-  'Non-Error promise rejection captured',
-  'The user aborted a request',
-  'AbortError',
-  'Failed to load resource',
-  'net::ERR_',
+  'resizeobserver loop',
+  'script error.',
+  'non-error promise rejection captured',
+  'the user aborted a request',
+  'aborterror',
+  'failed to load resource',
+  'net::err_',
+  'cannot redefine property',
+  'extension context invalidated',
+  'access to fetch at',
 ];
 
-const isBenign = (msg: string) => BENIGN_MESSAGE_PATTERNS.some((p) => msg.includes(p));
+const isBenign = (msg: string) => {
+  const lower = msg.toLowerCase();
+  return BENIGN_MESSAGE_PATTERNS.some((p) => lower.includes(p));
+};
 
 export function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();

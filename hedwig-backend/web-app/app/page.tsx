@@ -294,69 +294,10 @@ function LandingPage() {
  </div>
  </section>
 
- {/* ── Features ──────────────────────────────────────────── */}
- <FeaturesShowcase />
+  {/* ── Features ──────────────────────────────────────────── */}
+  <FeaturesShowcase />
 
- {/* ── Mobile App ────────────────────────────────────────── */}
- <section id="download" className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface)] px-8 py-24">
- <div className="mx-auto max-w-[1400px]">
- <AnimateIn>
- <div className="overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)]">
- <div className="grid md:grid-cols-2">
- <div className="flex flex-col justify-center px-10 py-14 md:px-14">
- <p className="mb-3 text-[11px] font-bold text-[var(--color-text-muted)]">Mobile companion</p>
- <h2 className="text-[30px] font-bold tracking-[-0.04em] text-[var(--color-foreground)] md:text-[38px]">
- Your account, in your pocket.
- </h2>
- <p className="mt-4 max-w-sm text-[15px] leading-7 text-[var(--color-text-muted)]">
- Monitor your balance, track payments, and manage your account from anywhere. The same account, the same data — on web and mobile.
- </p>
- <div className="mt-9 flex flex-col gap-6">
- {[
- {
- title: 'Real-time balance',
- desc: 'See your USDC balance, pending payments, and settled funds at a glance.',
- },
- {
- title: 'Payment alerts',
- desc: 'Get notified the moment funds arrive. No refreshing, no guessing.',
- },
- {
- title: 'Quick actions',
- desc: 'Withdraw, convert currencies, send payment links, or review expenses — all from your phone.',
- },
- ].map((f) => (
- <div key={f.title}>
- <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{f.title}</p>
- <p className="mt-1 text-[14px] leading-7 text-[var(--color-text-muted)]">{f.desc}</p>
- </div>
- ))}
- </div>
- <div className="mt-9 flex flex-col gap-3 sm:flex-row">
- <AppStoreButton />
- <GooglePlayButton />
- </div>
- </div>
-
- <div className="relative flex items-center justify-center bg-[linear-gradient(145deg,#eff6ff,#f8fbff)] px-4 py-6 md:px-6 md:py-4">
- <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_30%,rgba(37,99,235,0.12),transparent_65%)]" />
- <Image
- src="/mobile-preview-20260319c.png"
- alt="Hedwig mobile app"
- width={460}
- height={948}
- priority
- sizes="(max-width: 768px) 90vw, 460px"
- className="relative w-full max-w-[460px] drop-shadow-2xl"
- />
- </div>
- </div>
- </div>
- </AnimateIn>
- </div>
- </section>
-
- {/* ── FAQ ───────────────────────────────────────────────── */}
+  {/* ── FAQ ───────────────────────────────────────────────── */}
  <section className="border-t border-[var(--color-surface-tertiary)] bg-[var(--color-surface-secondary)] px-8 py-24">
  <div className="mx-auto max-w-[800px]">
  <AnimateIn className="mb-14 text-center">
@@ -461,45 +402,5 @@ function LandingPage() {
  </footer>
  </div>
  </ForceLightTheme>
- );
-}
-
-/* ── App store buttons ────────────────────────────────────────── */
-
-function AppStoreButton() {
- return (
- <a
- href="https://testflight.apple.com/join/aKXnyjP4"
- target="_blank"
- rel="noreferrer"
- className="flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl border border-[var(--color-foreground)] bg-[var(--color-foreground)] px-5 transition-all duration-200 hover:bg-[var(--color-foreground)] sm:w-auto"
- aria-label="Join our TestFlight"
- >
- <svg viewBox="0 0 24 24" className="h-5 w-5 fill-white" xmlns="http://www.w3.org/2000/svg">
- <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.14-2.22 1.31-2.2 3.91.03 3.02 2.65 4.03 2.68 4.04l-.03.17zM13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
- </svg>
- <div className="text-left">
- <p className="text-[10px] font-medium leading-none text-white/70">Join our</p>
- <p className="text-[13px] font-semibold leading-tight text-white">TestFlight</p>
- </div>
- </a>
- );
-}
-
-function GooglePlayButton() {
- return (
- <a
- href="https://play.google.com/store/apps/details?id=com.hedwig.app"
- target="_blank"
- rel="noreferrer"
- className="flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl border border-[var(--color-foreground)] bg-[var(--color-foreground)] px-5 transition-all duration-200 hover:bg-[var(--color-foreground)] sm:w-auto"
- aria-label="Get it on Google Play"
- >
- <Image src="/google-play-icon.svg" alt="" width={20} height={20} className="h-5 w-5" />
- <div className="text-left">
- <p className="text-[10px] font-medium leading-none text-white/70">Get it on</p>
- <p className="text-[13px] font-semibold leading-tight text-white">Google Play</p>
- </div>
- </a>
  );
 }
