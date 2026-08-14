@@ -437,6 +437,10 @@ schedulerRouter.post('/onboarding-nudges', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.sendOnboardingIncompleteNudges();
 });
+schedulerRouter.post('/demo-reminders', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendDemoReminderEmails();
+});
 schedulerRouter.post('/post-signup-nudges', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.sendPostSignupNudgeSequence();

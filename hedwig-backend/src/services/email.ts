@@ -7,6 +7,7 @@ const logger = createLogger('EmailService');
 
 const DEFAULT_PUBLIC_APP_URL = 'https://hedwig.riftlabs.xyz';
 const RAW_APP_URL = process.env.APP_URL || process.env.WEB_CLIENT_URL || DEFAULT_PUBLIC_APP_URL;
+const CALENDLY_DEMO_URL = process.env.CALENDLY_DEMO_URL || 'https://calendly.com/nonyonah/meeting-with-nonso';
 
 const canonicalizePublicUrl = (input?: string | null): string => {
     const raw = String(input || '').trim();
@@ -74,6 +75,8 @@ const SHARED_STYLES = `
     .divider { border: none; border-top: 1px solid #f1f2f4; margin: 24px 0; }
     .btn-container { text-align: center; margin-top: 28px; }
     .btn { display: inline-block; background-color: #0d47a1; color: #ffffff !important; font-weight: 600; padding: 13px 32px; line-height: 1.4; border-radius: 50px; text-decoration: none; font-size: 15px; letter-spacing: -0.01em; mso-padding-alt: 0; }
+    .btn-outline { display: inline-block; background-color: #ffffff; color: #181d27 !important; font-weight: 600; padding: 11px 26px; line-height: 1.4; border-radius: 50px; text-decoration: none; font-size: 14px; letter-spacing: -0.01em; border: 1px solid #d0d5dd; mso-padding-alt: 0; }
+    .demo-signoff { margin-top: 28px; padding-top: 20px; border-top: 1px solid #f1f2f4; }
     .footer { background-color: #f9fafb; padding: 20px 28px; text-align: center; font-size: 12px; color: #a4a7ae; border-top: 1px solid #f1f2f4; }
     .footer a { color: #717680; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
@@ -2200,6 +2203,7 @@ export const EmailService = {
         to: string;
         firstName: string;
         accountType: 'personal' | 'organization';
+        userId?: string;
     }): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
             logger.warn('RESEND_API_KEY is not set. Skipping welcome email.');
@@ -2212,6 +2216,9 @@ export const EmailService = {
             ? 'Invite your team or set up payroll'
             : 'Send your first invoice or add a client';
         const ctaUrl = `${APP_URL}/dashboard`;
+        const demoUrl = data.userId
+            ? `${APP_URL}/api/track/demo?source=welcome_email&uid=${encodeURIComponent(data.userId)}`
+            : CALENDLY_DEMO_URL;
 
         const html = `
         <!DOCTYPE html>
@@ -2234,6 +2241,13 @@ export const EmailService = {
                     <div class="btn-container">
                         <a href="${ctaUrl}" class="btn">Go to dashboard</a>
                     </div>
+                    <div class="demo-signoff">
+                        <p style="font-size:14px;color:#535862;line-height:1.6;margin:0 0 4px;"><strong>Want a quick walkthrough?</strong></p>
+                        <p style="font-size:13px;color:#717680;line-height:1.6;margin:0 0 14px;">I&rsquo;m happy to walk you through Hedwig in 15 minutes &mdash; no pressure, just a tour.</p>
+                        <div style="text-align:left;">
+                            <a href="${demoUrl}" class="btn-outline">Book a 15-minute demo</a>
+                        </div>
+                    </div>
                     <hr class="divider" />
                     <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">Questions? Just reply &mdash; I read these myself.<br />&mdash; Nonso, Hedwig</p>
                 </div>
@@ -2253,6 +2267,66 @@ export const EmailService = {
             return true;
         } catch (error) {
             logger.error('Welcome email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+            });
+            return false;
+        }
+    },
+
+    async sendDemoReminderEmail(data: {
+        to: string;
+        firstName: string;
+        userId: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping demo reminder email.');
+            return false;
+        }
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = data.firstName || 'there';
+        const demoUrl = `${APP_URL}/api/track/demo?source=reminder_email&uid=${encodeURIComponent(data.userId)}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Need a hand with Hedwig?</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">A quick note</p>
+                    <h1 class="heading">Hey ${name}, need a hand? &#x1f91d;</h1>
+                    <p class="description">You signed up for Hedwig a few days ago, and I wanted to check in &mdash; setting up payments, invoicing, or payroll is easier with a quick tour.</p>
+                    <p class="description">I can show you around in 15 minutes, or help with anything specific you&rsquo;re stuck on.</p>
+                    <div class="btn-container">
+                        <a href="${demoUrl}" class="btn">Book a 15-minute demo</a>
+                    </div>
+                    <hr class="divider" />
+                    <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">Questions? Just reply &mdash; I read these myself.<br />&mdash; Nonso, Hedwig</p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Nonso from Hedwig <nonso.onah@riftlabs.xyz>',
+                to: [data.to],
+                subject: 'Need a hand getting started with Hedwig?',
+                html,
+            });
+            return true;
+        } catch (error) {
+            logger.error('Demo reminder email failed', {
                 error: error instanceof Error ? error.message : 'Unknown',
                 to: data.to,
             });

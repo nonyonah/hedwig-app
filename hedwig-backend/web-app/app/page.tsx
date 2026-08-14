@@ -8,7 +8,7 @@ import { getCurrentSession } from '@/lib/auth/session';
 import { FeaturesShowcase } from './features-showcase';
 import { AnimateIn } from './animate-in';
 import { ForceLightTheme } from './force-light-theme';
-import { LandingPageClientMount, EmailCaptureField } from './landing-page-client';
+import { LandingPageClientMount, EmailCaptureField, BookDemoLink } from './landing-page-client';
 
 export const metadata: Metadata = {
   other: {
@@ -107,13 +107,14 @@ function LandingPage() {
  Get started
  <ArrowRight className="h-4 w-4" weight="bold" />
  </a>
- <a
- href="#how-it-works"
- className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-8 text-[14px] font-semibold text-[var(--color-foreground)] transition-all duration-200 hover:bg-[var(--color-surface-secondary)]"
- >
- See how it works
- </a>
- </div>
+  <a
+  href="#how-it-works"
+  className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-8 text-[14px] font-semibold text-[var(--color-foreground)] transition-all duration-200 hover:bg-[var(--color-surface-secondary)]"
+  >
+  See how it works
+  </a>
+  <BookDemoLink />
+  </div>
  <p
  className="animate-fade-up mt-3 text-[12px] font-medium text-[var(--color-text-muted)]"
  style={{ animationDelay: '280ms' }}

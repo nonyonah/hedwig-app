@@ -76,6 +76,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             to: user.email,
             firstName: user.first_name || '',
             accountType: wsType,
+            userId: String(user.privy_id || user.id),
         }).catch(() => {});
     }
 

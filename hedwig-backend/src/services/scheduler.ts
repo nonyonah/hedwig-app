@@ -112,6 +112,11 @@ export const SchedulerService = {
         });
 
         cron.schedule('30 8 * * *', () => {
+            withLock('demo-reminders', dailyLockTtl, () => this.sendDemoReminderEmails())
+                .catch((e) => logger.error('demo-reminders lock error', { error: e?.message }));
+        });
+
+        cron.schedule('30 8 * * *', () => {
             withLock('assistant-daily-briefs', dailyLockTtl, () => this.sendAssistantDailyBriefs())
                 .catch((e) => logger.error('assistant-daily-briefs lock error', { error: e?.message }));
         });
@@ -1522,6 +1527,96 @@ export const SchedulerService = {
             });
         } catch (error: any) {
             logger.error('Error in sendOnboardingIncompleteNudges', { error: error?.message });
+        }
+    },
+
+    /**
+     * Demo-booking reminder: users who signed up, haven't booked a demo, and
+     * haven't meaningfully used Hedwig (no invoice or payment link) get one
+     * friendly reminder email 3–5 days after signup.
+     *
+     * Gating:
+     *  - Window: created_at between 3 and 7 days ago (one shot, no re-sends)
+     *  - users.demo_booked_at IS NULL  (booked → never nag)
+     *  - users.last_demo_reminder_at IS NULL (already emailed → skip)
+     *  - no INVOICE/PAYMENT_LINK documents (mirrors onboarding-nudges heuristic)
+     *
+     * Requires DB columns: users.demo_booked_at, users.last_demo_reminder_at.
+     * Migration: supabase/migrations/096_demo_booking.sql
+     */
+    async sendDemoReminderEmails() {
+        try {
+            const now = Date.now();
+            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+            const windowStart = new Date(now - 7 * ONE_DAY_MS).toISOString();
+            const windowEnd = new Date(now - 3 * ONE_DAY_MS).toISOString();
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, created_at, demo_booked_at, last_demo_reminder_at')
+                .gte('created_at', windowStart)
+                .lte('created_at', windowEnd)
+                .is('demo_booked_at', null)
+                .is('last_demo_reminder_at', null)
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for demo reminder emails', { error: error.message });
+                return;
+            }
+            if (!users || users.length === 0) {
+                logger.debug('No users in demo reminder window');
+                return;
+            }
+
+            const eligible: any[] = [];
+            await processInBatches(users, SCHEDULER_CONCURRENCY, async (user) => {
+                const { count: paymentWorkflowCount } = await supabase
+                    .from('documents')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .in('type', ['INVOICE', 'PAYMENT_LINK', 'invoice', 'payment_link']);
+
+                if ((paymentWorkflowCount ?? 0) === 0) {
+                    eligible.push(user);
+                }
+            });
+
+            if (eligible.length === 0) {
+                logger.debug('All demo-reminder-window users have activity or booked — none eligible');
+                return;
+            }
+
+            logger.info('Sending demo reminder emails', { count: eligible.length });
+
+            await processInBatches(eligible, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const firstName = String(user.first_name || '').trim();
+                    const sent = user.email
+                        ? await EmailService.sendDemoReminderEmail({
+                            to: user.email,
+                            firstName,
+                            userId: String(user.privy_id || user.id),
+                        })
+                        : false;
+
+                    if (!sent) return;
+
+                    await supabase
+                        .from('users')
+                        .update({ last_demo_reminder_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'demo_reminder_email_sent', {
+                        user_id: user.id,
+                        days_since_signup: Math.floor((now - new Date(user.created_at).getTime()) / ONE_DAY_MS),
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send demo reminder for user', { userId: user.id, error: err?.message });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Error in sendDemoReminderEmails', { error: error?.message });
         }
     },
 

@@ -2062,6 +2062,10 @@ export const hedwigApi = {
     return mapBackendUser(data.user || data);
   },
 
+  async demoBooked(options?: ApiOptions): Promise<{ booked: boolean }> {
+    return request<{ booked: boolean }>('/api/users/demo-booked', options, { method: 'POST' });
+  },
+
   async updateUserProfile(input: UpdateUserProfileInput, options?: ApiOptions): Promise<User> {
     const payload = {
       ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 import { X } from '@/components/ui/lucide-icons';
+import { CALENDLY_DEMO_URL } from '@/lib/demo';
 
 /* ── Shared dialog components (exported for features-showcase) ── */
 
@@ -226,6 +227,32 @@ export function LandingPageClientMount({
       {children}
       {childrenForDemo}
     </>
+  );
+}
+
+/* ── Landing "Book a demo" secondary CTA (fires analytics) ── */
+
+export function BookDemoLink({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const posthog = usePostHog();
+  return (
+    <a
+      href={CALENDLY_DEMO_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={
+        className ??
+        'inline-flex h-11 items-center gap-2 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-6 text-[14px] font-semibold text-[var(--color-foreground)] transition-all duration-200 hover:bg-[var(--color-surface-secondary)]'
+      }
+      onClick={() => posthog?.capture?.('book_demo_clicked', { source: 'landing_page' })}
+    >
+      {children ?? 'Book a demo'}
+    </a>
   );
 }
 

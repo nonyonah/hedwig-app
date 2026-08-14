@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Loader } from '@/components/ui/loader';
 import { CaretLeft } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
+import { NEW_USER_WELCOME_FLAG_KEY } from '@/lib/demo';
 
 type Stage = 'landing' | 'otp' | 'loading' | 'workspace' | 'error';
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -203,6 +204,7 @@ export default function SignInPage() {
       if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not create workspace.'); }
       posthog?.capture?.('workspace_created', { type: workspaceType });
       posthog?.capture?.('account_type_chosen', { type: workspaceType });
+      try { window.localStorage.setItem(NEW_USER_WELCOME_FLAG_KEY, '1'); } catch { /* noop */ }
       await finalizeSession(token, true);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Could not create workspace.');

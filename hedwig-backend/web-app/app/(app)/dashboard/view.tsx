@@ -31,6 +31,9 @@ import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { MemberWelcomeBanner } from '@/components/workspace/member-welcome-banner';
 import { PendingInvitationBanner } from '@/components/workspace/pending-invitation-banner';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
+import { WelcomeDemoModal } from '@/components/demo/welcome-demo-modal';
+import { DemoBanner } from '@/components/demo/demo-banner';
+import { DEMO_BOOKED_LOCALSTORAGE_KEY, NEW_USER_WELCOME_FLAG_KEY, WELCOME_DEMO_MODAL_DISMISSED_KEY } from '@/lib/demo';
 
 
 type DashboardData = {
@@ -103,11 +106,28 @@ export function DashboardClient({
   const [hour, setHour] = useState(() => new Date().getHours());
   const [showCoreIntro, setShowCoreIntro] = useState(false);
   const [coreIntroStep, setCoreIntroStep] = useState(0);
+  const [showWelcomeDemo, setShowWelcomeDemo] = useState(false);
   const canUseAssistantSummary = canUseFeature('assistant_summary_advanced', billing);
   const coreIntroStorageKey = useMemo(
   () => `${CORE_INTRO_STORAGE_KEY}:${userKey || 'anonymous'}`,
   [userKey]
   );
+
+  // One-time welcome demo modal — only for brand-new users right after signup.
+  useEffect(() => {
+    if (isDemo || typeof window === 'undefined') return;
+    try {
+      const isNewUser = window.localStorage.getItem(NEW_USER_WELCOME_FLAG_KEY) === '1';
+      const dismissed = window.localStorage.getItem(WELCOME_DEMO_MODAL_DISMISSED_KEY) === '1';
+      const booked = window.localStorage.getItem(DEMO_BOOKED_LOCALSTORAGE_KEY) === '1';
+      setShowWelcomeDemo(isNewUser && !dismissed && !booked);
+    } catch { /* noop */ }
+  }, [isDemo]);
+
+  const closeWelcomeDemo = useCallback(() => {
+    setShowWelcomeDemo(false);
+    try { window.localStorage.removeItem(NEW_USER_WELCOME_FLAG_KEY); } catch { /* noop */ }
+  }, []);
 
   // Fetch client count separately (DashboardData doesn't include clients)
   const [clientCount, setClientCount] = useState(0);
@@ -337,7 +357,9 @@ export function DashboardClient({
     <div className="flex flex-col gap-6">
       <MemberWelcomeBanner />
       <PendingInvitationBanner />
-      {!isDemo && showCoreIntro ? (
+      <DemoBanner suppressed={showWelcomeDemo || isDemo} />
+      <WelcomeDemoModal open={showWelcomeDemo} onClose={closeWelcomeDemo} />
+      {!isDemo && !showWelcomeDemo && showCoreIntro ? (
         <CoreFeaturesIntro
           activeStep={coreIntroStep}
           onStepChange={setCoreIntroStep}

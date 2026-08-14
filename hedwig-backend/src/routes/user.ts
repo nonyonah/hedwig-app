@@ -357,4 +357,27 @@ router.patch('/preferences', authenticate, async (req, res, next) => {
     } catch (error) { next(error); }
 });
 
+// POST /api/users/demo-booked
+// Marks the user as having booked a demo (clicked a signed-in "Book a Demo"
+// CTA). Idempotent — only ever sets a single timestamp, and never clears it.
+// Suppresses the demo-reminder email in the scheduler.
+router.post('/demo-booked', authenticate, async (req, res, next) => {
+    try {
+        const privyId = req.user!.id;
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('id, demo_booked_at')
+            .eq('privy_id', privyId)
+            .single();
+        if (error || !user) { res.status(404).json({ success: false }); return; }
+        if (!user.demo_booked_at) {
+            await supabase
+                .from('users')
+                .update({ demo_booked_at: new Date().toISOString() })
+                .eq('id', user.id);
+        }
+        res.json({ success: true, data: { booked: true } });
+    } catch (error) { next(error); }
+});
+
 export default router;
