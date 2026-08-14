@@ -104,14 +104,8 @@ function LandingPage() {
  href="/api/auth/exit-demo"
  className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--color-primary)] px-8 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:bg-[var(--color-primary-dark)] hover:shadow-[0_12px_32px_rgba(37,99,235,0.32)]"
  >
- Get started
- <ArrowRight className="h-4 w-4" weight="bold" />
- </a>
-  <a
-  href="#how-it-works"
-  className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-8 text-[14px] font-semibold text-[var(--color-foreground)] transition-all duration-200 hover:bg-[var(--color-surface-secondary)]"
-  >
-  See how it works
+  Get started
+  <ArrowRight className="h-4 w-4" weight="bold" />
   </a>
   <BookDemoLink />
   </div>

@@ -19,6 +19,10 @@ const BENIGN_MESSAGE_PATTERNS = [
   'ResizeObserver loop',
   'Script error.',
   'Non-Error promise rejection captured',
+  'The user aborted a request',
+  'AbortError',
+  'Failed to load resource',
+  'net::ERR_',
 ];
 
 const isBenign = (msg: string) => BENIGN_MESSAGE_PATTERNS.some((p) => msg.includes(p));
@@ -43,6 +47,12 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
   }, [toast]);
 
   useEffect(() => {
+    // Surface uncaught errors as toasts only in production. During
+    // development the console is the debugging surface — toasting dev-time
+    // noise (React DevTools, browser extensions, transient network errors)
+    // just spams the UI.
+    if (process.env.NODE_ENV !== 'production') return;
+
     const onRejection = (event: PromiseRejectionEvent) => {
       const msg = event.reason?.message || String(event.reason || '');
       report(msg);

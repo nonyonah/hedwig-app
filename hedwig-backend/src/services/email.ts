@@ -2236,16 +2236,16 @@ export const EmailService = {
                 <div class="content">
                     <p class="eyebrow">Welcome</p>
                     <h1 class="heading">Hey ${name}, you&rsquo;re in &#x1f44b;</h1>
-                    <p class="description">Hedwig helps you run your business finances in one place &mdash; payments, invoicing, bookkeeping, and client/project tracking, all in USDC.</p>
+                    <p class="description">Hedwig helps you run your business finances in one place &mdash; payments, invoicing, bookkeeping, and client/project tracking.</p>
                     <p class="description"><strong>Here&rsquo;s what to do first:</strong><br />${firstAction}</p>
                     <div class="btn-container">
                         <a href="${ctaUrl}" class="btn">Go to dashboard</a>
                     </div>
                     <div class="demo-signoff">
                         <p style="font-size:14px;color:#535862;line-height:1.6;margin:0 0 4px;"><strong>Want a quick walkthrough?</strong></p>
-                        <p style="font-size:13px;color:#717680;line-height:1.6;margin:0 0 14px;">I&rsquo;m happy to walk you through Hedwig in 15 minutes &mdash; no pressure, just a tour.</p>
+                        <p style="font-size:13px;color:#717680;line-height:1.6;margin:0 0 14px;">I&rsquo;m happy to walk you through Hedwig &mdash; no pressure, just a tour.</p>
                         <div style="text-align:left;">
-                            <a href="${demoUrl}" class="btn-outline">Book a 15-minute demo</a>
+                            <a href="${demoUrl}" class="btn-outline">Book a quick call</a>
                         </div>
                     </div>
                     <hr class="divider" />
@@ -2304,9 +2304,9 @@ export const EmailService = {
                     <p class="eyebrow">A quick note</p>
                     <h1 class="heading">Hey ${name}, need a hand? &#x1f91d;</h1>
                     <p class="description">You signed up for Hedwig a few days ago, and I wanted to check in &mdash; setting up payments, invoicing, or payroll is easier with a quick tour.</p>
-                    <p class="description">I can show you around in 15 minutes, or help with anything specific you&rsquo;re stuck on.</p>
+                    <p class="description">I can show you around, or help with anything specific you&rsquo;re stuck on.</p>
                     <div class="btn-container">
-                        <a href="${demoUrl}" class="btn">Book a 15-minute demo</a>
+                        <a href="${demoUrl}" class="btn">Book a quick call</a>
                     </div>
                     <hr class="divider" />
                     <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">Questions? Just reply &mdash; I read these myself.<br />&mdash; Nonso, Hedwig</p>
