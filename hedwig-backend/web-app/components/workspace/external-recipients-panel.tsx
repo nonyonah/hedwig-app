@@ -30,14 +30,14 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
  const [notes, setNotes] = useState('');
  const [copiedId, setCopiedId] = useState<string | null>(null);
 
- const fetchRecipients = useCallback(async () => {
- setLoading(true);
- try {
- const res: any = await hedwigApi.externalRecipients(workspaceId, { accessToken, disableMockFallback: true });
- setRecipients(res?.data || []);
- } catch { /* ignore */ }
- finally { setLoading(false); }
- }, [workspaceId, accessToken]);
+const fetchRecipients = useCallback(async () => {
+  setLoading(true);
+  try {
+  const res: any = await hedwigApi.externalRecipients(workspaceId, { accessToken, disableMockFallback: true });
+  setRecipients(Array.isArray(res) ? res : (res?.recipients || res?.data || []));
+  } catch { /* ignore */ }
+  finally { setLoading(false); }
+  }, [workspaceId, accessToken]);
 
  useEffect(() => { fetchRecipients(); }, [fetchRecipients]);
 
@@ -46,19 +46,19 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
  setSaving(true);
  setError('');
  try {
- const res: any = await hedwigApi.createExternalRecipient(workspaceId, {
- displayName: displayName.trim(),
- walletAddress: walletAddress.trim(),
- notes: notes.trim() || undefined,
- }, { accessToken, disableMockFallback: true });
- if (res?.data) {
- setRecipients(prev => [res.data, ...prev]);
- setShowForm(false);
- setDisplayName('');
- setWalletAddress('');
- setNotes('');
- addToast({ title: 'Added', message: 'External recipient added.', type: 'success' });
- }
+  const res: any = await hedwigApi.createExternalRecipient(workspaceId, {
+  displayName: displayName.trim(),
+  walletAddress: walletAddress.trim(),
+  notes: notes.trim() || undefined,
+  }, { accessToken, disableMockFallback: true });
+  if (res) {
+  setRecipients(prev => [res, ...prev]);
+  setShowForm(false);
+  setDisplayName('');
+  setWalletAddress('');
+  setNotes('');
+  addToast({ title: 'Added', message: 'External recipient added.', type: 'success' });
+  }
  } catch (err: any) {
  setError(err?.message || 'Failed to add recipient');
  } finally {
@@ -68,12 +68,12 @@ export function ExternalRecipientsPanel({ workspaceId, accessToken }: { workspac
 
  const handleToggle = useCallback(async (recipient: Recipient) => {
  try {
- const res: any = await hedwigApi.updateExternalRecipient(workspaceId, recipient.id, {
- isActive: !recipient.is_active,
- }, { accessToken, disableMockFallback: true });
- if (res?.data) {
- setRecipients(prev => prev.map(r => r.id === recipient.id ? res.data : r));
- }
+  const res: any = await hedwigApi.updateExternalRecipient(workspaceId, recipient.id, {
+  isActive: !recipient.is_active,
+  }, { accessToken, disableMockFallback: true });
+  if (res) {
+  setRecipients(prev => prev.map(r => r.id === recipient.id ? res : r));
+  }
  } catch {
  addToast({ title: 'Failed', message: 'Could not update recipient.', type: 'error' });
  }

@@ -41,7 +41,7 @@ interface PreviewData {
  totalUsdc: string; totalUsd: string; treasuryBalanceAfter: string;
  treasuryBalanceAfterUsd: string; items: PreviewItem[]; previewToken: string; expiresAt: string; paymentRail?: string;
 }
-interface PreviewItem { userId: string; name: string; amountUsdc: string; amountUsd: string; }
+interface PreviewItem { userId: string | null; externalRecipientId?: string | null; name: string; amountUsdc: string; amountUsd: string; }
 interface PayrollRunItem { recipientName: string; amountUsd: string; status: string; txHash?: string; }
 interface PayrollRun {
  id: string; runType: string; totalAmountUsd: string; status: string;
@@ -53,23 +53,46 @@ interface PayrollRun {
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
+interface ExternalRecipient {
+  id: string; display_name: string; wallet_address: string; is_active: boolean;
+}
+
 function MemberRow({ member, amount, onAmount }: { member: Member; amount: string; onAmount: (uid: string, v: string) => void }) {
- const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || member.userId;
- return (
- <div className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5">
- <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-secondary)]">
- {(name[0] || '?').toUpperCase()}
- </div>
- <div className="min-w-0 flex-1">
- <p className="truncate text-[12px] font-semibold text-[var(--color-foreground)]">{name}</p>
- <p className="text-[10px] text-[var(--color-text-muted)] capitalize">{member.role}</p>
- </div>
- <div className="flex items-center gap-1">
- <span className="text-[12px] text-[var(--color-text-muted)]">$</span>
- <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => onAmount(member.userId, e.target.value)} className="w-20 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-right text-[12px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
- </div>
- </div>
- );
+  const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || member.userId;
+  return (
+  <div className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5">
+  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-secondary)]">
+  {(name[0] || '?').toUpperCase()}
+  </div>
+  <div className="min-w-0 flex-1">
+  <p className="truncate text-[12px] font-semibold text-[var(--color-foreground)]">{name}</p>
+  <p className="text-[10px] text-[var(--color-text-muted)] capitalize">{member.role}</p>
+  </div>
+  <div className="flex items-center gap-1">
+  <span className="text-[12px] text-[var(--color-text-muted)]">$</span>
+  <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => onAmount(member.userId, e.target.value)} className="w-20 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-right text-[12px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
+  </div>
+  </div>
+  );
+}
+
+function ExternalRecipientRow({ recipient, amount, onAmount }: { recipient: ExternalRecipient; amount: string; onAmount: (key: string, v: string) => void }) {
+  const addr = recipient.wallet_address || '';
+  return (
+  <div className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5">
+  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-tertiary)] text-[11px] font-semibold text-[var(--color-text-secondary)]">
+  {(recipient.display_name[0] || '?').toUpperCase()}
+  </div>
+  <div className="min-w-0 flex-1">
+  <p className="truncate text-[12px] font-semibold text-[var(--color-foreground)]">{recipient.display_name}</p>
+  <p className="truncate font-mono text-[10px] text-[var(--color-text-muted)]">{addr.slice(0, 10)}...{addr.slice(-6)}</p>
+  </div>
+  <div className="flex items-center gap-1">
+  <span className="text-[12px] text-[var(--color-text-muted)]">$</span>
+  <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => onAmount(`ext:${recipient.id}`, e.target.value)} className="w-20 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-right text-[12px] tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:border-[var(--color-primary)]" />
+  </div>
+  </div>
+  );
 }
 
 export function PayrollDashboard({ offrampAllowed = true }: { offrampAllowed?: boolean }) {
@@ -103,9 +126,10 @@ export function PayrollDashboard({ offrampAllowed = true }: { offrampAllowed?: b
  const [payrollOpen, setPayrollOpen] = useState(false);
  const [offrampOpen, setOfframpOpen] = useState(false);
 
- // ── Run Payroll (inside dialog) ──
- const [members, setMembers] = useState<Member[]>([]);
- const [amounts, setAmounts] = useState<Record<string, string>>({});
+  // ── Run Payroll (inside dialog) ──
+  const [members, setMembers] = useState<Member[]>([]);
+  const [externalRecipients, setExternalRecipients] = useState<Array<{ id: string; display_name: string; wallet_address: string; is_active: boolean }>>([]);
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
  const [runType, setRunType] = useState<'fixed' | 'project'>('fixed');
  const [loadingMembers, setLoadingMembers] = useState(false);
  const [loadingPreview, setLoadingPreview] = useState(false);
@@ -215,23 +239,27 @@ export function PayrollDashboard({ offrampAllowed = true }: { offrampAllowed?: b
 
  useEffect(() => { if (mainTab === 'scheduled') refreshSchedules(); }, [mainTab, refreshSchedules]);
 
- // ── Fetch members when payroll dialog opens ──
- useEffect(() => {
- if (!payrollOpen || !activeWorkspace) return;
- setLoadingMembers(true); setError(null);
- api(`/api/workspaces/${activeWorkspace.id}/members`)
- .then(d => setMembers(d.data?.members || []))
- .catch(e => setError(e.message))
- .finally(() => setLoadingMembers(false));
- }, [payrollOpen, activeWorkspace]);
+  // ── Fetch members when payroll dialog opens ──
+  useEffect(() => {
+  if (!payrollOpen || !activeWorkspace) return;
+  setLoadingMembers(true); setError(null);
+  api(`/api/workspaces/${activeWorkspace.id}/members`)
+  .then(d => setMembers(d.data?.members || []))
+  .catch(e => setError(e.message))
+  .finally(() => setLoadingMembers(false));
+  api(`/api/external-recipients/${activeWorkspace.id}`)
+  .then(d => setExternalRecipients(d.data || []))
+  .catch(() => {});
+  }, [payrollOpen, activeWorkspace]);
 
  // Reset dialog state on close
- const closePayrollDialog = () => {
- setPayrollOpen(false); setPayrollView('form'); setPreview(null);
- setAmounts({}); setRunResult(null); setError(null); setLoadingPreview(false);
- setPaymentRail('base');
- if (timerRef.current) clearInterval(timerRef.current);
- };
+  const closePayrollDialog = () => {
+  setPayrollOpen(false); setPayrollView('form'); setPreview(null);
+  setAmounts({}); setRunResult(null); setError(null); setLoadingPreview(false);
+  setExternalRecipients([]);
+  setPaymentRail('base');
+  if (timerRef.current) clearInterval(timerRef.current);
+  };
 
  // ── Preview countdown ──
  useEffect(() => {
@@ -249,20 +277,27 @@ export function PayrollDashboard({ offrampAllowed = true }: { offrampAllowed?: b
  setAmounts(p => ({ ...p, [uid]: v }));
  };
 
- const handlePreview = async () => {
- if (!activeWorkspace) return;
- const items = Object.entries(amounts)
- .filter(([, v]) => v && parseFloat(v) > 0)
- .map(([userId, amount]) => ({ userId, amountUsdc: (parseFloat(amount) * 1e6).toString() }));
- if (!items.length) { setError('Enter at least one amount'); return; }
- setError(null);
- setLoadingPreview(true);
- try {
- const res = await api(`/api/workspaces/${activeWorkspace.id}/payroll/preview`, 'POST', { runType, items, paymentRail });
- setPreview(res.data); setPayrollView('preview');
- } catch (e: any) { setError(e.message); }
- finally { setLoadingPreview(false); }
- };
+  const handlePreview = async () => {
+  if (!activeWorkspace) return;
+  const items = Object.entries(amounts)
+  .filter(([, v]) => v && parseFloat(v) > 0)
+  .map(([key, amount]) => {
+  const amountUsdc = (parseFloat(amount) * 1e6).toString();
+  if (key.startsWith('ext:')) {
+  const ext = externalRecipients.find(r => r.id === key.slice(4));
+  return { externalRecipientId: key.slice(4), walletAddress: ext?.wallet_address, amountUsdc };
+  }
+  return { userId: key, amountUsdc };
+  });
+  if (!items.length) { setError('Enter at least one amount'); return; }
+  setError(null);
+  setLoadingPreview(true);
+  try {
+  const res = await api(`/api/workspaces/${activeWorkspace.id}/payroll/preview`, 'POST', { runType, items, paymentRail });
+  setPreview(res.data); setPayrollView('preview');
+  } catch (e: any) { setError(e.message); }
+  finally { setLoadingPreview(false); }
+  };
 
  const handleRun = async () => {
  if (!activeWorkspace || !preview) return;
@@ -744,15 +779,25 @@ function AddFundsButton() {
  <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Team members</span>
  {loadingMembers && <span className="text-[11px] text-[var(--color-text-muted)] animate-pulse">Loading…</span>}
  </div>
- {loadingMembers ? (
- [...Array(4)].map((_, i) => (<div key={i} className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5"><div className="h-7 w-7 animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" /><div className="flex-1 space-y-1"><div className="h-3 w-20 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /><div className="h-2.5 w-12 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /></div><div className="h-8 w-20 animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" /></div>))
- ) : membersWithoutOwner.length === 0 ? (
- <div className="flex flex-col items-center gap-2 py-6 text-center"><UsersThree className="h-6 w-6 text-[var(--color-text-muted)]" weight="duotone" /><p className="text-[12px] text-[var(--color-text-muted)]">No team members yet.</p></div>
- ) : (
- membersWithoutOwner.map(m => (
- <MemberRow key={m.userId} member={m} amount={amounts[m.userId] || ''} onAmount={setAmt} />
- ))
- )}
+  {loadingMembers ? (
+  [...Array(4)].map((_, i) => (<div key={i} className="flex items-center gap-3 rounded-full bg-[var(--color-surface-secondary)] px-3 py-2.5 mb-1.5"><div className="h-7 w-7 animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" /><div className="flex-1 space-y-1"><div className="h-3 w-20 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /><div className="h-2.5 w-12 animate-pulse rounded bg-[var(--color-surface-tertiary)]" /></div><div className="h-8 w-20 animate-pulse rounded-full bg-[var(--color-surface-tertiary)]" /></div>))
+  ) : membersWithoutOwner.length === 0 && externalRecipients.length === 0 ? (
+  <div className="flex flex-col items-center gap-2 py-6 text-center"><UsersThree className="h-6 w-6 text-[var(--color-text-muted)]" weight="duotone" /><p className="text-[12px] text-[var(--color-text-muted)]">No recipients yet.</p><p className="text-[11px] text-[var(--color-text-muted)]">Add team members or external recipients to run payroll.</p></div>
+  ) : (
+  <>
+  {membersWithoutOwner.map(m => (
+  <MemberRow key={m.userId} member={m} amount={amounts[m.userId] || ''} onAmount={setAmt} />
+  ))}
+  {externalRecipients.length > 0 && (
+  <div className="mt-3">
+  <p className="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">External recipients</p>
+  {externalRecipients.map(r => (
+  <ExternalRecipientRow key={r.id} recipient={r} amount={amounts[`ext:${r.id}`] || ''} onAmount={setAmt} />
+  ))}
+  </div>
+  )}
+  </>
+  )}
  </div>
  {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>}
  </div>
@@ -778,7 +823,7 @@ function AddFundsButton() {
  </div>
  <div className="overflow-hidden rounded-2xl border border-[var(--color-border)]">
  <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Breakdown</span></div>
- <div className="divide-y divide-[var(--color-surface-secondary)]">{preview.items.map(item => (<div key={item.userId} className="flex items-center justify-between px-4 py-2.5"><p className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.name}</p><p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">${item.amountUsd}</p></div>))}</div>
+  <div className="divide-y divide-[var(--color-surface-secondary)]">{preview.items.map(item => (<div key={item.userId || item.externalRecipientId || item.name} className="flex items-center justify-between px-4 py-2.5"><p className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.name}</p><p className="text-[12px] font-semibold tabular-nums text-[var(--color-foreground)]">${item.amountUsd}</p></div>))}</div>
  </div>
  {runResult && (<Alert status="success"><Alert.Indicator /><Alert.Content><Check className="mb-1 h-5 w-5 text-[var(--color-success)]" weight="bold" /><Alert.Title>{runResult.successCount} succeeded{runResult.failedCount > 0 ? `, ${runResult.failedCount} failed` : ''}</Alert.Title></Alert.Content></Alert>)}
  </div>
