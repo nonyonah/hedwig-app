@@ -3,6 +3,7 @@
 import { cloneElement, isValidElement } from 'react';
 import type { ReactNode } from 'react';
 import { Modal } from '@heroui/react';
+import { cn } from '@/lib/utils';
 
 const sizeMap: Record<string, 'sm' | 'md' | 'lg' | 'cover' | 'full'> = {
   sm: 'sm',
@@ -22,9 +23,13 @@ type DialogProps = {
 };
 
 export function Dialog({ children, open, onOpenChange, size, className }: DialogProps) {
+  // Compact widths matching the agent creation modal (max-w-lg). Table-heavy
+  // dialogs (lg/2xl) get capped instead of full-cover so they stay readable.
+  const widthClass =
+    size === 'lg' ? 'max-w-2xl' : size === 'xl' || size === '2xl' || size === 'full' ? 'max-w-3xl' : 'max-w-lg';
   return (
     <Modal.Backdrop isOpen={open} onOpenChange={onOpenChange} variant="blur">
-      <Modal.Container size={sizeMap[size ?? 'md']} scroll="inside" className={className}>
+      <Modal.Container size={sizeMap[size ?? 'md']} scroll="inside" className={cn('w-full', widthClass, className)}>
         <Modal.Dialog>
           {children}
         </Modal.Dialog>

@@ -57,7 +57,7 @@ export function ShareWalletDialog({
  Receive
  </Button>
 
- <Dialog open={open} onOpenChange={setOpen} size="2xl">
+  <Dialog open={open} onOpenChange={setOpen} size="md">
  <DialogContent>
  <DialogHeader>
  <DialogTitle>Receive funds</DialogTitle>

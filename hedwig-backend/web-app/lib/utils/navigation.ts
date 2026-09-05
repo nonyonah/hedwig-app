@@ -3,10 +3,10 @@ import {
   CalendarDots,
   Cards,
   ChartBar,
+  CheckCircle,
   CreditCard,
   CurrencyDollar,
   Faders,
-  FolderSimple,
   House,
   Sparkle,
   User,
@@ -44,8 +44,9 @@ export const navigationGroups = [
   {
     label: 'Workspace',
     items: [
-      { title: 'Clients', href: '/clients', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
-      { title: 'Projects', href: '/projects', icon: FolderSimple, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
+      // Clients + Projects hidden (pages kept at /clients + /projects for a future return).
+      { title: 'Agents', href: '/agents', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin'] },
+      { title: 'Approvals', href: '/approvals', icon: CheckCircle, count: null, muted: false, roles: ['owner', 'admin'] },
       { title: 'Team', href: '/workspace/members', icon: User, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
@@ -65,6 +66,7 @@ export const navigationGroups = [
       { title: 'Payroll', href: '/workspace/payroll', icon: CurrencyDollar, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
       { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
+      { title: 'Cards', href: '/cards', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
   },
   {

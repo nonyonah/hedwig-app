@@ -19,6 +19,10 @@ export const FINANCIAL_EVENT_TYPES = {
   OFFRAMP_SETTLED: 'offramp.settled',
   OFFRAMP_REFUNDED: 'offramp.refunded',
   WALLET_DEPOSIT_RECEIVED: 'wallet.deposit.received',
+  X402_PAYMENT_RECEIVED: 'x402.payment.received',
+  CARD_ISSUED: 'card.issued',
+  CARD_AUTHORIZED: 'card.authorized',
+  CARD_SETTLED: 'card.settled',
 } as const;
 
 export type FinancialEventType = (typeof FINANCIAL_EVENT_TYPES)[keyof typeof FINANCIAL_EVENT_TYPES];

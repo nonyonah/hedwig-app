@@ -984,6 +984,116 @@ export const hedwigApi = {
     );
   },
 
+  // ── Agent spend (Nche port) ──────────────────────────────────────────
+  async agents(options?: ApiOptions): Promise<any[]> {
+    return withFallback(
+      async () => {
+        // request() already returns payload.data, so data IS the array here.
+        const data = await request<any[]>('/api/agents', options);
+        return Array.isArray(data) ? data : [];
+      },
+      () => [],
+      options
+    );
+  },
+
+  async createAgent(input: Record<string, unknown>, options?: ApiOptions): Promise<any> {
+    // Bypasses request() so a needs_review payload is returned (not thrown)
+    // even when the backend omits the success flag on that shape.
+    if (!options?.accessToken) throw new Error('Missing access token for /api/agents');
+    const response = await fetch(`${backendConfig.apiBaseUrl}/api/agents`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { ...authHeaders(options.accessToken, options.workspaceId), 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const payload = (await response.json().catch(() => null)) as any;
+    if (!response.ok) {
+      throw new Error(extractApiErrorMessage(payload, 'Request failed. Please try again.'));
+    }
+    const body = payload?.data ?? payload;
+    if (!body) throw new Error('Request failed. Please try again.');
+    return body;
+  },
+
+  async updateAgent(id: string, input: Record<string, unknown>, options?: ApiOptions): Promise<any> {
+    return request<any>(`/api/agents/${id}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+
+  async approvals(options?: ApiOptions): Promise<any[]> {
+    return withFallback(
+      async () => {
+        const data = await request<any[]>('/api/approvals', options);
+        return Array.isArray(data) ? data : [];
+      },
+      () => [],
+      options
+    );
+  },
+
+  async decideApproval(id: string, approve: boolean, options?: ApiOptions): Promise<any> {
+    return request<any>(`/api/approvals/${id}/${approve ? 'approve' : 'decline'}`, options, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
+
+  async cards(options?: ApiOptions): Promise<any[]> {
+    return withFallback(
+      async () => {
+        const data = await request<any[]>('/api/cards', options);
+        return Array.isArray(data) ? data : [];
+      },
+      () => [],
+      options
+    );
+  },
+
+  async issueCard(options?: ApiOptions): Promise<any> {
+    return request<any>('/api/cards', options, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
+
+  async setCardFrozen(id: string, frozen: boolean, options?: ApiOptions): Promise<any> {
+    return request<any>(`/api/cards/${id}/${frozen ? 'freeze' : 'unfreeze'}`, options, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
+
+  async disputes(options?: ApiOptions): Promise<any[]> {
+    return withFallback(
+      async () => {
+        const data = await request<any[]>('/api/disputes', options);
+        return Array.isArray(data) ? data : [];
+      },
+      () => [],
+      options
+    );
+  },
+
+  async createDispute(input: Record<string, unknown>, options?: ApiOptions): Promise<any> {
+    return request<any>('/api/disputes', options, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  async verificationStatus(options?: ApiOptions): Promise<{ kyc_status: string; open_reviews: number; verified: boolean }> {
+    return withFallback(
+      async () => {
+        return request<{ kyc_status: string; open_reviews: number; verified: boolean }>('/api/verification/status', options);
+      },
+      () => ({ kyc_status: 'NOT_STARTED', open_reviews: 0, verified: false }),
+      options
+    );
+  },
+
   async createClient(input: CreateClientInput, options?: ApiOptions): Promise<Client> {
     const data = await request<{ client: any }>('/api/clients', options, {
       method: 'POST',

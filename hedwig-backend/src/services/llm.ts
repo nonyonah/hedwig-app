@@ -62,7 +62,7 @@ function getGeminiClient() {
 }
 
 function getModel(): string {
-  return process.env.LLM_MODEL || 'gemini-2.5-flash-lite';
+  return process.env.LLM_MODEL || 'gemini-3.5-flash-lite';
 }
 
 function getGatewayModel(): string {
