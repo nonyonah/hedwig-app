@@ -56,10 +56,16 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
   const didSetRef = useRef(false);
 
   // Sync cookie + localStorage before children fetch (client-side).
+  // Self-heal: drop stored ids containing '@' — early builds persisted
+  // email-based ids (ws_personal_<email>) that no longer resolve; the backend
+  // canonical form is ws_personal_<privyId> or a UUID.
   if (typeof window !== 'undefined' && !didSetRef.current) {
     didSetRef.current = true;
     const stored = readActiveWorkspaceIdFromStorage();
-    if (!stored) {
+    if (stored && stored.includes('@')) {
+      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+      document.cookie = `${ACTIVE_WORKSPACE_STORAGE_KEY}=; path=/; max-age=0; SameSite=Lax`;
+    } else if (!stored) {
       persistActiveWorkspaceId(fallbackWorkspace.id);
     }
   }
