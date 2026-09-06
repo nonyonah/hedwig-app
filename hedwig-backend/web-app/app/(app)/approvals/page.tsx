@@ -8,5 +8,5 @@ export default async function ApprovalsPage() {
   const opts = await workspaceApiOptions(session.accessToken);
   const approvals = await hedwigApi.approvals(opts);
 
-  return <ApprovalsClient key={opts.workspaceId ?? 'default'} accessToken={session.accessToken} initialApprovals={approvals} />;
+  return <ApprovalsClient key={opts.workspaceId ?? 'default'} accessToken={session.accessToken} workspaceId={opts.workspaceId} initialApprovals={approvals} />;
 }

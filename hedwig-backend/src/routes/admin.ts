@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
+import { resolveRequestIdentity } from '../utils/identity';
 
 const router = Router();
 
@@ -13,7 +14,11 @@ const router = Router();
  */
 
 const requireAdmin = async (req: Request, res: Response, next: () => void) => {
-  const role = await getWorkspaceRole(req, req.user!.id).catch(() => null);
+  // Membership rows are keyed by internal user id — resolve it first or every
+  // check returns null and the console is permanently 403.
+  const identity = await resolveRequestIdentity(req).catch(() => null);
+  const userId = identity?.internalId ?? req.user!.id;
+  const role = await getWorkspaceRole(req, userId).catch(() => null);
   if (!isOwnerOrAdmin(role)) return res.status(403).json({ error: 'admin only' });
   return next();
 };

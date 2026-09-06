@@ -49,9 +49,11 @@ function StatusPill({ status }: { status: string }) {
 
 export function ApprovalsClient({
   accessToken,
+  workspaceId,
   initialApprovals,
 }: {
   accessToken: string | null;
+  workspaceId?: string | null;
   initialApprovals: Approval[];
 }) {
   const [items, setItems] = useState<Approval[]>(initialApprovals);
@@ -68,7 +70,7 @@ export function ApprovalsClient({
     const refresh = async () => {
       setIsRefreshing(true);
       try {
-        const live = await hedwigApi.approvals({ accessToken, disableMockFallback: true });
+        const live = await hedwigApi.approvals({ accessToken, workspaceId, disableMockFallback: true });
         // Never clobber server-rendered rows with an empty passive refresh.
         if (!cancelled && (live.length > 0 || initialApprovals.length === 0)) setItems(live);
       } catch {
@@ -83,7 +85,7 @@ export function ApprovalsClient({
     };
   }, [accessToken]);
 
-  const opts = { accessToken: accessToken ?? '', disableMockFallback: true };
+  const opts = { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true };
 
   const refresh = async () => setItems(await hedwigApi.approvals(opts));
 

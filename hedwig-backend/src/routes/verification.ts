@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { resolveRequestIdentity, ownerScope } from '../utils/identity';
 
 const router = Router();
 
@@ -11,10 +12,11 @@ const router = Router();
  */
 
 router.get('/reviews', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('manual_review_cases')
     .select('*')
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -22,12 +24,13 @@ router.get('/reviews', authenticate, async (req: Request, res: Response) => {
 });
 
 router.post('/reviews', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   if (!b.kind) return res.status(400).json({ error: 'kind is required' });
   const { data, error } = await supabase
     .from('manual_review_cases')
     .insert({
-      user_id: req.user!.id,
+      user_id: identity.internalId,
       kind: String(b.kind).slice(0, 100),
       reference_id: b.reference_id ?? null,
       payload: b.payload ?? null,
@@ -41,11 +44,12 @@ router.post('/reviews', authenticate, async (req: Request, res: Response) => {
 
 /** Unified verification status: Didit session + Bridge KYB + open reviews. */
 router.get('/status', authenticate, async (req: Request, res: Response) => {
-  const { data: user } = await supabase.from('users').select('kyc_status').eq('id', req.user!.id).maybeSingle();
+  const identity = await resolveRequestIdentity(req);
+  const { data: user } = await supabase.from('users').select('kyc_status').eq('id', identity.internalId).maybeSingle();
   const { data: reviews } = await supabase
     .from('manual_review_cases')
     .select('id,status')
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .eq('status', 'OPEN');
   return res.json({
     success: true,

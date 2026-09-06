@@ -8,5 +8,5 @@ export default async function CardsPage() {
   const opts = await workspaceApiOptions(session.accessToken);
   const cards = await hedwigApi.cards(opts);
 
-  return <CardsClient key={opts.workspaceId ?? 'default'} accessToken={session.accessToken} initialCards={cards} />;
+  return <CardsClient key={opts.workspaceId ?? 'default'} accessToken={session.accessToken} workspaceId={opts.workspaceId} initialCards={cards} />;
 }

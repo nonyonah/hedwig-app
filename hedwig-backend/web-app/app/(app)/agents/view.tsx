@@ -58,7 +58,7 @@ export function AgentsClient({
   initialAgents,
 }: {
   accessToken: string | null;
-  workspaceId?: string;
+  workspaceId?: string | null;
   initialAgents: Agent[];
 }) {
   const [agents, setAgents] = useState<Agent[]>(initialAgents);
