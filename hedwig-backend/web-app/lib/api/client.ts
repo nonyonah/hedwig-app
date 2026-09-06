@@ -1,5 +1,5 @@
 import { backendConfig } from '@/lib/auth/config';
-import { extractApiErrorMessage } from '@/lib/api/errors';
+import { extractApiErrorMessage, type ApiErrorPayload } from '@/lib/api/errors';
 import {
   accountTransactions as mockAccountTransactions,
   activities as mockActivities,
@@ -92,6 +92,12 @@ interface ApiEnvelope<T> {
   data: T;
   error?: { message?: string } | string;
 }
+
+const isApiEnvelope = <T,>(payload: unknown): payload is ApiEnvelope<T> =>
+  Boolean(payload && typeof payload === 'object' && 'success' in payload);
+
+const asApiErrorPayload = (payload: unknown): ApiErrorPayload | null =>
+  payload && typeof payload === 'object' ? payload as ApiErrorPayload : null;
 
 export interface UpdateUserProfileInput {
   firstName?: string;
@@ -780,20 +786,28 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
     );
   }
 
-  let payload: ApiEnvelope<T>;
+  let payload: ApiEnvelope<T> | T;
 
   try {
-    payload = JSON.parse(rawBody) as ApiEnvelope<T>;
+    payload = JSON.parse(rawBody) as ApiEnvelope<T> | T;
   } catch {
     const snippet = rawBody.slice(0, 120).replace(/\s+/g, ' ').trim();
     throw new Error(`Failed to parse JSON from ${backendConfig.apiBaseUrl}${path}. Response started with: ${snippet}`);
   }
 
-  if (!response.ok || !payload?.success) {
-    throw new Error(extractApiErrorMessage(payload, 'Request failed. Please try again.'));
+  if (!response.ok) {
+    throw new Error(extractApiErrorMessage(asApiErrorPayload(payload), 'Request failed. Please try again.'));
   }
 
-  return payload.data;
+  if (isApiEnvelope<T>(payload)) {
+    if (!payload.success) {
+      throw new Error(extractApiErrorMessage(asApiErrorPayload(payload), 'Request failed. Please try again.'));
+    }
+
+    return payload.data;
+  }
+
+  return payload;
 }
 
 async function withFallback<T>(loader: () => Promise<T>, fallback: () => T | Promise<T>, options?: ApiOptions): Promise<T> {
