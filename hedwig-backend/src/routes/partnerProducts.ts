@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
-import { getEffectiveWorkspaceId } from '../utils/workspace';
+import { resolveRequestIdentity } from '../utils/identity';
 
 const router = Router();
 
@@ -15,7 +15,8 @@ const PRODUCTS = ['USD_ACCOUNT', 'CARD', 'BANK_TRANSFER', 'STABLECOIN_WALLET'] a
 const PROVIDERS = ['BRIDGE', 'RAIN', 'HEDWIG'] as const;
 
 router.get('/capabilities', authenticate, async (req: Request, res: Response) => {
-  const { data } = await supabase.from('partner_accounts').select('*').eq('user_id', req.user!.id);
+  const identity = await resolveRequestIdentity(req);
+  const { data } = await supabase.from('partner_accounts').select('*').in('user_id', [identity.internalId, identity.privyDid]);
   const byProduct = new Map((data ?? []).map((r) => [r.product, r]));
   return res.json({
     success: true,
@@ -29,6 +30,7 @@ router.get('/capabilities', authenticate, async (req: Request, res: Response) =>
 });
 
 router.post('/activate', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   if (!PRODUCTS.includes(b.product)) return res.status(400).json({ error: 'unknown product' });
   if (b.provider && !PROVIDERS.includes(b.provider)) return res.status(400).json({ error: 'unknown provider' });
@@ -39,7 +41,7 @@ router.post('/activate', authenticate, async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from('partner_accounts')
       .upsert(
-        { user_id: req.user!.id, workspace_id: await getEffectiveWorkspaceId(req, req.user!.id), product: b.product, provider: 'HEDWIG', status: 'ACTIVE', provider_ref: req.user!.id },
+        { user_id: identity.internalId, workspace_id: identity.workspaceId, product: b.product, provider: 'HEDWIG', status: 'ACTIVE', provider_ref: identity.internalId },
         { onConflict: 'user_id,product,provider' }
       )
       .select('*')
@@ -51,7 +53,7 @@ router.post('/activate', authenticate, async (req: Request, res: Response) => {
   const { data, error } = await supabase
     .from('partner_accounts')
     .upsert(
-      { user_id: req.user!.id, workspace_id: await getEffectiveWorkspaceId(req, req.user!.id), product: b.product, provider, status: 'PENDING' },
+      { user_id: identity.internalId, workspace_id: identity.workspaceId, product: b.product, provider, status: 'PENDING' },
       { onConflict: 'user_id,product,provider' }
     )
     .select('*')

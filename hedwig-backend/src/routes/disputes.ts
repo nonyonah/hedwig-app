@@ -1,17 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
-import { getEffectiveWorkspaceId } from '../utils/workspace';
+import { resolveRequestIdentity, ownerScope } from '../utils/identity';
 
 const router = Router();
 
 /** Disputes / support tickets — Nche port (card + invoice). */
 
 router.get('/', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('disputes')
     .select('*')
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -19,13 +20,14 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 });
 
 router.post('/', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   if (!b.reason?.trim()) return res.status(400).json({ error: 'reason is required' });
   const { data, error } = await supabase
     .from('disputes')
     .insert({
-      user_id: req.user!.id,
-      workspace_id: b.workspace_id ?? await getEffectiveWorkspaceId(req, req.user!.id),
+      user_id: identity.internalId,
+      workspace_id: b.workspace_id ?? identity.workspaceId,
       card_transaction_id: b.card_transaction_id ?? null,
       invoice_id: b.invoice_id ?? null,
       reason: b.reason.trim().slice(0, 200),
@@ -39,11 +41,12 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 });
 
 router.patch('/:id', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('disputes')
     .update({ status: req.body?.status ?? 'IN_REVIEW', updated_at: new Date().toISOString() })
     .eq('id', req.params.id)
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .select('*')
     .single();
   if (error) throw error;

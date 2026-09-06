@@ -45,9 +45,11 @@ function StatusPill({ status }: { status: string }) {
 
 export function CardsClient({
   accessToken,
+  workspaceId,
   initialCards,
 }: {
   accessToken: string | null;
+  workspaceId?: string;
   initialCards: Card[];
 }) {
   const [cards, setCards] = useState<Card[]>(initialCards);
@@ -58,7 +60,7 @@ export function CardsClient({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
-  const opts = { accessToken: accessToken ?? '', disableMockFallback: true };
+  const opts = { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true };
 
   // Client-side refresh on mount (same pattern as contracts).
   useEffect(() => {
@@ -67,7 +69,7 @@ export function CardsClient({
     const refresh = async () => {
       setIsRefreshing(true);
       try {
-        const live = await hedwigApi.cards({ accessToken, disableMockFallback: true });
+        const live = await hedwigApi.cards({ accessToken, workspaceId, disableMockFallback: true });
         // Never clobber server-rendered rows with an empty passive refresh.
         if (!cancelled && (live.length > 0 || initialCards.length === 0)) setCards(live);
       } catch {

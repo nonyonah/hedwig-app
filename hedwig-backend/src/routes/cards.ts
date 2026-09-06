@@ -4,7 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { emitFinancialEvent } from '../services/financial-events';
-import { getEffectiveWorkspaceId } from '../utils/workspace';
+import { resolveRequestIdentity, ownerScope } from '../utils/identity';
 import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
@@ -37,11 +37,11 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
   if (!client) return res.status(503).json({ error: 'card issuing not configured' });
   const fundingAddress = await fundingAddressFor(req);
   if (!fundingAddress) return res.status(400).json({ error: 'no funding wallet on profile' });
-  const wsId = await getEffectiveWorkspaceId(req, req.user!.id);
+  const identity = await resolveRequestIdentity(req);
 
   const { data: card, error } = await supabase
     .from('cards')
-    .insert({ user_id: req.user!.id, workspace_id: wsId, status: 'PENDING_FUNDING', funding_address: fundingAddress })
+    .insert({ user_id: identity.internalId, workspace_id: identity.workspaceId, status: 'PENDING_FUNDING', funding_address: fundingAddress })
     .select('*')
     .single();
   if (error) throw error;
@@ -49,7 +49,8 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 });
 
 router.get('/', authenticate, async (req: Request, res: Response) => {
-  const { data, error } = await supabase.from('cards').select('*').eq('user_id', req.user!.id).order('created_at');
+  const identity = await resolveRequestIdentity(req);
+  const { data, error } = await supabase.from('cards').select('*').in('user_id', ownerScope(identity)).order('created_at');
   if (error) throw error;
   return res.json({ success: true, data });
 });
@@ -58,7 +59,8 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 router.post('/:id/check-funding', authenticate, async (req: Request, res: Response) => {
   const client = bridgeApi();
   if (!client) return res.status(503).json({ error: 'card issuing not configured' });
-  const { data: card } = await supabase.from('cards').select('*').eq('id', req.params.id).eq('user_id', req.user!.id).single();
+  const identity = await resolveRequestIdentity(req);
+  const { data: card } = await supabase.from('cards').select('*').eq('id', req.params.id).in('user_id', ownerScope(identity)).single();
   if (!card) return res.status(404).json({ error: 'not found' });
   if (card.bridge_card_id) return res.json({ success: true, data: card, funded: true });
 
@@ -82,7 +84,7 @@ router.post('/:id/check-funding', authenticate, async (req: Request, res: Respon
       .select('*')
       .single();
     emitFinancialEvent({
-      userId: req.user!.id,
+      userId: identity.internalId,
       workspaceId: card.workspace_id,
       eventType: 'card.issued',
       entityType: 'card',
@@ -103,7 +105,8 @@ router.post('/:id/check-funding', authenticate, async (req: Request, res: Respon
 
 const freezeHandler = (frozen: boolean) => async (req: Request, res: Response) => {
   const client = bridgeApi();
-  const { data: card } = await supabase.from('cards').select('*').eq('id', req.params.id).eq('user_id', req.user!.id).single();
+  const identity = await resolveRequestIdentity(req);
+  const { data: card } = await supabase.from('cards').select('*').eq('id', req.params.id).in('user_id', ownerScope(identity)).single();
   if (!card) return res.status(404).json({ error: 'not found' });
   if (client && card.bridge_card_id) {
     try {
@@ -126,10 +129,11 @@ router.post('/:id/freeze', authenticate, freezeHandler(true));
 router.post('/:id/unfreeze', authenticate, freezeHandler(false));
 
 router.get('/:id/transactions', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('card_transactions')
     .select('*')
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;

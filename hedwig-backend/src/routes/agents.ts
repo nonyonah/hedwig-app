@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
-import { getEffectiveWorkspaceId } from '../utils/workspace';
+import { resolveRequestIdentity, ownerScope, workspaceScope } from '../utils/identity';
 
 const router = Router();
 const logger = createLogger('Agents');
@@ -68,10 +68,13 @@ const rowToApi = (a: Record<string, unknown>, policy: Record<string, unknown> | 
 });
 
 router.get('/', authenticate, async (req: Request, res: Response) => {
-  const wsId = await getEffectiveWorkspaceId(req, req.user!.id);
-  let q = supabase.from('agents').select('*').eq('owner_user_id', req.user!.id).order('created_at');
-  if (wsId) q = q.eq('workspace_id', wsId);
-  const { data, error } = await q;
+  const identity = await resolveRequestIdentity(req);
+  const { data, error } = await supabase
+    .from('agents')
+    .select('*')
+    .in('owner_user_id', ownerScope(identity))
+    .in('workspace_id', workspaceScope(identity))
+    .order('created_at');
   if (error) throw error;
   const ids = (data ?? []).map((a) => a.id);
   const { data: policies } = ids.length
@@ -82,7 +85,8 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 });
 
 router.post('/', authenticate, async (req: Request, res: Response) => {
-  const wsId = await getEffectiveWorkspaceId(req, req.user!.id);
+  const identity = await resolveRequestIdentity(req);
+  const wsId = identity.workspaceId;
   const b = req.body ?? {};
   if (!b.name?.trim()) return res.status(400).json({ error: 'name is required' });
   const instructions: string | undefined = b.instructions ?? b.description;
@@ -104,7 +108,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
   const { data: agent, error } = await supabase
     .from('agents')
     .insert({
-      owner_user_id: req.user!.id,
+      owner_user_id: identity.internalId,
       workspace_id: wsId,
       name: b.name.trim().slice(0, 120),
       description: instructions?.slice(0, 4000) ?? null,
@@ -134,6 +138,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 });
 
 router.patch('/:id', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   const updates: Record<string, unknown> = {};
   if (b.name !== undefined) updates.name = String(b.name).slice(0, 120);
@@ -149,7 +154,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response) => {
     .from('agents')
     .update(updates)
     .eq('id', req.params.id)
-    .eq('owner_user_id', req.user!.id)
+    .in('owner_user_id', ownerScope(identity))
     .select('*')
     .single();
   if (error) throw error;

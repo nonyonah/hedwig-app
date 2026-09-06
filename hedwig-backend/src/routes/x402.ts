@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { emitFinancialEvent, computeEventFingerprint } from '../services/financial-events';
-import { getEffectiveWorkspaceId } from '../utils/workspace';
+import { resolveRequestIdentity, ownerScope } from '../utils/identity';
 
 const router = Router();
 const logger = createLogger('X402');
@@ -23,7 +23,8 @@ router.post('/receipts', authenticate, async (req: Request, res: Response) => {
   if (!txHash || amount === undefined || !payer || !recipient) {
     return res.status(400).json({ error: 'tx_hash, amount, payer_address, recipient_address required' });
   }
-  const wsId = b.workspace_id ?? await getEffectiveWorkspaceId(req, req.user!.id);
+  const identity = await resolveRequestIdentity(req);
+  const wsId = b.workspace_id ?? identity.workspaceId;
 
   const { data: existing } = await supabase
     .from('x402_receipts')
@@ -36,7 +37,7 @@ router.post('/receipts', authenticate, async (req: Request, res: Response) => {
   const { data: receipt, error } = await supabase
     .from('x402_receipts')
     .insert({
-      user_id: req.user!.id,
+      user_id: identity.internalId,
       workspace_id: wsId,
       payer_address: payer,
       recipient_address: recipient,
@@ -52,7 +53,7 @@ router.post('/receipts', authenticate, async (req: Request, res: Response) => {
 
   // Fire-and-forget ledger emission (never breaks the receipt write).
   emitFinancialEvent({
-    userId: req.user!.id,
+    userId: identity.internalId,
     workspaceId: wsId,
     eventType: 'x402.payment.received',
     entityType: 'x402_receipt',
@@ -69,10 +70,11 @@ router.post('/receipts', authenticate, async (req: Request, res: Response) => {
 });
 
 router.get('/receipts', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('x402_receipts')
     .select('*')
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;

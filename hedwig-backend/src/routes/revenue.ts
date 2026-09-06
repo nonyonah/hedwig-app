@@ -1009,6 +1009,7 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
             m.matchExpenseToAgents({
                 id: data.id,
                 user_id: user.id,
+                privy_user_id: privyId,
                 workspace_id: effectiveWsId,
                 amount: numericAmount,
                 converted_amount_usd: usdAmount,

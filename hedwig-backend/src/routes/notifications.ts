@@ -493,7 +493,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             .from('notifications')
             .select('*', { count: 'exact' })
             .eq('user_id', internalUserId)
-            .eq('workspace_id', effectiveWsId)
+            .or(`workspace_id.eq.${effectiveWsId},workspace_id.is.null`)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -550,7 +550,7 @@ router.get('/unread-count', authenticate, async (req: Request, res: Response) =>
             .from('notifications')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userData.id)
-            .eq('workspace_id', effectiveWsId)
+            .or(`workspace_id.eq.${effectiveWsId},workspace_id.is.null`)
             .eq('is_read', false);
 
         if (error) {

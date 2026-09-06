@@ -1,6 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { authenticate } from '../middleware/auth';
+import { getOrCreateUser } from '../utils/userHelper';
+
+// chat.ts writes conversations.user_id with the internal users.id — resolve
+// it here too, tolerating legacy rows keyed by Privy DID.
+async function scopedUserIds(req: Request): Promise<string[]> {
+  const userData = await getOrCreateUser(req.user!.id);
+  const ids = [(userData as unknown as { id: string }).id];
+  if (req.user!.id && !ids.includes(req.user!.id)) ids.push(req.user!.id);
+  return ids;
+}
 
 const router = Router();
 
@@ -10,12 +20,12 @@ const router = Router();
  */
 router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user?.id;
+        const userIds = await scopedUserIds(req);
 
         const { data: conversations, error } = await supabase
             .from('conversations')
             .select('*')
-            .eq('user_id', userId)
+            .in('user_id', userIds)
             .order('updated_at', { ascending: false });
 
         if (error) {
@@ -39,14 +49,14 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 router.get('/:id/messages', authenticate, async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const userId = req.user?.id;
+        const userIds = await scopedUserIds(req);
 
         // Verify conversation belongs to user
         const { data: conversation } = await supabase
             .from('conversations')
             .select('*')
             .eq('id', id)
-            .eq('user_id', userId)
+            .in('user_id', userIds)
             .single();
 
         if (!conversation) {

@@ -3,27 +3,29 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { buildPolicySnapshot } from '../services/spendPolicy';
+import { resolveRequestIdentity, ownerScope } from '../utils/identity';
 
 const router = Router();
 const logger = createLogger('Approvals');
 
 const APPROVAL_TTL_MS = Number(process.env.APPROVAL_TTL_MS ?? 30 * 60 * 1000);
 
-async function sweepExpired(userId: string) {
+async function sweepExpired(userIds: string[]) {
   await supabase
     .from('approval_requests')
     .update({ status: 'EXPIRED', decided_at: new Date().toISOString() })
-    .eq('user_id', userId)
+    .in('user_id', userIds)
     .eq('status', 'PENDING')
     .lte('expires_at', new Date().toISOString());
 }
 
 router.get('/', authenticate, async (req: Request, res: Response) => {
-  await sweepExpired(req.user!.id);
+  const identity = await resolveRequestIdentity(req);
+  await sweepExpired(ownerScope(identity));
   const { data, error } = await supabase
     .from('approval_requests')
     .select('*')
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -32,13 +34,14 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
 /** Create an approval request (typically called by policy HOLD paths). */
 router.post('/', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   if (!b.amount || !b.reason) return res.status(400).json({ error: 'amount and reason required' });
   if (b.idempotency_key) {
     const { data: existing } = await supabase
       .from('approval_requests')
       .select('*')
-      .eq('user_id', req.user!.id)
+      .in('user_id', ownerScope(identity))
       .eq('idempotency_key', b.idempotency_key)
       .maybeSingle();
     if (existing) return res.json({ success: true, data: existing, duplicate: true });
@@ -46,8 +49,8 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
   const { data, error } = await supabase
     .from('approval_requests')
     .insert({
-      user_id: req.user!.id,
-      workspace_id: b.workspace_id ?? null,
+      user_id: identity.internalId,
+      workspace_id: b.workspace_id ?? identity.workspaceId,
       type: b.type ?? 'TRANSACTION',
       agent_id: b.agent_id ?? null,
       invoice_id: b.invoice_id ?? null,
@@ -71,7 +74,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const { supabase: sb } = await import('../lib/supabase');
     await sb.from('notifications').insert({
-      user_id: req.user!.id,
+      user_id: identity.internalId,
       type: 'approval_requested',
       title: b.type === 'INVOICE' ? 'Invoice needs approval' : 'Spend needs approval',
       body: `${b.merchant_name ?? 'Unknown merchant'} — ${b.amount} USDC (${String(b.reason).toLowerCase().replace(/_/g, ' ')})`,
@@ -84,11 +87,12 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 });
 
 router.post('/:id/approve', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const { data: existing } = await supabase
     .from('approval_requests')
     .select('*')
     .eq('id', req.params.id)
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .single();
   if (!existing) return res.status(404).json({ error: 'not found' });
   if (existing.status !== 'PENDING') return res.status(409).json({ error: `already ${existing.status.toLowerCase()}` });
@@ -98,7 +102,7 @@ router.post('/:id/approve', authenticate, async (req: Request, res: Response) =>
     .update({
       status: expired ? 'EXPIRED' : 'APPROVED',
       decision: req.body?.decision ?? null,
-      decided_by_user_id: req.user!.id,
+      decided_by_user_id: identity.internalId,
       decided_at: new Date().toISOString(),
     })
     .eq('id', existing.id)
@@ -110,11 +114,12 @@ router.post('/:id/approve', authenticate, async (req: Request, res: Response) =>
 });
 
 router.post('/:id/decline', authenticate, async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
   const { data: existing } = await supabase
     .from('approval_requests')
     .select('*')
     .eq('id', req.params.id)
-    .eq('user_id', req.user!.id)
+    .in('user_id', ownerScope(identity))
     .single();
   if (!existing) return res.status(404).json({ error: 'not found' });
   if (existing.status !== 'PENDING') return res.status(409).json({ error: `already ${existing.status.toLowerCase()}` });
@@ -123,7 +128,7 @@ router.post('/:id/decline', authenticate, async (req: Request, res: Response) =>
     .update({
       status: 'DECLINED',
       decision: req.body?.decision ?? 'USER_DECLINED',
-      decided_by_user_id: req.user!.id,
+      decided_by_user_id: identity.internalId,
       decided_at: new Date().toISOString(),
     })
     .eq('id', existing.id)

@@ -1,6 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { requireMcpAuth } from './mcpOAuth';
+import { getOrCreateUser } from '../utils/userHelper';
+
+// MCP tokens carry the Privy DID; business tables are keyed by internal
+// users.id — resolve once per call and match both (legacy tolerance).
+async function scopedUserIds(mcpUserId: string): Promise<string[]> {
+  try {
+    const u = (await getOrCreateUser(mcpUserId)) as unknown as { id: string };
+    return u.id === mcpUserId ? [mcpUserId] : [u.id, mcpUserId];
+  } catch {
+    return [mcpUserId];
+  }
+}
 
 const router = Router();
 
@@ -24,9 +36,10 @@ const tools: McpTool[] = [
     description: 'Get the authenticated account profile and verification status.',
     inputSchema: { type: 'object', properties: {} },
     run: async (userId) => {
+      const ids = await scopedUserIds(userId);
       const [{ data: user }, { data: reviews }] = await Promise.all([
-        supabase.from('users').select('id,kyc_status').eq('id', userId).maybeSingle(),
-        supabase.from('manual_review_cases').select('id').eq('user_id', userId).eq('status', 'OPEN'),
+        supabase.from('users').select('id,kyc_status').in('id', ids).maybeSingle(),
+        supabase.from('manual_review_cases').select('id').in('user_id', ids).eq('status', 'OPEN'),
       ]);
       return {
         id: userId,
@@ -40,7 +53,8 @@ const tools: McpTool[] = [
     description: 'List the agent spend profiles with their policies.',
     inputSchema: { type: 'object', properties: {} },
     run: async (userId) => {
-      const { data: agents } = await supabase.from('agents').select('*').eq('owner_user_id', userId).order('created_at');
+      const ownerIds = await scopedUserIds(userId);
+      const { data: agents } = await supabase.from('agents').select('*').in('owner_user_id', ownerIds).order('created_at');
       const ids = (agents ?? []).map((a) => a.id);
       const { data: policies } = ids.length
         ? await supabase.from('spend_policies').select('*').in('agent_id', ids)
@@ -54,10 +68,11 @@ const tools: McpTool[] = [
     description: 'List pending approval requests (agent spend / invoices held by policy).',
     inputSchema: { type: 'object', properties: {} },
     run: async (userId) => {
+      const ids = await scopedUserIds(userId);
       const { data } = await supabase
         .from('approval_requests')
         .select('*')
-        .eq('user_id', userId)
+        .in('user_id', ids)
         .eq('status', 'PENDING')
         .order('created_at', { ascending: false })
         .limit(50);
@@ -69,10 +84,11 @@ const tools: McpTool[] = [
     description: 'List stablecoin cards and their statuses (masked only).',
     inputSchema: { type: 'object', properties: {} },
     run: async (userId) => {
+      const ids = await scopedUserIds(userId);
       const { data } = await supabase
         .from('cards')
         .select('id,last4,brand,status,funding_address,created_at')
-        .eq('user_id', userId);
+        .in('user_id', ids);
       return data ?? [];
     },
   },
@@ -82,10 +98,11 @@ const tools: McpTool[] = [
     inputSchema: { type: 'object', properties: { limit: { type: 'number' } } },
     run: async (userId, args) => {
       const limit = Math.min(Number(args.limit ?? 50) || 50, 200);
+      const ids = await scopedUserIds(userId);
       const { data } = await supabase
         .from('financial_events')
         .select('event_type,direction,amount_usd,occurred_at,source')
-        .eq('user_id', userId)
+        .in('user_id', ids)
         .order('occurred_at', { ascending: false })
         .limit(limit);
       const rows = data ?? [];

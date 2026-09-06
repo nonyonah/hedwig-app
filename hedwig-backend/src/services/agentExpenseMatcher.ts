@@ -20,6 +20,8 @@ const fingerprintVendor = (name: string) =>
 export async function matchExpenseToAgents(expense: {
   id: string;
   user_id: string;
+  /** Privy DID for tolerating legacy DID-keyed agent rows. */
+  privy_user_id?: string | null;
   workspace_id?: string | null;
   amount: number | string;
   converted_amount_usd?: number | string | null;
@@ -47,7 +49,14 @@ export async function matchExpenseToAgents(expense: {
       }
     }
 
-    const { data: agents } = await supabase.from('agents').select('id,status').eq('owner_user_id', expense.user_id).eq('status', 'ACTIVE');
+    const { data: agents } = await supabase
+      .from('agents')
+      .select('id,status')
+      // Tolerate legacy rows keyed by Privy DID (pre-identity-fix writes).
+      .in('owner_user_id', expense.privy_user_id && expense.privy_user_id !== expense.user_id
+        ? [expense.user_id, expense.privy_user_id]
+        : [expense.user_id])
+      .eq('status', 'ACTIVE');
     if (!agents?.length) return;
     const { data: policies } = await supabase.from('spend_policies').select('*').in('agent_id', agents.map((a) => a.id));
     const byAgent = new Map((policies ?? []).map((p) => [p.agent_id, p]));
