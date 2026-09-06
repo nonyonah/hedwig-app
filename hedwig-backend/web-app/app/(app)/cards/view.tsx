@@ -49,7 +49,7 @@ export function CardsClient({
   initialCards,
 }: {
   accessToken: string | null;
-  workspaceId?: string;
+  workspaceId?: string | null;
   initialCards: Card[];
 }) {
   const [cards, setCards] = useState<Card[]>(initialCards);

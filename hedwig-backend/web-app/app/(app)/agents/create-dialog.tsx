@@ -118,7 +118,7 @@ export function CreateAgentDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accessToken: string | null;
-  workspaceId?: string;
+  workspaceId?: string | null;
   onCreated: () => void;
 }) {
   const [purpose, setPurpose] = useState<Purpose | null>(null);

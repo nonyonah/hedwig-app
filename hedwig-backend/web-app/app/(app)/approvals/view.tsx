@@ -53,7 +53,7 @@ export function ApprovalsClient({
   initialApprovals,
 }: {
   accessToken: string | null;
-  workspaceId?: string;
+  workspaceId?: string | null;
   initialApprovals: Approval[];
 }) {
   const [items, setItems] = useState<Approval[]>(initialApprovals);
