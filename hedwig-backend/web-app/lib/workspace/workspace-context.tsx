@@ -65,6 +65,10 @@ export function WorkspaceProvider({ children, accessToken, fallbackWorkspace }: 
     if (stored && stored.includes('@')) {
       window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
       document.cookie = `${ACTIVE_WORKSPACE_STORAGE_KEY}=; path=/; max-age=0; SameSite=Lax`;
+      // After clearing a stale email-based id, immediately persist the
+      // canonical fallback so client-side API calls have a workspace header
+      // while the async doFetch resolves the real workspace.
+      persistActiveWorkspaceId(fallbackWorkspace.id);
     } else if (!stored) {
       persistActiveWorkspaceId(fallbackWorkspace.id);
     }
