@@ -8,5 +8,5 @@ export default async function AgentsPage() {
   const opts = await workspaceApiOptions(session.accessToken);
   const agents = await hedwigApi.agents(opts);
 
-  return <AgentsClient key={opts.workspaceId ?? 'default'} accessToken={session.accessToken} workspaceId={opts.workspaceId} initialAgents={agents} />;
+  return <AgentsClient key={opts.workspaceId ?? 'default'} accessToken={session.accessToken} workspaceId={opts.workspaceId ?? undefined} initialAgents={agents} />;
 }
