@@ -7,6 +7,7 @@ import { TokenRefresher } from '@/components/app-shell/token-refresher';
 import { TutorialProvider } from '@/components/tutorial/tutorial-provider';
 import { TutorialCard } from '@/components/tutorial/tutorial-card';
 import { CreateMenu } from '@/components/app-shell/create-menu';
+import { MoneyActionDialogs } from '@/components/money/money-action-dialogs';
 import { WorkspaceProvider } from '@/lib/workspace/workspace-context';
 import { CreateWorkspaceDialog } from '@/components/workspace/create-workspace-dialog';
 
@@ -21,6 +22,8 @@ type ShellLayoutProps = {
   isDemo?: boolean;
   accessToken?: string | null;
   lockedRoutes?: string[];
+  onrampAllowed?: boolean;
+  offrampAllowed?: boolean;
   user: {
     avatarUrl?: string | null;
     email: string;
@@ -29,7 +32,7 @@ type ShellLayoutProps = {
   fallbackWorkspace?: Workspace;
 };
 
-export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, lockedRoutes = [], fallbackWorkspace }: ShellLayoutProps) {
+export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, lockedRoutes = [], onrampAllowed = true, offrampAllowed = true, fallbackWorkspace }: ShellLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -81,6 +84,8 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
                   unreadCount={unreadCount}
                   accessToken={accessToken}
                   user={user}
+                  onrampAllowed={onrampAllowed}
+                  offrampAllowed={offrampAllowed}
                 />
                 <main className="flex-1 overflow-y-auto px-5 py-5 lg:px-6 lg:py-6">{children}</main>
               </div>
@@ -90,6 +95,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
           </WorkspaceProvider>
           <TutorialCard />
           <CreateMenu accessToken={accessToken ?? null} />
+          <MoneyActionDialogs accessToken={accessToken ?? null} onrampAllowed={onrampAllowed} offrampAllowed={offrampAllowed} />
         </div>
     </TutorialProvider>
   );

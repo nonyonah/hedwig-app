@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/auth/session';
 import { hedwigApi } from '@/lib/api/client';
 import { ShellLayout } from '@/components/app-shell/shell-layout';
+import { getRequestRegionLockDecision } from '@/lib/region-lock';
 
 function ShellSkeleton() {
   return (
@@ -53,6 +54,8 @@ async function ShellDataLoader({
       isDemo={session.isMockSession}
       accessToken={session.accessToken}
       lockedRoutes={[]}
+      onrampAllowed={(await getRequestRegionLockDecision('onramp')).allowed}
+      offrampAllowed={(await getRequestRegionLockDecision('offramp')).allowed}
       user={{
         avatarUrl: shellUser?.avatarUrl,
         email: fallbackEmail,

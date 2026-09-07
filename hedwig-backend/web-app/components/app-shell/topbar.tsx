@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { openMoneyAction } from '@/components/money/money-action-dialogs';
 import {
   ArrowsLeftRight,
   ArrowDown,
@@ -28,6 +28,8 @@ type AppTopbarProps = {
   onOpenMobileSidebar: () => void;
   unreadCount: number;
   accessToken?: string | null;
+  onrampAllowed?: boolean;
+  offrampAllowed?: boolean;
   user: {
     avatarUrl?: string | null;
     email: string;
@@ -35,8 +37,7 @@ type AppTopbarProps = {
   };
 };
 
-export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
-  const router = useRouter();
+export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, onrampAllowed = true, offrampAllowed = true, user }: AppTopbarProps) {
   const [moneyOpen, setMoneyOpen] = useState(false);
   const { activeWorkspace } = useWorkspaceContext();
   const showMoney = !activeWorkspace || activeWorkspace.role !== 'member';
@@ -56,8 +57,8 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
     setTheme('system');
   };
 
-  const openMoneyAction = (action: 'send' | 'receive' | 'withdraw' | 'fund') => {
-    router.push(`/wallet?action=${action}`);
+  const openMoneyActionItem = (action: 'send' | 'receive' | 'withdraw' | 'fund') => {
+    openMoneyAction(action);
     setMoneyOpen(false);
   };
 
@@ -107,7 +108,7 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
               </span>
             </Dropdown.Trigger>
             <Dropdown.Popover>
-              <Dropdown.Menu onAction={(key) => openMoneyAction(key as 'send' | 'receive' | 'withdraw' | 'fund')}>
+              <Dropdown.Menu onAction={(key) => openMoneyActionItem(key as 'send' | 'receive' | 'withdraw' | 'fund')}>
                 <Dropdown.Item id="send" textValue="Send">
                   <PaperPlaneTilt className="size-4 text-[var(--color-text-placeholder)]" />
                   <Label>Send</Label>
@@ -116,14 +117,18 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
                   <ShareNetwork className="size-4 text-[var(--color-text-placeholder)]" />
                   <Label>Receive</Label>
                 </Dropdown.Item>
-                <Dropdown.Item id="withdraw" textValue="Withdraw">
-                  <ArrowDown className="size-4 text-[var(--color-text-placeholder)]" />
-                  <Label>Withdraw</Label>
-                </Dropdown.Item>
-                <Dropdown.Item id="fund" textValue="Fund via bank">
-                  <Bank className="size-4 text-[var(--color-text-placeholder)]" />
-                  <Label>Fund via bank</Label>
-                </Dropdown.Item>
+                {offrampAllowed && (
+                  <Dropdown.Item id="withdraw" textValue="Withdraw">
+                    <ArrowDown className="size-4 text-[var(--color-text-placeholder)]" />
+                    <Label>Withdraw</Label>
+                  </Dropdown.Item>
+                )}
+                {onrampAllowed && (
+                  <Dropdown.Item id="fund" textValue="Fund via bank">
+                    <Bank className="size-4 text-[var(--color-text-placeholder)]" />
+                    <Label>Fund via bank</Label>
+                  </Dropdown.Item>
+                )}
               </Dropdown.Menu>
             </Dropdown.Popover>
           </Dropdown>

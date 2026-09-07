@@ -93,10 +93,11 @@ interface OfframpModalProps {
  chainBalances?: Record<string, number>;
  accessToken?: string | null;
  solanaAddress?: string | null;
+ baseOnly?: boolean;
  // stellarAddress prop kept for future use
 }
 
-export function OfframpModal({ open, onClose, source, workspaceId, returnAddress, maxAmount, chainBalances, accessToken, solanaAddress }: OfframpModalProps) {
+export function OfframpModal({ open, onClose, source, workspaceId, returnAddress, maxAmount, chainBalances, accessToken, solanaAddress, baseOnly = false }: OfframpModalProps) {
  const { toast: addToast } = useToast();
  const { wallets: evmWallets } = useWallets();
  const { wallets: solanaWallets } = useSolanaWallets();
@@ -122,7 +123,7 @@ export function OfframpModal({ open, onClose, source, workspaceId, returnAddress
  return j;
  }, [accessToken]);
 
- const shownChains = source === 'workspace' ? ['base'] : ALL_CHAINS;
+ const shownChains = baseOnly ? ['base'] : source === 'workspace' ? ['base'] : ALL_CHAINS;
  const [chain, setChain] = useState(shownChains[0]);
  const [currency, setCurrency] = useState('NGN');
  const [amount, setAmount] = useState('');

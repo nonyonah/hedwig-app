@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ArrowLeft } from '@/components/ui/lucide-icons';
+import { ArrowLeft, Copy, Check } from '@/components/ui/lucide-icons';
+import { openMoneyAction } from '@/components/money/money-action-dialogs';
 import { AccountIcon } from '@/components/wallet/account-icon';
 import { Button } from '@/components/ui/button';
-import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { hedwigApi } from '@/lib/api/client';
 
 type AccountTx = {
@@ -33,6 +34,7 @@ type AccountDetail = {
     balance_usd: number;
     account_number_masked?: string | null;
     bank_name?: string | null;
+    address?: string | null;
     created_at?: string;
   };
   transactions: AccountTx[];
@@ -52,11 +54,40 @@ const prettyEvent = (t: string) =>
 
 function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+    <div className="flex items-center justify-between gap-4 px-5 py-2.5">
       <span className="text-[13px] text-[var(--color-text-tertiary)]">{label}</span>
       <span className={`text-[13px] font-medium text-[var(--color-foreground)] ${mono ? 'font-mono text-[12px]' : ''}`}>
         {value}
       </span>
+    </div>
+  );
+}
+
+function AddressRow({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
+    }
+  };
+  const short = address.length > 16 ? `${address.slice(0, 8)}…${address.slice(-6)}` : address;
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-2.5">
+      <span className="text-[13px] text-[var(--color-text-tertiary)]">Address</span>
+      <button
+        type="button"
+        onClick={copy}
+        title={address}
+        className="flex items-center gap-1.5 font-mono text-[12px] font-medium text-[var(--color-foreground)] hover:text-[var(--color-text-tertiary)]"
+      >
+        <Image src="/icons/networks/base.png" alt="Base" width={16} height={16} className="rounded-full" />
+        {short}
+        {copied ? <Check className="h-3.5 w-3.5 text-[var(--color-success)]" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
     </div>
   );
 }
@@ -168,16 +199,7 @@ export function AccountDetailClient({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <RowActionsMenu
-                items={[
-                  { label: 'Refresh', onClick: () => void refresh() },
-                  { label: 'Back to accounts', onClick: () => router.push('/wallet') },
-                ]}
-              />
-              <Button variant="outline" size="sm" onClick={() => document.getElementById('account-info')?.scrollIntoView({ behavior: 'smooth' })}>
-                Details
-              </Button>
-              <Button size="sm" onClick={() => router.push('/wallet?action=send')}>
+              <Button size="sm" onClick={() => openMoneyAction('send')}>
                 Send
               </Button>
             </div>
@@ -236,6 +258,7 @@ export function AccountDetailClient({
             <InfoRow label="Provider" value={account.provider} />
             {account.bank_name && <InfoRow label="Bank" value={account.bank_name} />}
             {account.account_number_masked && <InfoRow label="Account" value={`•••• ${account.account_number_masked}`} mono />}
+            {account.address && <AddressRow address={account.address} />}
             <InfoRow
               label="Balance (USD)"
               value={`$${Number(account.balance_usd).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}

@@ -5,57 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { MagnifyingGlass, X } from '@/components/ui/lucide-icons';
 import { Checkbox, Pagination, Table, type Selection } from '@heroui/react';
-import { SendTokenDialog } from '@/components/wallet/send-token-dialog';
-import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { AccountIcon } from '@/components/wallet/account-icon';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { Button } from '@/components/ui/button';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
-import { OfframpModal } from '@/components/wallet/offramp-modal';
-import { OnrampModal } from '@/components/wallet/onramp-modal';
 import { hedwigApi } from '@/lib/api/client';
 import { CreateAccountDialog } from './create-account-dialog';
 
-import type { GatewayBalance, WalletAccount, WalletAsset } from '@/lib/models/entities';
-import { useWalletData, useGatewayBalance } from '@/lib/hooks/use-wallet-data';
+import type { WalletAccount, WalletAsset } from '@/lib/models/entities';
+import { useWalletData } from '@/lib/hooks/use-wallet-data';
+import { openMoneyAction } from '@/components/money/money-action-dialogs';
 
-const supportedAssets: Array<{ chain: WalletAsset['chain']; symbol: string; name: string }> = [
-  { chain: 'Base', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Solana', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Arbitrum', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Polygon', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Optimism', symbol: 'USDC', name: 'USD Coin' },
-];
-
-function mergeSupportedAssets(walletAssets: WalletAsset[]) {
-  return supportedAssets.map((supported, index) => {
-    const found = walletAssets.find(
-      (asset) => asset.chain === supported.chain && asset.symbol === supported.symbol
-    );
-    return (
-      found ?? {
-        id: `${supported.chain.toLowerCase()}-${supported.symbol.toLowerCase()}-${index}`,
-        chain: supported.chain,
-        symbol: supported.symbol,
-        name: supported.name,
-        balance: 0,
-        valueUsd: 0,
-        changePct24h: 0,
-      }
-    );
-  });
-}
-
-function gatewaySubunitsToNumber(value: string | number | bigint | null | undefined): number {
-  try {
-    const raw = BigInt(String(value ?? '0'));
-    return Number(raw) / 1_000_000;
-  } catch {
-    return 0;
-  }
-}
 const PAGE_SIZE = 25;
 
 type UnifiedAccount = {
@@ -106,20 +68,14 @@ function Pill({ label, bg, text }: { label: string; bg: string; text: string }) 
 
 export function WalletView({
   initialWalletData,
-  initialGatewayBalance,
   accessToken,
   workspaceId,
-  onrampAllowed = true,
-  offrampAllowed = true,
   initialAccounts,
   initialSummary,
 }: {
   initialWalletData: { walletAccounts: WalletAccount[]; walletAssets: WalletAsset[] };
-  initialGatewayBalance: GatewayBalance;
   accessToken: string | null;
   workspaceId?: string | null;
-  onrampAllowed?: boolean;
-  offrampAllowed?: boolean;
   initialAccounts: UnifiedAccount[];
   initialSummary: AccountsSummary;
 }) {
@@ -127,9 +83,7 @@ export function WalletView({
   const { formatAmount } = useCurrency();
 
   const walletQuery = useWalletData(initialWalletData as never, accessToken);
-  const gatewayQuery = useGatewayBalance(initialGatewayBalance, accessToken);
   const walletData = walletQuery.data as { walletAccounts: WalletAccount[]; walletAssets: WalletAsset[] };
-  const gatewayBalance = gatewayQuery.data;
 
   useAssistantPageContext('Accounts', {
     accountsCount: initialAccounts.length,
@@ -144,11 +98,6 @@ export function WalletView({
   const [page, setPage] = useState(1);
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const [offrampOpen, setOfframpOpen] = useState(false);
-  const [onrampOpen, setOnrampOpen] = useState(false);
-  const [sendOpen, setSendOpen] = useState(false);
-  const [receiveOpen, setReceiveOpen] = useState(false);
 
   const opts = { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true };
 
@@ -184,37 +133,44 @@ export function WalletView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, workspaceId]);
 
-  // Deep-link from the top-bar Move money menu (?action=send|receive|withdraw|fund).
+  // Deep-link (?action=) forwards to the global money-action dialogs.
   useEffect(() => {
     const action = new URLSearchParams(window.location.search).get('action');
     if (!action) return;
-    if (action === 'send') setSendOpen(true);
-    else if (action === 'receive') setReceiveOpen(true);
-    else if (action === 'withdraw') setOfframpOpen(true);
-    else if (action === 'fund') setOnrampOpen(true);
+    if (action === 'send' || action === 'receive' || action === 'withdraw' || action === 'fund') {
+      openMoneyAction(action);
+    }
     window.history.replaceState(null, '', window.location.pathname);
   }, []);
 
-  const { walletAccounts, walletAssets } = walletData;
-  const baseAccount = walletAccounts.find((account) => account.chain === 'Base');
-  const solanaAccount = walletAccounts.find((account) => account.chain === 'Solana');
+  // The stablecoin row mirrors the live wallet (Base USDC), not the cached
+  // ledger snapshot — the wallet is the source of truth.
+  const baseUsdc = useMemo(() => {
+    const assets = walletData?.walletAssets ?? [];
+    return assets
+      .filter((a) => a.chain === 'Base' && a.symbol.toUpperCase() === 'USDC')
+      .reduce((s, a) => s + Number(a.balance ?? 0), 0);
+  }, [walletData]);
 
-  const allAssets = useMemo(() => mergeSupportedAssets(walletAssets), [walletAssets]);
-  const eoaUsdcAssets = allAssets.filter((asset) => asset.symbol.toUpperCase() === 'USDC');
-  const eoaUsdcTotal = eoaUsdcAssets.reduce((sum, asset) => sum + asset.balance, 0);
-  const chainBalances = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const asset of eoaUsdcAssets) {
-      const key = asset.chain.toLowerCase();
-      map[key] = (map[key] || 0) + asset.balance;
-    }
-    return map;
-  }, [eoaUsdcAssets]);
-  const gatewayAvailableUsdc = gatewaySubunitsToNumber(gatewayBalance.available);
+  const displayedAccounts = useMemo(
+    () =>
+      accounts.map((a) =>
+        a.currency === 'USDC' && a.account_type === 'stablecoin' && baseUsdc > 0
+          ? { ...a, balance: baseUsdc, balance_usd: baseUsdc }
+          : a
+      ),
+    [accounts, baseUsdc]
+  );
+
+  const displayedSummary = useMemo(() => {
+    const row = accounts.find((a) => a.currency === 'USDC' && a.account_type === 'stablecoin');
+    if (!row || baseUsdc <= 0) return summary;
+    return { ...summary, available_usd: summary.available_usd - Number(row.balance_usd ?? 0) + baseUsdc };
+  }, [accounts, summary, baseUsdc]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return accounts.filter((a) => {
+    return displayedAccounts.filter((a) => {
       if (filter !== 'all' && a.account_type !== filter) return false;
       if (!q) return true;
       return `${a.label ?? ''} ${a.currency} ${a.bank_name ?? ''}`.toLowerCase().includes(q);
@@ -254,19 +210,19 @@ export function WalletView({
           {
             id: 'available',
             title: 'Available balance',
-            value: formatAmount(summary.available_usd, { compact: true }),
+            value: formatAmount(displayedSummary.available_usd, { compact: true }),
             helper: `Across ${accounts.length} account${accounts.length === 1 ? '' : 's'}`,
           },
           {
             id: 'pending-in',
             title: 'Pending deposits',
-            value: formatAmount(summary.pending_deposits_usd, { compact: true }),
+            value: formatAmount(displayedSummary.pending_deposits_usd, { compact: true }),
             helper: 'Unpaid invoices awaiting payment',
           },
           {
             id: 'pending-out',
             title: 'Pending transfers',
-            value: formatAmount(summary.pending_transfers_usd, { compact: true }),
+            value: formatAmount(displayedSummary.pending_transfers_usd, { compact: true }),
             helper: 'Orders still in flight',
           },
         ]}
@@ -452,37 +408,8 @@ export function WalletView({
         )}
       </Table>
 
-      {/* Money dialogs (top-bar Move money deep-links target these) */}
-      <ShareWalletDialog
-        baseAddress={baseAccount?.address}
-        solanaAddress={solanaAccount?.address}
-        open={receiveOpen}
-        onOpenChange={setReceiveOpen}
-      />
-      {onrampAllowed && (
-        <OnrampModal open={onrampOpen} onClose={() => setOnrampOpen(false)} accessToken={accessToken} />
-      )}
-      {offrampAllowed && (
-        <OfframpModal
-          open={offrampOpen}
-          onClose={() => setOfframpOpen(false)}
-          source="personal"
-          returnAddress={baseAccount?.address || ''}
-          maxAmount={eoaUsdcTotal}
-          chainBalances={chainBalances}
-          accessToken={accessToken}
-          solanaAddress={solanaAccount?.address}
-        />
-      )}
-      {sendOpen && (
-        <SendTokenDialog
-          assets={allAssets}
-          gatewayAvailableUsdc={gatewayAvailableUsdc}
-          gatewayPerDomain={gatewayBalance?.perDomain ?? []}
-          accessToken={accessToken}
-          onClose={() => setSendOpen(false)}
-        />
-      )}
+      {/* Money dialogs live globally (see MoneyActionDialogs) — the top-bar
+          Move money menu and ?action= links open them in place. */}
     </div>
   );
 }
