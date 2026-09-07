@@ -207,6 +207,18 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
   if (error || !account) return res.status(404).json({ error: 'account not found' });
 
   const currency = String(account.currency);
+  // Stablecoin accounts expose the owner's public wallet address (safe to
+  // display/copy; bank account numbers stay masked).
+  let address: string | null = null;
+  if (currency === 'USDC') {
+    try {
+      const { getOrCreateUser } = await import('../utils/userHelper');
+      const u = (await getOrCreateUser(identity.privyDid)) as unknown as Record<string, unknown> | null;
+      address = (u?.ethereum_wallet_address as string) ?? null;
+    } catch {
+      address = null;
+    }
+  }
   let txQuery = supabase
     .from('financial_events')
     .select('id,event_type,direction,amount,amount_usd,currency,occurred_at,source')
@@ -217,7 +229,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
   if (currency !== 'USDC') txQuery = txQuery.eq('currency', currency);
   const { data: transactions } = await txQuery;
 
-  return res.json({ success: true, data: { account: rowToApi(account), transactions: transactions ?? [] } });
+  return res.json({ success: true, data: { account: { ...rowToApi(account), address }, transactions: transactions ?? [] } });
 });
 
 /** GET /api/accounts/:id/history?range=30d|90d|1y — cumulative balance series (USD). */

@@ -57,13 +57,16 @@ export function SendTokenDialog({
  gatewayPerDomain = [],
  accessToken = null,
  onClose,
+ baseOnly = false,
 }: {
  assets: WalletAsset[];
  gatewayAvailableUsdc?: number;
  gatewayPerDomain?: GatewayDomainBalance[];
  accessToken?: string | null;
  onClose: () => void;
+ baseOnly?: boolean;
 }) {
+ const destOptions = baseOnly ? DEST_CHAIN_OPTIONS.filter((o) => o.key === 'base') : DEST_CHAIN_OPTIONS;
  const { ready } = usePrivy();
  const { wallets: evmWallets } = useWallets();
  const { wallets: solanaWallets } = useSolanaWallets();
@@ -323,11 +326,11 @@ export function SendTokenDialog({
  className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 shadow-xs transition hover:bg-[var(--color-background)]"
  >
  {(() => {
- const opt = DEST_CHAIN_OPTIONS.find((o) => o.key === destChain);
+ const opt = destOptions.find((o) => o.key === destChain);
  return opt ? <Image src={opt.icon} alt={opt.label} width={20} height={20} className="rounded-full" /> : null;
  })()}
  <span className="flex-1 text-left text-[13px] font-semibold text-[var(--color-foreground)]">
- {DEST_CHAIN_OPTIONS.find((o) => o.key === destChain)?.label ?? destChain}
+ {destOptions.find((o) => o.key === destChain)?.label ?? destChain}
  </span>
  <svg className={`h-4 w-4 text-[var(--color-text-muted)] transition-transform ${destOpen ? 'rotate-180' : ''}`}
  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -336,7 +339,7 @@ export function SendTokenDialog({
  </button>
  {destOpen && (
  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
- {DEST_CHAIN_OPTIONS.map((opt) => (
+ {destOptions.map((opt) => (
  <button key={opt.key} type="button" onClick={() => { setDestChain(opt.key); setDestOpen(false); }}
  className={`flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium transition ${
  opt.key === destChain ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
@@ -426,7 +429,7 @@ export function SendTokenDialog({
  {isUnified ? (
  <>
  <Image src="/icons/tokens/usdc.png" alt="Aggregated" width={14} height={14} className="rounded-full" />
- <span className="font-semibold text-[var(--color-foreground)]">Aggregated → {DEST_CHAIN_OPTIONS.find((o) => o.key === destChain)?.label ?? destChain}</span>
+ <span className="font-semibold text-[var(--color-foreground)]">Aggregated → {destOptions.find((o) => o.key === destChain)?.label ?? destChain}</span>
  </>
  ) : (
  <>
