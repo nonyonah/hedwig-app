@@ -23,8 +23,8 @@ export default async function WalletPage() {
         })),
       getRequestRegionLockDecision('onramp'),
       getRequestRegionLockDecision('offramp'),
-      hedwigApi.accounts(sessionOpts),
-      hedwigApi.accountsSummary(sessionOpts),
+      hedwigApi.virtualAccounts(sessionOpts),
+      hedwigApi.virtualAccountsSummary(sessionOpts),
     ]);
 
   return (

@@ -81,7 +81,7 @@ export function AccountDetailClient({
   const opts = { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true };
 
   const refresh = useCallback(async () => {
-    const d = await hedwigApi.accountDetail(accountId, opts);
+    const d = await hedwigApi.virtualAccountDetail(accountId, opts);
     setDetail(d);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, workspaceId, accountId]);
@@ -92,7 +92,7 @@ export function AccountDetailClient({
     const run = async () => {
       setLoadingHistory(true);
       try {
-        const h = await hedwigApi.accountHistory(accountId, range, {
+        const h = await hedwigApi.virtualAccountHistory(accountId, range, {
           accessToken,
           workspaceId,
           disableMockFallback: true,

@@ -1109,7 +1109,7 @@ export const hedwigApi = {
   },
 
   // ── Unified accounts (virtual accounts + stablecoin) ───────────────
-  async accounts(options?: ApiOptions): Promise<any[]> {
+  async virtualAccounts(options?: ApiOptions): Promise<any[]> {
     return withFallback(
       async () => {
         const data = await request<any[]>('/api/accounts', options);
@@ -1120,7 +1120,7 @@ export const hedwigApi = {
     );
   },
 
-  async accountsSummary(options?: ApiOptions): Promise<{
+  async virtualAccountsSummary(options?: ApiOptions): Promise<{
     available_usd: number;
     pending_deposits_usd: number;
     pending_deposit_count: number;
@@ -1148,7 +1148,7 @@ export const hedwigApi = {
     );
   },
 
-  async createAccount(
+  async createVirtualAccount(
     input: { currency: string; account_type?: string; label?: string },
     options?: ApiOptions
   ): Promise<any> {
@@ -1158,7 +1158,7 @@ export const hedwigApi = {
     });
   },
 
-  async accountDetail(id: string, options?: ApiOptions): Promise<any> {
+  async virtualAccountDetail(id: string, options?: ApiOptions): Promise<any> {
     return withFallback(
       async () => {
         return request<any>(`/api/accounts/${id}`, options);
@@ -1168,7 +1168,7 @@ export const hedwigApi = {
     );
   },
 
-  async accountHistory(id: string, range: string, options?: ApiOptions): Promise<any> {
+  async virtualAccountHistory(id: string, range: string, options?: ApiOptions): Promise<any> {
     return withFallback(
       async () => {
         return request<any>(`/api/accounts/${id}/history?range=${range}`, options);

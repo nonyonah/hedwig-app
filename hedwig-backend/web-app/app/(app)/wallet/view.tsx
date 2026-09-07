@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { MagnifyingGlass, X } from '@/components/ui/lucide-icons';
 import { Checkbox, Pagination, Table, type Selection } from '@heroui/react';
@@ -19,8 +20,42 @@ import { CreateAccountDialog } from './create-account-dialog';
 
 import type { GatewayBalance, WalletAccount, WalletAsset } from '@/lib/models/entities';
 import { useWalletData, useGatewayBalance } from '@/lib/hooks/use-wallet-data';
-import { mergeSupportedAssets } from '@/lib/wallet/merge-assets';
-import { gatewaySubunitsToNumber } from '@/lib/gateway/amounts';
+
+const supportedAssets: Array<{ chain: WalletAsset['chain']; symbol: string; name: string }> = [
+  { chain: 'Base', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Solana', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Arbitrum', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Polygon', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Optimism', symbol: 'USDC', name: 'USD Coin' },
+];
+
+function mergeSupportedAssets(walletAssets: WalletAsset[]) {
+  return supportedAssets.map((supported, index) => {
+    const found = walletAssets.find(
+      (asset) => asset.chain === supported.chain && asset.symbol === supported.symbol
+    );
+    return (
+      found ?? {
+        id: `${supported.chain.toLowerCase()}-${supported.symbol.toLowerCase()}-${index}`,
+        chain: supported.chain,
+        symbol: supported.symbol,
+        name: supported.name,
+        balance: 0,
+        valueUsd: 0,
+        changePct24h: 0,
+      }
+    );
+  });
+}
+
+function gatewaySubunitsToNumber(value: string | number | bigint | null | undefined): number {
+  try {
+    const raw = BigInt(String(value ?? '0'));
+    return Number(raw) / 1_000_000;
+  } catch {
+    return 0;
+  }
+}
 const PAGE_SIZE = 25;
 
 type UnifiedAccount = {
@@ -88,6 +123,7 @@ export function WalletView({
   initialAccounts: UnifiedAccount[];
   initialSummary: AccountsSummary;
 }) {
+  const router = useRouter();
   const { formatAmount } = useCurrency();
 
   const walletQuery = useWalletData(initialWalletData as never, accessToken);
@@ -117,7 +153,7 @@ export function WalletView({
   const opts = { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true };
 
   const refresh = async () => {
-    const [list, sum] = await Promise.all([hedwigApi.accounts(opts), hedwigApi.accountsSummary(opts)]);
+    const [list, sum] = await Promise.all([hedwigApi.virtualAccounts(opts), hedwigApi.virtualAccountsSummary(opts)]);
     setAccounts(list);
     setSummary(sum);
   };
@@ -130,8 +166,8 @@ export function WalletView({
       setIsRefreshing(true);
       try {
         const [live, sum] = await Promise.all([
-          hedwigApi.accounts({ accessToken, workspaceId, disableMockFallback: true }),
-          hedwigApi.accountsSummary({ accessToken, workspaceId, disableMockFallback: true }),
+          hedwigApi.virtualAccounts({ accessToken, workspaceId, disableMockFallback: true }),
+          hedwigApi.virtualAccountsSummary({ accessToken, workspaceId, disableMockFallback: true }),
         ]);
         if (!cancelled && (live.length > 0 || initialAccounts.length === 0)) setAccounts(live);
         if (!cancelled) setSummary(sum);
@@ -365,7 +401,7 @@ export function WalletView({
                     <Table.Cell>
                       <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                         <RowActionsMenu
-                          items={[{ label: 'View details', onClick: () => (window.location.href = `/wallet/${a.id}`) }]}
+                          items={[{ label: 'View details', onClick: () => router.push(`/wallet/${a.id}`) }]}
                         />
                       </div>
                     </Table.Cell>

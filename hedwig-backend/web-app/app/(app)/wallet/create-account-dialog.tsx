@@ -47,7 +47,7 @@ export function CreateAccountDialog({
     setPending(true);
     setError('');
     try {
-      await hedwigApi.createAccount(
+      await hedwigApi.createVirtualAccount(
         { currency, account_type: accountType, label: label.trim() || undefined },
         { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true }
       );

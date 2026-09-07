@@ -7,7 +7,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const session = await getCurrentSession();
   const opts = await workspaceApiOptions(session.accessToken);
-  const detail = await hedwigApi.accountDetail(id, opts);
+  const detail = await hedwigApi.virtualAccountDetail(id, opts);
 
   return (
     <AccountDetailClient
