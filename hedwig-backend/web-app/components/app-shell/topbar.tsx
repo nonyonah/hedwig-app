@@ -1,17 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import {
-  FileText,
-  FolderSimple,
-  LinkSimple,
+  ArrowsLeftRight,
+  ArrowDown,
+  Bank,
   CaretDown,
   Moon,
-  Plus,
+  PaperPlaneTilt,
+  ShareNetwork,
   SidebarSimple,
   Sun,
-  User,
 } from '@/components/ui/lucide-icons';
 import { AccountMenu } from '@/components/app-shell/account-menu';
 import { NotificationBell } from '@/components/app-shell/notification-bell';
@@ -35,9 +36,10 @@ type AppTopbarProps = {
 };
 
 export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
-  const [createOpen, setCreateOpen] = useState(false);
+  const router = useRouter();
+  const [moneyOpen, setMoneyOpen] = useState(false);
   const { activeWorkspace } = useWorkspaceContext();
-  const showCreate = !activeWorkspace || activeWorkspace.role !== 'member';
+  const showMoney = !activeWorkspace || activeWorkspace.role !== 'member';
   const { theme, resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const usingSystem = theme === 'system' || theme === undefined;
@@ -54,9 +56,9 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
     setTheme('system');
   };
 
-  const openCreateFlow = (flow: 'invoice' | 'payment-link' | 'client' | 'project') => {
-    window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow } }));
-    setCreateOpen(false);
+  const openMoneyAction = (action: 'send' | 'receive' | 'withdraw' | 'fund') => {
+    router.push(`/wallet?action=${action}`);
+    setMoneyOpen(false);
   };
 
   return (
@@ -84,43 +86,43 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar, onOpenMobileSidebar, u
 
       {/* Right */}
       <div className="flex items-center gap-1.5">
-        {/* Create */}
-        {showCreate && (
-          <Dropdown isOpen={createOpen} onOpenChange={setCreateOpen}>
+        {/* Move money */}
+        {showMoney && (
+          <Dropdown isOpen={moneyOpen} onOpenChange={setMoneyOpen}>
             <Dropdown.Trigger>
               <span
                 role="button"
                 tabIndex={0}
-                aria-label="Create"
+                aria-label="Move money"
                 className={cn(
                   'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition',
-                  createOpen
+                  moneyOpen
                     ? 'border-[var(--color-create-dark)] bg-[var(--color-create-dark)] text-white shadow-[var(--color-accent)]/20'
                     : 'border-[var(--color-create)] bg-[var(--color-create)] text-white shadow-[var(--color-accent)]/20 hover:border-[var(--color-create-dark)] hover:bg-[var(--color-create-dark)]'
                 )}
               >
-                <Plus className="h-4 w-4" weight="bold" />
-                <span className="hidden sm:inline">Create</span>
-                <CaretDown className={cn('hidden h-3.5 w-3.5 transition sm:block', createOpen && 'rotate-180')} weight="bold" />
+                <ArrowsLeftRight className="h-4 w-4" weight="bold" />
+                <span className="hidden sm:inline">Move money</span>
+                <CaretDown className={cn('hidden h-3.5 w-3.5 transition sm:block', moneyOpen && 'rotate-180')} weight="bold" />
               </span>
             </Dropdown.Trigger>
             <Dropdown.Popover>
-              <Dropdown.Menu onAction={(key) => openCreateFlow(key as 'invoice' | 'payment-link' | 'client' | 'project')}>
-                <Dropdown.Item id="invoice" textValue="Invoice">
-                  <FileText className="size-4 text-[var(--color-text-placeholder)]" />
-                  <Label>Invoice</Label>
+              <Dropdown.Menu onAction={(key) => openMoneyAction(key as 'send' | 'receive' | 'withdraw' | 'fund')}>
+                <Dropdown.Item id="send" textValue="Send">
+                  <PaperPlaneTilt className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Send</Label>
                 </Dropdown.Item>
-                <Dropdown.Item id="payment-link" textValue="Payment link">
-                  <LinkSimple className="size-4 text-[var(--color-text-placeholder)]" />
-                  <Label>Payment link</Label>
+                <Dropdown.Item id="receive" textValue="Receive">
+                  <ShareNetwork className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Receive</Label>
                 </Dropdown.Item>
-                <Dropdown.Item id="client" textValue="Client">
-                  <User className="size-4 text-[var(--color-text-placeholder)]" />
-                  <Label>Client</Label>
+                <Dropdown.Item id="withdraw" textValue="Withdraw">
+                  <ArrowDown className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Withdraw</Label>
                 </Dropdown.Item>
-                <Dropdown.Item id="project" textValue="Project">
-                  <FolderSimple className="size-4 text-[var(--color-text-placeholder)]" />
-                  <Label>Project</Label>
+                <Dropdown.Item id="fund" textValue="Fund via bank">
+                  <Bank className="size-4 text-[var(--color-text-placeholder)]" />
+                  <Label>Fund via bank</Label>
                 </Dropdown.Item>
               </Dropdown.Menu>
             </Dropdown.Popover>

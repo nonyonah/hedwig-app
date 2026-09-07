@@ -1108,6 +1108,76 @@ export const hedwigApi = {
     );
   },
 
+  // ── Unified accounts (virtual accounts + stablecoin) ───────────────
+  async virtualAccounts(options?: ApiOptions): Promise<any[]> {
+    return withFallback(
+      async () => {
+        const data = await request<any[]>('/api/accounts', options);
+        return Array.isArray(data) ? data : [];
+      },
+      () => [],
+      options
+    );
+  },
+
+  async virtualAccountsSummary(options?: ApiOptions): Promise<{
+    available_usd: number;
+    pending_deposits_usd: number;
+    pending_deposit_count: number;
+    pending_transfers_usd: number;
+    pending_transfer_count: number;
+  }> {
+    return withFallback(
+      async () => {
+        return request<{
+          available_usd: number;
+          pending_deposits_usd: number;
+          pending_deposit_count: number;
+          pending_transfers_usd: number;
+          pending_transfer_count: number;
+        }>('/api/accounts/summary', options);
+      },
+      () => ({
+        available_usd: 0,
+        pending_deposits_usd: 0,
+        pending_deposit_count: 0,
+        pending_transfers_usd: 0,
+        pending_transfer_count: 0,
+      }),
+      options
+    );
+  },
+
+  async createVirtualAccount(
+    input: { currency: string; account_type?: string; label?: string },
+    options?: ApiOptions
+  ): Promise<any> {
+    return request<any>('/api/accounts', options, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  async virtualAccountDetail(id: string, options?: ApiOptions): Promise<any> {
+    return withFallback(
+      async () => {
+        return request<any>(`/api/accounts/${id}`, options);
+      },
+      () => null,
+      options
+    );
+  },
+
+  async virtualAccountHistory(id: string, range: string, options?: ApiOptions): Promise<any> {
+    return withFallback(
+      async () => {
+        return request<any>(`/api/accounts/${id}/history?range=${range}`, options);
+      },
+      () => ({ points: [], currency: 'USDC' }),
+      options
+    );
+  },
+
   async createClient(input: CreateClientInput, options?: ApiOptions): Promise<Client> {
     const data = await request<{ client: any }>('/api/clients', options, {
       method: 'POST',
