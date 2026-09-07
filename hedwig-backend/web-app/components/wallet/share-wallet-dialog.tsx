@@ -18,16 +18,25 @@ const chainMeta: Record<Chain, { icon: string; color: string }> = {
 export function ShareWalletDialog({
  baseAddress,
  solanaAddress,
+ open: controlledOpen,
+ onOpenChange,
 }: {
  baseAddress?: string | null;
  solanaAddress?: string | null;
+ open?: boolean;
+ onOpenChange?: (open: boolean) => void;
 }) {
  const receiveModes: Chain[] = [
  ...(baseAddress ? ['Base' as Chain] : []),
  ...(solanaAddress ? ['Solana' as Chain] : []),
  ];
 
- const [open, setOpen] = useState(false);
+ const [internalOpen, setInternalOpen] = useState(false);
+ const open = controlledOpen ?? internalOpen;
+ const setOpen = (v: boolean) => {
+ onOpenChange?.(v);
+ setInternalOpen(v);
+ };
  const [activeMode, setActiveMode] = useState<ReceiveMode>(receiveModes[0] ?? 'Base');
  const [copied, setCopied] = useState(false);
 
