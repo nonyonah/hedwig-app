@@ -14,6 +14,8 @@ import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { hedwigApi } from '@/lib/api/client';
 import { CreateAccountDialog } from './create-account-dialog';
 
+import type { WalletAccount, WalletAsset } from '@/lib/models/entities';
+import { useWalletData } from '@/lib/hooks/use-wallet-data';
 import { openMoneyAction } from '@/components/money/money-action-dialogs';
 
 const PAGE_SIZE = 25;

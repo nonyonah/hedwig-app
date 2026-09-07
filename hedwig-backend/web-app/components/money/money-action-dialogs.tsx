@@ -6,7 +6,7 @@ import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { OfframpModal } from '@/components/wallet/offramp-modal';
 import { OnrampModal } from '@/components/wallet/onramp-modal';
 import { hedwigApi } from '@/lib/api/client';
-import type { WalletAccount, WalletAsset } from '@/lib/models/entities';
+import type { WalletAccount, WalletAsset, GatewayDomainBalance } from '@/lib/models/entities';
 
 export type MoneyAction = 'send' | 'receive' | 'withdraw' | 'fund';
 
@@ -32,7 +32,7 @@ export function MoneyActionDialogs({
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [assets, setAssets] = useState<WalletAsset[]>([]);
   const [gatewayAvailable, setGatewayAvailable] = useState(0);
-  const [gatewayPerDomain, setGatewayPerDomain] = useState([]);
+  const [gatewayPerDomain, setGatewayPerDomain] = useState<GatewayDomainBalance[]>([]);
 
   const load = useCallback(async () => {
     if (!accessToken) return;
@@ -45,8 +45,9 @@ export function MoneyActionDialogs({
       ]);
       setAccounts(wallet?.walletAccounts ?? []);
       setAssets((wallet?.walletAssets ?? []).filter((a) => a.chain === 'Base'));
-      setGatewayAvailable(Number((gateway as { available?: string })?.available ?? 0) / 1_000_000 || 0);
-      setGatewayPerDomain(((gateway as { perDomain?: [] })?.perDomain ?? []) as []);
+      const gw = gateway as { available?: string | number; perDomain?: GatewayDomainBalance[] };
+      setGatewayAvailable(Number(gw?.available ?? 0) / 1_000_000 || 0);
+      setGatewayPerDomain(gw?.perDomain ?? []);
     } catch {
       // Dialogs open with empty data rather than failing.
     }
