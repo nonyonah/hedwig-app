@@ -66,7 +66,7 @@ function Pill({ label, bg, text }: { label: string; bg: string; text: string }) 
   );
 }
 
-export function WalletView({
+export function AccountsView({
   initialWalletData,
   accessToken,
   workspaceId,
@@ -330,7 +330,7 @@ export function WalletView({
                       </Checkbox>
                     </Table.Cell>
                     <Table.Cell>
-                      <Link href={`/wallet/${a.id}`} className="group flex items-center gap-3">
+                      <Link href={`/accounts/${a.id}`} className="group flex items-center gap-3">
                         <AccountIcon currency={a.currency} />
                         <span>
                           <span className="block text-[13px] font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-text-tertiary)]">
@@ -357,7 +357,7 @@ export function WalletView({
                     <Table.Cell>
                       <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                         <RowActionsMenu
-                          items={[{ label: 'View details', onClick: () => router.push(`/wallet/${a.id}`) }]}
+                          items={[{ label: 'View details', onClick: () => router.push(`/accounts/${a.id}`) }]}
                         />
                       </div>
                     </Table.Cell>

@@ -65,7 +65,7 @@ export const navigationGroups = [
       },
       { title: 'Payroll', href: '/workspace/payroll', icon: CurrencyDollar, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
-      { title: 'Accounts', href: '/wallet', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
+      { title: 'Accounts', href: '/accounts', icon: Wallet, count: null, muted: false, roles: ['owner', 'admin', 'member'], workspaceTypes: ['personal'] },
       { title: 'Cards', href: '/cards', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
     ]
   },

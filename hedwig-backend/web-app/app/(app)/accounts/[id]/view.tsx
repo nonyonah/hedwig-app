@@ -155,7 +155,7 @@ export function AccountDetailClient({
   if (!account) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/wallet')}>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/accounts')}>
           <ArrowLeft className="h-3.5 w-3.5" weight="bold" /> Accounts
         </Button>
         <p className="text-[13px] text-[var(--color-text-tertiary)]">Account not found.</p>
@@ -167,7 +167,7 @@ export function AccountDetailClient({
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => router.push('/wallet')} className="w-fit">
+      <Button variant="ghost" size="sm" onClick={() => router.push('/accounts')} className="w-fit">
         <ArrowLeft className="h-3.5 w-3.5" weight="bold" /> Accounts
       </Button>
 
@@ -255,7 +255,6 @@ export function AccountDetailClient({
           <div className="divide-y divide-[var(--color-border)]">
             <InfoRow label="Currency" value={account.currency} />
             <InfoRow label="Type" value={account.account_type} />
-            <InfoRow label="Provider" value={account.provider} />
             {account.bank_name && <InfoRow label="Bank" value={account.bank_name} />}
             {account.account_number_masked && <InfoRow label="Account" value={`•••• ${account.account_number_masked}`} mono />}
             {account.address && <AddressRow address={account.address} />}

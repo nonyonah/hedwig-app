@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
-import { resolveRequestIdentity, ownerScope, workspaceScope } from '../utils/identity';
+import { resolveRequestIdentity, ownerScope, workspaceScope, type RequestIdentity } from '../utils/identity';
 import { convertToUsd } from '../services/currency';
 
 const router = Router();
@@ -13,6 +13,21 @@ const logger = createLogger('Accounts');
  * fiat virtual accounts (USD via Bridge, NGN via Strails, others pending).
  * Balances are cached snapshots; provider webhooks keep them fresh.
  */
+
+
+/**
+ * Personal-workspace reads must also match NULL-workspace rows: deposits and
+ * imported events are often written without a workspace scope, and PostgREST
+ * `IN` never matches NULL. Org paths stay strictly scoped.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function withWorkspaceScope(query: any, identity: { workspaceId: string }, scope: string[]): any {
+  if (!identity.workspaceId.startsWith('ws_personal_')) {
+    return query.in('workspace_id', scope);
+  }
+  const list = scope.map((w) => `"${w}"`).join(',');
+  return query.or(`workspace_id.in.(${list}),workspace_id.is.null`);
+}
 
 const rowToApi = (r: Record<string, unknown>) => ({
   id: r.id,
@@ -28,7 +43,7 @@ const rowToApi = (r: Record<string, unknown>) => ({
   created_at: r.created_at,
 });
 
-async function ensureStablecoinAccount(identity: { internalId: string; workspaceId: string }) {
+async function ensureStablecoinAccount(identity: RequestIdentity) {
   const { data: existing } = await supabase
     .from('virtual_accounts')
     .select('*')
@@ -39,12 +54,14 @@ async function ensureStablecoinAccount(identity: { internalId: string; workspace
     .maybeSingle();
   if (existing) return existing;
 
-  // Seed the ledger-derived balance: net USDC flow for this scope.
-  const { data: flows } = await supabase
+  // Seed the ledger-derived balance: net USDC flow for this scope
+  // (legacy DID-keyed + NULL-workspace events included).
+  let flowsQuery = supabase
     .from('financial_events')
     .select('direction,amount_usd')
-    .eq('user_id', identity.internalId)
-    .eq('workspace_id', identity.workspaceId);
+    .in('user_id', ownerScope(identity));
+  flowsQuery = withWorkspaceScope(flowsQuery, identity, workspaceScope(identity));
+  const { data: flows } = await flowsQuery;
   const net = (flows ?? []).reduce(
     (s, r) => s + (r.direction === 'in' ? 1 : r.direction === 'out' ? -1 : 0) * Number(r.amount_usd ?? 0),
     0
@@ -78,12 +95,12 @@ async function ensureStablecoinAccount(identity: { internalId: string; workspace
 router.get('/', authenticate, async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   await ensureStablecoinAccount(identity);
-  const { data, error } = await supabase
+  let listQuery = supabase
     .from('virtual_accounts')
     .select('*')
-    .in('user_id', ownerScope(identity))
-    .in('workspace_id', workspaceScope(identity))
-    .order('created_at');
+    .in('user_id', ownerScope(identity));
+  listQuery = withWorkspaceScope(listQuery, identity, workspaceScope(identity));
+  const { data, error } = await listQuery.order('created_at');
   if (error) throw error;
   return res.json({ success: true, data: (data ?? []).map(rowToApi) });
 });
@@ -95,21 +112,23 @@ router.get('/summary', authenticate, async (req: Request, res: Response) => {
   const owners = ownerScope(identity);
   const scopes = workspaceScope(identity);
 
-  const { data: accounts } = await supabase
-    .from('virtual_accounts')
-    .select('balance_usd,status')
-    .in('user_id', owners)
-    .in('workspace_id', scopes)
-    .eq('status', 'active');
-  const available = (accounts ?? []).reduce((s, a) => s + Number(a.balance_usd ?? 0), 0);
+  const { data: accounts } = await withWorkspaceScope(
+    supabase.from('virtual_accounts').select('balance_usd,status').in('user_id', owners),
+    identity,
+    scopes
+  ).eq('status', 'active');
+  const available = (accounts ?? []).reduce(
+    (s: number, a: { balance_usd?: number | string | null }) => s + Number(a.balance_usd ?? 0),
+    0
+  );
 
   // Pending deposits: unpaid invoices (receivables awaiting payment),
   // converted to USD per invoice currency — never summed raw.
-  const { data: invoices } = await supabase
-    .from('documents')
-    .select('amount,amount_usd,currency')
-    .in('user_id', owners)
-    .in('workspace_id', scopes)
+  const { data: invoices } = await withWorkspaceScope(
+    supabase.from('documents').select('amount,amount_usd,currency').in('user_id', owners),
+    identity,
+    scopes
+  )
     .eq('type', 'INVOICE')
     .in('status', ['DRAFT', 'SENT', 'VIEWED', 'OVERDUE']);
   let pendingDeposits = 0;
@@ -219,11 +238,14 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       address = null;
     }
   }
-  let txQuery = supabase
-    .from('financial_events')
-    .select('id,event_type,direction,amount,amount_usd,currency,occurred_at,source')
-    .in('user_id', ownerScope(identity))
-    .in('workspace_id', workspaceScope(identity))
+  let txQuery = withWorkspaceScope(
+    supabase
+      .from('financial_events')
+      .select('id,event_type,direction,amount,amount_usd,currency,occurred_at,source')
+      .in('user_id', ownerScope(identity)),
+    identity,
+    workspaceScope(identity)
+  )
     .order('occurred_at', { ascending: false })
     .limit(50);
   if (currency !== 'USDC') txQuery = txQuery.eq('currency', currency);
@@ -247,11 +269,14 @@ router.get('/:id/history', authenticate, async (req: Request, res: Response) => 
   const days = range === '1y' ? 365 : range === '90d' ? 90 : 30;
   const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
 
-  const { data: events } = await supabase
-    .from('financial_events')
-    .select('direction,amount_usd,occurred_at')
-    .in('user_id', ownerScope(identity))
-    .in('workspace_id', workspaceScope(identity))
+  const { data: events } = await withWorkspaceScope(
+    supabase
+      .from('financial_events')
+      .select('direction,amount_usd,occurred_at')
+      .in('user_id', ownerScope(identity)),
+    identity,
+    workspaceScope(identity)
+  )
     .gte('occurred_at', since)
     .order('occurred_at', { ascending: true })
     .limit(2000);
