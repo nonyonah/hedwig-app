@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
@@ -67,7 +68,7 @@ const rowToApi = (a: Record<string, unknown>, policy: Record<string, unknown> | 
     : null,
 });
 
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('agents')
@@ -82,9 +83,9 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     : { data: [] };
   const byAgent = new Map((policies ?? []).map((p) => [p.agent_id, p]));
   return res.json({ success: true, data: (data ?? []).map((a) => rowToApi(a, byAgent.get(a.id) ?? null)) });
-});
+}));
 
-router.post('/', authenticate, async (req: Request, res: Response) => {
+router.post('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const wsId = identity.workspaceId;
   const b = req.body ?? {};
@@ -135,9 +136,9 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     .single();
 
   return res.status(201).json({ success: true, data: rowToApi(agent, policy) });
-});
+}));
 
-router.patch('/:id', authenticate, async (req: Request, res: Response) => {
+router.patch('/:id', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   const updates: Record<string, unknown> = {};
@@ -181,6 +182,6 @@ router.patch('/:id', authenticate, async (req: Request, res: Response) => {
     .eq('agent_id', req.params.id)
     .single();
   return res.json({ success: true, data: rowToApi(data, policy) });
-});
+}));
 
 export default router;

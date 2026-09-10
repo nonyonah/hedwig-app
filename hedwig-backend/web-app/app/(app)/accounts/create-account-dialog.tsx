@@ -9,15 +9,20 @@ import { hedwigApi } from '@/lib/api/client';
 const CURRENCIES = [
   { value: 'USD', label: 'USD — US Dollar' },
   { value: 'NGN', label: 'NGN — Nigerian Naira' },
+  { value: 'GBP', label: 'GBP — British Pound' },
   { value: 'EUR', label: 'EUR — Euro' },
-  { value: 'MXN', label: 'MXN — Mexican Peso' },
-  { value: 'USDC', label: 'USDC — Stablecoin' },
 ] as const;
 
-const ACCOUNT_TYPES = [
+const ACCOUNT_TYPES_ALL = [
   { value: 'checking', label: 'Checking' },
   { value: 'savings', label: 'Savings' },
   { value: 'payroll', label: 'Payroll' },
+] as const;
+
+// Nigerian accounts come as current/savings.
+const ACCOUNT_TYPES_NGN = [
+  { value: 'current', label: 'Current' },
+  { value: 'savings', label: 'Savings' },
 ] as const;
 
 const inputClass =
@@ -39,6 +44,7 @@ export function CreateAccountDialog({
 }) {
   const [currency, setCurrency] = useState('USD');
   const [accountType, setAccountType] = useState('checking');
+  const typeOptions = currency === 'NGN' ? ACCOUNT_TYPES_NGN : ACCOUNT_TYPES_ALL;
   const [label, setLabel] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -47,8 +53,11 @@ export function CreateAccountDialog({
     setPending(true);
     setError('');
     try {
+      const effectiveType = typeOptions.some((t) => t.value === accountType)
+        ? accountType
+        : typeOptions[0].value;
       await hedwigApi.createVirtualAccount(
-        { currency, account_type: accountType, label: label.trim() || undefined },
+        { currency, account_type: effectiveType, label: label.trim() || undefined },
         { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true }
       );
       setLabel('');
@@ -95,11 +104,11 @@ export function CreateAccountDialog({
             <div className="relative w-full">
               <select
                 aria-label="Account type"
-                value={accountType}
+                value={typeOptions.some((t) => t.value === accountType) ? accountType : typeOptions[0].value}
                 onChange={(e) => setAccountType(e.target.value)}
                 className={`${inputClass} appearance-none pr-10 [&>option]:bg-[var(--color-surface)]`}
               >
-                {ACCOUNT_TYPES.map((t) => (
+                {typeOptions.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
                   </option>

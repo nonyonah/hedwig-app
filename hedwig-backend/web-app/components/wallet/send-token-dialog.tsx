@@ -134,6 +134,25 @@ export function SendTokenDialog({
  const [destChain, setDestChain] = useState<SendChain>('base');
  const [destOpen, setDestOpen] = useState(false);
  const destRef = useRef<HTMLDivElement>(null);
+ const [destKind, setDestKind] = useState<'crypto' | 'bank'>('crypto');
+ const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
+ const [bankCode, setBankCode] = useState('');
+ const [bankAccount, setBankAccount] = useState('');
+ const [bankNarration, setBankNarration] = useState('');
+ const [banksLoading, setBanksLoading] = useState(false);
+ const [bankRef, setBankRef] = useState<string | null>(null);
+
+ // Load NGN bank list lazily when bank mode opens (needs accessToken).
+ useEffect(() => {
+ if (destKind !== 'bank' || banks.length > 0 || banksLoading) return;
+ setBanksLoading(true);
+ import('@/lib/api/client').then(({ hedwigApi }) =>
+ hedwigApi.flutterwaveBanks({ accessToken }).then(
+ (list) => setBanks(list),
+ () => {}
+ ).finally(() => setBanksLoading(false))
+ );
+ }, [destKind, banks.length, banksLoading, accessToken]);
 
  const isUnified = selected.chain === 'Unified';
  const isEvm = !isUnified && (selected.chain === 'Base' || !['Solana'].includes(selected.chain));
@@ -185,11 +204,34 @@ export function SendTokenDialog({
  });
  }
 
+ // ── Bank transfer via Flutterwave (NGN) ──
+ async function sendBank() {
+ const { hedwigApi } = await import('@/lib/api/client');
+ const res = await hedwigApi.flutterwaveOfframp(
+ {
+ accountBank: bankCode,
+ accountNumber: bankAccount.trim(),
+ amount: numericAmount,
+ narration: bankNarration.trim() || undefined,
+ },
+ { accessToken }
+ );
+ setBankRef(res.reference);
+ setStep('done');
+ }
+
+ const bankAccountValid = /^[0-9]{10}$/.test(bankAccount.trim());
+ const bankCanProceed = bankCode !== '' && bankAccountValid && numericAmount > 0;
+
  // ── Main send handler ──────────────────────────────────────────────────────
  async function handleSend() {
  setStep('signing');
  setError(null);
  try {
+ if (destKind === 'bank') {
+ await sendBank();
+ return;
+ }
  const hash = isUnified ? await sendGateway() : (isEvm ? await sendEvm() : await sendSolana());
  setTxHash(hash);
  setStep('done');
@@ -222,7 +264,7 @@ export function SendTokenDialog({
  {/* Header */}
  <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
  <div>
- <p className="text-[15px] font-bold text-[var(--color-foreground)]">Send crypto</p>
+ <p className="text-[15px] font-bold text-[var(--color-foreground)]">{destKind === 'bank' ? 'Send money' : 'Send crypto'}</p>
  <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">
  {step === 'form' ? 'Choose a token and enter the recipient' :
  step === 'review' ? 'Review your transaction before signing' :
@@ -243,6 +285,92 @@ export function SendTokenDialog({
 
  {/* ── Form step ── */}
  {step === 'form' && (
+ <>
+ {/* Destination toggle */}
+ <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-1">
+ <button type="button" onClick={() => setDestKind('crypto')}
+ className={`rounded-xl px-4 py-2.5 text-[13px] font-semibold transition ${destKind === 'crypto' ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs' : 'text-[var(--color-text-tertiary)]'}`}>
+ Crypto
+ </button>
+ <button type="button" onClick={() => setDestKind('bank')}
+ className={`rounded-xl px-4 py-2.5 text-[13px] font-semibold transition ${destKind === 'bank' ? 'bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-xs' : 'text-[var(--color-text-tertiary)]'}`}>
+ Bank · NGN
+ </button>
+ </div>
+ {destKind === 'bank' ? (
+ <>
+ <div>
+ <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Bank</label>
+ <div className="relative">
+ <select
+ aria-label="Destination bank"
+ value={bankCode}
+ onChange={(e) => setBankCode(e.target.value)}
+ className="w-full appearance-none rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 pr-10 text-[13px] text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-primary)] [&>option]:bg-[var(--color-surface)]"
+ >
+ <option value="" disabled>{banksLoading ? 'Loading banks…' : 'Select bank'}</option>
+ {banks.map((b) => (
+ <option key={b.code} value={b.code}>{b.name}</option>
+ ))}
+ </select>
+ <svg className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+ <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+ </svg>
+ </div>
+ </div>
+ <div>
+ <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Account number</label>
+ <input
+ type="text"
+ inputMode="numeric"
+ placeholder="0123456789"
+ value={bankAccount}
+ onChange={(e) => setBankAccount(e.target.value.replace(/\D/g, '').slice(0, 10))}
+ className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 font-mono text-[13px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none transition focus:border-[var(--color-primary)]"
+ />
+ {bankAccount.length > 0 && bankAccount.length !== 10 && (
+ <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Enter the 10-digit account number</p>
+ )}
+ </div>
+ <div>
+ <div className="mb-1.5 flex items-center justify-between">
+ <label className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Amount</label>
+ </div>
+ <div className="relative">
+ <input
+ type="number"
+ placeholder="0.00"
+ value={amount}
+ min={0}
+ step="any"
+ onChange={(e) => setAmount(e.target.value)}
+ className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] py-2.5 pl-4 pr-16 text-[15px] font-semibold text-[var(--color-foreground)] placeholder-[var(--color-border-input)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+ />
+ <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-[var(--color-text-tertiary)]">
+ NGN
+ </span>
+ </div>
+ </div>
+ <div>
+ <label className="mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]">Narration (optional)</label>
+ <input
+ type="text"
+ placeholder="What is this for?"
+ value={bankNarration}
+ onChange={(e) => setBankNarration(e.target.value)}
+ className="w-full rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-4 py-2.5 text-[13px] text-[var(--color-foreground)] placeholder-[var(--color-text-muted)] outline-none transition focus:border-[var(--color-primary)]"
+ />
+ </div>
+ <button
+ type="button"
+ disabled={!bankCanProceed}
+ onClick={() => setStep('review')}
+ className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-40"
+ >
+ Review <ArrowRight className="h-4 w-4" weight="bold" />
+ </button>
+ </>
+ ) : (
  <>
  {/* Chain dropdown */}
  <div ref={chainRef} className="relative">
@@ -397,9 +525,55 @@ export function SendTokenDialog({
  </button>
  </>
  )}
+ </>
+ )}
 
  {/* ── Review step ── */}
  {step === 'review' && (
+ <>
+ {destKind === 'bank' ? (
+ <>
+ <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-5 text-center">
+ <div className="relative mx-auto mb-3 w-fit">
+ <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-[14px] font-bold text-[var(--color-success)]">₦</div>
+ </div>
+ <p className="text-[28px] font-bold tracking-[-0.04em] text-[var(--color-foreground)]">₦{numericAmount.toLocaleString()}</p>
+ <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">to {banks.find((b) => b.code === bankCode)?.name ?? 'bank'}</p>
+ </div>
+ <div className="divide-y divide-[var(--color-background)] rounded-2xl border border-[var(--color-border)] px-5">
+ <div className="flex items-start justify-between py-3.5 text-[13px]">
+ <span className="text-[var(--color-text-tertiary)]">To</span>
+ <span className="ml-4 max-w-[240px] break-all text-right font-mono text-[12px] font-semibold text-[var(--color-foreground)]">{bankAccount}</span>
+ </div>
+ <div className="flex items-center justify-between py-3.5 text-[13px]">
+ <span className="text-[var(--color-text-tertiary)]">Rail</span>
+ <span className="font-semibold text-[var(--color-foreground)]">Flutterwave · NGN bank transfer</span>
+ </div>
+ {bankNarration.trim() !== '' && (
+ <div className="flex items-start justify-between py-3.5 text-[13px]">
+ <span className="text-[var(--color-text-tertiary)]">Narration</span>
+ <span className="ml-4 max-w-[240px] break-all text-right text-[12px] font-semibold text-[var(--color-foreground)]">{bankNarration.trim()}</span>
+ </div>
+ )}
+ </div>
+ <div className="flex gap-3">
+ <button
+ type="button"
+ onClick={() => setStep('form')}
+ className="flex-1 rounded-full border border-[var(--color-border-input)] bg-[var(--color-surface)] px-5 py-3 text-[14px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background)]"
+ >
+ Back
+ </button>
+ <button
+ type="button"
+ onClick={handleSend}
+ className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-[14px] font-semibold text-white shadow-xs transition hover:bg-[var(--color-primary-dark)]"
+ >
+ Send money
+ </button>
+ </div>
+ </>
+ ) : (
  <>
  {/* Token hero */}
  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-5 text-center">
@@ -475,6 +649,8 @@ export function SendTokenDialog({
  </div>
  </>
  )}
+ </>
+ )}
 
  {/* ── Signing step ── */}
  {step === 'signing' && (
@@ -483,9 +659,11 @@ export function SendTokenDialog({
   <Loader size={32} />
  </div>
  <div>
- <p className="text-[16px] font-bold text-[var(--color-foreground)]">Waiting for your signature</p>
+ <p className="text-[16px] font-bold text-[var(--color-foreground)]">{destKind === 'bank' ? 'Sending money' : 'Waiting for your signature'}</p>
  <p className="mt-2 text-[13px] leading-[1.6] text-[var(--color-text-tertiary)]">
- A signing prompt has appeared in your Privy wallet. Please confirm the transaction to continue.
+ {destKind === 'bank'
+ ? 'Sending your NGN transfer via Flutterwave…'
+ : 'A signing prompt has appeared in your Privy wallet. Please confirm the transaction to continue.'}
  </p>
  </div>
  </div>
@@ -500,7 +678,9 @@ export function SendTokenDialog({
  <div>
  <p className="text-[16px] font-bold text-[var(--color-foreground)]">Transaction submitted!</p>
  <p className="mt-2 text-[13px] leading-[1.6] text-[var(--color-text-tertiary)]">
- {numericAmount} {selected.symbol} sent to {recipient.slice(0, 8)}…{recipient.slice(-6)}
+ {destKind === 'bank'
+ ? `₦${numericAmount.toLocaleString()} sent to ${bankAccount} (${bankRef ?? 'processing'})`
+ : `${numericAmount} ${selected.symbol} sent to ${recipient.slice(0, 8)}…${recipient.slice(-6)}`}
  </p>
  </div>
  {explorerUrl && (

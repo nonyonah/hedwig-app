@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { resolveRequestIdentity, ownerScope } from '../utils/identity';
@@ -7,7 +8,7 @@ const router = Router();
 
 /** Disputes / support tickets — Nche port (card + invoice). */
 
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('disputes')
@@ -17,9 +18,9 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     .limit(100);
   if (error) throw error;
   return res.json({ success: true, data });
-});
+}));
 
-router.post('/', authenticate, async (req: Request, res: Response) => {
+router.post('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   if (!b.reason?.trim()) return res.status(400).json({ error: 'reason is required' });
@@ -38,9 +39,9 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     .single();
   if (error) throw error;
   return res.status(201).json({ success: true, data });
-});
+}));
 
-router.patch('/:id', authenticate, async (req: Request, res: Response) => {
+router.patch('/:id', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('disputes')
@@ -51,6 +52,6 @@ router.patch('/:id', authenticate, async (req: Request, res: Response) => {
     .single();
   if (error) throw error;
   return res.json({ success: true, data });
-});
+}));
 
 export default router;

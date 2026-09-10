@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { resolveRequestIdentity, ownerScope } from '../utils/identity';
@@ -11,7 +12,7 @@ const router = Router();
  * land here for human review instead of blocking onboarding.
  */
 
-router.get('/reviews', authenticate, async (req: Request, res: Response) => {
+router.get('/reviews', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('manual_review_cases')
@@ -21,9 +22,9 @@ router.get('/reviews', authenticate, async (req: Request, res: Response) => {
     .limit(100);
   if (error) throw error;
   return res.json({ success: true, data });
-});
+}));
 
-router.post('/reviews', authenticate, async (req: Request, res: Response) => {
+router.post('/reviews', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   if (!b.kind) return res.status(400).json({ error: 'kind is required' });
@@ -40,10 +41,10 @@ router.post('/reviews', authenticate, async (req: Request, res: Response) => {
     .single();
   if (error) throw error;
   return res.status(201).json({ success: true, data });
-});
+}));
 
 /** Unified verification status: Didit session + Bridge KYB + open reviews. */
-router.get('/status', authenticate, async (req: Request, res: Response) => {
+router.get('/status', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data: user } = await supabase.from('users').select('kyc_status').eq('id', identity.internalId).maybeSingle();
   const { data: reviews } = await supabase
@@ -59,6 +60,6 @@ router.get('/status', authenticate, async (req: Request, res: Response) => {
       verified: (user as { kyc_status?: string } | null)?.kyc_status === 'approved',
     },
   });
-});
+}));
 
 export default router;

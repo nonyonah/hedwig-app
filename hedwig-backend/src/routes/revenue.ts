@@ -1005,7 +1005,8 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
         res.status(201).json({ success: true, data });
 
         // Nche port: match the expense against agent spend policies (fire-and-forget).
-        void import('../services/agentExpenseMatcher').then((m) =>
+        import('../services/agentExpenseMatcher')
+          .then((m) =>
             m.matchExpenseToAgents({
                 id: data.id,
                 user_id: user.id,
@@ -1016,7 +1017,8 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
                 note: String(note),
                 category: data.category,
             })
-        );
+          )
+          .catch((err) => logger.warn('agent expense matching failed', { err }));
     } catch (error) {
         logger.error('Failed to create expense', { error: error instanceof Error ? error.message : 'Unknown' });
         next(error);

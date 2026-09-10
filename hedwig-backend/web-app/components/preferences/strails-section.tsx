@@ -137,7 +137,7 @@ export function StrailsSection({ accessToken }: { accessToken: string | null }) 
             )}
           </h2>
           <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
-            Receive NGN bank transfers that auto-convert to USDC. Powered by Strails.
+            Receive NGN bank transfers into your collection account. Powered by Flutterwave.
           </p>
         </div>
       </div>
@@ -181,13 +181,13 @@ export function StrailsSection({ accessToken }: { accessToken: string | null }) 
               </div>
             </div>
             <p className="mt-3 text-[11px] text-[var(--color-text-muted)]">
-              Anyone can send NGN to this account and it converts to USDC on Base automatically.
+              Anyone can send NGN to this account; deposits land in your NGN balance automatically.
             </p>
           </div>
         ) : (
           <div>
             <p className="text-[13px] text-[var(--color-text-secondary)]">
-              Enter your BVN to create a Nigerian virtual account that auto-converts deposits to USDC.
+              Enter your BVN or NIN to create a Nigerian collection account for receiving NGN transfers.
             </p>
             <div className="mt-3 flex items-center gap-2">
               <input

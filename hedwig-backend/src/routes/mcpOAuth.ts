@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { asyncHandler } from '../utils/asyncHandler';
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
@@ -107,7 +108,7 @@ router.get('/.well-known/oauth-authorization-server', (_req: Request, res: Respo
   });
 });
 
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const name = String(b.client_name ?? 'MCP client').slice(0, 200);
   const uris: string[] = Array.isArray(b.redirect_uris) ? b.redirect_uris : [];
@@ -129,9 +130,9 @@ router.post('/register', async (req: Request, res: Response) => {
     response_types: ['code'],
     token_endpoint_auth_method: 'none',
   });
-});
+}));
 
-router.get('/authorize', async (req: Request, res: Response) => {
+router.get('/authorize', asyncHandler(async (req: Request, res: Response) => {
   const q = req.query as Record<string, string>;
   if (q.response_type !== 'code' || q.code_challenge_method !== 'S256' || !q.client_id || !q.redirect_uri || !q.state || !q.code_challenge) {
     return res.status(400).json({ error: 'invalid_request' });
@@ -146,10 +147,10 @@ router.get('/authorize', async (req: Request, res: Response) => {
   const handoff = new URL(`${webApp}/oauth/authorize`);
   for (const [k, v] of Object.entries(q)) handoff.searchParams.set(k, String(v));
   return res.redirect(handoff.toString());
-});
+}));
 
 /** Authenticated user consents → authorization code (called by the web consent screen). */
-router.post('/consent', authenticate, async (req: Request, res: Response) => {
+router.post('/consent', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const b = req.body ?? {};
   if ((b.scope ?? SCOPE) !== SCOPE) return res.status(400).json({ error: 'invalid_scope' });
   const { data: client } = await supabase.from('mcp_clients').select('*').eq('client_id', b.client_id).single();
@@ -170,9 +171,9 @@ router.post('/consent', authenticate, async (req: Request, res: Response) => {
   redirect.searchParams.set('code', raw);
   redirect.searchParams.set('state', b.state);
   return res.json({ redirect_to: redirect.toString() });
-});
+}));
 
-router.post('/token', async (req: Request, res: Response) => {
+router.post('/token', asyncHandler(async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const { data: client } = await supabase.from('mcp_clients').select('*').eq('client_id', b.client_id).single();
   if (!client) return res.status(400).json({ error: 'invalid_client' });
@@ -218,6 +219,6 @@ router.post('/token', async (req: Request, res: Response) => {
     expires_at: new Date(Date.now() + REFRESH_TTL_S * 1000).toISOString(),
   });
   return res.json({ access_token: accessToken, token_type: 'Bearer', expires_in: ACCESS_TTL_S, refresh_token: rawRefresh, scope: SCOPE });
-});
+}));
 
 export default router;

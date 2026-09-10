@@ -5,6 +5,7 @@ const CURRENCY_FLAG: Record<string, string> = {
   NGN: '🇳🇬',
   EUR: '🇪🇺',
   MXN: '🇲🇽',
+  GBP: '🇬🇧',
 };
 
 /** Rounded currency mark: USDC logo for stablecoin, flag disc for fiat. */

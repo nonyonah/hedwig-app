@@ -1168,6 +1168,13 @@ export const hedwigApi = {
     );
   },
 
+  async closeVirtualAccount(id: string, options?: ApiOptions): Promise<any> {
+    return request<any>(`/api/accounts/${id}/close`, options, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
+
   async virtualAccountHistory(id: string, range: string, options?: ApiOptions): Promise<any> {
     return withFallback(
       async () => {
@@ -3050,28 +3057,38 @@ export const hedwigApi = {
     });
   },
 
-  // ── Strails ────────────────────────────────────────────────────────────────
+  // ── Flutterwave NGN (replaces Strails) ───────────────────────────────────
+  // Shapes preserved so existing onboarding UI keeps working.
 
   async strailsOnboard(bvn: string, options?: ApiOptions): Promise<{
     requestId: string;
     strailsUserId: string;
     status: string;
   }> {
-    return request('/api/strails/onboard', options, {
-      method: 'POST',
-      body: JSON.stringify({ bvn }),
-    });
+    const data = await request<{ accountNumber: string; bankName: string; flwRef: string }>(
+      '/api/flutterwave/virtual-account',
+      options,
+      { method: 'POST', body: JSON.stringify({ bvn }) }
+    );
+    return { requestId: data.flwRef, strailsUserId: '', status: 'completed' };
   },
 
-  async strailsOnboardStatus(requestId: string, options?: ApiOptions): Promise<{
+  async strailsOnboardStatus(_requestId: string, options?: ApiOptions): Promise<{
     status: string;
     strailsUserId: string;
     virtualAccount: any | null;
   }> {
-    return request('/api/strails/onboard-status', options, {
-      method: 'POST',
-      body: JSON.stringify({ requestId }),
-    });
+    const data = await request<{ enrolled: boolean; accountNumber?: string; bankName?: string; accountName?: string }>(
+      '/api/flutterwave/virtual-account',
+      options
+    );
+    return {
+      status: data.enrolled ? 'completed' : 'pending',
+      strailsUserId: '',
+      virtualAccount: data.enrolled
+        ? { accountNumber: data.accountNumber, bankName: data.bankName, accountName: data.accountName }
+        : null,
+    };
   },
 
   async strailsGetVirtualAccount(options?: ApiOptions): Promise<{
@@ -3081,7 +3098,43 @@ export const hedwigApi = {
     virtualAccount: any | null;
     wallets?: any | null;
   }> {
-    return request('/api/strails/virtual-account', options);
+    const data = await request<{ enrolled: boolean; accountNumber?: string; bankName?: string; accountName?: string; status?: string }>(
+      '/api/flutterwave/virtual-account',
+      options
+    );
+    return {
+      onboarded: data.enrolled,
+      isActive: data.status === 'active',
+      virtualAccount: data.enrolled
+        ? { accountNumber: data.accountNumber, bankName: data.bankName, accountName: data.accountName }
+        : null,
+    };
+  },
+
+  // ── Flutterwave NGN payouts ──────────────────────────────────────────────
+  async flutterwaveBanks(options?: ApiOptions): Promise<Array<{ code: string; name: string }>> {
+    const data = await request<Array<{ code: string; name: string }>>('/api/flutterwave/banks', options);
+    return Array.isArray(data) ? data : [];
+  },
+
+  async flutterwaveOfframp(
+    input: { accountBank: string; accountNumber: string; amount: number; narration?: string; beneficiaryName?: string },
+    options?: ApiOptions
+  ): Promise<{ reference: string; status: string }> {
+    return request('/api/flutterwave/offramp', options, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  async provisionNgnAccount(
+    input: { bvn?: string; nin?: string },
+    options?: ApiOptions
+  ): Promise<{ accountNumber: string; bankName: string; flwRef: string }> {
+    return request('/api/flutterwave/virtual-account', options, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
   },
 
   async strailsCreateInvoiceVA(invoiceId: string, amount: number, options?: ApiOptions): Promise<{
@@ -3091,18 +3144,16 @@ export const hedwigApi = {
     feeBreakdown?: any;
     virtualAccount: any | null;
   }> {
-    return request('/api/strails/invoice-va', options, {
-      method: 'POST',
-      body: JSON.stringify({ invoiceId, amount }),
-    });
-  },
-
-  async strailsGetInvoiceVA(requestId: string, options?: ApiOptions): Promise<{
-    virtualAccount: any;
-    walletAddress: string;
-    status: string;
-    invoice: any | null;
-  }> {
-    return request(`/api/strails/invoice-va/${requestId}`, options);
+    const data = await request<{ accountNumber: string; bankName: string; flwRef: string; expiry: string | null }>(
+      '/api/flutterwave/invoice-va',
+      options,
+      { method: 'POST', body: JSON.stringify({ amount, narration: `Invoice ${invoiceId} collection`, txRef: `hedwig-inv-${invoiceId}-${Date.now()}` }) }
+    );
+    return {
+      requestId: data.flwRef,
+      walletAddress: data.accountNumber,
+      status: 'active',
+      virtualAccount: { accountNumber: data.accountNumber, bankName: data.bankName, expiry: data.expiry },
+    };
   },
 };

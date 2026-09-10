@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
@@ -19,7 +20,7 @@ async function sweepExpired(userIds: string[]) {
     .lte('expires_at', new Date().toISOString());
 }
 
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   await sweepExpired(ownerScope(identity));
   const { data, error } = await supabase
@@ -30,10 +31,10 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     .limit(100);
   if (error) throw error;
   return res.json({ success: true, data });
-});
+}));
 
 /** Create an approval request (typically called by policy HOLD paths). */
-router.post('/', authenticate, async (req: Request, res: Response) => {
+router.post('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   if (!b.amount || !b.reason) return res.status(400).json({ error: 'amount and reason required' });
@@ -84,9 +85,9 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     logger.warn('approval notification failed', { err });
   }
   return res.status(201).json({ success: true, data });
-});
+}));
 
-router.post('/:id/approve', authenticate, async (req: Request, res: Response) => {
+router.post('/:id/approve', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data: existing } = await supabase
     .from('approval_requests')
@@ -111,9 +112,9 @@ router.post('/:id/approve', authenticate, async (req: Request, res: Response) =>
     .single();
   if (error) throw error;
   return res.json({ success: true, data });
-});
+}));
 
-router.post('/:id/decline', authenticate, async (req: Request, res: Response) => {
+router.post('/:id/decline', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data: existing } = await supabase
     .from('approval_requests')
@@ -139,6 +140,6 @@ router.post('/:id/decline', authenticate, async (req: Request, res: Response) =>
   // Note: if bridge_auth_id is set, the Bridge card webhook path declines the
   // held authorization on next sync (see routes/cards.ts).
   return res.json({ success: true, data });
-});
+}));
 
 export default router;

@@ -85,6 +85,8 @@ import mcpRoutes from './routes/mcp';
 import partnerProductsRoutes from './routes/partnerProducts';
 import adminRoutes from './routes/admin';
 import accountsRoutes from './routes/accounts';
+import flutterwaveRoutes from './routes/flutterwave';
+import flutterwaveWebhookRoutes from './routes/flutterwaveWebhook';
 import workspaceRoutes from './routes/workspaces';
 import payrollRoutes from './routes/payroll';
 import timeRoutes from './routes/time';
@@ -602,6 +604,8 @@ app.use('/api/mcp', mcpRoutes);
 app.use('/api/partner-products', financialLimiter, partnerProductsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/accounts', financialLimiter, accountsRoutes);
+app.use('/api/flutterwave', financialLimiter, flutterwaveRoutes);
+app.use('/api/webhooks/flutterwave', flutterwaveWebhookRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/workspaces/:id/payroll', payrollRoutes);
 // Inngest — disabled; cron handles scheduled payroll for now.

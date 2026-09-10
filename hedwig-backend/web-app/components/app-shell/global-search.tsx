@@ -218,6 +218,16 @@ function ResultRowContent({ result }: { result: SearchResult }) {
   );
 }
 
+function resultKey(result: SearchResult): string {
+  const id =
+    result.kind === 'transaction'
+      ? result.data.referenceId
+      : result.kind === 'statement'
+        ? String(result.data.id ?? result.data.file_name ?? 'statement')
+        : (result.data as { id: string }).id;
+  return `${result.kind}-${id}`;
+}
+
 function resultSubtitle(result: SearchResult): string {
   if (result.kind === 'invoice') return `${result.data.number} ${result.data.status}`;
   if (result.kind === 'payment-link') return result.data.status;
@@ -406,7 +416,7 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
                     <CommandGroup key={group.kind} heading={KIND_META[group.kind].label}>
                       {group.items.map((result) => (
                         <CommandItem
-                          key={`${result.kind}-${result.data.id}`}
+                          key={resultKey(result)}
                           value={`${result.kind} ${resultTitle(result)} ${resultSubtitle(result)}`}
                           onSelect={() => handleResultClick(result)}
                           className="gap-3 px-3 py-2.5"
@@ -427,7 +437,7 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
         entry={detailEntry}
         open={detailEntry !== null}
         onOpenChange={(o) => !o && setDetailEntry(null)}
-        accessToken={accessToken}
+        accessToken={accessToken ?? null}
       />
     </>
   );

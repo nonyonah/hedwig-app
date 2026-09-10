@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getWorkspaceRole, isOwnerOrAdmin } from '../middleware/workspaceRole';
@@ -25,7 +26,7 @@ const requireAdmin = async (req: Request, res: Response, next: () => void) => {
 
 router.use(authenticate, requireAdmin);
 
-router.get('/customers', async (req: Request, res: Response) => {
+router.get('/customers', asyncHandler(async (req: Request, res: Response) => {
   const search = String(req.query.search ?? '').trim();
   const perPage = Math.min(Number(req.query.per_page ?? 25) || 25, 100);
   const page = Number(req.query.page ?? 0) || 0;
@@ -47,9 +48,9 @@ router.get('/customers', async (req: Request, res: Response) => {
       created_at: (u as { created_at?: string }).created_at,
     })),
   });
-});
+}));
 
-router.post('/review/:id/decision', async (req: Request, res: Response) => {
+router.post('/review/:id/decision', asyncHandler(async (req: Request, res: Response) => {
   const decision = req.body?.decision;
   if (!['APPROVE', 'REJECT'].includes(decision)) return res.status(400).json({ error: 'decision must be APPROVE or REJECT' });
   const { data: review } = await supabase.from('manual_review_cases').select('*').eq('id', req.params.id).eq('status', 'OPEN').single();
@@ -62,6 +63,6 @@ router.post('/review/:id/decision', async (req: Request, res: Response) => {
     .single();
   if (error) throw error;
   return res.json({ success: true, id: data.id, status: data.status });
-});
+}));
 
 export default router;

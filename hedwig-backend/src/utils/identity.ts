@@ -16,6 +16,8 @@ export interface RequestIdentity {
    */
   legacyOwnerIds: string[];
   legacyWorkspaceIds: string[];
+  /** Full user row (email, names, phone, wallets) — reuse instead of refetching. */
+  user: Record<string, unknown>;
 }
 
 /**
@@ -26,7 +28,7 @@ export interface RequestIdentity {
  */
 export async function resolveRequestIdentity(req: Request): Promise<RequestIdentity> {
   const privyDid = req.user!.id;
-  const appUser = (await getOrCreateUser(privyDid)) as unknown as { id: string };
+  const appUser = (await getOrCreateUser(privyDid)) as unknown as { id: string } & Record<string, unknown>;
   const internalId = appUser.id;
 
   const headerWs = req.headers['x-workspace-id'] as string | undefined;
@@ -42,7 +44,7 @@ export async function resolveRequestIdentity(req: Request): Promise<RequestIdent
     if (legacyWs !== workspaceId) legacyWorkspaceIds.push(legacyWs);
   }
 
-  return { privyDid, internalId, workspaceId, legacyOwnerIds, legacyWorkspaceIds };
+  return { privyDid, internalId, workspaceId, legacyOwnerIds, legacyWorkspaceIds, user: appUser };
 }
 
 /** Owner ids to match on reads (canonical + legacy). */

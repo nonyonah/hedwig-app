@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import axios from 'axios';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
@@ -32,7 +33,7 @@ async function fundingAddressFor(req: Request): Promise<string | null> {
   return (u?.ethereum_wallet_address as string) ?? null;
 }
 
-router.post('/', authenticate, async (req: Request, res: Response) => {
+router.post('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const client = bridgeApi();
   if (!client) return res.status(503).json({ error: 'card issuing not configured' });
   const fundingAddress = await fundingAddressFor(req);
@@ -46,17 +47,17 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     .single();
   if (error) throw error;
   return res.status(202).json({ success: true, data: card });
-});
+}));
 
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase.from('cards').select('*').in('user_id', ownerScope(identity)).order('created_at');
   if (error) throw error;
   return res.json({ success: true, data });
-});
+}));
 
 /** Funding check → create the Bridge virtual card once funded (min balance gate). */
-router.post('/:id/check-funding', authenticate, async (req: Request, res: Response) => {
+router.post('/:id/check-funding', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const client = bridgeApi();
   if (!client) return res.status(503).json({ error: 'card issuing not configured' });
   const identity = await resolveRequestIdentity(req);
@@ -101,9 +102,9 @@ router.post('/:id/check-funding', authenticate, async (req: Request, res: Respon
     logger.warn('bridge card create failed', { err });
     return res.json({ success: true, data: card, funded: false });
   }
-});
+}));
 
-const freezeHandler = (frozen: boolean) => async (req: Request, res: Response) => {
+const freezeHandler = (frozen: boolean) => asyncHandler(async (req: Request, res: Response) => {
   const client = bridgeApi();
   const identity = await resolveRequestIdentity(req);
   const { data: card } = await supabase.from('cards').select('*').eq('id', req.params.id).in('user_id', ownerScope(identity)).single();
@@ -123,12 +124,12 @@ const freezeHandler = (frozen: boolean) => async (req: Request, res: Response) =
     .single();
   if (error) throw error;
   return res.json({ success: true, data });
-};
+});
 
 router.post('/:id/freeze', authenticate, freezeHandler(true));
 router.post('/:id/unfreeze', authenticate, freezeHandler(false));
 
-router.get('/:id/transactions', authenticate, async (req: Request, res: Response) => {
+router.get('/:id/transactions', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('card_transactions')
@@ -139,6 +140,6 @@ router.get('/:id/transactions', authenticate, async (req: Request, res: Response
   if (error) throw error;
   void req.params.id;
   return res.json({ success: true, data });
-});
+}));
 
 export default router;

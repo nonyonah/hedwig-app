@@ -148,7 +148,10 @@ const CSP = [
   `base-uri 'self'`,
   `form-action 'self' https://*.polar.sh`,
   `frame-ancestors 'none'`,
-  `upgrade-insecure-requests`,
+  // Never in local dev: it rewrites http://localhost API calls and pages to
+  // https://, breaking everything (no TLS locally). Production is https
+  // throughout, where the directive is the correct hardening.
+  ...(process.env.NODE_ENV === 'production' ? [`upgrade-insecure-requests`] : []),
 ].join('; ');
 
 const nextConfig: NextConfig = {

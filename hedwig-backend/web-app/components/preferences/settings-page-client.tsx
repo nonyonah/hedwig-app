@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
 import { ComposioIntegrations } from '@/components/preferences/composio-integrations';
 import { AutoSettlementSection } from '@/components/preferences/auto-settlement-section';
+import { FinanceSettingsSections } from '@/components/preferences/finance-settings-sections';
 import { SettingsSection } from '@/components/preferences/settings-section';
 import { SettingsRow } from '@/components/preferences/settings-row';
 import { useCurrency } from '@/components/providers/currency-provider';
@@ -472,14 +473,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           </SettingsRow>
 
           {([{
-              key: 'dailyBriefEmail',
-              label: 'Daily brief',
-              description: 'Morning email and in-app summary of unpaid invoices, overdue items, and deadlines.'
-            }, {
-              key: 'weeklySummaryEmail',
-              label: 'Weekly summary',
-              description: 'Monday email and in-app summary of revenue, top clients, and AI insights.'
-            }, {
               key: 'invoiceAlerts',
               label: 'Invoice alerts',
               description: 'In-app alert when invoices become overdue.'
@@ -497,6 +490,8 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
         </SettingsSection>
 
         <AutoSettlementSection accessToken={accessToken} />
+
+        <FinanceSettingsSections accessToken={accessToken} />
 
         <ComposioIntegrations />
 

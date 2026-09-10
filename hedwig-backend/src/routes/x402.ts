@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
@@ -14,7 +15,7 @@ const logger = createLogger('X402');
  * (`x402.payment.received`), not a parallel ledger table.
  */
 
-router.post('/receipts', authenticate, async (req: Request, res: Response) => {
+router.post('/receipts', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const txHash: string | undefined = b.tx_hash ?? b.txHash;
   const amount = b.amount;
@@ -67,9 +68,9 @@ router.post('/receipts', authenticate, async (req: Request, res: Response) => {
   }).catch((err) => logger.warn('x402 ledger emission failed', { err }));
 
   return res.status(201).json({ success: true, data: receipt, duplicate: false });
-});
+}));
 
-router.get('/receipts', authenticate, async (req: Request, res: Response) => {
+router.get('/receipts', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data, error } = await supabase
     .from('x402_receipts')
@@ -79,6 +80,6 @@ router.get('/receipts', authenticate, async (req: Request, res: Response) => {
     .limit(100);
   if (error) throw error;
   return res.json({ success: true, data });
-});
+}));
 
 export default router;

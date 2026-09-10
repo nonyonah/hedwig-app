@@ -713,10 +713,14 @@ function AddFundsButton() {
  <p className="mt-0.5 text-[13px] text-[var(--color-text-muted)]">Treasury balance, receive payments, and run payroll.</p>
  </div>
  <div className="flex shrink-0 items-center gap-2 pt-1">
+ {treasury?.treasuryAddress ? (
  <ShareWalletDialog
  baseAddress={treasury?.treasuryAddress}
  solanaAddress={null}
  />
+ ) : (
+ <span aria-hidden className="h-8 w-[92px] shrink-0" />
+ )}
  <AddFundsButton />
  {offrampAllowed && (
  <Button variant="secondary" size="sm" onClick={() => setOfframpOpen(true)}>

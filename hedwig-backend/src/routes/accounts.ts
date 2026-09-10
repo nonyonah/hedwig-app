@@ -1,16 +1,19 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { resolveRequestIdentity, ownerScope, workspaceScope, type RequestIdentity } from '../utils/identity';
 import { convertToUsd } from '../services/currency';
+import { bridgeUsdService } from '../services/bridgeUsd';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
 const logger = createLogger('Accounts');
 
 /**
  * Unified currency accounts — stablecoin (auto-provisioned at signup) plus
- * fiat virtual accounts (USD via Bridge, NGN via Strails, others pending).
+ * fiat virtual accounts (USD via Bridge, NGN via Flutterwave, others pending).
  * Balances are cached snapshots; provider webhooks keep them fresh.
  */
 
@@ -91,8 +94,53 @@ async function ensureStablecoinAccount(identity: RequestIdentity) {
   return data;
 }
 
-/** GET /api/accounts — unified list (stablecoin always present). */
-router.get('/', authenticate, async (req: Request, res: Response) => {
+/**
+ * Mirror Bridge USD state (user_usd_accounts, the system of record) onto
+ * virtual_accounts rows so the unified list shows live numbers + status.
+ */
+async function syncBridgeRows(rows: Record<string, unknown>[], internalId: string) {
+  const needsSync = rows.some(
+    (r) => r.provider === 'bridge' && (!(r as Record<string, unknown>).account_number_masked || (r as Record<string, unknown>).status === 'provisioning')
+  );
+  if (!needsSync) return rows;
+  const { data: bridge } = await supabase
+    .from('user_usd_accounts')
+    .select('bridge_customer_id,provider_status,bridge_kyc_status,ach_account_number_masked,bank_name')
+    .eq('user_id', internalId)
+    .maybeSingle();
+  if (!bridge) return rows;
+  const b = bridge as Record<string, unknown>;
+  const synced = rows.map((r) => {
+    if (r.provider !== 'bridge') return r;
+    const status =
+      b.provider_status === 'active' ? 'active' : b.bridge_kyc_status === 'approved' ? 'active' : 'provisioning';
+    return {
+      ...r,
+      status,
+      account_number_masked: (r.account_number_masked as string) ?? (b.ach_account_number_masked as string) ?? null,
+      bank_name: (r.bank_name as string) ?? (b.bank_name as string) ?? null,
+    };
+  });
+  // Persist the mirror best-effort (never fail the read).
+  const first = synced.find((r) => r.provider === 'bridge') as Record<string, unknown> | undefined;
+  if (first?.id) {
+    supabase
+      .from('virtual_accounts')
+      .update({
+        status: first.status,
+        account_number_masked: first.account_number_masked,
+        bank_name: first.bank_name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', first.id as string)
+      .then(
+        () => undefined,
+        () => undefined
+      );
+  }
+  return synced;
+}
+router.get('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   await ensureStablecoinAccount(identity);
   let listQuery = supabase
@@ -102,11 +150,12 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   listQuery = withWorkspaceScope(listQuery, identity, workspaceScope(identity));
   const { data, error } = await listQuery.order('created_at');
   if (error) throw error;
-  return res.json({ success: true, data: (data ?? []).map(rowToApi) });
-});
+  const synced = await syncBridgeRows((data ?? []) as Record<string, unknown>[], identity.internalId);
+  return res.json({ success: true, data: synced.map(rowToApi) });
+}));
 
 /** GET /api/accounts/summary — available, pending deposits, pending transfers. */
-router.get('/summary', authenticate, async (req: Request, res: Response) => {
+router.get('/summary', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   await ensureStablecoinAccount(identity);
   const owners = ownerScope(identity);
@@ -160,18 +209,20 @@ router.get('/summary', authenticate, async (req: Request, res: Response) => {
       pending_transfer_count: (orders ?? []).length,
     },
   });
-});
+}));
 
 /** POST /api/accounts — create a currency account (provisions via provider where available). */
-router.post('/', authenticate, async (req: Request, res: Response) => {
+router.post('/', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const b = req.body ?? {};
   const currency = String(b.currency ?? 'USD').toUpperCase();
-  if (!['USDC', 'USD', 'NGN', 'EUR', 'MXN'].includes(currency)) {
+  if (!['USDC', 'USD', 'NGN', 'GBP', 'EUR'].includes(currency)) {
     return res.status(400).json({ error: 'unsupported currency' });
   }
-  const accountType = ['checking', 'savings', 'payroll'].includes(b.account_type) ? b.account_type : 'checking';
-  const provider = currency === 'USD' ? 'bridge' : currency === 'NGN' ? 'strails' : 'hedwig';
+  const accountType = ['checking', 'savings', 'payroll', 'current'].includes(b.account_type)
+    ? b.account_type
+    : 'checking';
+  const provider = currency === 'USD' ? 'bridge' : currency === 'NGN' ? 'flutterwave' : 'hedwig';
 
   const { data, error } = await supabase
     .from('virtual_accounts')
@@ -193,8 +244,47 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     .single();
   if (error) throw error;
 
-  // Best-effort provider provisioning hooks (Bridge USD enrollment and
-  // Strails NGN onboarding live in their own routes; this records intent).
+  // USD: drive real Bridge enrollment now (sandbox activates immediately;
+  // production lands in KYC). Failures keep the row in `provisioning`.
+  let provisionNote: string | null = null;
+  if (currency === 'USD') {
+    try {
+      const profile = (await getOrCreateUser(req.user!.id)) as unknown as Record<string, unknown>;
+      const customer = await bridgeUsdService.createOrGetCustomer({
+        externalUserId: identity.internalId,
+        email: (profile?.email as string) ?? null,
+        firstName: (profile?.first_name as string) ?? null,
+        lastName: (profile?.last_name as string) ?? null,
+      });
+      const sandboxMode = bridgeUsdService.isSandbox();
+      const synced = await syncBridgeRows(
+        [{ ...data, provider_ref: customer.id, status: sandboxMode ? 'active' : 'provisioning' }],
+        identity.internalId
+      );
+      const fresh = synced[0] as Record<string, unknown>;
+      await supabase
+        .from('virtual_accounts')
+        .update({
+          provider_ref: customer.id,
+          status: fresh.status,
+          account_number_masked: (fresh.account_number_masked as string) ?? null,
+          bank_name: (fresh.bank_name as string) ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', data.id);
+      data.status = fresh.status as string;
+      data.account_number_masked = (fresh.account_number_masked as string) ?? null;
+      data.bank_name = (fresh.bank_name as string) ?? null;
+      provisionNote = sandboxMode ? null : 'complete_bridge_kyc';
+    } catch (err) {
+      logger.warn('bridge enrollment from accounts failed', {
+        message: err instanceof Error ? err.message : String(err),
+      });
+      provisionNote = 'provisioning_failed_retry';
+    }
+  }
+
+  // Record the request on the timeline (best-effort).
   try {
     const { supabase: sb } = await import('../lib/supabase');
     await sb.from('timeline_events').insert({
@@ -211,11 +301,35 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     logger.warn('account timeline event failed', { err });
   }
 
-  return res.status(201).json({ success: true, data: rowToApi(data) });
-});
+  return res.status(201).json({ success: true, data: { ...rowToApi(data), next_action: provisionNote } });
+}));
+
+/** POST /api/accounts/:id/close — close an empty account (history preserved). */
+router.post('/:id/close', authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const identity = await resolveRequestIdentity(req);
+  const { data: account } = await supabase
+    .from('virtual_accounts')
+    .select('*')
+    .eq('id', req.params.id)
+    .in('user_id', ownerScope(identity))
+    .single();
+  if (!account) return res.status(404).json({ error: 'account not found' });
+  if (account.status === 'closed') return res.json({ success: true, data: rowToApi(account) });
+  if (Number(account.balance ?? 0) > 0) {
+    return res.status(400).json({ error: 'move funds out before closing this account' });
+  }
+  const { data, error } = await supabase
+    .from('virtual_accounts')
+    .update({ status: 'closed', updated_at: new Date().toISOString() })
+    .eq('id', account.id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return res.json({ success: true, data: rowToApi(data) });
+}));
 
 /** GET /api/accounts/:id — detail + recent transactions. */
-router.get('/:id', authenticate, async (req: Request, res: Response) => {
+router.get('/:id', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data: account, error } = await supabase
     .from('virtual_accounts')
@@ -252,10 +366,10 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
   const { data: transactions } = await txQuery;
 
   return res.json({ success: true, data: { account: { ...rowToApi(account), address }, transactions: transactions ?? [] } });
-});
+}));
 
 /** GET /api/accounts/:id/history?range=30d|90d|1y — cumulative balance series (USD). */
-router.get('/:id/history', authenticate, async (req: Request, res: Response) => {
+router.get('/:id/history', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
   const { data: account } = await supabase
     .from('virtual_accounts')
@@ -298,6 +412,6 @@ router.get('/:id/history', authenticate, async (req: Request, res: Response) => 
     points.push({ date: dayKey(d), value: Math.round(running * 100) / 100 });
   }
   return res.json({ success: true, data: { points, currency: account.currency } });
-});
+}));
 
 export default router;

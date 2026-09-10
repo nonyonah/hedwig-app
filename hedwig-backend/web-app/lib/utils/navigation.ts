@@ -8,7 +8,6 @@ import {
   CurrencyDollar,
   Faders,
   House,
-  Sparkle,
   User,
   UsersThree,
   Wallet,
@@ -32,12 +31,11 @@ export interface NavItem {
   subItems?: { title: string; href: string }[];
 }
 
-export const navigationGroups = [
+export const navigationGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'Overview',
     items: [
       { title: 'Dashboard', href: '/dashboard', icon: House, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
-      { title: 'Insights', href: '/insights', icon: Sparkle, count: null, muted: false, roles: ['owner', 'admin'] },
       { title: 'Calendar', href: '/calendar', icon: CalendarDots, count: null, muted: false, roles: ['owner', 'admin', 'member'] },
     ]
   },
@@ -55,13 +53,7 @@ export const navigationGroups = [
     label: 'Money',
     items: [
       {
-        title: 'Revenue', href: '/revenue', icon: ChartBar, count: null, muted: false, roles: ['owner', 'admin'],
-        subItems: [
-          { title: 'Overview', href: '/revenue' },
-          { title: 'Transactions', href: '/revenue/transactions' },
-          { title: 'Reports', href: '/revenue/reports' },
-          { title: 'Settings', href: '/revenue/settings' },
-        ]
+        title: 'Insights', href: '/insights', icon: ChartBar, count: null, muted: false, roles: ['owner', 'admin'],
       },
       { title: 'Payroll', href: '/workspace/payroll', icon: CurrencyDollar, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false, roles: ['owner', 'admin', 'member'] },

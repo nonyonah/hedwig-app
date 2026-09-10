@@ -8,13 +8,14 @@ export default async function InsightsPage() {
   const session = await getCurrentSession();
   const opts = await workspaceApiOptions(session.accessToken);
 
-  const [insightsData, profileData, billing, expensesData, breakdown, paymentsData] = await Promise.all([
+  const [insightsData, profileData, billing, expensesData, breakdown, paymentsData, brief] = await Promise.all([
     hedwigApi.insights('30d', opts).catch(() => null),
     hedwigApi.userProfile(opts),
     hedwigApi.billingStatus(opts).catch(() => null),
     hedwigApi.revenueExpenses(opts).catch(() => []),
     hedwigApi.revenueBreakdown('30d', opts).catch(() => ({ clients: [], projects: [] })),
     hedwigApi.payments(opts).catch(() => ({ invoices: [], paymentLinks: [], invoiceDrafts: [], paymentLinkDrafts: [] })),
+    hedwigApi.revenueBrief('30d', opts).catch(() => null),
   ]);
 
   const expenses = normalizeExpenseRecords(expensesData as any[]);
@@ -29,6 +30,7 @@ export default async function InsightsPage() {
       initialExpenses={expenses}
       clientBreakdown={clientBreakdown}
       invoices={paymentsData.invoices}
+      initialBrief={brief}
     />
   );
 }

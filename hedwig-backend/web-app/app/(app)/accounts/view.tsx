@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { hedwigApi } from '@/lib/api/client';
 import { CreateAccountDialog } from './create-account-dialog';
+import { ProvisionNgnDialog } from './provision-ngn-dialog';
+import { Modal, ModalClose, ModalContent, ModalDescription, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/modal';
 
 import type { WalletAccount, WalletAsset } from '@/lib/models/entities';
 import { useWalletData } from '@/lib/hooks/use-wallet-data';
@@ -47,6 +49,7 @@ const TYPE_STYLE: Record<string, { label: string; bg: string; text: string }> = 
   checking: { label: 'Checking', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
   savings: { label: 'Savings', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
   payroll: { label: 'Payroll', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  current: { label: 'Current', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
 };
 
 const STATUS_STYLE: Record<string, { label: string; bg: string; text: string }> = {
@@ -54,9 +57,10 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; text: string }> 
   pending: { label: 'Pending', bg: 'bg-[var(--color-warning-soft)]', text: 'text-[var(--color-warning)]' },
   provisioning: { label: 'Provisioning', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
   frozen: { label: 'Frozen', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+  closed: { label: 'Closed', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-muted)]' },
 };
 
-const TYPE_FILTERS = ['all', 'stablecoin', 'checking', 'savings', 'payroll'] as const;
+const TYPE_FILTERS = ['all', 'stablecoin', 'checking', 'savings', 'payroll', 'current'] as const;
 
 function Pill({ label, bg, text }: { label: string; bg: string; text: string }) {
   return (
@@ -98,6 +102,10 @@ export function AccountsView({
   const [page, setPage] = useState(1);
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [closeTarget, setCloseTarget] = useState<UnifiedAccount | null>(null);
+  const [provisionOpen, setProvisionOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
 
   const opts = { accessToken: accessToken ?? '', workspaceId, disableMockFallback: true };
 
@@ -229,6 +237,14 @@ export function AccountsView({
         className="grid-cols-1 md:grid-cols-3"
       />
 
+      <ProvisionNgnDialog
+        open={provisionOpen}
+        onOpenChange={setProvisionOpen}
+        accessToken={accessToken}
+        workspaceId={workspaceId}
+        onProvisioned={refresh}
+      />
+
       <CreateAccountDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -283,6 +299,44 @@ export function AccountsView({
           ))}
         </div>
       </div>
+
+      <Modal open={closeTarget !== null} onOpenChange={(o) => !o && setCloseTarget(null)}>
+        <ModalHeader>
+          <ModalTitle>Close account</ModalTitle>
+          <ModalDescription>
+            {closeTarget
+              ? `Close ${closeTarget.label ?? `${closeTarget.currency} ${closeTarget.account_type}`}? Only empty accounts can be closed; history is preserved.`
+              : ''}
+          </ModalDescription>
+        </ModalHeader>
+        <ModalContent>
+          {closeError && <p className="text-[13px] text-[var(--color-danger)]">{closeError}</p>}
+        </ModalContent>
+        <ModalFooter>
+          <ModalClose onClose={() => setCloseTarget(null)}>
+            <Button variant="ghost">Cancel</Button>
+          </ModalClose>
+          <Button
+            variant="outline"
+            disabled={closing}
+            onClick={() => {
+              if (!closeTarget) return;
+              setClosing(true);
+              setCloseError('');
+              hedwigApi
+                .closeVirtualAccount(closeTarget.id, opts)
+                .then(() => {
+                  setCloseTarget(null);
+                  return refresh();
+                })
+                .catch((err: unknown) => setCloseError(err instanceof Error ? err.message : 'Could not close account.'))
+                .finally(() => setClosing(false));
+            }}
+          >
+            {closing ? 'Closing…' : 'Close account'}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Table */}
       <Table>
@@ -357,7 +411,15 @@ export function AccountsView({
                     <Table.Cell>
                       <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                         <RowActionsMenu
-                          items={[{ label: 'View details', onClick: () => router.push(`/accounts/${a.id}`) }]}
+                          items={[
+                            { label: 'View details', onClick: () => router.push(`/accounts/${a.id}`) },
+                            ...(a.currency === 'NGN' && a.status !== 'active' && a.status !== 'closed'
+                              ? [{ label: 'Provision account', onClick: () => setProvisionOpen(true) }]
+                              : []),
+                            ...(a.status !== 'closed'
+                              ? [{ label: 'Close account', onClick: () => { setCloseError(''); setCloseTarget(a); }, destructive: true }]
+                              : []),
+                          ]}
                         />
                       </div>
                     </Table.Cell>

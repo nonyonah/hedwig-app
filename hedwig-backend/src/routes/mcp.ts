@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { requireMcpAuth } from './mcpOAuth';
+import { asyncHandler } from '../utils/asyncHandler';
 import { getOrCreateUser } from '../utils/userHelper';
 
 // MCP tokens carry the Privy DID; business tables are keyed by internal
@@ -117,7 +118,7 @@ router.get('/health', (_req: Request, res: Response) => {
   res.json({ ok: true, service: 'hedwig-mcp' });
 });
 
-router.post('/', requireMcpAuth, async (req: Request, res: Response) => {
+router.post('/', requireMcpAuth, asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as Request & { mcpUserId?: string }).mcpUserId!;
   const body = req.body ?? {};
   const { method, params, id } = body as { method?: string; params?: Record<string, unknown>; id?: unknown };
@@ -147,6 +148,6 @@ router.post('/', requireMcpAuth, async (req: Request, res: Response) => {
     }
   }
   return res.json({ jsonrpc: '2.0', id: id ?? null, error: { code: -32601, message: `unknown method ${method}` } });
-});
+}));
 
 export default router;

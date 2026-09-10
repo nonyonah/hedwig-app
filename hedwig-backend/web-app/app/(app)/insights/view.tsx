@@ -8,6 +8,7 @@ import {
   ArrowDownRight,
   ChartBar,
   CheckCircle,
+  ClockCountdown,
   CurrencyDollar,
   DownloadSimple,
   FolderSimple,
@@ -15,10 +16,14 @@ import {
   Minus,
   Sparkle,
   Target,
+  UploadSimple,
   UsersThree,
   ArrowsClockwise,
   Warning,
 } from '@/components/ui/lucide-icons';
+import { LedgerPanel } from '@/components/ledger/ledger-panel';
+import { ImportDialog } from '../revenue/import-dialog';
+import type { FinancialBrief } from '@/lib/types/revenue';
 import {
   AreaChart,
   Area,
@@ -256,6 +261,7 @@ export function InsightsClient({
   initialExpenses,
   clientBreakdown,
   invoices,
+  initialBrief,
 }: {
   accessToken: string | null;
   initialData: InsightsData | null;
@@ -264,6 +270,7 @@ export function InsightsClient({
   initialExpenses: ExpenseRecord[];
   clientBreakdown: ClientRevenueBreakdown[];
   invoices: Invoice[];
+  initialBrief: FinancialBrief | null;
 }) {
   const { formatAmount, formatUsdText } = useCurrency();
   const { toast } = useToast();
@@ -285,6 +292,9 @@ export function InsightsClient({
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [brief, setBrief] = useState<FinancialBrief | null>(initialBrief);
+  const [cashflow, setCashflow] = useState<{ moneyIn: number; moneyOut: number }>({ moneyIn: 0, moneyOut: 0 });
   const [clientsByRevenue, setClientsByRevenue] = useState<ClientRevenueBreakdown[]>(clientBreakdown);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -305,6 +315,39 @@ export function InsightsClient({
     } finally {
       if (mounted.current) setLoading(false);
     }
+    // Cashflow summary + AI brief for the Money movement and AI summary
+    // sections (best-effort; never fail the page).
+    try {
+      const [ledgerRes, briefRes] = await Promise.all([
+        hedwigApi.ledger({ range: r, kind: 'all', pageSize: 1 }, { accessToken }),
+        hedwigApi.revenueBrief(r, { accessToken }),
+      ]);
+      if (mounted.current) {
+        setCashflow({
+          moneyIn: ledgerRes?.summary?.moneyIn ?? 0,
+          moneyOut: ledgerRes?.summary?.moneyOut ?? 0,
+        });
+        if (briefRes) setBrief(briefRes);
+      }
+    } catch {
+      // Silent — sections render empty states.
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    hedwigApi
+      .ledger({ range, kind: 'all', pageSize: 1 }, { accessToken })
+      .then((ledgerRes) => {
+        if (mounted.current) {
+          setCashflow({
+            moneyIn: ledgerRes?.summary?.moneyIn ?? 0,
+            moneyOut: ledgerRes?.summary?.moneyOut ?? 0,
+          });
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
   const handleRangeChange = (r: InsightsRange) => {
@@ -379,6 +422,10 @@ export function InsightsClient({
           <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Revenue trends, expense patterns, and business intelligence.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
+          <Button variant="secondary" onClick={() => setShowImportDialog(true)}>
+            <UploadSimple className="h-4 w-4" weight="bold" />
+            Import
+          </Button>
           <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
             <DownloadSimple className="h-4 w-4" weight="bold" />
             Export
@@ -389,6 +436,12 @@ export function InsightsClient({
           </Button>
         </div>
         <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
+        <ImportDialog
+          open={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImported={() => fetchData(range)}
+          accessToken={accessToken}
+        />
       </div>
 
       <ContextualSuggestions
@@ -480,9 +533,125 @@ export function InsightsClient({
                 href: '/clients',
                 loading,
               },
+              {
+                id: 'money-in',
+                title: 'Money in',
+                value: loading ? '...' : formatAmount(cashflow.moneyIn, { compact: true }),
+                helper: 'Inflows this period',
+                icon: ArrowUpRight,
+                loading,
+              },
+              {
+                id: 'money-out',
+                title: 'Money out',
+                value: loading ? '...' : formatAmount(cashflow.moneyOut, { compact: true }),
+                helper: 'Outflows this period',
+                icon: ArrowDownRight,
+                loading,
+              },
+              {
+                id: 'net-cashflow',
+                title: 'Net cashflow',
+                value: loading ? '...' : formatAmount(cashflow.moneyIn - cashflow.moneyOut, { compact: true }),
+                helper: cashflow.moneyIn - cashflow.moneyOut >= 0 ? 'Positive this period' : 'Negative this period',
+                icon: CurrencyDollar,
+                loading,
+              },
+              ...(() => {
+                const months = range === '7d' ? 0.25 : range === '90d' ? 3 : range === '1y' ? 12 : 1;
+                const burn = (brief?.facts.totalExpenses ?? 0) / months;
+                const runway = brief?.facts.runwayMonths ?? null;
+                return [
+                  {
+                    id: 'runway',
+                    title: 'Runway',
+                    value: loading ? '...' : runway != null ? `${runway.toFixed(1)} mo` : '—',
+                    helper:
+                      burn > 0
+                        ? `Burn ${formatAmount(burn, { compact: true })}/mo`
+                        : 'No burn data yet',
+                    icon: ClockCountdown,
+                    loading,
+                  },
+                ];
+              })(),
             ]}
             className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
           />
+
+          {/* ── AI summaries ── */}
+          {(() => {
+            const facts = brief?.facts;
+            const showAi = brief?.display && ((brief?.bullets.length ?? 0) > 0 || (brief?.headline ?? '') !== '');
+            if (!showAi) return null;
+            const cards = [
+              {
+                id: 'runway',
+                title: 'Runway and cash position',
+                body:
+                  facts?.runwayMonths != null ? (
+                    <>
+                      About <strong>{facts.runwayMonths.toFixed(1)} months of runway</strong> at the
+                      current burn rate. Net cashflow is{' '}
+                      {formatAmount(cashflow.moneyIn - cashflow.moneyOut, { compact: true })} this period.
+                    </>
+                  ) : (
+                    <>Not enough burn history to estimate runway yet.</>
+                  ),
+                footer:
+                  facts && facts.overdueCount > 0
+                    ? `${facts.overdueCount} overdue (${formatAmount(facts.overdueAmountUsd, { compact: true })})`
+                    : undefined,
+              },
+              {
+                id: 'out',
+                title: 'Money out trends',
+                body: (
+                  <>
+                    Spending was <strong>{formatAmount(cashflow.moneyOut, { compact: true })}</strong>
+                    {facts && facts.expenseSpikePct > 0
+                      ? ` — up ${facts.expenseSpikePct.toFixed(0)}% vs the prior period.`
+                      : ' this period.'}
+                  </>
+                ),
+              },
+              {
+                id: 'in',
+                title: 'Money in trends',
+                body: (
+                  <>
+                    Money in reached <strong>{formatAmount(cashflow.moneyIn, { compact: true })}</strong>
+                    {facts && facts.topClientPct > 0
+                      ? ` with the top client contributing ${facts.topClientPct.toFixed(0)}% of inflows.`
+                      : '.'}
+                  </>
+                ),
+              },
+            ];
+            return (
+              <div>
+                {brief?.headline !== '' && (
+                  <p className="mb-3 text-[13px] font-medium leading-relaxed text-[var(--color-text-primary)]">
+                    {brief?.headline}
+                  </p>
+                )}
+                <div className={`grid gap-3 ${cards.length === 1 ? 'max-w-sm' : 'sm:grid-cols-3'}`}>
+                  {cards.map((c) => (
+                    <article key={c.id} className="rounded-2xl bg-[var(--color-surface)] p-5 shadow-xs">
+                      <p className="text-[15px] font-semibold text-[var(--color-text-primary)]">{c.title}</p>
+                      <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{c.body}</p>
+                      {c.footer && (
+                        <p className="mt-1.5 text-[12px] text-[var(--color-text-tertiary)]">{c.footer}</p>
+                      )}
+                    </article>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-tertiary)]">
+                  Trends are generated and may include inaccuracies.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* ── Revenue trend chart ── */}
           <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
@@ -736,10 +905,14 @@ export function InsightsClient({
               {expenseAnalysis.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
                   <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">No expenses recorded</p>
-                  <p className="text-[12px] text-[var(--color-text-muted)]">Add expenses on the Revenue page to see spend patterns here.</p>
-                  <Link href="/revenue" className="mt-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]">
-                    Go to Revenue →
-                  </Link>
+                  <p className="text-[12px] text-[var(--color-text-muted)]">Import a statement or receipt to see spend patterns here.</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowImportDialog(true)}
+                    className="mt-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]"
+                  >
+                    Import now →
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4 px-5 py-5">
@@ -819,6 +992,19 @@ export function InsightsClient({
 
         </>
       )}
+
+      {/* ── Financial timeline (ledger) ── */}
+      <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
+        <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
+          <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Financial timeline</h2>
+          <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
+            Every movement, receipt, and import — searchable and exportable.
+          </p>
+        </div>
+        <div className="px-5 py-4">
+          <LedgerPanel accessToken={accessToken} showSummary={false} />
+        </div>
+      </article>
 
       <SetTargetDialog
         open={showTargetDialog}

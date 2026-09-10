@@ -16,13 +16,14 @@ const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://hedwig-ap
 
 export const backendConfig = {
   /**
-   * Server-side (SSR/API routes): call the backend directly.
-   * Client-side (browser): route through the Next.js /api/backend/* rewrite to
-   * avoid CORS — Next.js proxies the request so the browser never contacts the
-   * external backend directly and no cross-origin preflight is needed.
+   * Both server and browser call the backend directly. The backend's CORS
+   * policy allow-lists the web origin, so no same-origin proxy is needed.
+   * (The legacy /api/backend rewrite proxy is bypassed: it was observed
+   * returning opaque plain-text 500s for proxied POSTs while direct calls
+   * to the same backend URL succeed.)
    */
   get apiBaseUrl(): string {
-    return typeof window === 'undefined' ? BACKEND_DIRECT_URL : '/api/backend';
+    return BACKEND_DIRECT_URL;
   },
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001',
   webClientUrl: process.env.NEXT_PUBLIC_WEB_CLIENT_URL ?? 'http://localhost:5173',

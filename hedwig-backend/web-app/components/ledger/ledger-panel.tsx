@@ -109,7 +109,14 @@ function MovementBox({ title, items, tone, Icon, formatAmount }: {
   );
 }
 
-export function LedgerPanel({ accessToken }: { accessToken: string | null }) {
+export function LedgerPanel({
+  accessToken,
+  showSummary = true,
+}: {
+  accessToken: string | null;
+  /** Hide the money strip + movement boxes (e.g. when the host page already shows cashflow cards). */
+  showSummary?: boolean;
+}) {
   const { toast } = useToast();
   const { formatAmount } = useCurrency();
 
@@ -248,14 +255,18 @@ export function LedgerPanel({ accessToken }: { accessToken: string | null }) {
 
   return (
     <div className="space-y-4">
-      {/* Money movement strip */}
-      <AttachedStatGrid items={statCards} className="grid-cols-1 md:grid-cols-3" />
+      {showSummary && (
+        <>
+          {/* Money movement strip */}
+          <AttachedStatGrid items={statCards} className="grid-cols-1 md:grid-cols-3" />
 
-      {(data?.summary.movement.in.length || 0) + (data?.summary.movement.out.length || 0) > 0 && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <MovementBox title="Money in by account" items={data?.summary.movement.in || []} tone="success" Icon={ArrowUp} formatAmount={formatAmount} />
-          <MovementBox title="Money out by account" items={data?.summary.movement.out || []} tone="danger" Icon={ArrowDown} formatAmount={formatAmount} />
-        </div>
+          {(data?.summary.movement.in.length || 0) + (data?.summary.movement.out.length || 0) > 0 && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <MovementBox title="Money in by account" items={data?.summary.movement.in || []} tone="success" Icon={ArrowUp} formatAmount={formatAmount} />
+              <MovementBox title="Money out by account" items={data?.summary.movement.out || []} tone="danger" Icon={ArrowDown} formatAmount={formatAmount} />
+            </div>
+          )}
+        </>
       )}
 
       {/* Toolbar */}
