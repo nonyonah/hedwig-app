@@ -199,14 +199,14 @@ export const usdAccount: UsdAccount = {
 };
 
 export const accountTransactions: AccountTransaction[] = [
-  { id: 'acctx_1', type: 'incoming_ach', amountUsd: 3500, status: 'completed', createdAt: '2026-03-11T09:30:00.000Z', description: 'Client ACH deposit from Northstar Labs' },
-  { id: 'acctx_2', type: 'usdc_settlement', amountUsd: 1250, status: 'completed', createdAt: '2026-03-10T12:10:00.000Z', description: 'Auto-settlement to Base USDC' },
+  { id: 'acctx_1', type: 'incoming_ach', amountUsd: 3500, status: 'successful', createdAt: '2026-03-11T09:30:00.000Z', description: 'Client ACH deposit from Northstar Labs' },
+  { id: 'acctx_2', type: 'usdc_settlement', amountUsd: 1250, status: 'successful', createdAt: '2026-03-10T12:10:00.000Z', description: 'Auto-settlement to Base USDC' },
   { id: 'acctx_3', type: 'incoming_wire', amountUsd: 700, status: 'pending', createdAt: '2026-03-12T14:00:00.000Z', description: 'Pending inbound bank transfer' }
 ];
 
 export const offrampTransactions: OfframpTransaction[] = [
-  { id: 'off_1', asset: 'USDC', amount: 850, fiatCurrency: 'NGN', fiatAmount: 1275000, status: 'processing', destinationLabel: 'GTBank • 3749', createdAt: '2026-03-12T13:00:00.000Z' },
-  { id: 'off_2', asset: 'USDC', amount: 320, fiatCurrency: 'KES', fiatAmount: 41440, status: 'completed', destinationLabel: 'M-Pesa • 9012', createdAt: '2026-03-11T11:00:00.000Z' }
+  { id: 'off_1', asset: 'USDC', amount: 850, fiatCurrency: 'NGN', fiatAmount: 1275000, status: 'pending', destinationLabel: 'GTBank • 3749', createdAt: '2026-03-12T13:00:00.000Z' },
+  { id: 'off_2', asset: 'USDC', amount: 320, fiatCurrency: 'KES', fiatAmount: 41440, status: 'successful', destinationLabel: 'M-Pesa • 9012', createdAt: '2026-03-11T11:00:00.000Z' }
 ];
 
 export const reminders: Reminder[] = [

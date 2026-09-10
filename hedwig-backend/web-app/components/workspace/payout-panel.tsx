@@ -8,6 +8,7 @@ import {
   CaretDown,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { TransferStatusPill } from '@/components/ledger/transfer-status-pill';
 import { Button as HButton, Dropdown, Label } from '@heroui/react';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
@@ -384,11 +385,6 @@ export function PayoutPanel({
           </div>
           <div className="divide-y divide-[var(--color-surface-secondary)]">
             {payouts.map(p => {
-              const statusColor =
-                p.status === 'completed' ? 'bg-[var(--color-success-soft)] text-[var(--color-success)]' :
-                p.status === 'partial' ? 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' :
-                p.status === 'failed' ? 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]' :
-                'bg-[var(--color-surface-tertiary)] text-[var(--color-text-secondary)]';
               return (
                 <div
                   key={p.id}
@@ -403,9 +399,7 @@ export function PayoutPanel({
                     </p>
                   </div>
                   <div className="ml-3 shrink-0 text-right">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusColor}`}>
-                      {p.status}
-                    </span>
+                    <TransferStatusPill status={p.status} />
                     <p className="mt-0.5 text-[11px] text-[var(--color-text-placeholder)]">
                       {new Date(p.created_at).toLocaleDateString()}
                     </p>

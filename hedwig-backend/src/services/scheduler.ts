@@ -8,7 +8,7 @@ import { PaycrestService } from './paycrest';
 import { differenceInDays, parseISO, addDays, isSameDay, format } from 'date-fns';
 import { createLogger } from '../utils/logger';
 import { withLock } from '../utils/distributedLock';
-import { generateDailyBrief, generateWeeklySummary, generateMonthlyStateOfBusiness } from './agent/assistant-runtime';
+import { generateWeeklySummary, generateMonthlyStateOfBusiness } from './agent/assistant-runtime';
 import {
   resolveChannelPlan,
   pushBudgetExceeded,
@@ -50,10 +50,6 @@ function compactList(items: Array<string | null | undefined>, limit = 3): string
         .map((item) => String(item || '').trim())
         .filter(Boolean)
         .slice(0, limit);
-}
-
-function currentUtcDateKey(): string {
-    return new Date().toISOString().slice(0, 10);
 }
 
 function currentUtcWeekKey(): string {
@@ -114,11 +110,6 @@ export const SchedulerService = {
         cron.schedule('30 8 * * *', () => {
             withLock('demo-reminders', dailyLockTtl, () => this.sendDemoReminderEmails())
                 .catch((e) => logger.error('demo-reminders lock error', { error: e?.message }));
-        });
-
-        cron.schedule('30 8 * * *', () => {
-            withLock('assistant-daily-briefs', dailyLockTtl, () => this.sendAssistantDailyBriefs())
-                .catch((e) => logger.error('assistant-daily-briefs lock error', { error: e?.message }));
         });
 
         cron.schedule('0 9 * * 1', () => {
@@ -466,126 +457,6 @@ export const SchedulerService = {
         };
     },
 
-    async sendAssistantDailyBriefs() {
-        try {
-            const periodKey = currentUtcDateKey();
-            const { data: users, error } = await supabase
-                .from('users')
-                .select('id, email, first_name, asst_daily_brief_email, notif_preferences')
-                .eq('asst_daily_brief_email', true)
-                .limit(SCHEDULER_MAX_USERS_PER_RUN);
-
-            if (error) {
-                logger.error('Failed to fetch users for assistant daily briefs', { error: error.message });
-                return;
-            }
-
-            const candidates = users || [];
-            if (candidates.length === 0) {
-                logger.debug('No users opted in for assistant daily briefs');
-                return;
-            }
-
-            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user: any) => {
-                const userId = String(user.id || '');
-                if (!userId) return;
-                const existingNotification = await this.getAssistantNotification(userId, 'daily_brief', periodKey);
-                if (existingNotification?.emailSent) return;
-
-                try {
-                    const brief = await generateDailyBrief(userId);
-                    const title = 'Your daily Hedwig brief';
-                    const message = brief.summary || 'Your workspace brief is ready.';
-                    const outstandingUsd = (brief.metrics.unpaidAmountUsd || 0) + (brief.metrics.overdueAmountUsd || 0);
-                    const actionHighlights = compactList([
-                        ...((brief.events || []).slice(0, 2).map((event: any) => event.body ? `${event.title}: ${event.body}` : event.title)),
-                        ...(brief.clientHighlights || []),
-                        ...(brief.projectAlerts || []),
-                        ...(brief.highlights || []),
-                        brief.financialTrend?.description,
-                        brief.metrics.expensesLast30DaysUsd > 0
-                            ? `Expenses: ${formatUsdBrief(brief.metrics.expensesLast30DaysUsd)}`
-                            : null,
-                    ], 3);
-                    let emailSent = false;
-                    const channelPlan = channelPlanForUser(user, 'daily_brief');
-
-                    if (user.email && channelPlan.email !== 'off') {
-                        emailSent = await EmailService.sendAssistantBriefEmail({
-                            to: user.email,
-                            subject: 'Your daily Hedwig brief',
-                            eyebrow: 'Daily brief',
-                            heading: user.first_name ? `Good morning, ${user.first_name}` : 'Good morning',
-                            summary: message,
-                            highlights: actionHighlights,
-                            stats: [
-                                { label: 'Unpaid', value: `${brief.metrics.unpaidCount}` },
-                                { label: 'Overdue', value: `${brief.metrics.overdueCount}` },
-                                { label: 'Outstanding', value: formatUsdBrief(outstandingUsd) },
-                                { label: 'Expenses', value: formatUsdBrief(brief.metrics.expensesLast30DaysUsd || 0) },
-                            ],
-                            ctaPath: '/dashboard',
-                        });
-                    }
-
-                    const metadata = {
-                        ...(existingNotification?.metadata || {}),
-                        assistant_type: 'daily_brief',
-                        period_key: periodKey,
-                        generated_at: brief.generatedAt,
-                        metrics: {
-                            ...brief.metrics,
-                            outstandingAmountUsd: outstandingUsd,
-                        },
-                        highlights: actionHighlights,
-                        email_sent: emailSent,
-                        push_channel: channelPlan.push,
-                    };
-
-                    let pushSent = false;
-                    if (existingNotification) {
-                        await supabase.from('notifications')
-                            .update({ title, message, metadata })
-                            .eq('id', existingNotification.id);
-                    } else {
-                        await supabase.from('notifications').insert({
-                            user_id: userId,
-                            type: 'assistant',
-                            title,
-                            message,
-                            metadata,
-                            is_read: false,
-                        });
-
-                        const capExceeded = await pushBudgetExceeded(supabase, userId);
-                        if (shouldSendPush(channelPlan) && !capExceeded) {
-                            await NotificationService.notifyUser(userId, {
-                                title,
-                                body: message,
-                                data: { type: 'assistant_daily_brief', periodKey },
-                            }).catch((err) => logger.warn('Daily brief push failed', { userId, error: err?.message }));
-                            pushSent = true;
-                        }
-                        if (pushSent) {
-                            await supabase.from('notifications')
-                                .update({ metadata: { ...metadata, push_sent: true } })
-                                .eq('user_id', userId)
-                                .eq('type', 'assistant')
-                                .eq('metadata->>assistant_type', 'daily_brief')
-                                .eq('metadata->>period_key', periodKey);
-                        }
-                    }
-                } catch (err: any) {
-                    logger.error('Failed to send assistant daily brief', { userId, error: err?.message });
-                }
-            });
-
-            logger.info('Assistant daily briefs processed', { count: candidates.length });
-        } catch (error: any) {
-            logger.error('Assistant daily briefs job failed', { error: error?.message });
-        }
-    },
-
     async sendAssistantWeeklySummaries() {
         try {
             const periodKey = currentUtcWeekKey();
@@ -614,9 +485,10 @@ export const SchedulerService = {
 
                 try {
                     const summary = await generateWeeklySummary(userId);
-                    const title = 'Your weekly Hedwig summary';
+                    const earned = formatUsdBrief(summary.revenueUsd);
+                    const title = `You earned ${earned} this week`;
                     const topClient = summary.topClients?.[0];
-                    const message = summary.aiInsight || `${formatUsdBrief(summary.revenueUsd)} collected this week${topClient ? `, led by ${topClient.name}` : ''}.`;
+                    const message = summary.aiInsight || `You earned ${earned} this week${topClient ? `, led by ${topClient.name}` : ''}.`;
                     const weeklyHighlights = compactList([
                         topClient ? `Top client: ${topClient.name} (${formatUsdBrief(topClient.amountUsd)})` : null,
                         ...(summary.projectHighlights || []),
@@ -639,13 +511,13 @@ export const SchedulerService = {
                     if (user.email && channelPlan.email !== 'off') {
                         emailSent = await EmailService.sendAssistantBriefEmail({
                             to: user.email,
-                            subject: 'Your weekly Hedwig summary',
-                            eyebrow: 'Weekly summary',
-                            heading: summary.weekLabel || 'Your week in Hedwig',
+                            subject: `You earned ${earned} this week`,
+                            eyebrow: 'Weekly earnings',
+                            heading: `You earned ${earned} this week`,
                             summary: message,
                             highlights: weeklyHighlights,
                             stats: [
-                                { label: 'Revenue', value: formatUsdBrief(summary.revenueUsd) },
+                                { label: 'Earned', value: earned },
                                 { label: 'Expenses', value: formatUsdBrief(summary.expensesTotalUsd) },
                                 { label: 'Paid invoices', value: `${summary.paidInvoiceCount}` },
                                 { label: 'New invoices', value: `${summary.newInvoiceCount}` },
@@ -743,8 +615,9 @@ export const SchedulerService = {
 
                 try {
                     const state = await generateMonthlyStateOfBusiness(userId);
-                    const title = 'Your monthly Hedwig state of business';
-                    const message = state.summary || `Here's how ${state.monthLabel} went.`;
+                    const earned = formatUsdBrief(state.revenueUsd);
+                    const title = `You earned ${earned} in ${state.monthLabel}`;
+                    const message = state.summary || `You earned ${earned} in ${state.monthLabel}.`;
                     const highlights = [
                         ...(state.highlights || []),
                         state.expectedIncomingUsd > 0
@@ -760,13 +633,13 @@ export const SchedulerService = {
                     if (user.email && channelPlan.email !== 'off') {
                         emailSent = await EmailService.sendAssistantBriefEmail({
                             to: user.email,
-                            subject: `Your ${state.monthLabel} state of business`,
-                            eyebrow: 'Monthly state of business',
-                            heading: `${state.monthLabel} review`,
+                            subject: `You earned ${earned} in ${state.monthLabel}`,
+                            eyebrow: 'Monthly earnings',
+                            heading: `You earned ${earned} in ${state.monthLabel}`,
                             summary: message,
                             highlights: compactList(highlights, 4),
                             stats: [
-                                { label: 'Revenue', value: formatUsdBrief(state.revenueUsd) },
+                                { label: 'Earned', value: earned },
                                 { label: 'Expenses', value: formatUsdBrief(state.expensesTotalUsd) },
                                 { label: 'Net', value: formatUsdBrief(state.netUsd) },
                                 { label: 'Overdue', value: formatUsdBrief(state.overdueAmountUsd) },

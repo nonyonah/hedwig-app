@@ -418,10 +418,6 @@ schedulerRouter.post('/recurring-invoices', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.checkRecurringInvoices();
 });
-schedulerRouter.post('/assistant-daily-briefs', async (_req, res) => {
-    res.json({ accepted: true });
-    await SchedulerService.sendAssistantDailyBriefs();
-});
 schedulerRouter.post('/assistant-weekly-summaries', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.sendAssistantWeeklySummaries();

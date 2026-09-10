@@ -272,7 +272,7 @@ export function DashboardClient({
  title: 'Milestones',
  value: `${data.milestones.length}`,
  helper: `${dueSoonMilestones.length} due soon, ${completedMilestones.length} completed`,
- href: '/calendar',
+ href: '/contracts',
  icon: CalendarDots
  },
  {
@@ -434,9 +434,6 @@ export function DashboardClient({
  <CalendarDots className="h-4 w-4 text-[var(--color-text-muted)]" weight="regular" />
  <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Next reminder</p>
  </div>
- <Link href="/calendar" className="text-[12px] font-medium text-[var(--color-accent)] hover:underline">
- View all
- </Link>
  </div>
  <div className="mt-2">
  {dashboardState.latestReminder ? (

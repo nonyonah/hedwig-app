@@ -106,10 +106,13 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
   const [docSubmitting, setDocSubmitting] = useState(false);
 
   /* ── Statement state ── */
-  const [stmtData, setStmtData] = useState<StatementData | null>(null);
-  const [editCategories, setEditCategories] = useState<Record<number, string>>({});
+  const [stmtData, setStmtData] = useState<StatementData | null>(null);  const [editCategories, setEditCategories] = useState<Record<number, string>>({});
   const [skippedRows, setSkippedRows] = useState<Set<number>>(new Set());
+  // Statement-level currency override — applied to every row at confirm time.
+  // Detected currency can be wrong (parser defaults); this is the correction.
+  const [stmtCurrencyOverride, setStmtCurrencyOverride] = useState('');
   const [stmtSubmitting, setStmtSubmitting] = useState(false);
+  const [gmailFetching, setGmailFetching] = useState(false);
 
   const isSubmitting = docSubmitting || stmtSubmitting;
 
@@ -130,6 +133,7 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
     setStmtData(null);
     setEditCategories({});
     setSkippedRows(new Set());
+    setStmtCurrencyOverride('');
     setStmtSubmitting(false);
   }, []);
 
@@ -137,6 +141,27 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
     if (isSubmitting) return;
     resetAll();
     onClose();
+  };
+
+  /* ═══ Gmail receipt ingestion (Composio): sync inbox attachments, then scan ═══ */
+  const fetchFromGmail = async () => {
+    setGmailFetching(true);
+    try {
+      await hedwigApi.syncIntegrationProvider({ provider: 'gmail' }, { accessToken: accessToken ?? undefined });
+      const scan = await hedwigApi.inboxScan({}, { accessToken: accessToken ?? undefined });
+      const imported = scan.imported ?? 0;
+      toast({
+        type: 'success',
+        title: 'Gmail receipts fetched',
+        message: imported > 0 ? `${imported} receipt${imported === 1 ? '' : 's'} imported and ready to match.` : 'No new receipts found in Gmail.',
+      });
+      onImported?.();
+      handleClose();
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Gmail fetch failed', message: err?.message || 'Connect Gmail in Settings → Integrations, then try again.' });
+    } finally {
+      setGmailFetching(false);
+    }
   };
 
   /* ═══ File detection — routes to document or statement flow ═══ */
@@ -272,15 +297,15 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
   const setCategory = (idx: number, cat: string) => {
     setEditCategories((prev) => ({ ...prev, [idx]: cat }));
   };
-
   const handleStmtConfirm = async () => {
     if (!stmtData || !accessToken) return;
 
+    const effectiveCurrency = stmtCurrencyOverride || undefined;
     const txnRows = stmtData.transactions.map((txn, idx) => ({
       id: txn.id,
       type: txn.type,
       amount: txn.amount,
-      currency: txn.currency,
+      currency: effectiveCurrency ?? txn.currency,
       category: editCategories[idx] || undefined,
       description: txn.description,
       transactionDate: txn.transactionDate,
@@ -298,9 +323,13 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
     setStmtSubmitting(true);
     setStep('confirming');
     try {
-      await hedwigApi.importStatementConfirm({ statementId: stmtData.statementId, transactions: txnRows }, { accessToken });
+      const confirmRes = await hedwigApi.importStatementConfirm({ statementId: stmtData.statementId, transactions: txnRows }, { accessToken });
       setStep('done');
       toast({ type: 'success', title: 'Import complete', message: `${confirmedCount} transaction${confirmedCount !== 1 ? 's' : ''} imported.` });
+      const warnings = (confirmRes as { warnings?: string[] })?.warnings ?? [];
+      for (const w of warnings) {
+        toast({ type: 'warning', title: 'Exchange rates unavailable', message: w });
+      }
     } catch (err: any) {
       toast({ type: 'error', title: 'Import failed', message: err?.message || 'Network error.' });
       setStep('review-stmt');
@@ -349,6 +378,16 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
               <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.ofx,.qfx" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ''; }} />
             </div>
+          )}
+          {step === 'upload' && (
+            <button
+              type="button"
+              onClick={fetchFromGmail}
+              disabled={gmailFetching}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[13px] font-semibold text-[var(--color-foreground)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-accent-soft)] disabled:opacity-60"
+            >
+              {gmailFetching ? 'Fetching from Gmail…' : 'Fetch receipts from Gmail'}
+            </button>
           )}
 
           {/* ═══ Choose file type ═══ */}
@@ -492,7 +531,17 @@ export function ImportDialog({ open, onClose, onImported, accessToken }: ImportD
                     {stmtData.transactionCount} transactions{stmtData.startDate && stmtData.endDate ? ` · ${stmtData.startDate} to ${stmtData.endDate}` : ''}
                   </p>
                 </div>
-                <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent)]">{stmtData.currency}</span>
+                <select
+                  aria-label="Statement currency"
+                  title="Override the detected currency for all rows"
+                  value={stmtCurrencyOverride || stmtData.currency}
+                  onChange={(e) => setStmtCurrencyOverride(e.target.value === stmtData.currency ? '' : e.target.value)}
+                  className="h-8 appearance-none rounded-full bg-[var(--color-accent-soft)] pl-2.5 pr-7 text-[11px] font-semibold text-[var(--color-accent)] outline-none"
+                >
+                  {Array.from(new Set([stmtData.currency, 'USD', 'NGN', 'EUR', 'GBP'])).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
 
               {stmtData.aiSuggestions && (

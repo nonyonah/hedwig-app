@@ -9,6 +9,8 @@ import { ArrowLeft, Copy, Check } from '@/components/ui/lucide-icons';
 import { openMoneyAction } from '@/components/money/money-action-dialogs';
 import { AccountIcon } from '@/components/wallet/account-icon';
 import { Button } from '@/components/ui/button';
+import { TransferStatusPill } from '@/components/ledger/transfer-status-pill';
+import { normalizeTransferStatus } from '@/lib/utils/transfer-status';
 import { hedwigApi } from '@/lib/api/client';
 
 type AccountTx = {
@@ -51,6 +53,15 @@ const prettyEvent = (t: string) =>
     .replace(/\./g, ' ')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Payment-outcome status for a virtual-account timeline event (all currencies). */
+const eventStatus = (t: AccountTx) => {
+  const e = t.event_type ?? '';
+  if (/(refunded|reversed|refund)/.test(e)) return 'reversed' as const;
+  if (/(imported|created|reviewing|pending)/.test(e) && !/(paid|settled|received|expensed|matched)/.test(e)) return 'pending' as const;
+  if (/(failed|expired|skipped)/.test(e)) return 'failed' as const;
+  return normalizeTransferStatus('successful');
+};
 
 function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -282,10 +293,11 @@ export function AccountDetailClient({
               <div key={t.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
                 <div>
                   <p className="text-[13px] font-semibold text-[var(--color-foreground)]">{prettyEvent(t.event_type)}</p>
-                  <p className="text-[12px] text-[var(--color-text-tertiary)]">
+                  <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">
                     {t.occurred_at ? new Date(t.occurred_at).toLocaleDateString() : ''}
                     {t.source ? ` · ${t.source}` : ''}
                   </p>
+                  <div className="mt-1"><TransferStatusPill status={eventStatus(t)} /></div>
                 </div>
                 <span
                   className={`text-[13px] font-semibold ${

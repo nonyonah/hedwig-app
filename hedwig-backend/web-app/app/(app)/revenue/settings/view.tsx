@@ -16,12 +16,11 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
   const [showCreate, setShowCreate] = useState(false);
   const [newRule, setNewRule] = useState({ descriptionPattern: '', category: '', priority: '0' });
 
-  const [briefCadence, setBriefCadence] = useState<'off' | 'daily' | 'weekly'>('weekly');
+  const [briefCadence, setBriefCadence] = useState<'off' | 'weekly'>('weekly');
   const [dunningEmails, setDunningEmails] = useState(true);
   const [weeklySummaryEmail, setWeeklySummaryEmail] = useState(false);
-  const [dailyBriefEmail, setDailyBriefEmail] = useState(false);
   const [isSavingBrief, setIsSavingBrief] = useState(false);
-  const briefCadenceLabel = briefCadence === 'off' ? 'Off' : briefCadence === 'daily' ? 'Daily' : 'Weekly';
+  const briefCadenceLabel = briefCadence === 'off' ? 'Off' : 'Weekly';
 
   const loadPrefs = () => {
     if (!accessToken) return;
@@ -34,14 +33,13 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
         if (data.data?.revenueBriefCadence) setBriefCadence(data.data.revenueBriefCadence);
         if (typeof data.data?.dunningEmails === 'boolean') setDunningEmails(data.data.dunningEmails);
         if (typeof data.data?.weeklySummaryEmail === 'boolean') setWeeklySummaryEmail(data.data.weeklySummaryEmail);
-        if (typeof data.data?.dailyBriefEmail === 'boolean') setDailyBriefEmail(data.data.dailyBriefEmail);
       })
       .catch(() => { /* keep defaults */ });
   };
 
   const handleBriefCadenceChange = async (cadence: string) => {
-    if (!['off', 'daily', 'weekly'].includes(cadence)) return;
-    const next = cadence as 'off' | 'daily' | 'weekly';
+    if (!['off', 'weekly'].includes(cadence)) return;
+    const next = cadence as 'off' | 'weekly';
     const prev = briefCadence;
     setBriefCadence(next);
     setIsSavingBrief(true);
@@ -60,11 +58,10 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
     }
   };
 
-  const handleBriefPrefToggle = async (key: 'dunningEmails' | 'weeklySummaryEmail' | 'dailyBriefEmail', value: boolean) => {
+  const handleBriefPrefToggle = async (key: 'dunningEmails' | 'weeklySummaryEmail', value: boolean) => {
     const setters: Record<string, (v: boolean) => void> = {
       dunningEmails: setDunningEmails,
       weeklySummaryEmail: setWeeklySummaryEmail,
-      dailyBriefEmail: setDailyBriefEmail,
     };
     setters[key](value);
     setIsSavingBrief(true);
@@ -302,7 +299,7 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
           <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
             <div className="min-w-0">
               <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Financial brief cadence</p>
-              <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">Weekly is the default. Daily emails a fresh summary each morning; Off hides the card and emails.</p>
+              <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">Weekly is the default. Off hides the card and emails.</p>
             </div>
             <div className="w-[140px] shrink-0">
               <Dropdown>
@@ -326,9 +323,6 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
                   >
                     <Dropdown.Item key="off" id="off" textValue="Off">
                       <Label>Off</Label>
-                    </Dropdown.Item>
-                    <Dropdown.Item key="daily" id="daily" textValue="Daily">
-                      <Label>Daily</Label>
                     </Dropdown.Item>
                     <Dropdown.Item key="weekly" id="weekly" textValue="Weekly">
                       <Label>Weekly</Label>
@@ -362,20 +356,6 @@ export function SettingsClient({ accessToken }: { accessToken: string | null }) 
               isSelected={weeklySummaryEmail}
               isDisabled={isSavingBrief}
               onChange={() => void handleBriefPrefToggle('weeklySummaryEmail', !weeklySummaryEmail)}
-            >
-              <Switch.Control><Switch.Thumb /></Switch.Control>
-            </Switch>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
-            <div className="min-w-0">
-              <p className="text-[14px] font-semibold text-[var(--color-foreground)]">Daily brief email</p>
-              <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">A short daily snapshot of what needs attention right now.</p>
-            </div>
-            <Switch
-              isSelected={dailyBriefEmail}
-              isDisabled={isSavingBrief}
-              onChange={() => void handleBriefPrefToggle('dailyBriefEmail', !dailyBriefEmail)}
             >
               <Switch.Control><Switch.Thumb /></Switch.Control>
             </Switch>

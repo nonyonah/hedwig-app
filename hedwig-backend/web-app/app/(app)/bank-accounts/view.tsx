@@ -14,9 +14,10 @@ import type { AccountTransaction, UsdAccount } from '@/lib/models/entities';
 import { formatShortDate } from '@/lib/utils';
 
 const USD_TX_STATUS: Record<AccountTransaction['status'], { dot: string; label: string }> = {
+ successful: { dot: 'bg-[var(--color-success)]', label: 'Successful' },
  pending: { dot: 'bg-[var(--color-warning)]', label: 'Pending' },
- completed: { dot: 'bg-[var(--color-success)]', label: 'Completed' },
- failed: { dot: 'bg-[var(--color-danger)]', label: 'Failed' }
+ failed: { dot: 'bg-[var(--color-danger)]', label: 'Failed' },
+ reversed: { dot: 'bg-[var(--color-text-tertiary)]', label: 'Reversed' }
 };
 
 type AccountsData = {

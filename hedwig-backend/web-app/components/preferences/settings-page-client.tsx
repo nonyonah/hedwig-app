@@ -29,7 +29,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
 import { ComposioIntegrations } from '@/components/preferences/composio-integrations';
-import { AutoSettlementSection } from '@/components/preferences/auto-settlement-section';
 import { FinanceSettingsSections } from '@/components/preferences/finance-settings-sections';
 import { SettingsSection } from '@/components/preferences/settings-section';
 import { SettingsRow } from '@/components/preferences/settings-row';
@@ -97,7 +96,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [isSavingReminders, setIsSavingReminders] = useState(false);
 
   const [asstPrefs, setAsstPrefs] = useState({
-    dailyBriefEmail: false,
     weeklySummaryEmail: false,
     invoiceAlerts: true,
     deadlineAlerts: true,
@@ -489,7 +487,8 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             ))}
         </SettingsSection>
 
-        <AutoSettlementSection accessToken={accessToken} />
+        {/* Gateway aggregation hidden — unified USDC is not user-facing yet. */}
+        {/* <AutoSettlementSection accessToken={accessToken} /> */}
 
         <FinanceSettingsSections accessToken={accessToken} />
 

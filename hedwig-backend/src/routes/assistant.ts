@@ -337,7 +337,7 @@ router.get('/preferences', authenticate, async (req: Request, res: Response) => 
         if (!access.allowed) return;
         const { data: user, error } = await supabase
             .from('users')
-            .select('asst_daily_brief_email, asst_weekly_summary_email, asst_invoice_alerts, asst_deadline_alerts, asst_revenue_brief, asst_dunning_emails')
+            .select('asst_weekly_summary_email, asst_invoice_alerts, asst_deadline_alerts, asst_revenue_brief, asst_dunning_emails')
             .eq('privy_id', req.user!.id)
             .single();
 
@@ -346,7 +346,6 @@ router.get('/preferences', authenticate, async (req: Request, res: Response) => 
         res.json({
             success: true,
             data: {
-                dailyBriefEmail: user.asst_daily_brief_email ?? false,
                 weeklySummaryEmail: user.asst_weekly_summary_email ?? false,
                 invoiceAlerts: user.asst_invoice_alerts ?? true,
                 deadlineAlerts: user.asst_deadline_alerts ?? true,
@@ -370,9 +369,8 @@ router.patch('/preferences', authenticate, async (req: Request, res: Response) =
             .from('users').select('id').eq('privy_id', req.user!.id).single();
         if (findErr || !user) { res.status(404).json({ success: false }); return; }
 
-        const allowed = ['dailyBriefEmail', 'weeklySummaryEmail', 'invoiceAlerts', 'deadlineAlerts', 'revenueBriefCadence', 'dunningEmails'] as const;
+        const allowed = ['weeklySummaryEmail', 'invoiceAlerts', 'deadlineAlerts', 'revenueBriefCadence', 'dunningEmails'] as const;
         const colMap: Record<string, string> = {
-            dailyBriefEmail: 'asst_daily_brief_email',
             weeklySummaryEmail: 'asst_weekly_summary_email',
             invoiceAlerts: 'asst_invoice_alerts',
             deadlineAlerts: 'asst_deadline_alerts',

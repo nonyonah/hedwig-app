@@ -1,4 +1,5 @@
 import { backendConfig } from '@/lib/auth/config';
+import { normalizeTransferStatus } from '@/lib/utils/transfer-status';
 import { extractApiErrorMessage, type ApiErrorPayload } from '@/lib/api/errors';
 import {
   accountTransactions as mockAccountTransactions,
@@ -693,7 +694,9 @@ const mapBackendUsdAccount = (details: any, balanceUsd = 0): UsdAccount => ({
   )
 });
 
-const mapBackendUsdTransfer = (transfer: any): AccountTransaction => ({
+const mapBackendUsdTransfer = (transfer: any): AccountTransaction => {
+  const status = normalizeTransferStatus(transfer.status);
+  return {
   id: String(transfer.id),
   type: transfer.sourceType === 'EXTERNAL_ADDRESS'
     ? 'usdc_settlement'
@@ -701,10 +704,11 @@ const mapBackendUsdTransfer = (transfer: any): AccountTransaction => ({
       ? 'incoming_ach'
       : 'incoming_wire',
   amountUsd: Number(transfer.netUsd ?? transfer.grossUsd ?? 0),
-  status: String(transfer.status || 'pending').toLowerCase() === 'completed' ? 'completed' : String(transfer.status || '').toLowerCase() === 'failed' ? 'failed' : 'pending',
+  status,
   createdAt: String(transfer.createdAt || new Date().toISOString()),
   description: String(transfer.sourceLabel || 'USD account transfer')
-});
+  };
+};
 
 const mapBackendOfframp = (order: any): OfframpTransaction => ({
   id: String(order.id),
@@ -713,13 +717,7 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
   amount: Number(order.cryptoAmount || 0),
   fiatCurrency: String(order.fiatCurrency || 'USD'),
   fiatAmount: Number(order.fiatAmount || 0),
-  status: String(order.status || 'pending').toLowerCase() === 'processing'
-    ? 'processing'
-    : String(order.status || '').toLowerCase() === 'completed'
-      ? 'completed'
-      : String(order.status || '').toLowerCase() === 'failed'
-        ? 'failed'
-        : 'pending',
+  status: normalizeTransferStatus(order.status),
   destinationLabel: `${order.bankName || 'Bank'}${order.accountNumber ? ` - ${String(order.accountNumber).slice(-4)}` : ''}`,
   createdAt: String(order.createdAt || new Date().toISOString()),
   txHash: order.txHash || order.tx_hash || undefined,
@@ -1910,7 +1908,7 @@ export const hedwigApi = {
         const transfersData = transfersResult.status === 'fulfilled' ? transfersResult.value : { transfers: [] };
         const accountTransactions = (transfersData.transfers || []).map(mapBackendUsdTransfer);
         const derivedBalance = accountTransactions
-          .filter((transfer) => transfer.status === 'completed')
+          .filter((transfer) => transfer.status === 'successful')
           .reduce((sum, transfer) => sum + transfer.amountUsd, 0);
 
         const accountSource = {
@@ -2661,6 +2659,19 @@ export const hedwigApi = {
     );
   },
 
+  async transactionCategories(options?: ApiOptions): Promise<{ categories: string[]; custom: string[] }> {
+    const data = await request<{ categories: string[]; custom: string[] }>('/api/revenue/categories', options);
+    return data ?? { categories: [], custom: [] };
+  },
+
+  async createTransactionCategory(name: string, options?: ApiOptions): Promise<{ name: string }> {
+    return request('/api/revenue/categories', options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+  },
+
   async updateExpense(id: string, payload: Partial<ExpenseRecord>, options?: ApiOptions) {
     return withFallback(
       () => request<ExpenseRecord>(`/api/revenue/expenses/${id}`, options, {
@@ -2828,12 +2839,69 @@ export const hedwigApi = {
     matchedClientId?: string | null;
     matchMethod?: string;
     status?: string;
+    category?: string;
   }, options?: ApiOptions): Promise<Record<string, unknown>> {
     return request<Record<string, unknown>>(`/api/revenue/imported-transactions/${id}/match`, options, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+  },
+
+  async autoMatchImportedTransactions(
+    input: { minScore?: number; apply?: boolean },
+    options?: ApiOptions
+  ): Promise<{ suggestions: unknown[]; applied: number; count: number }> {
+    const data = await request<{ suggestions: unknown[]; applied: number; count: number }>(
+      '/api/revenue/imported-transactions/auto-match',
+      options,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }
+    );
+    return data ?? { suggestions: [], applied: 0, count: 0 };
+  },
+
+  async payInvoice(
+    id: string,
+    payload: { txHash?: string; chain?: string; amount?: number } = {},
+    options?: ApiOptions
+  ): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>(`/api/documents/${id}/pay`, options, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async unpaidInvoices(options?: ApiOptions): Promise<{ invoices: unknown[]; count: number; total: number }> {
+    const data = await request<{ invoices: unknown[]; count: number; total: number }>(
+      '/api/documents/invoices/unpaid',
+      options
+    );
+    return data ?? { invoices: [], count: 0, total: 0 };
+  },
+
+  async syncIntegrationProvider(
+    input: { provider: string },
+    options?: ApiOptions
+  ): Promise<{ success: boolean; message?: string }> {
+    const data = await request<{ success: boolean; message?: string }>(
+      '/api/integrations/sync',
+      options,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }
+    );
+    return data ?? { success: false };
+  },
+
+  async inboxScan(
+    input: { applyMatches?: boolean },
+    options?: ApiOptions
+  ): Promise<{ imported: number; batchId: string | null; suggestions: unknown[] }> {
+    const data = await request<{ imported: number; batchId: string | null; suggestions: unknown[] }>(
+      '/api/integrations/inbox/scan',
+      options,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }
+    );
+    return data ?? { imported: 0, batchId: null, suggestions: [] };
   },
 
   async bulkConfirmImportedTransactions(options?: ApiOptions): Promise<{ confirmedCount: number; skippedCount: number }> {
@@ -3112,6 +3180,49 @@ export const hedwigApi = {
   },
 
   // ── Flutterwave NGN payouts ──────────────────────────────────────────────
+  // ── Wallet recipients (crypto + bank, person/business) ───────────────────
+  async listWalletRecipients(options?: ApiOptions): Promise<any[]> {
+    const data = await request<{ recipients: any[] }>('/api/recipients', options);
+    return Array.isArray((data as any)?.recipients) ? (data as any).recipients : [];
+  },
+
+  async createWalletRecipient(
+    input: {
+      address?: string | null;
+      chain: string;
+      label?: string | null;
+      recipientType?: string;
+      bankCode?: string;
+      bankName?: string;
+      accountNumber?: string;
+      currency?: string;
+      country?: string | null;
+    },
+    options?: ApiOptions
+  ): Promise<any> {
+    const data = await request<{ recipient: any }>('/api/recipients', options, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return (data as any)?.recipient ?? null;
+  },
+
+  async deleteWalletRecipient(id: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/recipients/${id}`, options, { method: 'DELETE' });
+  },
+
+  async renameWalletRecipient(
+    id: string,
+    input: { label?: string | null; recipientType?: string },
+    options?: ApiOptions
+  ): Promise<any> {
+    const data = await request<{ recipient: any }>(`/api/recipients/${id}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+    return (data as any)?.recipient ?? null;
+  },
+
   async flutterwaveBanks(options?: ApiOptions): Promise<Array<{ code: string; name: string }>> {
     const data = await request<Array<{ code: string; name: string }>>('/api/flutterwave/banks', options);
     return Array.isArray(data) ? data : [];

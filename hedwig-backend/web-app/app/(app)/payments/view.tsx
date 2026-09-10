@@ -60,7 +60,7 @@ const INV_STATUS: Record<Invoice['status'], { dot: string; label: string; bg: st
  draft: { dot: 'bg-[var(--color-text-muted)]', label: 'Draft', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
  sent: { dot: 'bg-[var(--color-accent)]', label: 'Sent', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
  viewed: { dot: 'bg-[var(--color-accent)]', label: 'Viewed', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-text-tertiary)]' },
- paid: { dot: 'bg-[var(--color-success)]', label: 'Paid', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+ paid: { dot: 'bg-[var(--color-success)]', label: 'Successful', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
  overdue: { dot: 'bg-[var(--color-danger)]', label: 'Overdue', bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
 };
 
@@ -69,8 +69,8 @@ const PAGE_SIZE = 25;
 
 const LINK_STATUS: Record<PaymentLink['status'], { dot: string; label: string; bg: string; text: string }> = {
  active: { dot: 'bg-[var(--color-success)]', label: 'Active', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
- paid: { dot: 'bg-[var(--color-accent)]', label: 'Paid', bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-accent)]' },
- expired: { dot: 'bg-[var(--color-text-muted)]', label: 'Expired', bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
+ paid: { dot: 'bg-[var(--color-accent)]', label: 'Successful', bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' },
+ expired: { dot: 'bg-[var(--color-text-muted)]', label: 'Failed', bg: 'bg-[var(--color-danger-soft)]', text: 'text-[var(--color-danger)]' },
 };
 
 function StatusPill({ dot, label, bg, text }: { dot: string; label: string; bg: string; text: string }) {

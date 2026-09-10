@@ -12,6 +12,7 @@ import { WorkspaceProvider } from '@/lib/workspace/workspace-context';
 import { CreateWorkspaceDialog } from '@/components/workspace/create-workspace-dialog';
 
 import { InviteMemberDialog } from '@/components/workspace/invite-member-dialog';
+import { KycPromptDialog } from '@/components/kyc/kyc-prompt-dialog';
 import type { Workspace } from '@/lib/models/entities';
 
 const STORAGE_KEY = 'hedwig-web-sidebar-open';
@@ -52,17 +53,6 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
   return (
     <TutorialProvider isDemo={isDemo}>
         <div className="min-h-screen bg-[var(--color-surface-secondary)] text-foreground">
-          {isDemo && (
-            <div className="flex flex-col items-center justify-center gap-2 border-b border-[var(--color-primary-light)] bg-[var(--color-accent-soft)] px-4 py-2 text-center text-[13px] font-medium text-[var(--color-primary-dark)] sm:flex-row">
-              <span>Demo mode — sample data only. Explore freely, then start when you are ready.</span>
-              <a
-                href="/api/auth/exit-demo"
-                className="rounded-lg bg-[var(--color-accent)] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
-              >
-                Try it for free
-              </a>
-            </div>
-          )}
           <TokenRefresher />
           <WorkspaceProvider
             accessToken={accessToken ?? null}
@@ -95,7 +85,8 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
           </WorkspaceProvider>
           <TutorialCard />
           <CreateMenu accessToken={accessToken ?? null} />
-          <MoneyActionDialogs accessToken={accessToken ?? null} onrampAllowed={onrampAllowed} offrampAllowed={offrampAllowed} />
+          <KycPromptDialog accessToken={accessToken ?? null} />
+          <MoneyActionDialogs accessToken={accessToken ?? null} workspaceId={fallbackWorkspace?.id ?? null} onrampAllowed={onrampAllowed} offrampAllowed={offrampAllowed} />
         </div>
     </TutorialProvider>
   );

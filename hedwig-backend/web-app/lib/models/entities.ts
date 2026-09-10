@@ -301,7 +301,7 @@ export interface AccountTransaction {
   id: EntityId;
   type: 'incoming_ach' | 'incoming_wire' | 'usdc_settlement';
   amountUsd: number;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'successful' | 'pending' | 'failed' | 'reversed';
   createdAt: string;
   description: string;
 }
@@ -313,7 +313,7 @@ export interface OfframpTransaction {
   amount: number;
   fiatCurrency: string;
   fiatAmount: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'successful' | 'pending' | 'failed' | 'reversed';
   destinationLabel: string;
   createdAt: string;
   txHash?: string;

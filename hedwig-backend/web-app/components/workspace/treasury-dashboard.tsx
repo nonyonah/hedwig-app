@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowRight, Buildings, Copy, Receipt, Warning, ArrowsClockwise } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { TRANSFER_STATUS_META, normalizeTransferStatus } from '@/lib/utils/transfer-status';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { backendConfig } from '@/lib/auth/config';
 
@@ -56,25 +57,16 @@ function timeAgo(dateStr: string): string {
 }
 
 function statusColor(status: string): string {
- switch (status) {
- case 'completed':
- case 'settled': return 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]';
- case 'pending':
- case 'pending_convert': return 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]';
- case 'failed': return 'text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/30';
- default: return 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]';
- }
+  switch (normalizeTransferStatus(status)) {
+    case 'successful': return 'text-[var(--color-text-tertiary)] bg-[var(--color-success-soft)]';
+    case 'pending': return 'text-[var(--color-text-secondary)] bg-[var(--color-surface-tertiary)]';
+    case 'failed': return 'text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/30';
+    case 'reversed': return 'text-[var(--color-text-secondary)] bg-[var(--color-surface-secondary)]';
+  }
 }
 
 function statusLabel(status: string): string {
- switch (status) {
- case 'completed': return 'Completed';
- case 'settled': return 'Settled';
- case 'pending': return 'Pending';
- case 'pending_convert': return 'Converting';
- case 'failed': return 'Failed';
- default: return status;
- }
+  return TRANSFER_STATUS_META[normalizeTransferStatus(status)].label;
 }
 
 function typeIcon(type: string) {

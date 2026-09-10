@@ -12,7 +12,25 @@ const router = Router();
  * Scope is read-only: `hedwig:read`.
  */
 
-const SCOPE = 'hedwig:read';
+// Capability scopes (Meow-style): read-only by default; money-moving
+// tools require explicit grants. Stored space-delimited on tokens/codes.
+export const MCP_SCOPES = ['read', 'payments', 'cards', 'kyc'] as const;
+export type McpScope = (typeof MCP_SCOPES)[number];
+const DEFAULT_SCOPE = 'read';
+
+function parseScopes(raw: unknown): McpScope[] | null {
+  const parts = String(raw ?? DEFAULT_SCOPE)
+    .split(' ')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  // Back-compat: the original single scope means read-only.
+  const mapped = parts.map((p) => (p === 'hedwig:read' ? 'read' : p));
+  if (mapped.length === 0) return [DEFAULT_SCOPE];
+  if (!mapped.every((p) => (MCP_SCOPES as readonly string[]).includes(p))) return null;
+  return Array.from(new Set(mapped)) as McpScope[];
+}
+
+export const scopeString = (scopes: McpScope[]) => [...scopes].sort().join(' ');
 const ACCESS_TTL_S = Number(process.env.MCP_ACCESS_TTL_SECONDS ?? 3600);
 const REFRESH_TTL_S = Number(process.env.MCP_REFRESH_TTL_SECONDS ?? 30 * 24 * 3600);
 
@@ -23,12 +41,12 @@ const b64url = (buf: Buffer | string) =>
   Buffer.from(buf as string).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const b64urlJson = (obj: unknown) => b64url(JSON.stringify(obj));
 
-function signJwt(userId: string, tokenVersion: number | null): string {
+function signJwt(userId: string, tokenVersion: number | null, scopes: McpScope[]): string {
   const header = b64urlJson({ alg: 'HS256', typ: 'JWT' });
   const body = b64urlJson({
     sub: userId,
     typ: 'mcp_access',
-    scope: SCOPE,
+    scope: scopeString(scopes),
     ver: tokenVersion,
     iss: issuer(),
     aud: issuer(),
@@ -43,7 +61,7 @@ function requireHmac(data: string): string {
   return createHmac('sha256', signingKey()).update(data).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function verifyJwt(token: string): Promise<{ sub: string; ver: number | null } | null> {
+async function verifyJwt(token: string): Promise<{ sub: string; ver: number | null; scopes: McpScope[] } | null> {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   const [h, b, s] = parts;
@@ -53,10 +71,12 @@ async function verifyJwt(token: string): Promise<{ sub: string; ver: number | nu
   if (a.length !== c.length || !timingSafeEqual(a, c)) return null;
   try {
     const payload = JSON.parse(Buffer.from(b, 'base64').toString('utf8')) as Record<string, unknown>;
-    if (payload.typ !== 'mcp_access' || payload.scope !== SCOPE) return null;
+    if (payload.typ !== 'mcp_access') return null;
+    const scopes = parseScopes(payload.scope);
+    if (!scopes) return null;
     if (typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()) return null;
     if (typeof payload.sub !== 'string') return null;
-    return { sub: payload.sub, ver: typeof payload.ver === 'number' ? payload.ver : null };
+    return { sub: payload.sub, ver: typeof payload.ver === 'number' ? payload.ver : null, scopes };
   } catch {
     return null;
   }
@@ -68,15 +88,16 @@ const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
 export async function requireMcpAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
-    res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${issuer()}/.well-known/oauth-protected-resource", scope="${SCOPE}"`);
+    res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${issuer()}/.well-known/oauth-protected-resource", scope="read"`);
     return res.status(401).json({ error: 'missing MCP bearer token' });
   }
   const claims = await verifyJwt(header.slice('Bearer '.length).trim());
   if (!claims) {
-    res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${issuer()}/.well-known/oauth-protected-resource", scope="${SCOPE}"`);
+    res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${issuer()}/.well-known/oauth-protected-resource", scope="read"`);
     return res.status(401).json({ error: 'invalid or expired MCP access token' });
   }
-  (req as Request & { mcpUserId?: string }).mcpUserId = claims.sub;
+  (req as Request & { mcpUserId?: string; mcpScopes?: McpScope[] }).mcpUserId = claims.sub;
+  (req as Request & { mcpUserId?: string; mcpScopes?: McpScope[] }).mcpScopes = claims.scopes;
   return next();
 }
 
@@ -90,7 +111,7 @@ const isAllowedRedirect = (uri: string) => {
 };
 
 router.get('/.well-known/oauth-protected-resource', (_req: Request, res: Response) => {
-  return res.json({ resource: issuer(), authorization_servers: [issuer()], scopes_supported: [SCOPE] });
+  return res.json({ resource: issuer(), authorization_servers: [issuer()], scopes_supported: [...MCP_SCOPES] });
 });
 
 router.get('/.well-known/oauth-authorization-server', (_req: Request, res: Response) => {
@@ -104,7 +125,7 @@ router.get('/.well-known/oauth-authorization-server', (_req: Request, res: Respo
     grant_types_supported: ['authorization_code', 'refresh_token'],
     token_endpoint_auth_methods_supported: ['none'],
     code_challenge_methods_supported: ['S256'],
-    scopes_supported: [SCOPE],
+    scopes_supported: [...MCP_SCOPES],
   });
 });
 
@@ -137,7 +158,8 @@ router.get('/authorize', asyncHandler(async (req: Request, res: Response) => {
   if (q.response_type !== 'code' || q.code_challenge_method !== 'S256' || !q.client_id || !q.redirect_uri || !q.state || !q.code_challenge) {
     return res.status(400).json({ error: 'invalid_request' });
   }
-  if ((q.scope ?? SCOPE) !== SCOPE) return res.status(400).json({ error: 'invalid_scope' });
+  const requestedScopes = parseScopes(q.scope);
+  if (!requestedScopes) return res.status(400).json({ error: 'invalid_scope' });
   const { data: client } = await supabase.from('mcp_clients').select('*').eq('client_id', q.client_id).single();
   if (!client || !(client.redirect_uris as string[]).includes(q.redirect_uri)) {
     return res.status(400).json({ error: 'invalid_request', error_description: 'unknown client or redirect URI' });
@@ -152,7 +174,8 @@ router.get('/authorize', asyncHandler(async (req: Request, res: Response) => {
 /** Authenticated user consents → authorization code (called by the web consent screen). */
 router.post('/consent', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const b = req.body ?? {};
-  if ((b.scope ?? SCOPE) !== SCOPE) return res.status(400).json({ error: 'invalid_scope' });
+  const consentedScopes = parseScopes(b.scope);
+  if (!consentedScopes) return res.status(400).json({ error: 'invalid_scope' });
   const { data: client } = await supabase.from('mcp_clients').select('*').eq('client_id', b.client_id).single();
   if (!client || !(client.redirect_uris as string[]).includes(b.redirect_uri)) {
     return res.status(400).json({ error: 'invalid_request' });
@@ -163,7 +186,7 @@ router.post('/consent', authenticate, asyncHandler(async (req: Request, res: Res
     client_id: client.id,
     user_id: req.user!.id,
     redirect_uri: b.redirect_uri,
-    scope: SCOPE,
+    scope: scopeString(consentedScopes),
     code_challenge: b.code_challenge,
     expires_at: new Date(Date.now() + 60_000).toISOString(),
   });
@@ -179,6 +202,7 @@ router.post('/token', asyncHandler(async (req: Request, res: Response) => {
   if (!client) return res.status(400).json({ error: 'invalid_client' });
 
   let userId: string;
+  let grantedScopes: McpScope[] = [DEFAULT_SCOPE];
   if (b.grant_type === 'authorization_code') {
     if (!b.code || !b.redirect_uri || !b.code_verifier) return res.status(400).json({ error: 'invalid_request' });
     const { data: code } = await supabase.from('mcp_auth_codes').select('*').eq('code_hash', hashToken(b.code)).single();
@@ -197,6 +221,7 @@ router.post('/token', asyncHandler(async (req: Request, res: Response) => {
       .select('id');
     if (consumeErr || !consumed?.length) return res.status(400).json({ error: 'invalid_grant' });
     userId = code.user_id;
+    grantedScopes = parseScopes(code.scope) ?? [DEFAULT_SCOPE];
   } else if (b.grant_type === 'refresh_token') {
     if (!b.refresh_token) return res.status(400).json({ error: 'invalid_request' });
     const { data: stored } = await supabase.from('mcp_refresh_tokens').select('*').eq('token_hash', hashToken(b.refresh_token)).single();
@@ -205,20 +230,21 @@ router.post('/token', asyncHandler(async (req: Request, res: Response) => {
     }
     await supabase.from('mcp_refresh_tokens').update({ revoked_at: new Date().toISOString() }).eq('id', stored.id);
     userId = stored.user_id;
+    grantedScopes = parseScopes(stored.scope) ?? [DEFAULT_SCOPE];
   } else {
     return res.status(400).json({ error: 'unsupported_grant_type' });
   }
 
-  const accessToken = signJwt(userId, null);
+  const accessToken = signJwt(userId, null, grantedScopes);
   const rawRefresh = tokenValue();
   await supabase.from('mcp_refresh_tokens').insert({
     token_hash: hashToken(rawRefresh),
     user_id: userId,
     client_id: client.id,
-    scope: SCOPE,
+    scope: scopeString(grantedScopes),
     expires_at: new Date(Date.now() + REFRESH_TTL_S * 1000).toISOString(),
   });
-  return res.json({ access_token: accessToken, token_type: 'Bearer', expires_in: ACCESS_TTL_S, refresh_token: rawRefresh, scope: SCOPE });
+  return res.json({ access_token: accessToken, token_type: 'Bearer', expires_in: ACCESS_TTL_S, refresh_token: rawRefresh, scope: scopeString(grantedScopes) });
 }));
 
 export default router;
