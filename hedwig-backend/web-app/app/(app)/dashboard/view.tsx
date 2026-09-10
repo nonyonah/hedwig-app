@@ -168,10 +168,6 @@ export function DashboardClient({
  const dashboardState = useMemo(() => {
  const overdueInvoices = data.invoices.filter((invoice) => invoice.status === 'overdue');
  const draftInvoices = data.invoices.filter((invoice) => invoice.status === 'draft');
- const activeLinks = data.paymentLinks.filter((link) => link.status === 'active');
- const paidLinks = data.paymentLinks.filter((link) => link.status === 'paid');
- const signedContracts = data.contracts.filter((contract) => contract.status === 'signed');
- const reviewContracts = data.contracts.filter((contract) => contract.status === 'review' || contract.status === 'draft');
  const dueSoonMilestones = data.milestones.filter(
  (milestone) => milestone.status === 'due_soon' || milestone.status === 'late'
  );
@@ -192,16 +188,6 @@ export function DashboardClient({
  : 'No overdue invoice requires action right now',
  href: '/payments',
  complete: overdueInvoices.length === 0
- },
- {
- id: 'payment-links',
- title: activeLinks.length > 0 ? 'Review active payment links' : 'Create your next payment link',
- meta:
- activeLinks.length > 0
- ? `${activeLinks.length} live link${activeLinks.length > 1 ? 's' : ''} collecting payments`
- : 'Set up a quick checkout for a client without extra checkout friction',
- href: '/payments',
- complete: false
  },
  {
  id: 'deadlines',
@@ -244,14 +230,6 @@ export function DashboardClient({
 
  const workstreamCards: MetricCard[] = [
  {
- id: 'payment-links',
- title: 'Payment links',
- value: `${data.paymentLinks.length}`,
- helper: `${activeLinks.length} active, ${paidLinks.length} paid`,
- href: '/payments',
- icon: LinkIcon
- },
- {
  id: 'projects',
  title: 'Projects',
  value: `${data.projects.length}`,
@@ -260,19 +238,11 @@ export function DashboardClient({
  icon: CheckCircle
  },
  {
- id: 'contracts',
- title: 'Contracts',
- value: `${data.contracts.length}`,
- helper: `${reviewContracts.length} in review, ${signedContracts.length} signed`,
- href: '/contracts',
- icon: IdentificationCard
- },
- {
  id: 'milestones',
  title: 'Milestones',
  value: `${data.milestones.length}`,
  helper: `${dueSoonMilestones.length} due soon, ${completedMilestones.length} completed`,
- href: '/contracts',
+ href: '/projects',
  icon: CalendarDots
  },
  {

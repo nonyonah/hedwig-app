@@ -52,9 +52,9 @@ interface Props {
 
 const EXAMPLES = [
   'Invoice for Acme Corp $1 200 web design due Friday',
-  'Payment link for logo design $350 for john@acme.com due next week',
+  'Invoice for logo design $350 for john@acme.com due next week',
   'Invoice for Sarah $500 brand strategy + $200 deck design due Mar 30',
-  'Payment link for consulting fee $800 due tomorrow',
+  'Invoice for consulting fee $800 due tomorrow',
 ];
 
 /* ── component ── */
@@ -115,8 +115,8 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
   /* derived */
   const effectiveDate =
     selectedDate ?? (parsed?.dueDate ? new Date(parsed.dueDate) : null);
+  // Payment links are disabled — link intents fall through to invoices.
   const resolvedIntent: 'invoice' | 'payment_link' | 'recurring_invoice' =
-    parsed?.intent === 'payment_link' ? 'payment_link' :
     parsed?.intent === 'recurring_invoice' ? 'recurring_invoice' : 'invoice';
 
   /* ── auto-grow textarea ── */
@@ -217,7 +217,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
 
     setIsCreating(true);
     try {
-      const isPaymentLink = resolvedIntent === 'payment_link';
+      const isPaymentLink = false;
       const endpoint = isPaymentLink
         ? '/api/documents/payment-link'
         : '/api/documents/invoice';
@@ -398,16 +398,8 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
       {/* Detected intent + parsed summary */}
       {parsed && text.length > 3 && (
         <div className="flex flex-wrap items-center gap-2 px-5 pb-2">
-          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-            resolvedIntent === 'payment_link'
-              ? 'bg-[var(--color-success-soft)] text-[var(--color-text-tertiary)]'
-              : resolvedIntent === 'recurring_invoice'
-              ? 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
-              : 'bg-[var(--color-accent-soft)] text-[var(--color-text-tertiary)]'
-          }`}>
-            {resolvedIntent === 'payment_link'
-              ? <><LinkSimple className="h-3 w-3" weight="bold" /> Payment Link</>
-              : resolvedIntent === 'recurring_invoice'
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+            {resolvedIntent === 'recurring_invoice'
               ? <><ArrowUp className="h-3 w-3" weight="bold" /> Recurring Invoice</>
               : <><FileText className="h-3 w-3" weight="bold" /> Invoice</>}
           </span>

@@ -427,46 +427,13 @@ export function ClientDetailClient({
                     ? { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary)]' }
                     : { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
                   return (
-                    <Link key={c.id} href={`/contracts?contract=${c.id}`} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-[var(--color-background)]">
+                    <div key={c.id} className="flex items-center justify-between px-5 py-3">
                       <div>
                         <p className="text-[13px] font-medium text-[var(--color-foreground)]">{c.title}</p>
                         {c.signedAt && <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">Signed {formatShortDate(c.signedAt)}</p>}
                       </div>
                       <Pill bg={cs.bg} text={cs.text} label={c.status} />
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </SectionCard>
-
-          {/* Payment links */}
-          <SectionCard title="Payment links" count={paymentLinks.length}>
-            {paymentLinks.length === 0 ? (
-              <EmptyRow text="No payment links yet." />
-            ) : (
-              <div className="divide-y divide-[var(--color-surface-secondary)]">
-                {paymentLinks.map((pl) => {
-                  const ps = pl.status === 'paid'
-                    ? { bg: 'bg-[var(--color-success-soft)]', text: 'text-[var(--color-success)]' }
-                    : pl.status === 'active'
-                    ? { bg: 'bg-[var(--color-accent-soft)]', text: 'text-[var(--color-primary)]' }
-                    : { bg: 'bg-[var(--color-surface-tertiary)]', text: 'text-[var(--color-text-tertiary)]' };
-                  return (
-                    <button
-                      key={pl.id}
-                      type="button"
-                      onClick={() => openPaymentDetail('payment-link', pl.id)}
-                      className="w-full px-5 py-3 text-left transition-colors hover:bg-[var(--color-background)]"
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="text-[13px] font-medium text-[var(--color-foreground)]">{pl.title}</p>
-                        <Pill bg={ps.bg} text={ps.text} label={pl.status} />
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
-                        {formatAmount(pl.amountUsd, { compact: true })} · {pl.asset} on {pl.chain}
-                      </p>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

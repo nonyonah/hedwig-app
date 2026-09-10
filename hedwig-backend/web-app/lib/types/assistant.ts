@@ -85,7 +85,8 @@ export type SuggestionType =
   | 'runway_alert'
   | 'duplicate_payment'
   | 'spending_anomaly'
-  | 'client_concentration';
+  | 'client_concentration'
+  | 'agent_spend_request';
 
 export type SuggestionPriority = 'high' | 'medium' | 'low';
 export type SuggestionStatus = 'active' | 'dismissed' | 'approved' | 'rejected';

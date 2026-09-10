@@ -3,7 +3,6 @@ import {
   Cards,
   ChartBar,
   CheckCircle,
-  CreditCard,
   CurrencyDollar,
   Faders,
   House,
@@ -44,7 +43,7 @@ export const navigationGroups: Array<{ label: string; items: NavItem[] }> = [
       { title: 'Agents', href: '/agents', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin'] },
       { title: 'Approvals', href: '/approvals', icon: CheckCircle, count: null, muted: false, roles: ['owner', 'admin'] },
       { title: 'Team', href: '/workspace/members', icon: User, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
-      { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false, roles: ['owner', 'admin'] },
+      // Contracts hidden (page removed; backend kept for existing records).
     ]
   },
   {

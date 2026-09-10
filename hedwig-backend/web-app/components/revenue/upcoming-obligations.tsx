@@ -30,7 +30,8 @@ export function UpcomingObligations({ accessToken }: { accessToken: string | nul
     setError(false);
     try {
       const res = await hedwigApi.upcoming({ accessToken });
-      setData(res);
+      // Payment links are disabled — only open invoices count as expected payments.
+      setData({ ...res, upcoming: (res.upcoming ?? []).filter((o) => o.type !== 'payment_link') });
     } catch {
       setError(true);
       setData(null);

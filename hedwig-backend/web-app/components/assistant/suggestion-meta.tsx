@@ -34,6 +34,7 @@ export const SUGGESTION_META: Record<SuggestionType, SuggestionMeta> = {
   duplicate_payment: { label: 'Duplicate payment', icon: Copy, color: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
   spending_anomaly: { label: 'Spending anomaly', icon: ArrowUpRight, color: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-soft)]' },
   client_concentration: { label: 'Client concentration', icon: UsersThree, color: 'text-[var(--color-danger)]', bg: 'bg-[var(--color-danger-soft)]' },
+  agent_spend_request: { label: 'Agent spend request', icon: ArrowUpRight, color: 'text-[var(--color-accent)]', bg: 'bg-[var(--color-accent-soft)]' },
 };
 
 export function getConfidenceBadge(value: number) {

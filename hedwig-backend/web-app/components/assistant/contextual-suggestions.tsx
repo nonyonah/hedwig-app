@@ -39,6 +39,7 @@ const typeToStatus: Record<SuggestionType, 'accent' | 'danger' | 'success' | 'wa
   duplicate_payment: 'danger',
   spending_anomaly: 'warning',
   client_concentration: 'danger',
+  agent_spend_request: 'accent',
 };
 
 function buildQueryString(query: SuggestionQuery) {

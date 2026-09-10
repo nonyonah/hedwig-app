@@ -26,6 +26,7 @@ import {
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
+import { CreateInvoiceDialog } from '@/components/payments/create-invoice-dialog';
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Button as HButton, Checkbox, Dropdown, Label, Pagination, type Selection } from '@heroui/react';
@@ -168,6 +169,7 @@ export function PaymentsClient({
 
  const [invoiceItems, setInvoiceItems] = useState(invoices);
  const [paymentLinkItems, setPaymentLinkItems] = useState(paymentLinks);
+ const [showCreateInvoice, setShowCreateInvoice] = useState(false);
 
  // Map active/paused recurring templates into invoice rows (prefixed IDs so we know they're templates)
  const recurringTemplateRows = useMemo((): Invoice[] =>
@@ -195,7 +197,7 @@ export function PaymentsClient({
  const unseenTemplates = recurringTemplateRows.filter((r) => !existingRecurringIds.has(r.recurringInvoiceId));
  return [...invoiceItems, ...unseenTemplates];
  }, [invoiceItems, recurringTemplateRows]);
- const [activeTab, setActiveTab] = useState<'invoices' | 'payment-links' | 'recurring'>('invoices');
+ const [activeTab, setActiveTab] = useState<'invoices' | 'recurring'>('invoices');
  const [selectedRecurring, setSelectedRecurring] = useState<RecurringInvoice | null>(null);
  const [invoiceFilter, setInvoiceFilter] = useState('all');
  const [linkFilter, setLinkFilter] = useState('all');
@@ -233,18 +235,6 @@ export function PaymentsClient({
  setSelectedPaymentLink(null);
  setSelectedInvoice(null);
  openPaymentDetail('invoice', invoice.id);
- }
- return;
- }
-
- if (highlightedPaymentLinkId) {
- const paymentLink = paymentLinkItems.find((link) => link.id === highlightedPaymentLinkId) ?? null;
- if (paymentLink) {
- setActiveTab('payment-links');
- setSelectedRecurring(null);
- setSelectedInvoice(null);
- setSelectedPaymentLink(null);
- openPaymentDetail('payment-link', paymentLink.id);
  }
  return;
  }
@@ -668,6 +658,34 @@ export function PaymentsClient({
  <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">Payments</h1>
  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Invoice clients and collect payments in one workflow.</p>
  </div>
+ <Dropdown>
+ <HButton
+ variant="primary"
+ className="create-btn flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold"
+ aria-label="Create invoice"
+ >
+ <span>New invoice</span>
+ <CaretDown className="h-3.5 w-3.5 shrink-0" weight="bold" />
+ </HButton>
+ <Dropdown.Popover className="min-w-[200px]">
+ <Dropdown.Menu
+ selectionMode="single"
+ selectedKeys={new Set()}
+ onSelectionChange={(keys) => {
+ const key = [...keys][0];
+ if (key === 'invoice') setShowCreateInvoice(true);
+ if (key === 'recurring') setActiveTab('recurring');
+ }}
+ >
+ <Dropdown.Item key="invoice" id="invoice" textValue="New invoice">
+ <Label>New invoice</Label>
+ </Dropdown.Item>
+ <Dropdown.Item key="recurring" id="recurring" textValue="New recurring invoice">
+ <Label>New recurring invoice</Label>
+ </Dropdown.Item>
+ </Dropdown.Menu>
+ </Dropdown.Popover>
+ </Dropdown>
  </div>
  <AttachedStatGrid
  items={[
@@ -686,11 +704,11 @@ export function PaymentsClient({
  icon: CheckCircle,
  },
  {
- id: 'active-links',
- title: 'Active links',
- value: String(stats.activeLinks),
- helper: 'Ready to share',
- icon: LinkSimple,
+ id: 'recurring',
+ title: 'Recurring',
+ value: String(recurringInvoices.length),
+ helper: 'Automated billing',
+ icon: Repeat,
  },
  ]}
  className="grid-cols-1 md:grid-cols-3"
@@ -725,13 +743,12 @@ export function PaymentsClient({
  <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
  {/* Unified header */}
  <div className="flex items-center gap-3 border-b border-[var(--color-border)] px-5 py-3">
- <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{allInvoiceItems.length + paymentLinkItems.length} records</span>
+ <span className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{allInvoiceItems.length} records</span>
  {(stats.outstanding > 0 || stats.paid > 0) && (
  <>
  <span className="h-3 w-px shrink-0 bg-[var(--color-border)]" />
  <span className="truncate text-[12px] text-[var(--color-text-muted)]">
  {formatAmount(stats.outstanding, { compact: true })} outstanding · {formatAmount(stats.paid, { compact: true })} collected
- {stats.activeLinks > 0 ? ` · ${stats.activeLinks} active link${stats.activeLinks > 1 ? 's' : ''}` : ''}
  </span>
  </>
  )}
@@ -748,19 +765,6 @@ export function PaymentsClient({
     >
       Invoices
       <CountBadge n={allInvoiceItems.length} />
-    </TabBtn>
-    <TabBtn
-      active={activeTab === 'payment-links'}
-      onClick={() => {
-        setActiveTab('payment-links');
-        capturePaymentEvent('payment_links_tab_opened', {
-          active_count: stats.activeLinks,
-          total_count: paymentLinkItems.length,
-        });
-      }}
-    >
-      Payment links
-      <CountBadge n={paymentLinkItems.length} />
     </TabBtn>
     <TabBtn active={activeTab === 'recurring'} onClick={() => setActiveTab('recurring')}>
       <Repeat className="h-3.5 w-3.5" />
@@ -793,22 +797,7 @@ export function PaymentsClient({
  {s === 'all' ? 'All' : INV_STATUS[s as keyof typeof INV_STATUS]?.label ?? s}
  </FilterChip>
  ))
- : activeTab === 'payment-links'
- ? (['all', 'active', 'paid', 'expired'] as const).map((s) => (
- <FilterChip
- key={s}
- active={linkFilter === s}
- onClick={() => {
- setLinkFilter(s);
- capturePaymentEvent('payment_link_filtered', {
- filter: s,
- result_count: s === 'all' ? paymentLinkItems.length : paymentLinkItems.filter((l) => l.status === s).length,
- });
- }}
- >
- {s === 'all' ? 'All' : LINK_STATUS[s]?.label ?? s}
- </FilterChip>
- ))
+
   : (['all', 'active', 'paused'] as const).map((s) => (
   <FilterChip key={s} active={recurringFilter === s} onClick={() => setRecurringFilter(s)}>
   {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -819,16 +808,16 @@ export function PaymentsClient({
   <div className="relative shrink-0">
   <MagnifyingGlass className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-placeholder)]" />
   <input
-  value={activeTab === 'invoices' ? invoiceSearch : linkSearch}
-  onChange={(e) => (activeTab === 'invoices' ? setInvoiceSearch(e.target.value) : setLinkSearch(e.target.value))}
-  placeholder={activeTab === 'invoices' ? 'Search invoices' : 'Search links'}
-  aria-label={activeTab === 'invoices' ? 'Search invoices' : 'Search payment links'}
+  value={invoiceSearch}
+  onChange={(e) => setInvoiceSearch(e.target.value)}
+  placeholder="Search invoices"
+  aria-label="Search invoices"
   className="h-8 w-[160px] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-8 pr-7 text-[12px] text-[var(--color-foreground)] placeholder:text-[var(--color-text-placeholder)] transition focus:border-[var(--color-primary)] focus:outline-none sm:w-[200px]"
   />
-  {(activeTab === 'invoices' ? invoiceSearch : linkSearch) && (
+  {invoiceSearch && (
   <button
   type="button"
-  onClick={() => (activeTab === 'invoices' ? setInvoiceSearch('') : setLinkSearch(''))}
+  onClick={() => setInvoiceSearch('')}
   aria-label="Clear search"
   className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
   >
@@ -843,25 +832,21 @@ export function PaymentsClient({
   {activeTab !== 'recurring' && (
   <div className="grid grid-cols-[36px_1fr_120px_110px_100px_44px] items-center gap-3 border-b border-[var(--color-border)] px-5 py-2.5">
   <Checkbox
-  aria-label={activeTab === 'invoices' ? 'Select all invoices on this page' : 'Select all payment links on this page'}
-  isSelected={activeTab === 'invoices' ? invoicePageAllSelected : linkPageAllSelected}
-  isIndeterminate={
-  activeTab === 'invoices'
-  ? invoicePageSomeSelected && !invoicePageAllSelected
-  : linkPageSomeSelected && !linkPageAllSelected
-  }
-  onChange={(c) => (activeTab === 'invoices' ? toggleInvoicePageSelection(c) : toggleLinkPageSelection(c))}
+  aria-label="Select all invoices on this page"
+  isSelected={invoicePageAllSelected}
+  isIndeterminate={invoicePageSomeSelected && !invoicePageAllSelected}
+  onChange={(c) => toggleInvoicePageSelection(c)}
   className="ml-1"
   >
   <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
   </Checkbox>
   <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">
-  {activeTab === 'invoices' ? 'Invoice' : 'Title'}
+  {'Invoice'}
   </span>
  <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">Status</span>
  <span className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">Amount</span>
  <span className="text-right text-[11px] font-medium text-[var(--color-text-tertiary)]">
- {activeTab === 'invoices' ? 'Due' : 'Chain'}
+ {'Due'}
  </span>
  <span />
  </div>
@@ -890,7 +875,7 @@ export function PaymentsClient({
  )
  )}
 
-{/* Rows — invoices/payment-links tabs only */}
+{/* Rows — invoices tab only */}
   {activeTab === 'invoices' ? (
   searchedInvoices.length === 0 ? (
   <EmptyState icon={<FileText className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />} text="No invoices match this filter." />
@@ -968,63 +953,9 @@ export function PaymentsClient({
  })}
  </div>
  )
-  ) : activeTab === 'payment-links' && searchedLinks.length === 0 ? (
-  <EmptyState icon={<LinkSimple className="h-8 w-8 text-[var(--color-border-input)]" weight="duotone" />} text="No payment links match this filter." />
-  ) : activeTab === 'payment-links' ? (
-  <div className="divide-y divide-[var(--color-surface-secondary)]">
-  {linkPageItems.map((link) => {
-  const s = LINK_STATUS[link.status];
-  const isSelected = linkSelectedKeys === 'all' || linkSelectedKeys.has(link.id);
-  return (
-  <div
-  key={link.id}
-  onClick={() => {
-  setSelectedInvoice(null);
-  setSelectedPaymentLink(null);
-  capturePaymentEvent('payment_link_opened', {
-  payment_link_id: link.id,
-  status: link.status,
-  surface: 'payment_links_table',
-  });
-  openPaymentDetail('payment-link', link.id);
-  }}
-  className={`group grid cursor-pointer grid-cols-[36px_1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-background)] ${selectedPaymentLink?.id === link.id ? 'bg-[var(--color-accent-soft)]' : ''}`}
-  >
-  <div onClick={(e) => e.stopPropagation()}>
-  <Checkbox
-  aria-label={`Select ${link.title}`}
-  isSelected={isSelected}
-  onChange={(c) => toggleLinkSelection(link.id, c)}
-  className="ml-1"
-  >
-  <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
-  </Checkbox>
-  </div>
-  <div className="min-w-0">
-  <p className="truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{link.title}</p>
- <div className="flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]">
- <span>{link.asset}</span>
- <span className="text-[var(--color-border-input)]">•</span>
- <MultiChainStack size={12} />
- </div>
- </div>
- <StatusPill {...s} />
- <p className="text-right text-[13px] font-semibold tabular-nums text-[var(--color-text-primary)]">
- {formatAmount(link.amountUsd, { compact: true })}
- </p>
- <div className="flex justify-end">
- <MultiChainStack size={16} />
- </div>
-  <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-  <RowActionsMenu items={linkActions(link)} />
-  </div>
-  </div>
-  );
-  })}
-  </div>
   ) : null}
 
-  {/* Pagination — invoices/payment-links tabs only */}
+  {/* Pagination — invoices tab only */}
   {activeTab === 'invoices' && searchedInvoices.length > PAGE_SIZE && (
   <div className="flex items-center justify-between border-t border-[var(--color-border)] px-5 py-3">
   <Pagination size="sm">
@@ -1059,40 +990,7 @@ export function PaymentsClient({
   </Pagination>
   </div>
   )}
-  {activeTab === 'payment-links' && searchedLinks.length > PAGE_SIZE && (
-  <div className="flex items-center justify-between border-t border-[var(--color-border)] px-5 py-3">
-  <Pagination size="sm">
-  <Pagination.Summary>
-  {`${linkPageStart}–${linkPageEnd} of ${searchedLinks.length} links`}
-  </Pagination.Summary>
-  <Pagination.Content>
-  <Pagination.Item>
-  <Pagination.Previous isDisabled={linkPage === 1} onPress={() => setLinkPage((p) => Math.max(1, p - 1))}>
-  <Pagination.PreviousIcon />
-  Previous
-  </Pagination.Previous>
-  </Pagination.Item>
-  {Array.from({ length: Math.min(linkTotalPages, 5) }, (_, i) => {
-  const startPage = Math.min(Math.max(1, linkPage - 2), Math.max(1, linkTotalPages - 4));
-  const p = startPage + i;
-  return (
-  <Pagination.Item key={p}>
-  <Pagination.Link isActive={p === linkPage} onPress={() => setLinkPage(p)}>
-  {p}
-  </Pagination.Link>
-  </Pagination.Item>
-  );
-  })}
-  <Pagination.Item>
-  <Pagination.Next isDisabled={linkPage === linkTotalPages} onPress={() => setLinkPage((p) => Math.min(linkTotalPages, p + 1))}>
-  Next
-  <Pagination.NextIcon />
-  </Pagination.Next>
-  </Pagination.Item>
-  </Pagination.Content>
-  </Pagination>
-  </div>
-  )}
+
   </div>
 
   {/* Bulk actions bar */}
@@ -1104,19 +1002,6 @@ export function PaymentsClient({
   <div className="flex items-center gap-2">
   <Button variant="ghost" size="sm" onClick={() => setInvoiceSelectedKeys(new Set())}>Clear</Button>
   <Button variant="destructive" size="sm" disabled={isBulkDeleting} onClick={() => void handleBulkDeleteInvoices()}>
-  {isBulkDeleting ? 'Deleting…' : 'Delete'}
-  </Button>
-  </div>
-  </div>
-  )}
-  {activeTab === 'payment-links' && linkSelectedCount > 0 && (
-  <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5">
-  <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
-  {linkSelectedCount} payment link{linkSelectedCount !== 1 ? 's' : ''} selected
-  </p>
-  <div className="flex items-center gap-2">
-  <Button variant="ghost" size="sm" onClick={() => setLinkSelectedKeys(new Set())}>Clear</Button>
-  <Button variant="destructive" size="sm" disabled={isBulkDeleting} onClick={() => void handleBulkDeleteLinks()}>
   {isBulkDeleting ? 'Deleting…' : 'Delete'}
   </Button>
   </div>
@@ -1179,6 +1064,19 @@ export function PaymentsClient({
  onConfirm={handleDelete}
  onOpenChange={(open) => { if (!open && !isDeleting && !isActionLoading) setDeleteTarget(null); }}
  />
+
+ {/* Invoice creation flow */}
+ {showCreateInvoice && (
+ <CreateInvoiceDialog
+ accessToken={accessToken}
+ onClose={() => setShowCreateInvoice(false)}
+ onCreated={(invoice) => {
+ setInvoiceItems((cur) => [invoice, ...cur]);
+ setActiveTab('invoices');
+ setShowCreateInvoice(false);
+ }}
+ />
+ )}
 
  {/* Mark-as-paid dialog */}
  <Dialog open={!!markPaidTarget} onOpenChange={(v) => !isActionLoading && (v || setMarkPaidTarget(null))} size="md">

@@ -14,6 +14,7 @@ import { llmService } from '../llm';
 import { deleteFromR2, getFromR2 } from '../../lib/r2';
 import { createLogger } from '../../utils/logger';
 import { convertToUsd } from '../currency';
+import PaycrestService from '../paycrest';
 
 const logger = createLogger('AssistantApprovalExecutor');
 
@@ -719,8 +720,114 @@ async function executeRecordRevenueCredit(userId: string, draft: JsonRecord): Pr
   };
 }
 
-async function executeSendContract(userId: string, draft: JsonRecord): Promise<AssistantApprovalExecutionResult> {
-  const contractId = stringValue(draft.contract_id);
+/**
+ * Agent-initiated spend (approval architecture v1).
+ * The assistant stages a spend intent as an `agent_spend_request` suggestion;
+ * on approval this executes it subject to spend policies:
+ * - KYC must be approved (same gate as manual offramp).
+ * - Per-request cap (default $500) and monthly aggregate cap (default $2000,
+ *   over all offramp orders this calendar month), overridable per draft.
+ * - `offramp` rail creates a PENDING Paycrest order the user funds from
+ *   their wallet in the existing order flow (backend never holds keys).
+ * - `stablecoin_send` rail cannot be signed server-side, so an approved
+ *   request is queued for one-tap execution in the send modal.
+ */
+async function executeRequestSpend(userId: string, draft: JsonRecord): Promise<AssistantApprovalExecutionResult> {
+  const rail = (stringValue(draft.rail) || 'offramp').toLowerCase();
+  const amount = numberValue(draft.amount_usd ?? draft.amount);
+  if (amount === null || amount <= 0) throw new Error('Spend draft is missing a valid amount_usd');
+  const singleCap = numberValue(draft.single_spend_cap_usd) ?? 500;
+  if (amount > singleCap) throw new Error(`Spend of $${amount} exceeds the per-request cap of $${singleCap}`);
+
+  const { data: userRow } = await supabase.from('users').select('kyc_status').eq('id', userId).maybeSingle();
+  if ((userRow as { kyc_status?: string } | null)?.kyc_status !== 'approved') {
+    throw new Error('KYC verification required before agent-initiated spends');
+  }
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const { data: monthOrders } = await supabase
+    .from('offramp_orders')
+    .select('crypto_amount')
+    .eq('user_id', userId)
+    .gte('created_at', monthStart.toISOString());
+  const monthTotal = (monthOrders ?? []).reduce((s: number, r: any) => s + Number(r.crypto_amount ?? 0), 0);
+  const monthlyCap = numberValue(draft.monthly_spend_cap_usd) ?? 2000;
+  if (monthTotal + amount > monthlyCap) {
+    throw new Error(`Monthly agent spend cap of $${monthlyCap} would be exceeded ($${monthTotal} already committed)`);
+  }
+
+  if (rail === 'stablecoin_send') {
+    const recipient = stringValue(draft.recipient_address);
+    if (!recipient) throw new Error('Spend draft is missing recipient_address');
+    return queueManualReview('request_spend', {
+      id: '',
+      user_id: userId,
+      type: 'agent_spend_request',
+      title: `Send ${amount} USDC to ${recipient.slice(0, 10)}…`,
+    } as AssistantSuggestionRecord);
+  }
+
+  if (rail !== 'offramp') throw new Error(`Unsupported spend rail: ${rail}`);
+  const token = (stringValue(draft.token) || 'USDC').toUpperCase() as 'USDC' | 'USDT';
+  const network = (stringValue(draft.network) || 'base').toLowerCase();
+  const currency = (stringValue(draft.fiat_currency) || 'NGN').toUpperCase();
+  const bankName = stringValue(draft.bank_name);
+  const accountNumber = stringValue(draft.account_number);
+  const accountName = stringValue(draft.account_name);
+  if (!bankName || !accountNumber) throw new Error('Offramp spend draft needs bank_name + account_number');
+  const platformFee = amount * 0.01;
+  const netAmount = amount - platformFee;
+  if (netAmount <= 0) throw new Error('Amount too low after fee deduction');
+  const rate = await PaycrestService.getExchangeRate(token, netAmount, currency, network);
+  const order = await PaycrestService.createOfframpOrder({
+    amount: netAmount,
+    token,
+    network: network as 'base',
+    rate,
+    recipient: {
+      institution: bankName,
+      accountIdentifier: accountNumber,
+      accountName: accountName ?? '',
+      currency,
+      memo: stringValue(draft.memo) ?? undefined,
+    },
+    returnAddress: stringValue(draft.return_address) ?? '',
+  });
+  const { data: dbOrder, error } = await supabase
+    .from('offramp_orders')
+    .insert({
+      user_id: userId,
+      paycrest_order_id: order.id,
+      status: 'PENDING',
+      chain: network.toUpperCase(),
+      token,
+      crypto_amount: netAmount,
+      fiat_currency: order.fiatCurrency!,
+      fiat_amount: order.fiatAmount!,
+      exchange_rate: order.exchangeRate!,
+      service_fee: (order.senderFee || 0) + (order.transactionFee || 0),
+      bank_name: bankName,
+      account_number: accountNumber,
+      account_name: accountName,
+      receive_address: order.receiveAddress,
+      memo: stringValue(draft.memo),
+    })
+    .select('id')
+    .single();
+  if (error || !dbOrder?.id) throw new Error(error?.message || 'Failed to create agent offramp order');
+  return {
+    status: 'completed',
+    action: 'request_spend',
+    message: `Agent spend executed: PENDING offramp order for ${netAmount} ${token} → ${currency}. Fund it from the wallet to complete.`,
+    entity_type: 'agent_spend_request',
+    entity_id: (dbOrder as { id: string }).id,
+    metadata: { rail, amount_usd: amount, fiat_amount: order.fiatAmount, fiat_currency: order.fiatCurrency },
+  };
+}
+
+async function executeSendContract(userId: string, draft: JsonRecord): Promise<AssistantApprovalExecutionResult> {  const contractId = stringValue(draft.contract_id);
   if (!contractId) {
     throw new Error('Contract draft is missing contract_id');
   }
@@ -1110,6 +1217,8 @@ async function executeAction(
       return executeCreateProjectFromBrief(userId, draft);
     case 'send_contract':
       return executeSendContract(userId, draft);
+    case 'request_spend':
+      return executeRequestSpend(userId, draft);
     case 'review_imports':
     case 'review_contract':
     case 'review_payment_link':

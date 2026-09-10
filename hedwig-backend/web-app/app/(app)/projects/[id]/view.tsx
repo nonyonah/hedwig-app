@@ -452,7 +452,7 @@ export function ProjectDetailClient({
             {!contract ? (
               <EmptyRow text="No contract linked." />
             ) : (
-              <Link href={`/contracts?contract=${contract.id}`} className="block px-5 py-3 transition-colors hover:bg-[var(--color-background)]">
+              <div className="block px-5 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[13px] font-medium text-[var(--color-foreground)]">{contract.title}</p>
@@ -469,7 +469,7 @@ export function ProjectDetailClient({
                     return <Pill bg={cs.bg} text={cs.text} label={contract.status} />;
                   })()}
                 </div>
-              </Link>
+              </div>
             )}
           </SectionCard>
           )}

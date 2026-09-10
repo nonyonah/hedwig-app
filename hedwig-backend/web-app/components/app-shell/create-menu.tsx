@@ -658,12 +658,6 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
  onClick={() => setFlow('invoice')}
  />
  <CreateActionCard
- icon={<LinkSimple className="h-4 w-4" weight="bold" />}
- title="Payment Link"
- description="Generate a shareable link with a fixed amount and currency."
- onClick={() => setFlow('payment-link')}
- />
- <CreateActionCard
  icon={<User className="h-4 w-4" weight="bold" />}
  title="Client"
  description="Add a client with their contact and company details."

@@ -370,11 +370,9 @@ export function ProjectsClient({
                 </Table.Cell>
                 <Table.Cell>
                   {project.contract && cs ? (
-                    <Link href={`/contracts?contract=${project.contract.id}`}>
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${cs.bg} ${cs.text}`}>
-                        {project.contract.status}
-                      </span>
-                    </Link>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${cs.bg} ${cs.text}`}>
+                      {project.contract.status}
+                    </span>
                   ) : (
                     <span className="text-[11px] text-[var(--color-border-input)]">—</span>
                   )}

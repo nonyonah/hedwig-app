@@ -1504,6 +1504,48 @@ export function createTransactionHistoryTool(): AgentToolDefinition {
   };
 }
 
+export function createWalletBalancesTool(): AgentToolDefinition {
+  return {
+    name: 'wallet_get_balances',
+    description: 'Read-only view of the user\'s stablecoin position: virtual account balances by currency (USD, NGN, GBP, EUR, USDC) plus stablecoin inflow/outflow over the last 30 days. Use this before proposing any spend so amounts stay within available funds. This tool never moves money.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+    execute: async (_args, context) => {
+      const sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const [accounts, flows] = await Promise.all([
+        supabase
+          .from('virtual_accounts')
+          .select('currency, balance_usd, status, provider, bank_name')
+          .eq('user_id', context.userId),
+        supabase
+          .from('financial_events')
+          .select('direction, amount_usd, event_type')
+          .eq('user_id', context.userId)
+          .gte('occurred_at', sinceIso)
+          .limit(1000),
+      ]);
+      if (accounts.error) throw new Error(`Could not fetch balances: ${accounts.error.message}`);
+      if (flows.error) throw new Error(`Could not fetch flows: ${flows.error.message}`);
+      const rows = (flows.data ?? []) as Array<{ direction: string; amount_usd: number; event_type: string }>;
+      const inflow30d = rows.filter((r) => r.direction === 'in').reduce((s, r) => s + Number(r.amount_usd ?? 0), 0);
+      const outflow30d = rows.filter((r) => r.direction === 'out').reduce((s, r) => s + Number(r.amount_usd ?? 0), 0);
+      return {
+        accounts: (accounts.data ?? []).map((a: any) => ({
+          currency: a.currency,
+          balanceUsd: Number(a.balance_usd ?? 0),
+          status: a.status,
+          provider: a.provider,
+          bankName: a.bank_name ?? null,
+        })),
+        stablecoinFlow30d: { inflowUsd: inflow30d, outflowUsd: outflow30d, netUsd: inflow30d - outflow30d },
+      };
+    },
+  };
+}
+
 export function createWorkspaceAnalysisTools(): AgentToolDefinition[] {
   return [
     createInvoiceDetailsTool(),
@@ -1511,6 +1553,7 @@ export function createWorkspaceAnalysisTools(): AgentToolDefinition[] {
     createContractDetailsTool(),
     createMilestoneDetailsTool(),
     createTransactionHistoryTool(),
+    createWalletBalancesTool(),
     createClientInsightsTool(),
     createProjectDetailsTool(),
     createExpenseBreakdownTool(),

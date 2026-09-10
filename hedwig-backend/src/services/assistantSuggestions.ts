@@ -13,7 +13,8 @@ export type AssistantSuggestionType =
   | 'runway_alert'
   | 'duplicate_payment'
   | 'spending_anomaly'
-  | 'client_concentration';
+  | 'client_concentration'
+  | 'agent_spend_request';
 
 export type AssistantSuggestionPriority = 'high' | 'medium' | 'low';
 export type AssistantSuggestionStatus = 'active' | 'dismissed' | 'approved' | 'rejected';
