@@ -9,8 +9,7 @@ import { hedwigApi } from '@/lib/api/client';
 const CURRENCIES = [
   { value: 'USD', label: 'USD — US Dollar' },
   { value: 'NGN', label: 'NGN — Nigerian Naira' },
-  { value: 'GBP', label: 'GBP — British Pound' },
-  { value: 'EUR', label: 'EUR — Euro' },
+  // GBP + EUR disabled until their providers ship — added back gradually.
 ] as const;
 
 const ACCOUNT_TYPES_ALL = [

@@ -219,6 +219,10 @@ router.post('/', authenticate, asyncHandler(async (req: Request, res: Response) 
   if (!['USDC', 'USD', 'NGN', 'GBP', 'EUR'].includes(currency)) {
     return res.status(400).json({ error: 'unsupported currency' });
   }
+  // GBP + EUR are disabled until their providers ship — added back gradually.
+  if (currency === 'GBP' || currency === 'EUR') {
+    return res.status(400).json({ error: 'coming soon', currency });
+  }
   const accountType = ['checking', 'savings', 'payroll', 'current'].includes(b.account_type)
     ? b.account_type
     : 'checking';
