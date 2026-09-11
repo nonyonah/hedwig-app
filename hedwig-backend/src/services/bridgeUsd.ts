@@ -529,6 +529,19 @@ class BridgeUsdService {
         }
     }
 
+    async deactivateVirtualAccount(customerId: string, virtualAccountId: string): Promise<void> {
+        const client = this.requireClient();
+        await client.post(
+            `/v0/customers/${customerId}/virtual_accounts/${virtualAccountId}/deactivate`,
+            {},
+            {
+                headers: {
+                    'Idempotency-Key': this.buildIdempotencyKey(`deactivate_va_${virtualAccountId}`),
+                },
+            }
+        );
+    }
+
     parseTransferEvent(payload: Record<string, unknown>): BridgeTransferEvent {
         const eventId = this.readString(payload, ['id', 'event_id', 'eventId']) || `evt_${Date.now()}`;
         const eventType =

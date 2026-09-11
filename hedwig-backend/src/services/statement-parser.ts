@@ -23,8 +23,39 @@ export interface ParseResult {
   rawTransactionCount: number;
 }
 
-function normalizeOfxDate(dateStr: string): string {
-  const d = dateStr.replace(/\D/g, '');
+/**
+ * Best-effort statement currency detection for files without an explicit
+ * currency marker (OFX without CURDEF, plain CSVs). Without this, non-USD
+ * statements silently default to USD and ₦1000 becomes $1000 downstream.
+ */
+export function detectStatementCurrency(content: string): 'NGN' | 'EUR' | 'GBP' | 'USD' {
+  const text = content.slice(0, 20000);
+  const has = (...patterns: RegExp[]) => patterns.some((p) => p.test(text));
+
+  // Naira: symbol, code, Nigerian banks, +234 dial code.
+  if (
+    has(
+      /₦/,
+      /\bNGN\b/i,
+      /\bNaira\b/i,
+      /\+234/,
+      /GTBank|\bGTB\b|Access Bank|Zenith|First ?Bank|UBA\b|Ecobank|Fidelity Bank|Sterling Bank|Wema Bank|Union Bank|Polaris|Keystone|Stanbic|IBTC|Unity Bank|Providus|Parallex|Globus|Titan|Paystack-Titan|Flutterwave|Moniepoint|Opay|PalmPay|Kuda|Rubies|VFD/i
+    )
+  ) {
+    return 'NGN';
+  }
+  // Euro: symbol, code, IBAN + SEPA markers.
+  if (has(/€/, /\bEUR\b/i, /\bSEPA\b/i, /\bIBAN\b/i, /\bDE\d{20}\b/, /\bFR\d{25}\b/)) {
+    return 'EUR';
+  }
+  // Pound: symbol, code, sort-code pattern.
+  if (has(/£/, /\bGBP\b/i, /\bsort code\b/i, /\d{2}-\d{2}-\d{2}/)) {
+    return 'GBP';
+  }
+  return 'USD';
+}
+
+function normalizeOfxDate(dateStr: string): string {  const d = dateStr.replace(/\D/g, '');
   if (d.length >= 8) {
     const y = d.slice(0, 4);
     const m = d.slice(4, 6);
@@ -53,7 +84,11 @@ function parseOfxStatement(content: string): ParseResult {
   if (acctIdMatch) result.accountNumber = acctIdMatch[1].trim();
 
   const curDefMatch = content.match(/<CURDEF>([^<]*)/i);
-  if (curDefMatch) result.currency = curDefMatch[1].trim().toUpperCase();
+  if (curDefMatch) {
+    result.currency = curDefMatch[1].trim().toUpperCase();
+  } else {
+    result.currency = detectStatementCurrency(content);
+  }
 
   const dtStartMatch = content.match(/<DTSTART>([^<]*)/i);
   if (dtStartMatch) result.startDate = normalizeOfxDate(dtStartMatch[1].trim());
@@ -174,7 +209,7 @@ function parseCsvStatement(content: string): ParseResult {
     accountNumber: null,
     startDate: null,
     endDate: null,
-    currency: 'USD',
+    currency: detectStatementCurrency(content),
     transactions: [],
     rawTransactionCount: 0,
   };

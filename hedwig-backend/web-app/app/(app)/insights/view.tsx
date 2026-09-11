@@ -16,13 +16,11 @@ import {
   Minus,
   Sparkle,
   Target,
-  UploadSimple,
   UsersThree,
   ArrowsClockwise,
   Warning,
 } from '@/components/ui/lucide-icons';
-import { LedgerPanel } from '@/components/ledger/ledger-panel';
-import { ImportDialog } from '../revenue/import-dialog';
+import { MatchesPayablesSection } from '@/components/insights/matches-payables';
 import type { FinancialBrief } from '@/lib/types/revenue';
 import {
   AreaChart,
@@ -292,7 +290,6 @@ export function InsightsClient({
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
   const [brief, setBrief] = useState<FinancialBrief | null>(initialBrief);
   const [cashflow, setCashflow] = useState<{ moneyIn: number; moneyOut: number }>({ moneyIn: 0, moneyOut: 0 });
   const [clientsByRevenue, setClientsByRevenue] = useState<ClientRevenueBreakdown[]>(clientBreakdown);
@@ -422,10 +419,6 @@ export function InsightsClient({
           <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Revenue trends, expense patterns, and business intelligence.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
-          <Button variant="secondary" onClick={() => setShowImportDialog(true)}>
-            <UploadSimple className="h-4 w-4" weight="bold" />
-            Import
-          </Button>
           <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
             <DownloadSimple className="h-4 w-4" weight="bold" />
             Export
@@ -436,12 +429,6 @@ export function InsightsClient({
           </Button>
         </div>
         <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
-        <ImportDialog
-          open={showImportDialog}
-          onClose={() => setShowImportDialog(false)}
-          onImported={() => fetchData(range)}
-          accessToken={accessToken}
-        />
       </div>
 
       <ContextualSuggestions
@@ -533,30 +520,7 @@ export function InsightsClient({
                 href: '/clients',
                 loading,
               },
-              {
-                id: 'money-in',
-                title: 'Money in',
-                value: loading ? '...' : formatAmount(cashflow.moneyIn, { compact: true }),
-                helper: 'Inflows this period',
-                icon: ArrowUpRight,
-                loading,
-              },
-              {
-                id: 'money-out',
-                title: 'Money out',
-                value: loading ? '...' : formatAmount(cashflow.moneyOut, { compact: true }),
-                helper: 'Outflows this period',
-                icon: ArrowDownRight,
-                loading,
-              },
-              {
-                id: 'net-cashflow',
-                title: 'Net cashflow',
-                value: loading ? '...' : formatAmount(cashflow.moneyIn - cashflow.moneyOut, { compact: true }),
-                helper: cashflow.moneyIn - cashflow.moneyOut >= 0 ? 'Positive this period' : 'Negative this period',
-                icon: CurrencyDollar,
-                loading,
-              },
+
               ...(() => {
                 const months = range === '7d' ? 0.25 : range === '90d' ? 3 : range === '1y' ? 12 : 1;
                 const burn = (brief?.facts.totalExpenses ?? 0) / months;
@@ -634,6 +598,34 @@ export function InsightsClient({
                   <p className="mb-3 text-[13px] font-medium leading-relaxed text-[var(--color-text-primary)]">
                     {brief?.headline}
                   </p>
+                )}
+                {(brief?.bullets ?? []).length > 0 && (
+                  <ul className="mb-3 space-y-1.5">
+                    {(brief?.bullets ?? []).map((b) => (
+                      <li key={b.id} className="flex items-start gap-2 text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
+                        <span
+                          className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                            b.tone === 'danger'
+                              ? 'bg-[var(--color-danger)]'
+                              : b.tone === 'warning'
+                                ? 'bg-[var(--color-warning)]'
+                                : b.tone === 'positive'
+                                  ? 'bg-[var(--color-success)]'
+                                  : 'bg-[var(--color-accent)]'
+                          }`}
+                        />
+                        <span>{b.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {brief?.cta && (
+                  <Link
+                    href={brief.cta.href}
+                    className="mb-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]"
+                  >
+                    {brief.cta.label} →
+                  </Link>
                 )}
                 <div className={`grid gap-3 ${cards.length === 1 ? 'max-w-sm' : 'sm:grid-cols-3'}`}>
                   {cards.map((c) => (
@@ -906,13 +898,12 @@ export function InsightsClient({
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
                   <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">No expenses recorded</p>
                   <p className="text-[12px] text-[var(--color-text-muted)]">Import a statement or receipt to see spend patterns here.</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowImportDialog(true)}
+                  <Link
+                    href="/transactions"
                     className="mt-1 text-[12px] font-semibold text-[var(--color-accent)] hover:text-[var(--color-primary-dark)]"
                   >
-                    Import now →
-                  </button>
+                    Go to Transactions →
+                  </Link>
                 </div>
               ) : (
                 <div className="space-y-4 px-5 py-5">
@@ -993,18 +984,24 @@ export function InsightsClient({
         </>
       )}
 
-      {/* ── Financial timeline (ledger) ── */}
-      <article className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">
-        <div className="border-b border-[var(--color-surface-secondary)] px-5 py-4">
-          <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Financial timeline</h2>
+      {/* ── Matches & payables ── */}
+      <MatchesPayablesSection accessToken={accessToken} />
+
+      {/* ── Transactions live on their own page ── */}
+      <Link
+        href="/transactions"
+        className="group flex items-center justify-between rounded-2xl bg-[var(--color-surface)] px-5 py-4 shadow-xs transition hover:bg-[var(--color-background)]"
+      >
+        <div>
+          <h2 className="text-[15px] font-semibold text-[var(--color-text-primary)]">Transactions</h2>
           <p className="mt-0.5 text-[13px] text-[var(--color-text-tertiary)]">
-            Every movement, receipt, and import — searchable and exportable.
+            Deposits and withdrawals across all accounts — match receipts, categorize, drill in.
           </p>
         </div>
-        <div className="px-5 py-4">
-          <LedgerPanel accessToken={accessToken} showSummary={false} />
-        </div>
-      </article>
+        <span className="text-[13px] font-semibold text-[var(--color-accent)] transition group-hover:translate-x-0.5">
+          Open →
+        </span>
+      </Link>
 
       <SetTargetDialog
         open={showTargetDialog}

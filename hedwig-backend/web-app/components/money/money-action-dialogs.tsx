@@ -21,37 +21,46 @@ export function openMoneyAction(action: MoneyAction) {
  */
 export function MoneyActionDialogs({
   accessToken,
+  workspaceId,
   onrampAllowed = true,
   offrampAllowed = true,
 }: {
   accessToken: string | null;
+  workspaceId?: string | null;
   onrampAllowed?: boolean;
   offrampAllowed?: boolean;
 }) {
   const [action, setAction] = useState<MoneyAction | null>(null);
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [assets, setAssets] = useState<WalletAsset[]>([]);
+  const [fundingAccounts, setFundingAccounts] = useState<
+    Array<{ id: string; currency: string; account_type: string; label?: string | null; balance: number; balance_usd: number; status: string }>
+  >([]);
   const [gatewayAvailable, setGatewayAvailable] = useState(0);
   const [gatewayPerDomain, setGatewayPerDomain] = useState<GatewayDomainBalance[]>([]);
 
   const load = useCallback(async () => {
     if (!accessToken) return;
     try {
-      const [wallet, gateway] = await Promise.all([
-        hedwigApi.wallet({ accessToken }),
+      const [wallet, gateway, funding] = await Promise.all([
+        hedwigApi.wallet({ accessToken, disableMockFallback: true }),
         hedwigApi
           .gatewayBalance({ accessToken, disableMockFallback: true })
           .catch(() => ({ available: '0', perDomain: [] })),
+        hedwigApi
+          .virtualAccounts({ accessToken, workspaceId, disableMockFallback: true })
+          .catch(() => []),
       ]);
       setAccounts(wallet?.walletAccounts ?? []);
       setAssets((wallet?.walletAssets ?? []).filter((a) => a.chain === 'Base'));
       const gw = gateway as { available?: string | number; perDomain?: GatewayDomainBalance[] };
       setGatewayAvailable(Number(gw?.available ?? 0) / 1_000_000 || 0);
       setGatewayPerDomain(gw?.perDomain ?? []);
+      setFundingAccounts(Array.isArray(funding) ? funding : []);
     } catch {
       // Dialogs open with empty data rather than failing.
     }
-  }, [accessToken]);
+  }, [accessToken, workspaceId]);
 
   useEffect(() => {
     void load();
@@ -106,6 +115,7 @@ export function MoneyActionDialogs({
           accessToken={accessToken}
           onClose={close}
           baseOnly
+          accounts={fundingAccounts}
         />
       )}
     </>

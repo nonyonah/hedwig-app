@@ -1046,6 +1046,46 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 });
 
 /**
+ * GET /api/documents/invoices/unpaid
+ * Unpaid invoices (payables + receivables awaiting action) with totals.
+ * Powers the pay-unpaid flows in app, email, and MCP.
+ */
+router.get('/invoices/unpaid', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const user = await getOrCreateUser(req.user!.id);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+        const workspaceId = await getEffectiveWorkspaceId(req, user.id);
+        const { data, error } = await supabase
+            .from('documents')
+            .select('id,title,amount,currency,status,created_at,content')
+            .eq('user_id', user.id)
+            .eq('workspace_id', workspaceId)
+            .eq('type', 'INVOICE')
+            .in('status', ['DRAFT', 'SENT', 'VIEWED', 'OVERDUE'])
+            .order('created_at', { ascending: false })
+            .limit(200);
+        if (error) throw error;
+        const invoices = (data ?? []).map((d: Record<string, unknown>) => ({
+            id: d.id,
+            title: d.title,
+            amount: d.amount,
+            currency: (d.currency as string) ?? 'USD',
+            status: d.status,
+            created_at: d.created_at,
+            client_name: ((d.content ?? {}) as Record<string, unknown>).client_name ?? null,
+            due_date: ((d.content ?? {}) as Record<string, unknown>).due_date ?? null,
+        }));
+        const total = invoices.reduce((s: number, i: { amount: unknown }) => s + (Number(i.amount) || 0), 0);
+        res.json({ success: true, data: { invoices, count: invoices.length, total } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/documents/:id/viewed
  * Mark public invoice/payment-link as viewed (idempotent first-view tracking)
  */

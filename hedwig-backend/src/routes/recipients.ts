@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
 import { createPublicClient, http } from 'viem';
 import { mainnet } from 'viem/chains';
 import { PublicKey, Connection } from '@solana/web3.js';
@@ -7,6 +8,21 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 
 const router = Router();
+
+const mapRecipient = (recipient: any) => ({
+  id: recipient.id,
+  address: recipient.address ?? null,
+  chain: recipient.chain,
+  label: recipient.label || null,
+  recipientType: recipient.recipient_type ?? 'person',
+  bankCode: recipient.bank_code ?? null,
+  bankName: recipient.bank_name ?? null,
+  accountNumber: recipient.account_number ?? null,
+  currency: recipient.currency ?? null,
+  country: recipient.country ?? null,
+  updatedAt: new Date(recipient.last_used_at || recipient.updated_at || recipient.created_at).getTime(),
+  createdAt: recipient.created_at,
+});
 
 type RecipientChain = 'base' | 'solana';
 
@@ -150,14 +166,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             throw new Error(`Failed to fetch recipients: ${error.message}`);
         }
 
-        const recipients = (data || []).map((recipient: any) => ({
-            id: recipient.id,
-            address: recipient.address,
-            chain: recipient.chain,
-            label: recipient.label || null,
-            updatedAt: new Date(recipient.last_used_at || recipient.updated_at || recipient.created_at).getTime(),
-            createdAt: recipient.created_at,
-        }));
+        const recipients = (data || []).map((recipient: any) => (mapRecipient(recipient)));
 
         res.json({
             success: true,
@@ -175,62 +184,119 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
         const userId = await getInternalUserId(req.user!.id);
-        const { address, chain, label } = req.body as { address?: string; chain?: RecipientChain; label?: string | null };
+        const {
+          address, chain, label, recipientType, bankCode, bankName, accountNumber, currency, country,
+        } = req.body as {
+          address?: string; chain?: string; label?: string | null;
+          recipientType?: string; bankCode?: string; bankName?: string;
+          accountNumber?: string; currency?: string; country?: string | null;
+        };
+        const cleanLabel = typeof label === 'string' && label.trim() ? label.trim() : null;
+        const type = recipientType === 'business' ? 'business' : 'person';
 
-        if (!address || (chain !== 'base' && chain !== 'solana')) {
+        let row: Record<string, unknown>;
+        if (chain === 'bank') {
+          // Bank recipient: 10-digit account number + bank code, no chain address.
+          const acct = String(accountNumber ?? '').replace(/\D/g, '');
+          if (acct.length !== 10 || !bankCode) {
             res.status(400).json({
-                success: false,
-                error: { message: 'address and chain are required' },
+              success: false,
+              error: { message: 'bankCode and a 10-digit accountNumber are required' },
             });
             return;
-        }
-
-        const normalizedAddress = normalizeAddress(address.trim(), chain);
-        const detectedChain = detectRecipientChain(normalizedAddress);
-        if (detectedChain !== chain) {
+          }
+          const { data, error } = await supabase
+            .from('wallet_recipients')
+            .insert({
+              user_id: userId,
+              address: null,
+              chain: 'bank',
+              label: cleanLabel,
+              recipient_type: type,
+              bank_code: String(bankCode),
+              bank_name: bankName ? String(bankName) : null,
+              account_number: acct,
+              currency: currency ? String(currency).toUpperCase() : 'NGN',
+              country: country ? String(country) : null,
+              last_used_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+          if (error) {
+            throw new Error(`Failed to save recipient: ${error.message}`);
+          }
+          row = data;
+        } else {
+          if (!address || (chain !== 'base' && chain !== 'solana')) {
             res.status(400).json({
-                success: false,
-                error: { message: 'address does not match chain' },
+              success: false,
+              error: { message: 'address and chain are required' },
             });
             return;
-        }
+          }
 
-        const { data, error } = await supabase
+          const normalizedAddress = normalizeAddress(address.trim(), chain as RecipientChain);
+          const detectedChain = detectRecipientChain(normalizedAddress);
+          if (detectedChain !== chain) {
+            res.status(400).json({
+              success: false,
+              error: { message: 'address does not match chain' },
+            });
+            return;
+          }
+
+          const { data, error } = await supabase
             .from('wallet_recipients')
             .upsert(
-                {
-                    user_id: userId,
-                    address: normalizedAddress,
-                    chain,
-                    label: typeof label === 'string' && label.trim() ? label.trim() : null,
-                    last_used_at: new Date().toISOString(),
-                },
-                { onConflict: 'user_id,address' }
+              {
+                user_id: userId,
+                address: normalizedAddress,
+                chain,
+                label: cleanLabel,
+                recipient_type: type,
+                last_used_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id,address' }
             )
             .select()
             .single();
 
-        if (error) {
+          if (error) {
             throw new Error(`Failed to save recipient: ${error.message}`);
+          }
+          row = data;
         }
 
         res.json({
-            success: true,
-            data: {
-                recipient: {
-                    id: data.id,
-                    address: data.address,
-                    chain: data.chain,
-                    label: data.label || null,
-                    updatedAt: new Date(data.last_used_at || data.updated_at || data.created_at).getTime(),
-                    createdAt: data.created_at,
-                },
-            },
+          success: true,
+          data: { recipient: mapRecipient(row) },
         });
     } catch (error) {
         next(error);
     }
 });
+
+/**
+ * PATCH /api/recipients/:id
+ * Rename a recipient (label + person/business). Scoped to the owner.
+ */
+router.patch('/:id', authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const userId = await getInternalUserId(req.user!.id);
+  const { label, recipientType } = req.body as { label?: string; recipientType?: string };
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (typeof label === 'string') updates.label = label.trim() || null;
+  if (recipientType === 'person' || recipientType === 'business') updates.recipient_type = recipientType;
+  const { data, error } = await supabase
+    .from('wallet_recipients')
+    .update(updates)
+    .eq('id', req.params.id)
+    .eq('user_id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  if (!data) return res.status(404).json({ success: false, error: { message: 'recipient not found' } });
+  return res.json({ success: true, data: { recipient: mapRecipient(data) } });
+}));
 
 /**
  * DELETE /api/recipients/:id

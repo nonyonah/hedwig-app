@@ -15,6 +15,7 @@ import { processStatementJob } from '../services/statement-job-processor';
 import { detectBankName } from '../services/statement-job-processor';
 import { initiateConnection, isComposioConfigured, refreshConnectionStatus } from '../services/composio';
 import { emitFinancialEvent, FINANCIAL_EVENT_TYPES } from '../services/financial-events';
+import { suggestMatches, applyMatches } from '../services/invoiceMatcher';
 import { emitTimelineEvent, TIMELINE_EVENT_KINDS, TIMELINE_EVENT_VERBS } from '../services/timeline-events';
 
 
@@ -939,7 +940,6 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
             return;
         }
 
-        const VALID_CATEGORIES = new Set(['software', 'contractors', 'marketing', 'travel', 'meals', 'office', 'operations', 'taxes', 'subscriptions', 'shopping', 'entertainment', 'groceries', 'utilities', 'health', 'education', 'transportation', 'rent', 'personal_care', 'other']);
         const currencyCode = KNOWN_CURRENCIES.has(String(currency).toUpperCase()) ? String(currency).toUpperCase() : 'USD';
         const numericAmount = Number(amount);
         let usdAmount: number;
@@ -967,7 +967,7 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
                 amount: numericAmount,
                 currency: currencyCode,
                 converted_amount_usd: usdAmount,
-                category: VALID_CATEGORIES.has(String(category)) ? String(category) : 'other',
+                category: await resolveExpenseCategory(user.id, effectiveWsId, category),
                 project_id: projectId || null,
                 client_id: clientId || null,
                 note: String(note),
@@ -1039,6 +1039,7 @@ router.patch('/expenses/:id', authenticate, async (req: Request, res: Response, 
 
         const { id } = req.params;
         const { amount, currency, convertedAmountUsd, category, projectId, clientId, note, date } = req.body;
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
 
         const updates: Record<string, any> = {};
         if (amount !== undefined) updates.amount = Number(amount);
@@ -1073,10 +1074,8 @@ router.patch('/expenses/:id', authenticate, async (req: Request, res: Response, 
                 }
             }
         }
-        const VALID_CATEGORIES = new Set(['software', 'contractors', 'marketing', 'travel', 'meals', 'office', 'operations', 'taxes', 'subscriptions', 'shopping', 'entertainment', 'groceries', 'utilities', 'health', 'education', 'transportation', 'rent', 'personal_care', 'other']);
         if (category !== undefined) {
-            const cat = String(category);
-            updates.category = VALID_CATEGORIES.has(cat) ? cat : 'other';
+            updates.category = await resolveExpenseCategory(user.id, effectiveWsId, category);
         }
         if (projectId !== undefined) updates.project_id = projectId || null;
         if (clientId !== undefined) updates.client_id = clientId || null;
@@ -1802,7 +1801,8 @@ router.patch('/imported-transactions/:id/match', authenticate, async (req: Reque
     if (!await guardOwnerOrAdmin(req, res, user.id)) return;
 
     const { id } = req.params;
-    const { matchedInvoiceId, matchedExpenseId, matchedClientId, matchMethod, status } = req.body;
+    const { matchedInvoiceId, matchedExpenseId, matchedClientId, matchMethod, status, category } = req.body;
+    const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
     if (matchedInvoiceId !== undefined) updates.matched_invoice_id = matchedInvoiceId;
@@ -1810,6 +1810,9 @@ router.patch('/imported-transactions/:id/match', authenticate, async (req: Reque
     if (matchedClientId !== undefined) updates.matched_client_id = matchedClientId;
     if (matchMethod !== undefined) updates.match_method = matchMethod;
     if (status !== undefined) updates.status = status;
+    if (category !== undefined) {
+      updates.category = await resolveExpenseCategory(user.id, effectiveWsId, category);
+    }
 
     const { data, error } = await supabase
       .from('imported_transactions')
@@ -1842,6 +1845,7 @@ router.patch('/imported-transactions/:id/match', authenticate, async (req: Reque
         match_method: data.match_method ?? null,
         status: data.status ?? null,
         description: data.description ?? null,
+        category: (data as Record<string, unknown>).category ?? null,
       },
     });
 
@@ -1851,7 +1855,146 @@ router.patch('/imported-transactions/:id/match', authenticate, async (req: Reque
   }
 });
 
+// ── Transaction categories (built-in defaults + user-created) ────────────────
+const BUILTIN_CATEGORIES = ['software', 'contractors', 'marketing', 'travel', 'meals', 'office', 'operations', 'taxes', 'subscriptions', 'shopping', 'entertainment', 'groceries', 'utilities', 'health', 'education', 'transportation', 'rent', 'personal_care', 'other'];
+
+async function userCategoryNames(userId: string, workspaceId: string | null): Promise<string[]> {
+    let q = supabase.from('transaction_categories').select('name').eq('user_id', userId);
+    if (workspaceId) q = q.eq('workspace_id', workspaceId);
+    const { data } = await q;
+    return (data ?? []).map((r: { name: string }) => r.name);
+}
+
+/** Resolve a category against built-ins + the user's custom list (slugified). */
+async function resolveExpenseCategory(userId: string, workspaceId: string | null, raw: unknown): Promise<string> {
+    const cat = String(raw ?? 'other').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 40) || 'other';
+    if (BUILTIN_CATEGORIES.includes(cat)) return cat;
+    const custom = await userCategoryNames(userId, workspaceId);
+    if (custom.map((c) => c.toLowerCase()).includes(cat)) return cat;
+    return 'other';
+}
+
+router.get('/categories', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const user = await getOrCreateUser(req.user!.id);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+        const custom = await userCategoryNames(user.id, effectiveWsId);
+        const [expenses, imported] = await Promise.all([
+            supabase.from('expenses').select('category').eq('user_id', user.id).limit(500),
+            supabase.from('imported_transactions').select('category').eq('user_id', user.id).not('category', 'is', null).limit(500),
+        ]);
+        const used = new Set<string>();
+        for (const r of [...((expenses.data ?? []) as Array<{ category: string }>), ...((imported.data ?? []) as Array<{ category: string }>)]) {
+            if (r.category) used.add(r.category);
+        }
+        const names = Array.from(new Set([...BUILTIN_CATEGORIES, ...custom, ...used])).sort();
+        res.json({ success: true, data: { categories: names, custom } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post('/categories', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const user = await getOrCreateUser(req.user!.id);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+        const name = String(req.body?.name ?? '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 40);
+        if (!name) {
+            res.status(400).json({ success: false, error: { message: 'name is required' } });
+            return;
+        }
+        if (BUILTIN_CATEGORIES.includes(name)) {
+            res.json({ success: true, data: { name, builtin: true } });
+            return;
+        }
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+        const { data: existing } = await supabase
+            .from('transaction_categories')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('workspace_id', effectiveWsId)
+            .ilike('name', name)
+            .maybeSingle();
+        if (existing) {
+            res.json({ success: true, data: existing });
+            return;
+        }
+        const { data, error } = await supabase
+            .from('transaction_categories')
+            .insert({ user_id: user.id, workspace_id: effectiveWsId, name })
+            .select('*')
+            .single();
+        if (error) throw new Error(`category create failed: ${summarizeError(error)}`);
+        res.status(201).json({ success: true, data });
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.delete('/categories/:name', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const user = await getOrCreateUser(req.user!.id);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+        const { error } = await supabase
+            .from('transaction_categories')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('workspace_id', effectiveWsId)
+            .eq('name', String(req.params.name ?? '').toLowerCase());
+        if (error) throw new Error(`category delete failed: ${summarizeError(error)}`);
+        res.json({ success: true, data: null });
+    } catch (error) {
+        next(error);
+    }
+});
+
 // ── Categorization Rules ─────────────────────────────────────────────────────
+
+/**
+ * POST /api/revenue/imported-transactions/auto-match
+ * Score unmatched bank debits against unpaid invoices. Receipts only by
+ * default (bank-statement batches excluded until re-enabled).
+ * Body: { minScore?: number, apply?: boolean, includeStatements?: boolean }
+ */
+router.post('/imported-transactions/auto-match', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+        if (!await guardOwnerOrAdmin(req, res, user.id)) return;
+
+        const effectiveWsId = getEffectiveWorkspaceId(req, user.id);
+        const minScore = Math.min(1, Math.max(0, Number(req.body?.minScore ?? 0.5) || 0.5));
+        const apply = req.body?.apply === true;
+        const includeStatements = req.body?.includeStatements === true;
+
+        const suggestions = await suggestMatches(user.id, effectiveWsId, minScore, includeStatements);
+        let applied = 0;
+        if (apply) {
+            applied = await applyMatches(user.id, suggestions, Math.max(minScore, 0.9));
+        }
+
+        res.json({ success: true, data: { suggestions, applied, count: suggestions.length } });
+    } catch (error) {
+        next(error);
+    }
+});
 
 router.get('/categorization-rules', authenticate, async (req: Request, res: Response, next) => {
   try {
@@ -1966,6 +2109,7 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
     const skipped: string[] = [];
     let totalExpenses = 0;
     let totalCredits = 0;
+    let unconvertedCount = 0;
 
     for (const txn of transactions) {
       if (txn.status === 'skipped') {
@@ -2039,8 +2183,11 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
       });
 
       if (txn.type === 'debit') {
-        // Create expense
+        // Create expense. If FX is unreachable we still store the row (the
+        // column is NOT NULL) but flag it, so a wrong 1:1 rate never silently
+        // poses as dollars — see the warnings[] in the response.
         let convertedAmountUsd: number;
+        let fxConverted = true;
         const curr = txn.currency || 'USD';
         if (curr === 'USD') {
           convertedAmountUsd = txn.amount;
@@ -2049,6 +2196,8 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
             convertedAmountUsd = await convertToUsd(txn.amount, curr);
           } catch {
             convertedAmountUsd = txn.amount;
+            fxConverted = false;
+            unconvertedCount++;
           }
         }
 
@@ -2093,6 +2242,7 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
               source_type: 'transaction_import',
               statement_id: statementId,
               imported_transaction_id: txn.id,
+              fx_unconverted: !fxConverted,
             },
           });
         } else {
@@ -2110,6 +2260,7 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
             creditUsd = await convertToUsd(txn.amount, creditCurr);
           } catch {
             creditUsd = null;
+            unconvertedCount++;
           }
         }
         const { data: createdCredit, error: creditErr } = await supabase
@@ -2214,6 +2365,12 @@ router.post('/import-statement/confirm', authenticate, async (req: Request, res:
         totalExpenses,
         totalCredits,
         status: finalStatus,
+        warnings:
+          unconvertedCount > 0
+            ? [
+                `FX rates were unreachable — ${unconvertedCount} transaction${unconvertedCount === 1 ? '' : 's'} stored without conversion. Re-import once rates recover.`,
+              ]
+            : [],
       },
     });
   } catch (error) {

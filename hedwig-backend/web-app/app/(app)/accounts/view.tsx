@@ -305,7 +305,7 @@ export function AccountsView({
           <ModalTitle>Close account</ModalTitle>
           <ModalDescription>
             {closeTarget
-              ? `Close ${closeTarget.label ?? `${closeTarget.currency} ${closeTarget.account_type}`}? Only empty accounts can be closed; history is preserved.`
+              ? `Close ${closeTarget.label ?? `${closeTarget.currency} ${closeTarget.account_type}`}? Only empty accounts can be closed. The account is removed from this list; financial history remains available in the ledger.`
               : ''}
           </ModalDescription>
         </ModalHeader>
@@ -416,7 +416,8 @@ export function AccountsView({
                             ...(a.currency === 'NGN' && a.status !== 'active' && a.status !== 'closed'
                               ? [{ label: 'Provision account', onClick: () => setProvisionOpen(true) }]
                               : []),
-                            ...(a.status !== 'closed'
+                            ...(a.status !== 'closed' &&
+                            !(a.currency === 'USDC' && a.account_type === 'stablecoin')
                               ? [{ label: 'Close account', onClick: () => { setCloseError(''); setCloseTarget(a); }, destructive: true }]
                               : []),
                           ]}

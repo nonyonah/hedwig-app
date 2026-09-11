@@ -620,6 +620,93 @@ router.get('/emails', async (req: Request, res: Response) => {
   res.json({ success: true, data: data ?? [] });
 });
 
+/**
+ * POST /api/integrations/inbox/scan
+ * Turn receipt/invoice email threads into imported bank transactions:
+ * creates one statement batch per scan, one imported row per eligible thread
+ * (idempotent on thread reference), then runs match suggestions.
+ * Body: { applyMatches?: boolean }
+ */
+router.post('/inbox/scan', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { return res.status(401).json({ success: false, error: 'Unauthorized' }); }
+
+  const { data: threads, error: threadError } = await supabase
+    .from('email_threads')
+    .select('id,subject,snippet,from_email,from_name,detected_type,detected_amount,detected_currency,last_message_at')
+    .eq('user_id', userId)
+    .eq('status', 'needs_review')
+    .in('detected_type', ['invoice', 'receipt'])
+    .order('last_message_at', { ascending: false })
+    .limit(50);
+  if (threadError) { return res.status(500).json({ success: false, error: threadError.message }); }
+
+  const eligible = (threads ?? []).filter((t: any) => Number(t.detected_amount) > 0);
+  if (eligible.length === 0) {
+    return res.json({ success: true, data: { imported: 0, skipped: (threads ?? []).length, suggestions: [] } });
+  }
+
+  const batchName = `email-scan-${new Date().toISOString().slice(0, 10)}`;
+  const { data: batch, error: batchError } = await supabase
+    .from('statement_imports')
+    .insert({
+      user_id: userId,
+      original_filename: batchName,
+      file_format: 'email',
+      bank_name: 'email',
+      currency: 'USD',
+      transaction_count: eligible.length,
+      status: 'reviewing',
+    })
+    .select('id')
+    .single();
+  if (batchError || !batch) {
+    return res.status(500).json({ success: false, error: batchError?.message ?? 'Could not create import batch' });
+  }
+
+  let imported = 0;
+  for (const t of eligible as any[]) {
+    const reference = `email-thread:${t.id}`;
+    const { data: existing } = await supabase
+      .from('imported_transactions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('reference', reference)
+      .maybeSingle();
+    if (existing) continue;
+    const { error } = await supabase.from('imported_transactions').insert({
+      user_id: userId,
+      statement_id: (batch as { id: string }).id,
+      transaction_date: t.last_message_at ? new Date(t.last_message_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      description: t.subject || t.snippet || 'Email receipt',
+      original_description: t.snippet || '',
+      amount: Number(t.detected_amount),
+      currency: t.detected_currency || 'USD',
+      type: 'debit',
+      bank_name: t.from_name || t.from_email || 'email',
+      reference,
+      status: 'pending',
+    });
+    if (!error) imported++;
+  }
+
+  // Suggest matches for everything this scan surfaced.
+  let suggestions: unknown[] = [];
+  try {
+    const { suggestMatches } = await import('../services/invoiceMatcher');
+    const all = await suggestMatches(userId, null, 0.5);
+    suggestions = all;
+    if (req.body?.applyMatches === true) {
+      const { applyMatches } = await import('../services/invoiceMatcher');
+      await applyMatches(userId, all, 0.9);
+    }
+  } catch (err) {
+    logger.warn('inbox scan match failed', { err });
+  }
+
+  return res.json({ success: true, data: { imported, batchId: (batch as { id: string }).id, suggestions } });
+});
+
 // GET /api/integrations/calendar-events — fetch upcoming calendar events
 router.get('/calendar-events', async (req: Request, res: Response) => {
   const userId = await getUserId(req);

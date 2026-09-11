@@ -304,28 +304,82 @@ router.post('/', authenticate, asyncHandler(async (req: Request, res: Response) 
   return res.status(201).json({ success: true, data: { ...rowToApi(data), next_action: provisionNote } });
 }));
 
-/** POST /api/accounts/:id/close — close an empty account (history preserved). */
+/**
+ * POST /api/accounts/:id/close — remove an empty account from the account
+ * directory. Financial events and provider transfer history remain intact.
+ */
 router.post('/:id/close', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const identity = await resolveRequestIdentity(req);
-  const { data: account } = await supabase
+  const { data: account, error: lookupError } = await supabase
     .from('virtual_accounts')
-    .select('*')
+    .select('id, balance, status, provider, currency, account_type')
     .eq('id', req.params.id)
     .in('user_id', ownerScope(identity))
-    .single();
-  if (!account) return res.status(404).json({ error: 'account not found' });
-  if (account.status === 'closed') return res.json({ success: true, data: rowToApi(account) });
+    .maybeSingle();
+
+  // A missing row is already closed from the account directory. Keeping this
+  // idempotent makes retries safe after a successful delete.
+  if (lookupError) throw lookupError;
+  if (!account) return res.json({ success: true, data: null });
   if (Number(account.balance ?? 0) > 0) {
     return res.status(400).json({ error: 'move funds out before closing this account' });
   }
-  const { data, error } = await supabase
+  // The stablecoin row is auto-provisioned on every list read — closing it
+  // would just resurrect it. It is the core wallet account and stays.
+  if (account.currency === 'USDC' && account.account_type === 'stablecoin') {
+    return res.status(400).json({ error: 'the stablecoin account cannot be closed' });
+  }
+
+  // Stop the provider account before removing Hedwig's directory row.
+  // Provider calls are best-effort: a provider-side failure must never strand
+  // the user with an unclosable row. Anything left active provider-side simply
+  // stops matching (the webhook only credits active directory rows) and is
+  // logged for operator follow-up.
+  // - Bridge: virtual accounts can't be deleted, only deactivated (blocks new
+  //   deposits; Bridge returns later funds to the sender).
+  // - Flutterwave: v3 exposes no programmatic static-VA delete; the local row
+  //   is removed and stray inflows land in the unmatched-inflow log.
+  if (account.provider === 'bridge') {
+    const { data: bridgeAccount, error: bridgeLookupError } = await supabase
+      .from('user_usd_accounts')
+      .select('bridge_customer_id, bridge_virtual_account_id')
+      .eq('user_id', identity.internalId)
+      .maybeSingle();
+    if (bridgeLookupError) throw bridgeLookupError;
+
+    if (bridgeAccount?.bridge_customer_id && bridgeAccount.bridge_virtual_account_id) {
+      try {
+        await bridgeUsdService.deactivateVirtualAccount(
+          bridgeAccount.bridge_customer_id,
+          bridgeAccount.bridge_virtual_account_id
+        );
+      } catch (error) {
+        const status = Number(
+          (error as { response?: { status?: number } })?.response?.status ?? 0
+        );
+        // 404 = already gone provider-side; anything else is logged and the
+        // local close proceeds anyway — never strand the row on provider error.
+        logger.warn('Bridge virtual account deactivation issue (proceeding with close)', {
+          accountId: account.id,
+          status: status || undefined,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else {
+      logger.info('Bridge close with no provider virtual account on file; closing locally', {
+        accountId: account.id,
+      });
+    }
+  }
+
+  const { error: deleteError } = await supabase
     .from('virtual_accounts')
-    .update({ status: 'closed', updated_at: new Date().toISOString() })
+    .delete()
     .eq('id', account.id)
-    .select('*')
-    .single();
-  if (error) throw error;
-  return res.json({ success: true, data: rowToApi(data) });
+    .in('user_id', ownerScope(identity));
+  if (deleteError) throw deleteError;
+
+  return res.json({ success: true, data: null });
 }));
 
 /** GET /api/accounts/:id — detail + recent transactions. */
