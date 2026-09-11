@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import MarkdownIt from 'markdown-it';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUp, ChartBar, Check, CheckCircle, ClockCountdown, Copy, MagicWand, Plus, Receipt, Terminal, ThumbsDown, ThumbsUp, Warning } from '@/components/ui/lucide-icons';
+import { ArrowLeft, ArrowUp, ChartBar, Check, CheckCircle, Copy, MagicWand, Plus, Receipt, Terminal, ThumbsDown, ThumbsUp, Warning } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { hedwigApi } from '@/lib/api/client';
 import { Message, MessageContent, MessageMeta, type MessageRole } from '@/components/ui/message';
@@ -14,6 +14,7 @@ type ChatMessage = {
   content: string;
   stagedSuggestionIds?: string[];
   toolsCalled?: string[];
+  durationMs?: number;
 };
 
 type Approval = {
@@ -30,9 +31,15 @@ const markdown = new MarkdownIt({ html: false, breaks: true, linkify: true });
 const STARTERS = [
   { label: 'Review overdue invoices', prompt: 'Show me my overdue invoices and suggest the next follow-up for each one.', Icon: Receipt },
   { label: 'Summarize my cash flow', prompt: 'Summarize my recent cash flow, including money in, money out, and anything unusual.', Icon: ChartBar },
-  { label: 'Review upcoming payments', prompt: 'What payments and obligations are coming up, and which ones need my attention?', Icon: ClockCountdown },
-  { label: 'Review my expenses', prompt: 'Review my recent expenses and flag anything that needs categorization or follow-up.', Icon: CheckCircle },
+
 ];
+
+function formatDuration(durationMs?: number): string {
+  if (durationMs == null) return '';
+  return durationMs >= 60000
+    ? `${(durationMs / 60000).toFixed(1)}m`
+    : `${(durationMs / 1000).toFixed(1)}s`;
+}
 
 function formatApproval(approval: Approval): string {
   const amount = approval.amount == null ? '' : ` · ${approval.currency ?? 'USD'} ${Number(approval.amount).toLocaleString()}`;
@@ -102,6 +109,7 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
     setPending(true);
     setError(null);
 
+    const startedAt = performance.now();
     try {
       const result = await hedwigApi.assistantChat({
         message: content,
@@ -115,6 +123,7 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
         content: result.reply,
         stagedSuggestionIds: result.stagedSuggestionIds,
         toolsCalled: result.toolsCalled,
+        durationMs: Math.round(performance.now() - startedAt),
       }]);
       if (result.stagedSuggestionIds?.length) {
         void hedwigApi.approvals(opts).then((rows) => setApprovals((rows as Approval[]).filter((row) => row.status === 'PENDING'))).catch(() => undefined);
@@ -137,7 +146,7 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
   return (
     <div className="flex min-h-[calc(100vh-7rem)] w-full flex-col">
       {conversation && (
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--color-border)] px-1 sm:px-4">
+        <header className="flex h-14 shrink-0 items-center justify-between px-1 sm:px-4">
           <div className="flex items-center gap-3">
             <Link href="/dashboard" aria-label="Back to dashboard" className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]">
               <ArrowLeft className="h-4 w-4" />
@@ -151,7 +160,7 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
       )}
 
       {!conversation ? (
-        <main className="flex flex-1 flex-col items-center justify-center px-4 pb-20 pt-8">
+        <main className="flex flex-1 flex-col items-center justify-center px-4 pb-36 pt-8">
           <h1 className="text-center text-[32px] font-medium tracking-[-0.04em] text-[var(--color-foreground)] sm:text-[38px]">Let’s put your money to work</h1>
           <Composer input={input} setInput={setInput} pending={pending} onSubmit={sendMessage} />
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
@@ -165,7 +174,7 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
           {error && <ErrorNotice error={error} onDismiss={() => setError(null)} />}
         </main>
       ) : (
-        <main ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-36 pt-10 sm:px-10 lg:px-16">
+        <main ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-36 pt-6 sm:px-10 lg:px-16">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-9">
             {messages.map((message) => (
               <div key={message.id}>
@@ -177,8 +186,11 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
                 {message.role === 'assistant' && (
                   <div className="ml-11 mt-2 flex flex-wrap items-center gap-1 text-[var(--color-text-muted)]">
                     <details className="mr-2">
-                      <summary className="cursor-pointer list-none px-1 text-[12px] hover:text-[var(--color-text-secondary)]">Thought process <span aria-hidden="true">›</span></summary>
-                      <p className="mt-2 max-w-lg rounded-lg bg-[var(--color-surface-secondary)] px-3 py-2 text-[11px] leading-5 text-[var(--color-text-tertiary)]">Hedwig used workspace data and available tools to ground this response. The underlying reasoning is summarized rather than exposed.</p>
+                      <summary className="cursor-pointer list-none px-1 text-[12px] hover:text-[var(--color-text-secondary)]">Thought process{message.durationMs != null ? ` · ${formatDuration(message.durationMs)}` : ''} <span aria-hidden="true">›</span></summary>
+                      <div className="mt-2 max-w-lg rounded-lg bg-[var(--color-surface-secondary)] px-3 py-2 text-[11px] leading-5 text-[var(--color-text-tertiary)]">
+                        <p>Hedwig reviewed your workspace context and prepared this response.</p>
+                        {message.toolsCalled?.length ? <p className="mt-1">Checked: {message.toolsCalled.map((tool) => tool.replace(/^workspace_/, '').replaceAll('_', ' ')).join(', ')}.</p> : null}
+                      </div>
                     </details>
                     <button type="button" onClick={() => void copyMessage(message)} aria-label="Copy response" className="flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-[var(--color-surface-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]">
                       {copiedId === message.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -199,7 +211,7 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
         </main>
       )}
 
-      {conversation && <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-[var(--color-background)] via-[var(--color-background)] to-transparent px-4 pb-5 pt-10 sm:px-10"><div className="mx-auto max-w-3xl"><Composer input={input} setInput={setInput} pending={pending} onSubmit={sendMessage} /><p className="mt-2 text-center text-[11px] text-[var(--color-text-muted)]">Hedwig can prepare actions for your review. You stay in control.</p></div></div>}
+      {conversation && <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-[var(--color-background)] from-60% to-transparent px-4 pb-4 pt-6 sm:px-10"><div className="mx-auto max-w-3xl"><Composer input={input} setInput={setInput} pending={pending} onSubmit={sendMessage} /><p className="mt-2 text-center text-[11px] text-[var(--color-text-muted)]">Hedwig can prepare actions for your review. You stay in control.</p></div></div>}
 
       {approvals.length > 0 && !conversation && <div className="sr-only" aria-live="polite">{approvals.length} pending approvals</div>}
     </div>
@@ -210,7 +222,7 @@ function Composer({ input, setInput, pending, onSubmit }: { input: string; setIn
   return (
     <form onSubmit={onSubmit} className="mt-8 w-full max-w-[730px]">
       <label htmlFor="intelligence-message" className="sr-only">Ask Hedwig a question or give a command</label>
-      <div className="flex items-center gap-2 rounded-full border border-[var(--color-accent)] bg-[var(--color-surface)] px-2 py-1.5 shadow-sm ring-1 ring-[var(--color-accent-soft)] focus-within:ring-2">
+      <div className="flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 shadow-sm ring-1 ring-[var(--color-border)] focus-within:border-[var(--color-accent-soft)] focus-within:ring-[var(--color-accent-soft)]">
         <textarea id="intelligence-message" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onSubmit(); } }} placeholder="Ask a question or give a command" rows={1} disabled={pending} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-4 py-2.5 text-[14px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-text-muted)] disabled:opacity-60" />
         <Button type="submit" size="icon" disabled={!input.trim() || pending} aria-label="Send message" className="h-10 w-10 shrink-0 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] hover:bg-[var(--color-border)]"><ArrowUp className="h-4 w-4" /></Button>
       </div>
