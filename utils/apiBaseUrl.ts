@@ -1,4 +1,4 @@
-const PRODUCTION_API_BASE_URL = 'https://hedwig-app-wuqvha-production.up.railway.app';
+const PRODUCTION_API_BASE_URL = 'https://hedwig-app.onrender.com';
 
 const PRIVATE_IPV4_PATTERNS = [
     /^10\./,

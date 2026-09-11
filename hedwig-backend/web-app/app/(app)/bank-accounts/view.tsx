@@ -10,6 +10,7 @@ import { useCurrency } from '@/components/providers/currency-provider';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
 import { Button } from '@/components/ui/button';
 import { hedwigApi } from '@/lib/api/client';
+import { PartnerKycDialog } from '@/components/kyc/partner-kyc-dialog';
 import type { AccountTransaction, UsdAccount } from '@/lib/models/entities';
 import { formatShortDate } from '@/lib/utils';
 
@@ -46,6 +47,7 @@ export function BankAccountsView({
  const [selectedActivity, setSelectedActivity] = useState<AccountTransaction | null>(null);
  const [usdSetupState, setUsdSetupState] = useState<'idle' | 'enrolling' | 'kyc_loading' | 'error'>('idle');
  const [usdSetupError, setUsdSetupError] = useState('');
+ const [showPartnerKyc, setShowPartnerKyc] = useState(false);
  const usdAccount = initialAccountsData.usdAccount;
  const accountTransactions = initialAccountsData.accountTransactions;
 
@@ -57,6 +59,16 @@ export function BankAccountsView({
 
  const handleUsdSetup = useCallback(async () => {
  if (!accessToken) return;
+ // Bridge requires identity verification before USD enrollment.
+ try {
+ const status = await hedwigApi.getKycStatus({ accessToken, disableMockFallback: true });
+ if (!status.isApproved) {
+ setShowPartnerKyc(true);
+ return;
+ }
+ } catch {
+ // Non-blocking: fall through and let the server enforce.
+ }
  setUsdSetupState('enrolling');
  setUsdSetupError('');
  try {
@@ -173,6 +185,14 @@ export function BankAccountsView({
  </div>
  </div>
  ) : null}
+
+ <PartnerKycDialog
+ open={showPartnerKyc}
+ onOpenChange={setShowPartnerKyc}
+ accessToken={accessToken}
+ partnerName="Bridge"
+ onVerified={() => void handleUsdSetup()}
+ />
 
  {effectiveUsdStatus === 'active' && hasAssignedAccount ? (
  <section className="overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-xs">

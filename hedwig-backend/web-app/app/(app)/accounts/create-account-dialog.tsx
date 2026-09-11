@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Modal, ModalClose, ModalContent, ModalDescription, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/modal';
 import { CaretDown } from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
+import { PartnerKycDialog } from '@/components/kyc/partner-kyc-dialog';
 
 const CURRENCIES = [
   { value: 'USD', label: 'USD — US Dollar' },
@@ -47,8 +48,12 @@ export function CreateAccountDialog({
   const [label, setLabel] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [showPartnerKyc, setShowPartnerKyc] = useState(false);
 
-  const handleSubmit = async () => {
+  const partnerFor = (cur: string) =>
+    cur === 'NGN' ? 'Flutterwave' : cur === 'USD' ? 'Bridge' : null;
+
+  const createAccount = async () => {
     setPending(true);
     setError('');
     try {
@@ -69,7 +74,25 @@ export function CreateAccountDialog({
     }
   };
 
+  const handleSubmit = async () => {
+    // Fiat accounts provision through banking partners that require KYC.
+    // USDC is instant and skips the gate.
+    if (partnerFor(currency)) {
+      try {
+        const status = await hedwigApi.getKycStatus({ accessToken: accessToken ?? '', disableMockFallback: true });
+        if (!status.isApproved) {
+          setShowPartnerKyc(true);
+          return;
+        }
+      } catch {
+        // Non-blocking: fall through and let the server enforce.
+      }
+    }
+    await createAccount();
+  };
+
   return (
+    <>
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalHeader>
         <ModalTitle>New account</ModalTitle>
@@ -143,5 +166,15 @@ export function CreateAccountDialog({
         </Button>
       </ModalFooter>
     </Modal>
+      {partnerFor(currency) && (
+        <PartnerKycDialog
+          open={showPartnerKyc}
+          onOpenChange={setShowPartnerKyc}
+          accessToken={accessToken}
+          partnerName={partnerFor(currency) ?? 'our banking partner'}
+          onVerified={() => void createAccount()}
+        />
+      )}
+    </>
   );
 }
