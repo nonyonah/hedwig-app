@@ -6,8 +6,8 @@ import {
   CurrencyDollar,
   Faders,
   House,
+  Terminal,
   User,
-  UsersThree,
   Wallet,
   ArrowsLeftRight,
   FileText,
@@ -40,7 +40,7 @@ export const navigationGroups: Array<{ label: string; items: NavItem[] }> = [
     label: 'Workspace',
     items: [
       // Clients + Projects hidden (pages kept at /clients + /projects for a future return).
-      { title: 'Agents', href: '/agents', icon: UsersThree, count: null, muted: false, roles: ['owner', 'admin'] },
+      { title: 'Intelligence', href: '/intelligence', icon: Terminal, count: null, muted: false, roles: ['owner', 'admin'] },
       { title: 'Approvals', href: '/approvals', icon: CheckCircle, count: null, muted: false, roles: ['owner', 'admin'] },
       { title: 'Team', href: '/workspace/members', icon: User, count: null, muted: false, roles: ['owner', 'admin'], workspaceTypes: ['organization'] },
       // Contracts hidden (page removed; backend kept for existing records).

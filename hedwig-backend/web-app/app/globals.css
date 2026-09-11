@@ -262,6 +262,31 @@ select {
   padding-right: 2.25rem;
 }
 
+/* Intelligence responses are rendered from trusted markdown-it output with HTML disabled. */
+.intelligence-markdown > :first-child { margin-top: 0; }
+.intelligence-markdown > :last-child { margin-bottom: 0; }
+.intelligence-markdown p { margin: 0.6rem 0; }
+.intelligence-markdown h1,
+.intelligence-markdown h2,
+.intelligence-markdown h3,
+.intelligence-markdown h4 { margin: 1.1rem 0 0.45rem; font-weight: 650; line-height: 1.3; color: var(--color-foreground); }
+.intelligence-markdown h1 { font-size: 1.25rem; }
+.intelligence-markdown h2 { font-size: 1.1rem; }
+.intelligence-markdown h3,
+.intelligence-markdown h4 { font-size: 0.98rem; }
+.intelligence-markdown ul,
+.intelligence-markdown ol { margin: 0.65rem 0; padding-left: 1.35rem; }
+.intelligence-markdown ul { list-style: disc; }
+.intelligence-markdown ol { list-style: decimal; }
+.intelligence-markdown li { margin: 0.3rem 0; padding-left: 0.15rem; }
+.intelligence-markdown strong { font-weight: 650; color: var(--color-foreground); }
+.intelligence-markdown em { color: var(--color-text-secondary); }
+.intelligence-markdown a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+.intelligence-markdown blockquote { margin: 0.8rem 0; border-left: 2px solid var(--color-border); padding-left: 0.9rem; color: var(--color-text-secondary); }
+.intelligence-markdown code { border-radius: 0.35rem; background: var(--color-surface-secondary); padding: 0.12rem 0.3rem; font-size: 0.88em; }
+.intelligence-markdown pre { margin: 0.8rem 0; overflow-x: auto; border-radius: 0.7rem; background: var(--color-surface-secondary); padding: 0.85rem; }
+.intelligence-markdown pre code { background: transparent; padding: 0; }
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

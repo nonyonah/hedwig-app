@@ -16,7 +16,6 @@ import {
   Repeat,
   Sparkle,
   User,
-  UsersThree,
   Wallet,
   X,
 } from '@/components/ui/lucide-icons';
@@ -63,7 +62,7 @@ const SUGGESTIONS: Array<{ label: string; hint: string; href: string; Icon: type
   { label: 'Accounts', hint: 'Balances & virtual accounts', href: '/accounts', Icon: Wallet },
   { label: 'Payments', hint: 'Invoices & payment links', href: '/payments', Icon: Cards },
   { label: 'Transactions', hint: 'Ledger & statements', href: '/revenue/transactions', Icon: ArrowsLeftRight },
-  { label: 'Agents', hint: 'Delegated spend', href: '/agents', Icon: UsersThree },
+  { label: 'Intelligence', hint: 'Ask Hedwig to operate your finances', href: '/intelligence', Icon: Sparkle },
   { label: 'Insights', hint: 'Briefs & analytics', href: '/insights', Icon: Sparkle },
   { label: 'Settings', hint: 'Workspace & preferences', href: '/settings', Icon: Faders },
 ];

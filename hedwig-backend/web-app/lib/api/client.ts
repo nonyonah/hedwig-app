@@ -1035,6 +1035,21 @@ export const hedwigApi = {
     });
   },
 
+  async assistantChat(input: {
+    message: string;
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    context?: { page?: string; route?: string; data?: Record<string, unknown> };
+  }, options?: ApiOptions): Promise<{
+    reply: string;
+    stagedSuggestionIds: string[];
+    toolsCalled: string[];
+  }> {
+    return request('/api/assistant/chat', options, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
   async approvals(options?: ApiOptions): Promise<any[]> {
     return withFallback(
       async () => {
