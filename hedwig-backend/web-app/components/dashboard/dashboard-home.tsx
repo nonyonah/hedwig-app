@@ -255,8 +255,8 @@ export function DashboardHome({
             <ArrowUp className="h-3.5 w-3.5" /> {formatAmount(outTotal, { compact: true })}
           </span>
         </div>
-        <div className="mt-2 h-[260px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="mt-2 w-full min-w-0">
+          <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="homeBalanceFill" x1="0" y1="0" x2="0" y2="1">
