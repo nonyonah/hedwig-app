@@ -26,6 +26,7 @@ import type { BillingStatusSummary } from '@/lib/api/client';
 import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
 import { useAssistantPageContext } from '@/lib/hooks/use-assistant-page-context';
+import { DashboardHome } from '@/components/dashboard/dashboard-home';
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
 import { useWorkspaceContext } from '@/lib/workspace/workspace-context';
 import { MemberWelcomeBanner } from '@/components/workspace/member-welcome-banner';
@@ -165,113 +166,6 @@ export function DashboardClient({
   return () => window.clearInterval(interval);
   }, []);
 
- const dashboardState = useMemo(() => {
- const overdueInvoices = data.invoices.filter((invoice) => invoice.status === 'overdue');
- const draftInvoices = data.invoices.filter((invoice) => invoice.status === 'draft');
- const dueSoonMilestones = data.milestones.filter(
- (milestone) => milestone.status === 'due_soon' || milestone.status === 'late'
- );
- const completedMilestones = data.milestones.filter((milestone) => milestone.status === 'done');
- const activeProjects = data.projects.filter((project) => project.progress < 100);
- const completedProjects = data.projects.filter((project) => project.progress >= 100);
- const latestNotification = data.notifications[0] || null;
- const latestReminder = data.reminders[0] || null;
- const latestActivity = data.activities[0] || null;
-
- const actionItems: ActionItem[] = [
- {
- id: 'overdue-invoices',
- title: overdueInvoices.length > 0 ? 'Follow up on overdue invoices' : 'Overdue invoices are under control',
- meta:
- overdueInvoices.length > 0
- ? `${overdueInvoices.length} invoice${overdueInvoices.length > 1 ? 's' : ''} need attention`
- : 'No overdue invoice requires action right now',
- href: '/payments',
- complete: overdueInvoices.length === 0
- },
- {
- id: 'deadlines',
- title: dueSoonMilestones.length > 0 ? 'Upcoming deadlines need attention' : 'Project delivery is on track',
- meta:
- dueSoonMilestones.length > 0
- ? `${dueSoonMilestones.length} milestone${dueSoonMilestones.length > 1 ? 's are' : ' is'} due soon`
- : `${completedProjects.length} project${completedProjects.length > 1 ? 's are' : ' is'} already wrapped up`,
- href: '/projects',
- complete: dueSoonMilestones.length === 0
- }
- ];
-
- const summaryCards: MetricCard[] = [
- {
- id: 'invoices',
- title: 'Invoices',
- value: `${data.invoices.length}`,
- helper: `${draftInvoices.length} drafts, ${overdueInvoices.length} overdue`,
- href: '/payments',
- icon: FileText
- },
- {
- id: 'earnings',
- title: 'Earnings',
- value: formatAmount(data.totals.inflowUsd),
- helper: 'Paid invoices and payment links',
- href: '/insights',
- icon: CurrencyDollar
- },
- {
- id: 'notifications',
- title: 'Notifications',
- value: `${data.notifications.length}`,
- helper: latestNotification ? latestNotification.title : 'No unread alerts',
- href: '/settings',
- icon: Bell
- }
- ];
-
- const workstreamCards: MetricCard[] = [
- {
- id: 'projects',
- title: 'Projects',
- value: `${data.projects.length}`,
- helper: `${activeProjects.length} active, ${completedProjects.length} completed`,
- href: '/projects',
- icon: CheckCircle
- },
- {
- id: 'milestones',
- title: 'Milestones',
- value: `${data.milestones.length}`,
- helper: `${dueSoonMilestones.length} due soon, ${completedMilestones.length} completed`,
- href: '/projects',
- icon: CalendarDots
- },
- {
- id: 'recurring',
- title: 'Recurring invoices',
- value: `${data.recurringCount}`,
- helper: data.recurringCount === 1 ? '1 active schedule' : `${data.recurringCount} active schedules`,
- href: '/payments',
- icon: Repeat
- },
- {
- id: 'Outstanding',
- title: 'Outstanding',
- value: formatAmount(data.totals.outstandingUsd),
- helper: 'Expected across unpaid work',
- href: '/payments',
- icon: ChartBar
- }
- ];
-
- return {
- latestNotification,
- latestReminder,
- latestActivity,
- actionItems,
- summaryCards,
- workstreamCards
- };
- }, [currency, data]);
 
  const hasCreatedPaymentWorkflow = data.invoices.length > 0 || data.paymentLinks.length > 0;
  const hasSharedPaymentWorkflow = data.invoices.some((invoice) =>
@@ -345,84 +239,16 @@ export function DashboardClient({
  <p className="mt-1 text-[13px] text-[var(--color-text-tertiary)]">Here&rsquo;s what&rsquo;s happening today.</p>
  </div>
 
- {/* Financial snapshot — gap-px stats bar */}
- <div
-  className="grid gap-px overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-border)]"
- style={{ gridTemplateColumns: `repeat(${dashboardState.summaryCards.length}, minmax(0, 1fr))` }}
- >
- {dashboardState.summaryCards.map((card) => {
- const Icon = card.icon;
- return (
- <Link
- key={card.id}
- href={card.href}
- className="group flex flex-col bg-[var(--color-surface)] px-5 py-4 transition duration-100 ease-linear hover:bg-[var(--color-background)]"
- >
- <div className="flex items-center justify-between mb-2">
- <p className="text-[12px] font-medium text-[var(--color-text-tertiary)]">{card.title}</p>
- <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-surface-secondary)]">
- <Icon className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" weight="regular" />
- </div>
- </div>
- <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[var(--color-foreground)]">{card.value}</p>
- <p className="mt-1.5 text-[11px] text-[var(--color-text-muted)]">{card.helper}</p>
- </Link>
- );
- })}
- </div>
-
- {/* Main two-column: assistant + workstream stats */}
- <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
- {/* Assistant panel (replaces action items) */}
- {canUseAssistantSummary ? (
- <AssistantPanel className="max-h-[620px]" />
- ) : (
- <ProLockCard
- title="Assistant summary is on Pro"
- description="Unlock proactive summaries for payments, reminders, and project updates."
- compact
- />
- )}
-
- {/* Right: workstream stat mini-cards + next reminder */}
- <div className="flex flex-col gap-3">
- <AttachedStatGrid
- items={dashboardState.workstreamCards.map((card) => ({
- id: card.id,
- title: card.title,
- value: card.value,
- helper: card.helper,
- icon: card.icon,
- href: card.href,
- }))}
- className="grid-cols-2"
- />
-
- <article className="rounded-2xl bg-[var(--color-surface)] p-4 shadow-xs">
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2">
- <CalendarDots className="h-4 w-4 text-[var(--color-text-muted)]" weight="regular" />
- <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Next reminder</p>
- </div>
- </div>
- <div className="mt-2">
- {dashboardState.latestReminder ? (
- <>
- <p className="text-[14px] font-semibold text-[var(--color-foreground)]">{dashboardState.latestReminder.title}</p>
- <p className="mt-0.5 text-[12px] text-[var(--color-text-tertiary)]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
- </>
- ) : (
- <p className="text-[13px] text-[var(--color-text-muted)]">No pending reminders</p>
- )}
- </div>
- </article>
- </div>
- </div>
-
-
- </div>
- );
+  <DashboardHome
+  accessToken={accessToken}
+  formatAmount={formatAmount}
+  walletUsd={data.totals.walletUsd}
+  usdAccountUsd={data.totals.usdAccountUsd}
+  />
+  </div>
+  );
 }
+
 
 const CORE_INTRO_STEPS = [
  {

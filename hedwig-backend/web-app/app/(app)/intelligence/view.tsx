@@ -26,6 +26,20 @@ type Approval = {
   reason?: string | null;
 };
 
+type PaymentIntent = {
+  id: string;
+  status: string;
+  intent_type: string;
+  amount: number | string;
+  currency?: string;
+  merchant_name?: string | null;
+  description?: string | null;
+  provider?: string | null;
+  provider_reference?: string | null;
+  plan?: Record<string, any> | null;
+  scheduled_for?: string | null;
+};
+
 const markdown = new MarkdownIt({ html: false, breaks: true, linkify: true });
 
 const STARTERS = [
@@ -73,15 +87,31 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [paymentIntents, setPaymentIntents] = useState<PaymentIntent[]>([]);
+  const [paymentActionId, setPaymentActionId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const opts = useMemo(() => ({ accessToken, disableMockFallback: true }), [accessToken]);
 
+  const refreshPaymentIntents = async () => {
+    try {
+      const rows = await hedwigApi.paymentIntents(opts);
+      setPaymentIntents((rows as PaymentIntent[]).filter((row) => !['COMPLETED', 'CANCELLED', 'DECLINED'].includes(row.status)));
+    } catch {
+      // The conversation remains usable if the optional action center is unavailable.
+    }
+  };
+
   useEffect(() => {
     if (!accessToken) return;
     let cancelled = false;
-    void hedwigApi.approvals(opts).then((rows) => {
-      if (!cancelled) setApprovals((rows as Approval[]).filter((row) => row.status === 'PENDING'));
+    void Promise.all([
+      hedwigApi.approvals(opts),
+      hedwigApi.paymentIntents(opts),
+    ]).then(([approvalRows, intentRows]) => {
+      if (cancelled) return;
+      setApprovals((approvalRows as Approval[]).filter((row) => row.status === 'PENDING'));
+      setPaymentIntents((intentRows as PaymentIntent[]).filter((row) => !['COMPLETED', 'CANCELLED', 'DECLINED'].includes(row.status)));
     }).catch(() => undefined);
     return () => { cancelled = true; };
   }, [accessToken, opts]);
@@ -95,6 +125,21 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
     setInput('');
     setError(null);
     setCopiedId(null);
+  };
+
+  const actOnPaymentIntent = async (intent: PaymentIntent, action: 'approve' | 'decline' | 'execute') => {
+    setPaymentActionId(intent.id);
+    setError(null);
+    try {
+      if (action === 'approve') await hedwigApi.approvePaymentIntent(intent.id, opts);
+      if (action === 'decline') await hedwigApi.declinePaymentIntent(intent.id, opts);
+      if (action === 'execute') await hedwigApi.executePaymentIntent(intent.id, opts);
+      await refreshPaymentIntents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That payment action could not be completed.');
+    } finally {
+      setPaymentActionId(null);
+    }
   };
 
   const sendMessage = async (event?: FormEvent, value?: string) => {
@@ -125,9 +170,12 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
         toolsCalled: result.toolsCalled,
         durationMs: Math.round(performance.now() - startedAt),
       }]);
-      if (result.stagedSuggestionIds?.length) {
-        void hedwigApi.approvals(opts).then((rows) => setApprovals((rows as Approval[]).filter((row) => row.status === 'PENDING'))).catch(() => undefined);
-      }
+      void Promise.all([
+        hedwigApi.approvals(opts),
+        refreshPaymentIntents(),
+      ]).then(([rows]) => {
+        setApprovals((rows as Approval[]).filter((row) => row.status === 'PENDING'));
+      }).catch(() => undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Hedwig could not complete that request.');
     } finally {
@@ -176,6 +224,22 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
       ) : (
         <main ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-36 pt-6 sm:px-10 lg:px-16">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-9">
+            {paymentIntents.length > 0 && (
+              <section aria-label="Payment action center" className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">Payment action center</h2>
+                    <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">Review and control actions prepared by Hedwig.</p>
+                  </div>
+                  <Link href="/approvals" className="text-[12px] font-semibold text-[var(--color-accent)] hover:underline">View approvals</Link>
+                </div>
+                <div className="space-y-2">
+                  {paymentIntents.slice(0, 5).map((intent) => (
+                    <PaymentIntentCard key={intent.id} intent={intent} busy={paymentActionId === intent.id} onAction={actOnPaymentIntent} />
+                  ))}
+                </div>
+              </section>
+            )}
             {messages.map((message) => (
               <div key={message.id}>
                 <Message role={message.role} className={message.role === 'user' ? 'justify-end' : 'items-start'}>
@@ -211,9 +275,54 @@ export function IntelligenceClient({ accessToken }: { accessToken: string | null
         </main>
       )}
 
-      {conversation && <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-[var(--color-background)] from-60% to-transparent px-4 pb-4 pt-6 sm:px-10"><div className="mx-auto max-w-3xl"><Composer input={input} setInput={setInput} pending={pending} onSubmit={sendMessage} /><p className="mt-2 text-center text-[11px] text-[var(--color-text-muted)]">Hedwig can prepare actions for your review. You stay in control.</p></div></div>}
+      {conversation && <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-[var(--color-background)] from-80% to-transparent px-4 pb-3 pt-4 sm:px-10"><div className="mx-auto max-w-3xl"><Composer input={input} setInput={setInput} pending={pending} onSubmit={sendMessage} /><p className="mt-2 text-center text-[11px] text-[var(--color-text-muted)]">Hedwig can prepare actions for your review. You stay in control.</p></div></div>}
 
       {approvals.length > 0 && !conversation && <div className="sr-only" aria-live="polite">{approvals.length} pending approvals</div>}
+    </div>
+  );
+}
+
+function PaymentIntentCard({
+  intent,
+  busy,
+  onAction,
+}: {
+  intent: PaymentIntent;
+  busy: boolean;
+  onAction: (intent: PaymentIntent, action: 'approve' | 'decline' | 'execute') => void;
+}) {
+  const plan = intent.plan ?? {};
+  const execution = plan.execution && typeof plan.execution === 'object' ? plan.execution as Record<string, any> : null;
+  const status = intent.status.toUpperCase();
+  const amount = `${intent.currency ?? 'USD'} ${Number(intent.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const title = intent.merchant_name || plan.bank_name || intent.description || intent.intent_type.replaceAll('_', ' ');
+  const canDecide = status === 'AWAITING_APPROVAL';
+  const canExecute = status === 'APPROVED';
+
+  return (
+    <div className="rounded-xl bg-[var(--color-surface-secondary)] px-3.5 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-semibold capitalize text-[var(--color-foreground)]">{title}</p>
+          <p className="mt-0.5 text-[12px] text-[var(--color-text-muted)]">{intent.intent_type.replaceAll('_', ' ')} · {amount}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[var(--color-surface)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">{status.replaceAll('_', ' ')}</span>
+      </div>
+      {execution?.receive_address ? (
+        <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
+          <span className="font-semibold text-[var(--color-foreground)]">Fund this payment:</span> send {String(execution.token ?? plan.token ?? 'USDC')} to <code className="break-all">{String(execution.receive_address)}</code>
+        </div>
+      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {canDecide ? (
+          <>
+            <Button type="button" size="sm" disabled={busy} onClick={() => onAction(intent, 'approve')} className="h-8 rounded-lg bg-[var(--color-accent)] px-3 text-[12px] text-white hover:opacity-90"><Check className="mr-1.5 h-3.5 w-3.5" /> Approve</Button>
+            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAction(intent, 'decline')} className="h-8 rounded-lg px-3 text-[12px]">Decline</Button>
+          </>
+        ) : null}
+        {canExecute ? <Button type="button" size="sm" disabled={busy} onClick={() => onAction(intent, 'execute')} className="h-8 rounded-lg bg-[var(--color-accent)] px-3 text-[12px]">{busy ? 'Submitting…' : 'Submit payment'}</Button> : null}
+        {status === 'SUBMITTED' || status === 'PROCESSING' ? <span className="text-[11px] text-[var(--color-text-muted)]">Waiting for provider confirmation.</span> : null}
+      </div>
     </div>
   );
 }
